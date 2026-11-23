@@ -20,7 +20,15 @@ import pg from "pg";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
 import { createTestDatabase } from "../test-database.js";
 import { withAudit } from "./audit-context.js";
-import { insertBase, isUniqueViolation } from "./schema-ops.js";
+import { loadEngine } from "./engine.js";
+import {
+  deleteRows,
+  insertRows,
+  restoreRows,
+  updateRows,
+  type WriteContext,
+} from "./rows.js";
+import { insertBase, insertTable, isUniqueViolation } from "./schema-ops.js";
 
 const suffix = randomBytes(6).toString("hex");
 
@@ -333,6 +341,309 @@ describe("an upgrade from each released version", () => {
       }
     },
   );
+});
+
+// A file imported by an earlier version could leave a table, and the one
+// sequence that places every table's new rows, at numbers nothing can
+// follow. The upgrade brings them back, and leaves anything else alone.
+describe("an upgrade of an instance whose row numbers ran out", () => {
+  const FAR = "9223372036854775807";
+  const FIRST_PENDING = "0123";
+
+  async function instance(db: Database) {
+    const [person] = await db
+      .insertInto("users")
+      .values({
+        email: `numbers-${randomBytes(4).toString("hex")}@example.com`,
+        displayName: "Owner",
+      })
+      .returning("id")
+      .execute();
+    const userId = person?.id ?? "";
+    const baseId = (await insertBase(db, userId, { name: "Essais" })).id;
+    const make = async (name: string) => {
+      const { id } = await insertTable(db, userId, {
+        baseId,
+        name,
+        columns: [{ name: "title", label: "Title", fieldType: "text" }],
+      });
+      const { physicalName } = await db
+        .selectFrom("dataTables")
+        .select("physicalName")
+        .where("id", "=", id)
+        .executeTakeFirstOrThrow();
+      const context: WriteContext = {
+        userId,
+        tableId: id,
+        physicalName,
+        baseId,
+        reason: null,
+        source: "test",
+        // A catalog this old has no queue to send row events to.
+        events: false,
+      };
+      return { id, physicalName, context };
+    };
+    return { userId, baseId, make };
+  }
+
+  const add = async (
+    db: Database,
+    table: { id: string; context: WriteContext },
+    titles: readonly string[],
+  ) => {
+    const { engine } = await loadEngine(db, table.id, () => true);
+    return insertRows(
+      db,
+      engine,
+      table.context,
+      titles.map((title) => ({ title })),
+    );
+  };
+
+  /** A row's status, moved as the application moves it. */
+  async function moveStatus(
+    db: Database,
+    userId: string,
+    table: { id: string; physicalName: string },
+    rowId: string,
+    steps: ReadonlyArray<"submit" | "lock" | "sign">,
+  ) {
+    const reached = { submit: "submitted", lock: "locked", sign: "signed" };
+    for (const action of steps) {
+      await withAudit(db, { userId, tableId: table.id, action }, (tx) =>
+        sql`update ${sql.table(table.physicalName)} set "ag_status" = ${reached[action]} where "id" = ${rowId}`.execute(
+          tx,
+        ),
+      );
+    }
+    if (steps.includes("sign")) {
+      await db
+        .insertInto("rowSignatures")
+        .values({
+          userId,
+          tableId: table.id,
+          recordId: rowId,
+          displayName: "Owner",
+          meaning: "Reviewed",
+        })
+        .execute();
+    }
+  }
+
+  /** Everything a table holds, and whether anything rewrote its rows. */
+  async function fingerprint(db: Database, physical: string) {
+    const { rows } = await sql<{ print: string }>`
+      select coalesce(string_agg(ctid::text || xmin::text || to_jsonb(t)::text, '|' order by "ag_seq"), '') as print
+      from ${sql.table(physical)} t`.execute(db);
+    return rows[0]?.print;
+  }
+
+  const sequences = async (db: Database, physical: string) => {
+    const shared = await sql<{ last: string; called: boolean }>`
+      select last_value::text as last, is_called as called from ag_row_position`.execute(
+      db,
+    );
+    const name = await sql<{ name: string }>`
+      select pg_get_serial_sequence(${`"${physical}"`}, 'ag_seq') as name`.execute(
+      db,
+    );
+    const own = await sql<{ last: string; called: boolean }>`
+      select last_value::text as last, is_called as called from ${sql.raw(name.rows[0]?.name ?? "")}`.execute(
+      db,
+    );
+    return { shared: shared.rows[0], own: own.rows[0] };
+  };
+
+  it("repairs what ran out, keeps the order and every other value of each row", async () => {
+    const { db, pool, close } = await catalogBefore(FIRST_PENDING);
+    try {
+      const { userId, make } = await instance(db);
+      const other = await make("Other");
+      const hit = await make("Hit");
+      await add(db, other, ["other before"]);
+      const [low, first, gone, second] = await add(db, hit, [
+        "low",
+        "first",
+        "gone",
+        "second",
+      ]);
+      await deleteRows(db, hit.context, [gone ?? ""]);
+      // One far row deleted: it comes back from the trail after the repair.
+      const farGone = await withAudit(
+        db,
+        { userId, tableId: hit.id },
+        async (tx) =>
+          (
+            await sql<{
+              id: string;
+            }>`insert into ${sql.table(hit.physicalName)} ("title", "ag_seq", "ag_position") values ('far gone', ${FAR}::bigint - 3, ${FAR}::numeric - 3) returning "id"`.execute(
+              tx,
+            )
+          ).rows[0]?.id,
+      );
+      await withAudit(db, { userId, tableId: hit.id }, async (tx) => {
+        await sql`update ${sql.table(hit.physicalName)} set "ag_position" = -9223372036854775807 where "id" = ${low}`.execute(
+          tx,
+        );
+        await sql`insert into ${sql.table(hit.physicalName)} ("title", "ag_seq", "ag_position") values ('far one', ${FAR}::bigint - 2, ${FAR}::numeric - 1), ('far two', ${FAR}::bigint - 1, ${FAR}::numeric), ('far locked', ${FAR}::bigint, ${FAR}::numeric - 2)`.execute(
+          tx,
+        );
+      });
+      const { rows: seqBefore } = await sql<{ id: string }>`
+        select "id" from ${sql.table(hit.physicalName)} where "title" = 'far locked'`.execute(
+        db,
+      );
+      const farLocked = seqBefore[0]?.id ?? "";
+      await moveStatus(db, userId, hit, farLocked, ["submit", "lock"]);
+      await moveStatus(db, userId, hit, second ?? "", [
+        "submit",
+        "lock",
+        "sign",
+      ]);
+      await deleteRows(db, hit.context, [farGone ?? ""]);
+      await sql`select setval(pg_get_serial_sequence(${`"${hit.physicalName}"`}, 'ag_seq'), ${FAR}::bigint)`.execute(
+        db,
+      );
+      await sql`select setval('ag_row_position', ${FAR}::bigint)`.execute(db);
+      await expect(add(db, other, ["refused"])).rejects.toThrow();
+
+      const read = async () =>
+        (
+          await sql<{
+            id: string;
+            title: string;
+            seq: string;
+            position: string;
+            rest: Record<string, unknown>;
+          }>`select "id", "title", "ag_seq"::text as "seq", "ag_position"::text as "position", (to_jsonb(t) - 'ag_seq' - 'ag_position') as "rest" from ${sql.table(hit.physicalName)} t order by "ag_position", "ag_seq"`.execute(
+            db,
+          )
+        ).rows;
+      const before = await read();
+      const trail = async () =>
+        Number(
+          (
+            await sql<{
+              count: string;
+            }>`select count(*) as count from audit_events where table_id = ${hit.id}`.execute(
+              db,
+            )
+          ).rows[0]?.count,
+        );
+      const eventsBefore = await trail();
+      const signaturesBefore = await db
+        .selectFrom("rowSignatures")
+        .selectAll()
+        .where("tableId", "=", hit.id)
+        .execute();
+
+      await migrateDb(pool);
+
+      const after = await read();
+      // The same rows, in the same order, each with all it held.
+      expect(after.map((row) => row.id)).toEqual(before.map((row) => row.id));
+      expect(after.map((row) => row.rest)).toEqual(
+        before.map((row) => row.rest),
+      );
+      const limit = 2n ** 53n;
+      for (const row of after) {
+        expect(BigInt(row.seq)).toBeLessThan(limit);
+        expect(Math.abs(Number(row.position))).toBeLessThan(Number(limit));
+      }
+      // Those in range did not move at all.
+      for (const title of ["first"]) {
+        const was = before.find((row) => row.title === title);
+        const is = after.find((row) => row.title === title);
+        expect([is?.seq, is?.position]).toEqual([was?.seq, was?.position]);
+      }
+      expect(first).toBeDefined();
+      // The repair wrote nothing to the trail or to the signatures.
+      expect(await trail()).toBe(eventsBefore);
+      expect(
+        await db
+          .selectFrom("rowSignatures")
+          .selectAll()
+          .where("tableId", "=", hit.id)
+          .execute(),
+      ).toEqual(signaturesBefore);
+      const enabled = await sql<{ name: string; state: string }>`
+        select tgname as name, tgenabled as state from pg_trigger
+        where tgrelid = ${`"${hit.physicalName}"`}::regclass and not tgisinternal`.execute(
+        db,
+      );
+      expect(enabled.rows.map((row) => row.state)).toEqual(["O", "O"]);
+
+      // Every table takes new rows again, each after its others.
+      await expect(add(db, other, ["other after"])).resolves.toHaveLength(1);
+      const [added] = await add(db, hit, ["added"]);
+      const placed = await read();
+      expect(placed.at(-1)?.id).toBe(added);
+      // A number the trail still holds is not given to a new row.
+      const { rows: lastRow } = await sql<{ seq: string }>`
+        select "ag_seq"::text as seq from ${sql.table(hit.physicalName)} where "id" = ${added}`.execute(
+        db,
+      );
+      const deleted = await sql<{ seq: string }>`
+        select max((old_value->>'ag_seq')::numeric)::text as seq from audit_events
+        where table_id = ${hit.id} and action = 'delete' and (old_value->>'ag_seq')::numeric < 4503599627370496`.execute(
+        db,
+      );
+      expect(BigInt(lastRow[0]?.seq ?? "0")).toBeGreaterThan(
+        BigInt(deleted.rows[0]?.seq ?? "0"),
+      );
+
+      // Rows deleted before the repair come back, in range.
+      const { engine } = await loadEngine(db, hit.id, () => true);
+      await restoreRows(db, engine, hit.context, [gone ?? "", farGone ?? ""]);
+      const back = await read();
+      for (const row of back) {
+        expect(BigInt(row.seq)).toBeLessThan(limit);
+        expect(Math.abs(Number(row.position))).toBeLessThan(Number(limit));
+      }
+      expect(back.map((row) => row.title)).toEqual(
+        expect.arrayContaining(["gone", "far gone"]),
+      );
+
+      // A locked row is as locked as it was.
+      await expect(
+        updateRows(db, engine, hit.context, [
+          { rowId: farLocked, values: { title: "written" } },
+        ]),
+      ).rejects.toMatchObject({ code: "row_locked" });
+    } finally {
+      await close();
+    }
+  }, 60_000);
+
+  it("leaves a healthy instance exactly as it was", async () => {
+    const { db, pool, close } = await catalogBefore(FIRST_PENDING);
+    try {
+      const { userId, make } = await instance(db);
+      const table = await make("Healthy");
+      const [draft, locked] = await add(db, table, ["draft", "locked", "more"]);
+      expect(draft).toBeDefined();
+      await moveStatus(db, userId, table, locked ?? "", ["submit", "lock"]);
+      const rows = await fingerprint(db, table.physicalName);
+      const numbers = await sequences(db, table.physicalName);
+      const events =
+        await sql`select count(*) as count, max(occurred_at) as last from audit_events`.execute(
+          db,
+        );
+      await migrateDb(pool);
+      expect(await fingerprint(db, table.physicalName)).toBe(rows);
+      expect(await sequences(db, table.physicalName)).toEqual(numbers);
+      expect(
+        (
+          await sql`select count(*) as count, max(occurred_at) as last from audit_events`.execute(
+            db,
+          )
+        ).rows,
+      ).toEqual(events.rows);
+    } finally {
+      await close();
+    }
+  }, 60_000);
 });
 
 // A migration may refuse a database (ADR 0106): it asks before any

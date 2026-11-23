@@ -18,6 +18,11 @@ export type AuditContext = {
   reason?: string | null;
   action?: string;
   unlock?: boolean;
+  /**
+   * The rows written keep the dates and authors they are given (ADR 0117):
+   * for a copy the instance makes of its own base, and nothing else.
+   */
+  keepRowState?: boolean;
   /** web, api, import, restore, form:<id>, automation:<id>. */
   source?: string;
   /**
@@ -56,6 +61,7 @@ export async function withAudit<T>(
             set_config('anygrid.reason', ${context.reason ?? ""}, true),
             set_config('anygrid.action', ${context.action ?? ""}, true),
             set_config('anygrid.unlock', ${context.unlock ? "on" : ""}, true),
+            set_config('anygrid.keep_row_state', ${context.keepRowState ? "on" : ""}, true),
             set_config('anygrid.source', ${context.source ?? ""}, true),
             set_config('anygrid.impersonated_user_id', ${actingUserId() ?? ""}, true)
         `.execute(tx);

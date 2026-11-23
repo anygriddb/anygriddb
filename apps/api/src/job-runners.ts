@@ -355,7 +355,15 @@ const runDuplicate =
         onProgress: progress,
       });
       await catalogChanged(deps, table.baseId);
-      return { result: { tableId: created.id, baseId: table.baseId } };
+      return {
+        result: {
+          tableId: created.id,
+          baseId: table.baseId,
+          ...(created.signaturesLeft
+            ? { report: { signaturesLeft: created.signaturesLeft } }
+            : {}),
+        },
+      };
     } catch (error) {
       // A half-made copy would only confuse: it goes away with the job.
       if (copyId) {
@@ -601,6 +609,8 @@ const runImportSnapshot =
     await keepStagedSnapshot(deps.db, input.snapshotId);
     let baseId: string | undefined;
     try {
+      // The whole file first: a damaged one makes no base at all.
+      await opened.verify(() => progress(0, null));
       const created = await importBaseSnapshot(
         deps.db,
         deps.files,
@@ -821,6 +831,7 @@ const runDuplicateBase =
           folder: folder.path,
           maxRows,
           embedFiles: false,
+          keepRowState: true,
           onProgress: half(0),
         },
       );
@@ -842,8 +853,12 @@ const runDuplicateBase =
           },
           onProgress: half(DUPLICATE_SCALE / 2),
           ...(archive
-            ? { readLines: (key: string) => readSnapshotLines(archive, key) }
+            ? {
+                readLines: (key: string) =>
+                  readSnapshotLines(archive, key, { own: true }),
+              }
             : {}),
+          keepRowState: true,
           maxRows,
           // The snapshot names each file by its key in this store.
           readFile: async (key, maxBytes) =>

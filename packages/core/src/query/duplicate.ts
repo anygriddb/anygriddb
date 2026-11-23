@@ -3,7 +3,8 @@
  * 0065): rows go from one table to the other in SQL, a range of sequence
  * numbers at a time, without leaving it. A copied row keeps its sequence
  * number, which pairs it with its source row: the links between the
- * copied rows are found through it.
+ * copied rows are found through it. It keeps its dates and authors, and
+ * takes its status back by the recorded steps (ADR 0117).
  */
 import { AppError } from "../errors";
 import { assertIdentifier, quoteIdent, type ParameterizedSql } from "./params";
@@ -12,6 +13,24 @@ import { assertIdentifier, quoteIdent, type ParameterizedSql } from "./params";
 export const DUPLICATE_CHUNK = 5_000;
 
 const SEQ = /^\d{1,19}$/;
+
+/** What a copied row keeps of when and by whom it was written. */
+const KEPT_STAMPS = [
+  "ag_created_at",
+  "ag_updated_at",
+  "ag_created_by",
+  "ag_updated_by",
+] as const;
+
+/** A step of a row's status, and the source rows that took it. */
+const STATUS_STEPS = {
+  submit: {
+    from: "draft",
+    to: "submitted",
+    reached: ["submitted", "locked", "signed"],
+  },
+  lock: { from: "submitted", to: "locked", reached: ["locked", "signed"] },
+} as const;
 
 function assertSeq(value: string): void {
   if (!SEQ.test(value)) throw new AppError("invalid_body");
@@ -24,9 +43,9 @@ function names(values: readonly string[]): string[] {
 
 /**
  * Copies the next rows of `from`, by sequence number past `after`, into
- * `to`: a new id, the same sequence number and place, and each column's
- * value as it is, from its name in `from` to its name in `to`. Answers how
- * many it copied and the last sequence number.
+ * `to`: a new id, the same sequence number, place, dates, and authors, and
+ * each column's value as it is, from its name in `from` to its name in
+ * `to`. Answers how many it copied and the last sequence number.
  */
 export function buildDuplicateRows(input: {
   from: string;
@@ -45,12 +64,14 @@ export function buildDuplicateRows(input: {
     `"id"`,
     `"ag_seq"`,
     `"ag_position"`,
+    ...KEPT_STAMPS.map((column) => `"${column}"`),
     ...names(input.columns.map((column) => column.to)),
   ].join(", ");
   const values = [
     "ag_uuidv7()",
     `s."ag_seq"`,
     `s."ag_position"`,
+    ...KEPT_STAMPS.map((column) => `s."${column}"`),
     ...names(input.columns.map((column) => column.from)).map(
       (column) => `s.${column}`,
     ),
@@ -71,6 +92,30 @@ export function buildSequenceAfter(input: {
   return {
     text: `select setval(pg_get_serial_sequence($1, 'ag_seq'), greatest($2::bigint, 1))`,
     values: [quoteIdent(input.table), input.last],
+  };
+}
+
+/**
+ * Moves the copied rows in (`after`, `upto`] one step toward the status of
+ * their source row, under the transition the transaction asks for. A signed
+ * row stops at locked: its signature stays with what was signed. Says how
+ * many of those moved were signed.
+ */
+export function buildDuplicateStatus(input: {
+  from: string;
+  to: string;
+  step: keyof typeof STATUS_STEPS;
+  after: string;
+  upto: string;
+}): ParameterizedSql {
+  assertIdentifier(input.from, "table name");
+  assertIdentifier(input.to, "table name");
+  assertSeq(input.after);
+  assertSeq(input.upto);
+  const step = STATUS_STEPS[input.step];
+  return {
+    text: `with moved as (update ${quoteIdent(input.to)} d set "ag_status" = $1 from ${quoteIdent(input.from)} s where s."ag_seq" = d."ag_seq" and d."ag_seq" > $2::bigint and d."ag_seq" <= $3::bigint and d."ag_status" = $4 and s."ag_status" = any($5::text[]) returning s."ag_status" = 'signed' as "signed") select (count(*) filter (where "signed"))::int as "signed" from moved`,
+    values: [step.to, input.after, input.upto, step.from, [...step.reached]],
   };
 }
 

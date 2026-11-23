@@ -562,9 +562,15 @@ the files' store, where it is kept 24 hours. `EXPORT_MAX_ROWS` is the
 most rows one snapshot writes and `IMPORT_MAX_ROWS` the most one import
 reads, all tables together; a copy of a base takes the smaller of the
 two. An uploaded snapshot is read through once, to check it, before it is
-kept; its import reads it again a batch at a time as it writes. Leave room
+kept. Its import job first reads the whole file again, every attachment
+against its checksum and every row, and refuses a damaged file before it
+makes a base; it then reads it a batch at a time as it writes. Leave room
 in the temporary folder for the largest archive, its attachments
 included (2 GiB at most), once per snapshot job running at once.
+
+A file imported this way is not believed about its rows' history: they
+come back as drafts, dated from the import, and a file that claims a
+status or a date is refused.
 
 ### Restore points
 
@@ -576,6 +582,14 @@ most), 20 per base at most; a shorter length ends the points already made
 sooner, and the nightly purge deletes those that have ended. They count in the store's size and in its backups: a point lives
 and ends with the instance, and a file to keep elsewhere is still the
 base's export.
+
+A restore point, a copy of a base, and a copy of a table with its rows keep
+each row's dates, authors, and status. A locked row stays locked; a signed
+row comes back locked, without its signature, and the job says how many did. Each status is put back
+through the usual steps, which the new base's history records. A point
+made before version 0.5.0 holds none of this: its rows come back as
+drafts. A file of a point damaged since is left out and counted, so that
+the rest of the base can still be restored.
 
 ## When no administrator can sign in
 

@@ -12,7 +12,13 @@ import { duplicateTable } from "./data-ops.js";
 import { createFolder, moveTableToFolder } from "./folders.js";
 import { loadEngine } from "./engine.js";
 import { addRelation, setLinks } from "./relations.js";
-import { readPage } from "./rows.js";
+import {
+  insertRows,
+  readPage,
+  setRowStatus,
+  signRow,
+  updateRows,
+} from "./rows.js";
 import { insertBase, insertTable } from "./schema-ops.js";
 
 const suffix = randomBytes(6).toString("hex");
@@ -162,6 +168,113 @@ describe("a table copied with its rows", () => {
   afterAll(async () => {
     await close?.();
   });
+
+  it("keeps each row's dates, authors, and status, a signed row coming back locked", async () => {
+    const reviewed = await insertTable(db, owner, {
+      baseId: (await tableRow(tasksId)).baseId,
+      name: "Reviewed",
+      columns: [{ name: "title", label: "Title", fieldType: "text" }],
+    });
+    const source = await tableRow(reviewed.id);
+    const engine = await engineOf(reviewed.id);
+    const context = (id: string, physicalName: string) => ({
+      userId: owner,
+      tableId: id,
+      physicalName,
+      baseId: source.baseId,
+      reason: null,
+      source: "test",
+    });
+    const [draft, submitted, locked, signed] = await insertRows(
+      db,
+      engine,
+      context(source.id, source.physicalName),
+      [
+        { title: "draft" },
+        { title: "submitted" },
+        { title: "locked" },
+        { title: "signed" },
+      ],
+    );
+    const table = { id: source.id, physicalName: source.physicalName };
+    const move = (rowId: string | undefined, status: "submitted" | "locked") =>
+      setRowStatus(db, {
+        userId: owner,
+        role: "owner",
+        table,
+        rowId: rowId ?? "",
+        status,
+      });
+    await move(submitted, "submitted");
+    for (const rowId of [locked, signed]) {
+      await move(rowId, "submitted");
+      await move(rowId, "locked");
+    }
+    await signRow(db, {
+      userId: owner,
+      table,
+      rowId: signed ?? "",
+      meaning: "Reviewed",
+    });
+    const state = async (physicalName: string) =>
+      (
+        await runRows(db as never, {
+          text: `select "title", "ag_status" as "status", "ag_created_at"::text as "created", "ag_updated_at"::text as "updated", "ag_created_by"::text as "by", "ag_updated_by"::text as "editor" from "${physicalName}" order by "ag_seq"`,
+          values: [],
+        })
+      ).map((row) => ({ ...row }));
+    const before = await state(source.physicalName);
+
+    const made = await duplicateTable(db, owner, source, {
+      name: "Reviewed (copy)",
+      withData: true,
+    });
+    const copy = await tableRow(made.id);
+    expect(await state(copy.physicalName)).toEqual(
+      before.map((row) =>
+        row.status === "signed" ? { ...row, status: "locked" } : row,
+      ),
+    );
+    expect(made.signaturesLeft).toBe(1);
+    const signatures = await db
+      .selectFrom("rowSignatures")
+      .select("id")
+      .where("tableId", "=", copy.id)
+      .execute();
+    expect(signatures).toEqual([]);
+
+    const copied = await byTitle(copy.id, ["draft", "locked"]);
+    const write = async (title: string) =>
+      updateRows(
+        db,
+        await engineOf(copy.id),
+        context(copy.id, copy.physicalName),
+        [
+          {
+            rowId: String(copied.get(title)?.id),
+            values: { title: `${title} written` },
+          },
+        ],
+      );
+    await expect(write("draft")).resolves.toBeDefined();
+    await expect(write("locked")).rejects.toMatchObject({ code: "row_locked" });
+    expect(draft).toBeDefined();
+
+    const trail = await db
+      .selectFrom("auditEvents")
+      .select("action")
+      .where("tableId", "=", copy.id)
+      .where("recordId", "=", String(copied.get("locked")?.id))
+      .where("source", "=", "duplicate")
+      .orderBy("occurredAt")
+      .orderBy("id")
+      .execute();
+    expect(trail.map((event) => event.action)).toEqual([
+      "insert",
+      "submit",
+      "lock",
+    ]);
+  }, 60_000);
 
   it("copies every row in chunks, with its links, its order, and its number", async () => {
     const steps: Array<[number, number | null]> = [];

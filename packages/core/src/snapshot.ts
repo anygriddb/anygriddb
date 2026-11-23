@@ -26,10 +26,13 @@ import { trimRuns } from "./plain-text";
  * each table's rows are lines of their own entry, `rows/<key>.ndjson`,
  * written and read one at a time, so a snapshot holds as many rows as the
  * instance's export and import ceilings allow. Versions 1 and 2 still
- * import.
+ * import. Version 4 (ADR 0117) is version 3 with each row's dates, authors,
+ * and status: only what an instance writes for itself, a restore point or a
+ * base's copy. It never leaves the instance, and is refused from a file.
  */
 export const SNAPSHOT_KIND = "anygriddb.base" as const;
 export const SNAPSHOT_VERSION = 3 as const;
+export const SNAPSHOT_KEPT_VERSION = 4 as const;
 
 /** The most rows a version 1 or 2 snapshot carries inside its JSON. */
 export const MAX_SNAPSHOT_ROWS = 100_000;
@@ -216,7 +219,12 @@ const snapshotComputedSchema = z
 export const baseSnapshotSchema = z
   .object({
     kind: z.literal(SNAPSHOT_KIND),
-    version: z.union([z.literal(1), z.literal(2), z.literal(SNAPSHOT_VERSION)]),
+    version: z.union([
+      z.literal(1),
+      z.literal(2),
+      z.literal(SNAPSHOT_VERSION),
+      z.literal(SNAPSHOT_KEPT_VERSION),
+    ]),
     exportedAt: z.string().min(1).max(40).optional(),
     base: z
       .object({
@@ -292,9 +300,9 @@ export const baseSnapshotSchema = z
     ) {
       context.addIssue({ code: "custom", message: "folders" });
     }
-    // Version 3 keeps its rows in their entries, versions 1 and 2 in the
-    // JSON: one place each, never both.
-    const lines = snapshot.version === SNAPSHOT_VERSION;
+    // Versions 3 and 4 keep their rows in their entries, versions 1 and 2
+    // in the JSON: one place each, never both.
+    const lines = snapshot.version >= SNAPSHOT_VERSION;
     for (const table of snapshot.tables) {
       if (lines ? table.rows !== undefined : table.rowCount !== undefined) {
         context.addIssue({ code: "custom", message: "rows" });
@@ -310,12 +318,73 @@ export function snapshotRowsEntry(key: string): string {
   return `rows/${key}.ndjson`;
 }
 
+/**
+ * The highest sequence number or place a file may give a row. A table goes
+ * on from the highest number it holds, and every table's new rows from the
+ * highest place: past this, they could soon take no new row.
+ */
+const MAX_LINE_NUMBER = BigInt(Number.MAX_SAFE_INTEGER);
+
+/** Digits within that bound, read only once they are few enough to read. */
+function withinLineNumbers(digits: string): boolean {
+  return (
+    digits.length <= 16 &&
+    /^\d+$/.test(digits) &&
+    BigInt(digits) <= MAX_LINE_NUMBER
+  );
+}
+
 /** A row's sequence number and place, as a version 3 line names them. */
-const lineSeqSchema = z.string().regex(/^[1-9]\d{0,18}$/);
-const linePositionSchema = z
+const lineSeqSchema = z
+  .string()
+  .regex(/^[1-9]\d{0,15}$/)
+  .refine(withinLineNumbers);
+/** A number and a place as a table of this instance holds them. */
+const ownLineSeqSchema = z.string().regex(/^[1-9]\d{0,18}$/);
+const ownLinePositionSchema = z
   .string()
   .regex(/^-?\d{1,19}(?:\.\d{1,16000})?$/)
   .max(16_100);
+const linePositionSchema = ownLinePositionSchema.refine((value) =>
+  withinLineNumbers((value.split(".", 1)[0] ?? "").replace("-", "")),
+);
+
+/**
+ * Where a version 4 line keeps its row's state: a key no field can be
+ * named, so that it never stands for a cell.
+ */
+export const ROW_STATE_KEY = "@row";
+
+/** An instant to the microsecond, in UTC, as the database gives it. */
+const rowInstantSchema = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}Z$/);
+const rowAuthorSchema = z
+  .string()
+  .regex(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)
+  .nullable();
+
+/** What a row was when an instance copied it for itself (version 4). */
+export const snapshotRowStateSchema = z
+  .object({
+    status: z.enum(["draft", "submitted", "locked", "signed"]),
+    createdAt: rowInstantSchema,
+    updatedAt: rowInstantSchema,
+    createdBy: rowAuthorSchema,
+    updatedBy: rowAuthorSchema,
+  })
+  .strict();
+
+export type SnapshotRowState = z.infer<typeof snapshotRowStateSchema>;
+
+/**
+ * Where a line keeps the values of fields named like its own keys: a field
+ * may be called `__seq` or `__position`, and is not the row's number.
+ */
+const LINE_FIELDS_KEY = "@fields";
+const lineFieldsSchema = z
+  .object({ __seq: cellSchema.optional(), __position: cellSchema.optional() })
+  .strict();
 
 /**
  * One row of a version 3 entry: its cells by column name, its sequence
@@ -323,10 +392,93 @@ const linePositionSchema = z
  * sequence numbers of the rows it links to.
  */
 export const snapshotLineSchema = z
-  .object({ __seq: lineSeqSchema, __position: linePositionSchema })
+  .object({
+    __seq: lineSeqSchema,
+    __position: linePositionSchema,
+    [LINE_FIELDS_KEY]: lineFieldsSchema.optional(),
+  })
   .catchall(cellSchema);
 
-export type SnapshotLine = z.infer<typeof snapshotLineSchema>;
+/**
+ * A line of a copy the instance made of its own table: the row's number as
+ * that table holds it and, in version 4, its state.
+ */
+export const ownSnapshotLineSchema = z
+  .object({
+    __seq: ownLineSeqSchema,
+    __position: ownLinePositionSchema,
+    [LINE_FIELDS_KEY]: lineFieldsSchema.optional(),
+    [ROW_STATE_KEY]: snapshotRowStateSchema.optional(),
+  })
+  .catchall(cellSchema);
+
+export type SnapshotLine = {
+  __seq: string;
+  __position: string;
+  [key: string]: unknown;
+};
+
+/** A row as a line holds it: its number, place, state, and cells. */
+export function writeSnapshotLine(input: {
+  seq: string;
+  position: string;
+  cells: Readonly<Record<string, unknown>>;
+  state?: SnapshotRowState | undefined;
+}): SnapshotLine {
+  const { __seq: seqField, __position: placeField, ...cells } = input.cells;
+  const apart = {
+    ...(seqField === undefined ? {} : { __seq: seqField }),
+    ...(placeField === undefined ? {} : { __position: placeField }),
+  };
+  return {
+    __seq: input.seq,
+    __position: input.position,
+    ...cells,
+    ...(Object.keys(apart).length > 0 ? { [LINE_FIELDS_KEY]: apart } : {}),
+    ...(input.state ? { [ROW_STATE_KEY]: input.state } : {}),
+  };
+}
+
+/** A line's fields by name, those kept apart among them. */
+export function snapshotLineCells(line: SnapshotLine): Record<string, unknown> {
+  const {
+    __seq: _seq,
+    __position: _position,
+    [ROW_STATE_KEY]: _state,
+    [LINE_FIELDS_KEY]: apart,
+    ...cells
+  } = line;
+  return { ...cells, ...(apart as Record<string, unknown> | undefined) };
+}
+
+/** One field of a line, by its name. */
+export function snapshotLineField(line: SnapshotLine, name: string): unknown {
+  if (name !== "__seq" && name !== "__position") return line[name];
+  return (line[LINE_FIELDS_KEY] as Record<string, unknown> | undefined)?.[name];
+}
+
+/** The keys with which a row would say what state it is in. */
+const ROW_STATE_CLAIMS = [
+  ROW_STATE_KEY,
+  "__status",
+  "__created_at",
+  "__updated_at",
+  "__created_by",
+  "__updated_by",
+];
+
+/**
+ * Whether a row from a file says what state it is in, by a key that is none
+ * of its table's fields. Only an instance's own copy is believed on that.
+ */
+export function claimsRowState(
+  row: Readonly<Record<string, unknown>>,
+  fields: ReadonlySet<string>,
+): boolean {
+  return ROW_STATE_CLAIMS.some(
+    (key) => Object.hasOwn(row, key) && !fields.has(key),
+  );
+}
 
 /** The rows a snapshot carries, in its JSON or in its entries. */
 export function snapshotRowCount(snapshot: {

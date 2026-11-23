@@ -10,6 +10,7 @@ import {
   buildGroupCounts,
   buildInserts,
   buildMoveRows,
+  type KeptRowStamp,
   buildOrderLock,
   buildReadCells,
   buildReadRows,
@@ -84,6 +85,8 @@ export type RowRecord = Record<string, unknown> & { id: string };
 export type KeptOrder = {
   seqs?: readonly string[];
   positions?: readonly string[];
+  /** Their dates and authors, from a copy the instance made (ADR 0117). */
+  stamps?: readonly KeptRowStamp[];
 };
 
 export type WriteContext = {
@@ -997,7 +1000,11 @@ export async function insertRows(
 ): Promise<string[]> {
   const columns = writeColumns(engine);
   await assertUserValues(db, context.baseId, columns, rows);
-  return withAudit(db, auditContext(context), async (tx) => {
+  const audit = {
+    ...auditContext(context),
+    ...(kept?.stamps ? { keepRowState: true } : {}),
+  };
+  return withAudit(db, audit, async (tx) => {
     await holdFieldTypes(
       tx,
       engine,
@@ -1023,6 +1030,7 @@ export async function insertRows(
       rows,
       positions,
       seqs: kept?.seqs,
+      stamps: kept?.stamps,
     });
     const ids: string[] = [];
     for (const { statement, rows: expected } of statements) {

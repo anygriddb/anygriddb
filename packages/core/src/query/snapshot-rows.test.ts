@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildPlacesInRange,
   buildPositionsAfter,
   buildRowSeqs,
   buildSnapshotForeignKeys,
   buildSnapshotJunction,
   buildSnapshotKeys,
+  buildSnapshotStatus,
   MAX_SNAPSHOT_LINK_PAIRS,
 } from "./snapshot-rows";
 
@@ -27,8 +29,20 @@ describe("a snapshot's rows, by sequence number", () => {
       [ROW],
     ]);
     expect(buildPositionsAfter({ table: "t_tasks" }).text).toBe(
-      `select setval('ag_row_position', ceil(s."top")::bigint) from (select max("ag_position") as "top" from "t_tasks") s where ceil(s."top") > (select "last_value" from ag_row_position)`,
+      `select setval('ag_row_position', ceil(s."top")::bigint) from (select max("ag_position") as "top" from "t_tasks" where "ag_position" <= 9007199254740992) s where ceil(s."top") > (select "last_value" from ag_row_position)`,
     );
+  });
+
+  it("brings a table's far places next to its others, in their order", () => {
+    const statement = buildPlacesInRange({ table: "t_tasks" });
+    expect(statement.text).toContain(
+      `where "ag_position" > 4503599627370496 or "ag_position" < -4503599627370496`,
+    );
+    expect(statement.text).toContain(
+      `row_number() over (partition by "ag_position" > 0 order by "ag_position", "ag_seq")`,
+    );
+    expect(statement.values).toEqual([]);
+    expect(() => buildPlacesInRange({ table: 'x"; drop' })).toThrow();
   });
 
   it("refuses a page past the read limit, a bad number, and a bad id", () => {
@@ -106,6 +120,69 @@ describe("a snapshot's rows, by sequence number", () => {
         tableId: TABLE,
         fromSeqs: ["1"],
         toSeqs: ["2"],
+      }),
+    ).toThrow();
+  });
+
+  it("reads each row's dates, authors, and status when asked", () => {
+    const statement = buildSnapshotKeys({
+      table: "t_tasks",
+      after: "0",
+      limit: 10,
+      state: true,
+    });
+    expect(statement.text).toContain(`"ag_status" as "status"`);
+    expect(statement.text).toContain(
+      `to_char("ag_created_at" at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') as "createdAt"`,
+    );
+    expect(statement.text).toContain(
+      `to_char("ag_updated_at" at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') as "updatedAt"`,
+    );
+    expect(statement.text).toContain(`"ag_created_by"::text as "createdBy"`);
+    expect(statement.text).toContain(`"ag_updated_by"::text as "updatedBy"`);
+  });
+
+  it("moves rows one step of their status, and refuses any other step", () => {
+    const statement = buildSnapshotStatus({
+      table: "t_tasks",
+      seqs: ["1", "2"],
+      from: "draft",
+      to: "submitted",
+    });
+    expect(statement.text).toBe(
+      `with moved as (update "t_tasks" set "ag_status" = $1 where "ag_seq" = any($2::bigint[]) and "ag_status" = $3 returning 1) select count(*)::int as "count" from moved`,
+    );
+    expect(statement.values).toEqual(["submitted", ["1", "2"], "draft"]);
+    expect(
+      buildSnapshotStatus({
+        table: "t_tasks",
+        seqs: ["1"],
+        from: "submitted",
+        to: "locked",
+      }).values,
+    ).toEqual(["locked", ["1"], "submitted"]);
+    for (const [from, to] of [
+      ["draft", "locked"],
+      ["submitted", "submitted"],
+    ] as const) {
+      expect(() =>
+        buildSnapshotStatus({ table: "t_tasks", seqs: ["1"], from, to }),
+      ).toThrow();
+    }
+    expect(() =>
+      buildSnapshotStatus({
+        table: "t_tasks",
+        seqs: [],
+        from: "draft",
+        to: "submitted",
+      }),
+    ).toThrow();
+    expect(() =>
+      buildSnapshotStatus({
+        table: "t_tasks",
+        seqs: ["x"],
+        from: "draft",
+        to: "submitted",
       }),
     ).toThrow();
   });

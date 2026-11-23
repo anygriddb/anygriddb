@@ -397,6 +397,8 @@ export function Sidebar({
       onDone: (job) => {
         void invalidate();
         const copy = job.result?.tableId;
+        const gaps = snapshotGaps(job.result);
+        if (gaps.length > 0) toast.warning(gaps.join(" · "));
         return {
           message: t`Table duplicated`,
           action:

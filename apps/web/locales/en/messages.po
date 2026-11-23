@@ -495,6 +495,11 @@ msgstr "{0, plural, one {# row, file available for 24 h} other {# rows, file ava
 msgid "{0, plural, one {# row} other {# rows}}"
 msgstr "{0, plural, one {# row} other {# rows}}"
 
+#. placeholder {0}: report.signaturesLeft ?? 0
+#: lib/snapshot-report.ts
+msgid "{0, plural, one {# signed row came back locked, without its signature} other {# signed rows came back locked, without their signature}}"
+msgstr "{0, plural, one {# signed row came back locked, without its signature} other {# signed rows came back locked, without their signature}}"
+
 #. placeholder {0}: impact.blockedSources
 #: components/admin/sources-tab.tsx
 msgid "{0, plural, one {# source refused by the allow list} other {# sources refused by the allow list}}"
@@ -1381,8 +1386,8 @@ msgid "A file from that version is no longer stored"
 msgstr "A file from that version is no longer stored"
 
 #: components/settings/base-settings.tsx
-msgid "A file to keep elsewhere: schema, views, dashboards, rows, members, and attachments, in a .zip archive. Import it again from “New base”. Comments, the history of changes, automations, webhooks, and public links stay with this base."
-msgstr "A file to keep elsewhere: schema, views, dashboards, rows, members, and attachments, in a .zip archive. Import it again from “New base”. Comments, the history of changes, automations, webhooks, and public links stay with this base."
+msgid "A file to keep elsewhere: schema, views, dashboards, rows, members, and attachments, in a .zip archive. Import it again from “New base”: its rows come back as drafts, dated from the import. Comments, the history of changes, automations, webhooks, and public links stay with this base."
+msgstr "A file to keep elsewhere: schema, views, dashboards, rows, members, and attachments, in a .zip archive. Import it again from “New base”: its rows come back as drafts, dated from the import. Comments, the history of changes, automations, webhooks, and public links stay with this base."
 
 #: components/admin/integrations-tab.tsx
 msgid "A first sign-in then reaches the existing account with the same address. Leave it off if people can change their address at the provider without proving it."
@@ -11333,8 +11338,8 @@ msgid "The base and its tables go to the trash: you can restore it from the home
 msgstr "The base and its tables go to the trash: you can restore it from the home page for {days} days. The schema {schema} stays in the external source."
 
 #: components/settings/restore-points.tsx
-msgid "The base as it is now, its rows, files, views, dashboards, and members, kept on this instance for {days} days. Restoring one makes a new base beside this one: this base is not changed."
-msgstr "The base as it is now, its rows, files, views, dashboards, and members, kept on this instance for {days} days. Restoring one makes a new base beside this one: this base is not changed."
+msgid "The base as it is now, its rows with their dates, authors, and statuses, its files, views, dashboards, and members, kept on this instance for {days} days. Restoring one makes a new base beside this one: this base is not changed. A signed row comes back locked, without its signature."
+msgstr "The base as it is now, its rows with their dates, authors, and statuses, its files, views, dashboards, and members, kept on this instance for {days} days. Restoring one makes a new base beside this one: this base is not changed. A signed row comes back locked, without its signature."
 
 #: components/settings/restore-points.tsx
 msgid "The base as it was on {date} can no longer be restored. The base itself is not changed."

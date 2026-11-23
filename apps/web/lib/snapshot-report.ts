@@ -15,6 +15,8 @@ type SnapshotReport = {
   membersLeft?: number;
   /** Absent from a report written before dashboards came over. */
   widgetsLeft?: number;
+  /** Present when signed rows came back locked, without their signature. */
+  signaturesLeft?: number;
 };
 
 /** The report in a finished job's result, when it has one. */
@@ -49,6 +51,12 @@ export function useSnapshotGaps(): (result: unknown) => string[] {
         ? t`${plural(report.filesRefused ?? 0, {
             one: "# file of a type this instance refuses, left out",
             other: "# files of a type this instance refuses, left out",
+          })}`
+        : null,
+      (report.signaturesLeft ?? 0) > 0
+        ? t`${plural(report.signaturesLeft ?? 0, {
+            one: "# signed row came back locked, without its signature",
+            other: "# signed rows came back locked, without their signature",
           })}`
         : null,
       report.peopleDropped > 0

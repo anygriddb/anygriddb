@@ -143,6 +143,7 @@ export async function makeRestorePoint(
       withData: true,
       folder: folder.path,
       maxRows: deps.maxRows,
+      keepRowState: true,
       ...(input.onProgress ? { onProgress: input.onProgress } : {}),
     });
     if (written.packed.kind !== "zip") throw new AppError("invalid_snapshot");
@@ -198,9 +199,12 @@ export async function makeRestorePoint(
 
 /**
  * Reads a restore point back into a new base, named after the base it was
- * made of: its rows, links, files, and views, and the access its members
- * had then, roles and rules, for those still in the base now. The base's
- * groups get the role they have on it now: a snapshot keeps no group.
+ * made of: its rows with their dates, authors, and status (a signed row
+ * comes back locked, without its signature), links, files, and views, and
+ * the access its members had then, roles and rules, for those still in the
+ * base now. The base's groups get the role they have on it now: a snapshot
+ * keeps no group. A file of the point that was damaged since is left out
+ * and counted, so that the rest of the base can still be had.
  */
 export async function restoreFromPoint(
   deps: {
@@ -229,7 +233,7 @@ export async function restoreFromPoint(
       stored.body,
       createWriteStream(path, { flags: "wx", mode: 0o600 }),
     );
-    const opened = await openLocalSnapshot(path, point.size);
+    const opened = await openLocalSnapshot(path, point.size, { own: true });
     const source = await db
       .selectFrom("bases")
       .select("name")
@@ -244,6 +248,7 @@ export async function restoreFromPoint(
         deps.names
           .restored(source?.name ?? opened.snapshot.base.name)
           .slice(0, 100),
+      keepRowState: true,
       restoreMembers: true,
       keepAccounts: stillIn,
       beforeRows: async (baseId) => {
