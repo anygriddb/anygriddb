@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { showLoadFailure } from "./load-failure";
+import { afterFailedLoad, showLoadFailure } from "./load-failure";
 
 type Node = {
   tag: string;
@@ -75,5 +75,29 @@ describe("a page whose words could not be loaded", () => {
       "AnyGridDB could not be loaded. Check your connection, then reload the page.",
     );
     expect(reload).not.toHaveBeenCalled();
+  });
+});
+
+describe("afterFailedLoad", () => {
+  const now = 1_800_000_000_000;
+
+  it("reloads a tab opened before an update, once", () => {
+    expect(afterFailedLoad({ online: true, reloadedAt: 0, now })).toBe(
+      "reload",
+    );
+    // It just did, and the piece still fails: not in a loop.
+    expect(
+      afterFailedLoad({ online: true, reloadedAt: now - 5_000, now }),
+    ).toBe("leave");
+    expect(
+      afterFailedLoad({ online: true, reloadedAt: now - 31_000, now }),
+    ).toBe("reload");
+  });
+
+  it("waits for the network rather than reload onto the browser's error page", () => {
+    expect(afterFailedLoad({ online: false, reloadedAt: 0, now })).toBe("wait");
+    expect(
+      afterFailedLoad({ online: false, reloadedAt: now - 5_000, now }),
+    ).toBe("wait");
   });
 });
