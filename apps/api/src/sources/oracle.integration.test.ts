@@ -89,7 +89,7 @@ describe("Oracle sources", () => {
       connectString,
     });
     for (const statement of [
-      "create table customers (id number(10) primary key, name varchar2(120) not null, amount number(14,2), active number(1) default 1 not null, notes blob, shipped date)",
+      "create table customers (id number(10) primary key, name varchar2(120) not null, amount number(14,2), active number(1) default 1 not null check (active in (0, 1)), notes blob, shipped date)",
       "insert into customers (id, name, amount, active, shipped) values (1, 'Ada', 120.50, 1, timestamp '2026-11-07 15:30:00')",
       "insert into customers (id, name, amount, active, shipped) values (2, 'Bob', 10, 0, timestamp '2026-11-08 00:00:00')",
       "create table secrets (id number(10) primary key, code varchar2(20))",

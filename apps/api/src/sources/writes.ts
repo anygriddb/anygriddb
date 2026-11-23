@@ -16,6 +16,8 @@ import { randomUUID } from "node:crypto";
 import {
   AppError,
   assertCellValue,
+  instantDigitsOf,
+  rowError,
   buildExternalDelete,
   buildExternalInsert,
   buildExternalLock,
@@ -46,6 +48,7 @@ import {
   TASKS,
 } from "../queue/jobs.js";
 import { assertRowsStayInRule, readByIds } from "../data/rows.js";
+import { lostToCodePage } from "./kept-text.js";
 import { rowsWithin, type ReadBudget } from "../read-budget.js";
 import {
   enrichmentRow,
@@ -209,7 +212,10 @@ function externalValues(
     const column = columns.get(name);
     if (!column) throw new AppError("unknown_column", name);
     if (!column.relation) {
-      assertCellValue(column, value);
+      assertCellValue(
+        { ...column, instantDigits: instantDigitsOf(column.physical) },
+        value,
+      );
       return { column, value };
     }
     return { column, value: oneLink(value) };
@@ -277,6 +283,44 @@ function fieldTypeOf(
 ): string | undefined {
   return context.engine.table.columns.find((column) => column.name === name)
     ?.fieldType;
+}
+
+/** The fields whose text a client column may keep in another code page. */
+const CODE_PAGE_FIELDS: ReadonlySet<string> = new Set([
+  "text",
+  "long_text",
+  "email",
+  "url",
+  "phone",
+  "single_select",
+]);
+
+/**
+ * Refuses a write whose text the column kept with characters replaced: its
+ * engine says nothing of it. Thrown in the write's transaction, it undoes it.
+ */
+function assertTextKept(
+  context: ExternalWriteContext,
+  written: ReadonlyArray<{
+    rowId: string;
+    values: Readonly<Record<string, CellValue>>;
+  }>,
+  read: ReadonlyMap<string, Record<string, unknown>>,
+): void {
+  for (const { rowId, values } of written) {
+    const row = read.get(rowId);
+    if (!row) continue;
+    for (const [name, value] of Object.entries(values)) {
+      if (typeof value !== "string") continue;
+      if (!CODE_PAGE_FIELDS.has(fieldTypeOf(context, name) ?? "")) continue;
+      if (lostToCodePage(value, row[name])) {
+        throw new AppError(
+          "source_value_unrepresentable",
+          labelOf(context, name),
+        );
+      }
+    }
+  }
 }
 
 function labelOf(context: ExternalWriteContext, name: string): string {
@@ -547,6 +591,18 @@ export async function updateExternalRows(
     ) => {
       for (const { update } of statements) {
         const row = { ...current.get(update.rowId), ...keptRow(update.rowId) };
+        // A checkbox over another code shows no state to change from.
+        for (const name of Object.keys(update.values)) {
+          if (
+            fieldTypeOf(context, name) === "boolean" &&
+            rowError(row, name) !== null
+          ) {
+            throw new AppError(
+              "source_flag_holds_code",
+              labelOf(context, name),
+            );
+          }
+        }
         for (const [name, value] of Object.entries(update.expected ?? {})) {
           if (!(name in update.values)) continue;
           const link = columns.get(name)?.relation;
@@ -600,7 +656,13 @@ export async function updateExternalRows(
             for (const statement of sql) await change(statement);
           }
           await assertRowsStayInRule(run, context.engine, ids);
-          return readRows(context, run, ids, fields);
+          const after = await readRows(context, run, ids, fields);
+          assertTextKept(
+            context,
+            statements.map(({ update }) => update),
+            after,
+          );
+          return after;
         });
     // The client's part committed: AnyGridDB's own values follow it.
     for (const { update, controlPlane } of patches) {
@@ -704,6 +766,14 @@ export async function insertExternalRows(
       }
       await assertRowsStayInRule(run, context.engine, ids);
       const read = await readRows(context, run, ids, fields);
+      assertTextKept(
+        context,
+        statements.map(({ values }, index) => ({
+          rowId: ids[index] ?? "",
+          values,
+        })),
+        read,
+      );
       return { ids, read };
     },
   );

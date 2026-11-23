@@ -1,5 +1,8 @@
 const ISO_DATETIME =
-  /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d{1,6})?)?(?:Z|[+-]\d{2}:\d{2})$/;
+  /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.(\d{1,7}))?)?(?:Z|[+-]\d{2}:\d{2})$/;
+
+/** The decimals of a second an instant keeps, unless its column says more. */
+export const INSTANT_DIGITS = 6;
 
 /**
  * The time of a day in UTC. `Date.UTC` reads the years 0 to 99 as 19xx,
@@ -41,11 +44,16 @@ export function isIsoDate(value: string): boolean {
  * year in UTC is one a field takes: an offset can carry the last hours of
  * the year 9999 into the next.
  */
-export function isIsoDateTime(value: string): boolean {
-  if (!ISO_DATETIME.test(value) || !isIsoDate(value.slice(0, 10))) {
-    return false;
-  }
-  const time = Date.parse(value);
+export function isIsoDateTime(
+  value: string,
+  digits: number = INSTANT_DIGITS,
+): boolean {
+  const written = ISO_DATETIME.exec(value);
+  if (!written || !isIsoDate(value.slice(0, 10))) return false;
+  const fraction = written[1] ?? "";
+  if (fraction.length > digits) return false;
+  // The clock reads milliseconds: what follows them changes no year.
+  const time = Date.parse(value.replace(`.${fraction}`, ""));
   if (!Number.isFinite(time)) return false;
   const year = new Date(time).getUTCFullYear();
   return year >= 1 && year <= 9_999;

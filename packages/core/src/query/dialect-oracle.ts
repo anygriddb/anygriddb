@@ -10,6 +10,7 @@
  */
 import { AppError } from "../errors";
 import { isTimeZone } from "../field-config";
+import type { FieldType } from "../field-types";
 import type { PhysicalColumn } from "./engine";
 import type { ScalarKind } from "./expressions";
 import type {
@@ -318,6 +319,74 @@ function hashHex(sql: string, algorithm: HashAlgorithm): string {
   return `(case when ${sql} is not null then lower(rawtohex(standard_hash(convert(${sql}, 'AL32UTF8'), '${kind}'))) end)`;
 }
 
+const FLOATS: ReadonlySet<string> = new Set([
+  "binary_float",
+  "binary_double",
+  "float",
+]);
+
+/** Whether a float is one a decimal text of a cell can write out whole. */
+function floatFits(ref: string): string {
+  return `abs(${ref}) < 1e28 and (${ref} = 0 or abs(${ref}) >= 1e-30)`;
+}
+
+/** What the first seal format said of a stored value (ADR 0118). */
+function firstStoredError(
+  ref: string,
+  physical: PhysicalColumn,
+): string | undefined {
+  const type = typeName(physical.type);
+  if (isUnread(physical)) {
+    return `(case when ${ref} is not null then '!${type.toUpperCase().replace(/'/g, "''")}' end)`;
+  }
+  return type === "binary_float" || type === "binary_double" || type === "float"
+    ? `(case when ${ref} is not null and not abs(${ref}) < 1e28 then '!' || to_char(${ref}) end)`
+    : undefined;
+}
+
+/** A client column as the first seal format read it (ADR 0118). */
+function firstRead(
+  ref: string,
+  fieldType: FieldType,
+  physical: PhysicalColumn,
+): string {
+  const type = typeName(physical.type);
+  if (type === "binary_float" || type === "binary_double" || type === "float") {
+    // Past what NUMBER(38,10) holds, or not a number: read empty, and
+    // said beside it (`storedError`). Cast, it would stop the page.
+    return `(case when abs(${ref}) < 1e28 then cast(${ref} as number(38,10)) end)`;
+  }
+  if (isUnread(physical)) return "cast(null as varchar2(1))";
+  // Read-only types shown as text (`mapOracleType`), read as text.
+  if (type === "boolean") {
+    return `(case when ${ref} then 1 when not ${ref} then 0 end)`;
+  }
+  if (type.startsWith("interval")) return `to_char(${ref})`;
+  if (type === "rowid") return `rowidtochar(${ref})`;
+  if (type === "urowid") return `cast(${ref} as varchar2(4000))`;
+  // A thousand characters always fit VARCHAR2's 4000 bytes, as a blob's
+  // first bytes do below: a filter can then read them as any other text.
+  if (type === "xmltype") {
+    return `dbms_lob.substr(xmlserialize(content ${ref} as clob), 1000, 1)`;
+  }
+  if (type === "vector") {
+    return `dbms_lob.substr(from_vector(${ref} returning clob), 1000, 1)`;
+  }
+  if (type === "raw") return `rawtohex(${ref})`;
+  if (type === "blob") return `rawtohex(dbms_lob.substr(${ref}, 2000))`;
+  // A DATE also holds a time of day: a date field reads the day alone.
+  if (fieldType === "date") return `trunc(${ref})`;
+  if (fieldType !== "datetime") return ref;
+  if (type === "timestamp with time zone") {
+    return `cast(${ref} at time zone 'UTC' as timestamp(6))`;
+  }
+  if (type === "timestamp with local time zone") {
+    return `cast(${ref} at time zone 'UTC' as timestamp(6))`;
+  }
+  if (physical.zone === "UTC") return `cast(${ref} as timestamp(6))`;
+  return `cast(from_tz(cast(${ref} as timestamp), ${zoneLiteral(physical.zone)}) at time zone 'UTC' as timestamp(6))`;
+}
+
 export const ORACLE: SqlDialect = {
   name: "oracle",
   boolLiteral: (value) => (value ? "1" : "0"),
@@ -404,15 +473,16 @@ export const ORACLE: SqlDialect = {
     isUnread(physical) || /^n?clob$/.test(typeName(physical.type)),
   // `errorJson` takes off a first character, which Oracle needs so that an
   // empty message is not NULL: a stored error carries one too.
-  storedError: (ref, physical) => {
+  storedError: (ref, physical, fieldType) => {
     const type = typeName(physical.type);
-    if (isUnread(physical)) {
-      return `(case when ${ref} is not null then '!${type.toUpperCase().replace(/'/g, "''")}' end)`;
+    if (isUnread(physical)) return firstStoredError(ref, physical);
+    if (FLOATS.has(type)) {
+      return `(case when ${ref} is not null and not (${floatFits(ref)}) then '!' || to_char(${ref}) end)`;
     }
-    return type === "binary_float" ||
-      type === "binary_double" ||
-      type === "float"
-      ? `(case when ${ref} is not null and not abs(${ref}) < 1e28 then '!' || to_char(${ref}) end)`
+    // A flag holding another code: unticking it would lose the code.
+    return fieldType === "boolean" &&
+      /^number\(\s*1\s*\)$/i.test(physical.type.trim())
+      ? `(case when ${ref} not in (0, 1) then '!' || to_char(${ref}) end)`
       : undefined;
   },
   // Oracle orders NaN above every number: it would pass any "greater than".
@@ -424,45 +494,30 @@ export const ORACLE: SqlDialect = {
       : undefined;
   },
   readColumn: (ref, fieldType, physical) => {
+    if (FLOATS.has(typeName(physical.type))) {
+      // Past what NUMBER(38,10) holds, too small to write out, or not a
+      // number: read empty, and said beside it (`storedError`).
+      return `(case when ${floatFits(ref)} then cast(${ref} as number(38,10)) end)`;
+    }
+    return firstRead(ref, fieldType, physical);
+  },
+  floatOutput: (stored, physical) => {
     const type = typeName(physical.type);
-    if (
-      type === "binary_float" ||
-      type === "binary_double" ||
-      type === "float"
-    ) {
-      // Past what NUMBER(38,10) holds, or not a number: read empty, and
-      // said beside it (`storedError`). Cast, it would stop the page.
-      return `(case when abs(${ref}) < 1e28 then cast(${ref} as number(38,10)) end)`;
-    }
-    if (isUnread(physical)) return "cast(null as varchar2(1))";
-    // Read-only types shown as text (`mapOracleType`), read as text.
-    if (type === "boolean") {
-      return `(case when ${ref} then 1 when not ${ref} then 0 end)`;
-    }
-    if (type.startsWith("interval")) return `to_char(${ref})`;
-    if (type === "rowid") return `rowidtochar(${ref})`;
-    if (type === "urowid") return `cast(${ref} as varchar2(4000))`;
-    // A thousand characters always fit VARCHAR2's 4000 bytes, as a blob's
-    // first bytes do below: a filter can then read them as any other text.
-    if (type === "xmltype") {
-      return `dbms_lob.substr(xmlserialize(content ${ref} as clob), 1000, 1)`;
-    }
-    if (type === "vector") {
-      return `dbms_lob.substr(from_vector(${ref} returning clob), 1000, 1)`;
-    }
-    if (type === "raw") return `rawtohex(${ref})`;
-    if (type === "blob") return `rawtohex(dbms_lob.substr(${ref}, 2000))`;
-    // A DATE also holds a time of day: a date field reads the day alone.
-    if (fieldType === "date") return `trunc(${ref})`;
-    if (fieldType !== "datetime") return ref;
-    if (type === "timestamp with time zone") {
-      return `cast(${ref} at time zone 'UTC' as timestamp(6))`;
-    }
-    if (type === "timestamp with local time zone") {
-      return `cast(${ref} at time zone 'UTC' as timestamp(6))`;
-    }
-    if (physical.zone === "UTC") return `cast(${ref} as timestamp(6))`;
-    return `cast(from_tz(cast(${ref} as timestamp), ${zoneLiteral(physical.zone)}) at time zone 'UTC' as timestamp(6))`;
+    if (!FLOATS.has(type)) return undefined;
+    const kind =
+      type === "binary_float" ? "f" : type === "binary_double" ? "d" : "n";
+    return `(case when ${floatFits(stored)} then '${kind}' || to_char(${stored}) end)`;
+  },
+  firstSeal: {
+    readColumn: firstRead,
+    storedError: firstStoredError,
+    storedNumber: (ref, physical) => {
+      const type = typeName(physical.type);
+      if (type === "float") return ref;
+      return type === "binary_float" || type === "binary_double"
+        ? `(case when ${ref} is not nan then ${ref} end)`
+        : undefined;
+    },
   },
   // trunc() would keep a filter off the column's index; a DATE or a
   // TIMESTAMP without a zone compares with midnight bounds as stored.

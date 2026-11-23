@@ -541,6 +541,7 @@ const ACTION_LABELS: Record<string, MessageDescriptor> = {
   sign: msg`signed`,
   changed: msg`found a change made outside AnyGridDB`,
   restored: msg`found the locked values back`,
+  resealed: msg`renewed the seal after an update, the values unchanged`,
 };
 
 const MOVED = msg`moved the row`;

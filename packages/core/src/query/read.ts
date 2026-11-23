@@ -28,8 +28,10 @@ import {
   type FilterContext,
 } from "./filter-sql";
 import { quoteIdent, SqlParams, type ParameterizedSql } from "./params";
+import { ROW_FLOATS } from "./float-text";
 import {
   dialectOf,
+  firstSealDialect,
   type DateSpan,
   type JsonKind,
   type SqlDialect,
@@ -334,7 +336,9 @@ function rowScope(
 function prepare(catalog: EngineCatalog, spec: ReadSpec): Prepared {
   const params = new SqlParams();
   let zone: string | undefined;
-  const d = dialectOf(catalog.table);
+  const d = catalog.firstSealReading
+    ? firstSealDialect(dialectOf(catalog.table))
+    : dialectOf(catalog.table);
   /** The time zone is bound on first use: Postgres rejects an unreferenced parameter. */
   const tz = (): string =>
     (zone ??= d.textParam(params.bind(d.zone(spec.timeZone ?? "UTC"))));
@@ -534,8 +538,9 @@ function orderSql(prepared: Prepared, ref: ProjectedColumn): string {
       return `(case when ${d.cond(x)} then 1 else 0 end)`;
     case "datetime":
     case "date":
-    case "number":
       return x;
+    case "number":
+      return ref.storedNumber ?? x;
     case "user":
       return `${x}::text`;
     case "links":
@@ -679,9 +684,20 @@ function exactAggregateText(
   ref: ProjectedColumn,
   value: string,
 ): string {
-  return isComputed(ref) || ref.column.physical?.side === true
-    ? d.computedText(value)
-    : d.exactText(value);
+  return readsCanonically(d, ref) ? d.computedText(value) : d.exactText(value);
+}
+
+/**
+ * A computed number, one kept in a side table, or one whose type pads it:
+ * written without the zeros, the same on every engine.
+ */
+function readsCanonically(d: Prepared["d"], ref: ProjectedColumn): boolean {
+  const physical = ref.column.physical;
+  return (
+    isComputed(ref) ||
+    physical?.side === true ||
+    (physical !== undefined && d.readsCanonical?.(physical) === true)
+  );
 }
 
 /** The key of a row's formula errors: field name to message (ADR 0036). */
@@ -739,6 +755,26 @@ function errorsEntry(
   return [ROW_ERRORS, prepared.d.json(prepared.d.jsonObject(entries), "json")];
 }
 
+/**
+ * The stored floats of a page, coded for `withExactFloats`, which puts each
+ * in its field: their engine has no decimal text that keeps them whole.
+ */
+function floatsEntry(
+  prepared: Prepared,
+  names: readonly string[],
+): readonly [string, string] | undefined {
+  const d = prepared.d;
+  const entries = names.flatMap((name) => {
+    const ref = prepared.columns.get(name);
+    const physical = ref?.column.physical;
+    if (!ref?.storedNumber || !physical || ref.kind !== "number") return [];
+    const output = d.floatOutput?.(ref.storedNumber, physical);
+    return output ? [[name, output] as const] : [];
+  });
+  if (entries.length === 0) return undefined;
+  return [ROW_FLOATS, d.json(d.jsonObject(entries), "json")];
+}
+
 function projection(
   prepared: Prepared,
   fields: readonly string[] | undefined,
@@ -769,7 +805,7 @@ function projection(
     // scale; a computed one reads canonical (14.5), the same everywhere,
     // as does one AnyGridDB keeps in a side table, whose scale is its own.
     const value = isExactNumber(ref)
-      ? isComputed(ref) || ref.column.physical?.side === true
+      ? readsCanonically(d, ref)
         ? d.computedText(refSql(name))
         : d.exactText(refSql(name))
       : ref.kind === "array" && ref.elem === "number" && d.name === "postgres"
@@ -782,6 +818,8 @@ function projection(
   }
   const errors = errorsEntry(prepared, names);
   if (errors) entries.push(errors);
+  const floats = floatsEntry(prepared, names);
+  if (floats) entries.push(floats);
   return d.row(entries);
 }
 

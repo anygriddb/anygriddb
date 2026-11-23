@@ -10,6 +10,8 @@
  */
 import { AppError } from "../errors";
 import { isTimeZone } from "../field-config";
+import type { FieldType } from "../field-types";
+import type { PhysicalColumn } from "./engine";
 import type { ScalarKind } from "./expressions";
 import type { Bind, JsonKind, SqlDialect, TimeUnit } from "./dialect";
 import { jsonPathText } from "./json-path";
@@ -304,6 +306,59 @@ function sameUnit(a: string, b: string, unit: TimeUnit): string {
     : `(datediff_big(${unit}, ${a}, ${b}) = 0)`;
 }
 
+/** Whether a float is one a decimal text of a cell can write out whole. */
+function floatFits(ref: string): string {
+  return `abs(${ref}) < 1e28 and (${ref} = 0 or abs(${ref}) >= 1e-30)`;
+}
+
+/** A client column as the first seal format read it (ADR 0118). */
+function firstRead(
+  ref: string,
+  fieldType: FieldType,
+  physical: PhysicalColumn,
+): string {
+  const type = typeName(physical.type);
+  // A float past what decimal(38,10) holds reads empty, and is said
+  // beside it (`storedError`): cast, it would stop the whole page.
+  if (type === "float" || type === "real") {
+    return `(case when abs(${ref}) < 1e28 then cast(${ref} as decimal(38,10)) end)`;
+  }
+  // Read-only types shown as text (`mapSqlServerType`), read as text:
+  // FOR JSON writes no CLR type, and none of these compares with one.
+  switch (type) {
+    case "geography":
+    case "geometry":
+      return `${ref}.STAsText()`;
+    case "hierarchyid":
+      return `${ref}.ToString()`;
+    case "xml":
+      return `cast(${ref} as nvarchar(max))`;
+    case "sql_variant":
+      return `cast(${ref} as nvarchar(4000))`;
+    case "uniqueidentifier":
+      return `cast(${ref} as char(36))`;
+    case "time":
+      return `cast(${ref} as varchar(16))`;
+    case "timestamp":
+    case "rowversion":
+      return `convert(varchar(18), ${ref}, 1)`;
+    default:
+      break;
+  }
+  // The old large types can be neither compared, sorted, nor grouped.
+  if (type === "text" || type === "ntext") {
+    return `cast(${ref} as nvarchar(max))`;
+  }
+  if (type === "image") return `cast(${ref} as varbinary(max))`;
+  if (fieldType !== "datetime") return ref;
+  if (type === "datetimeoffset") {
+    return `cast(switchoffset(${ref}, '+00:00') as datetime2(7))`;
+  }
+  // A datetime without a zone is in the source's.
+  if (physical.zone === "UTC") return `cast(${ref} as datetime2(7))`;
+  return `cast((${ref} at time zone ${zoneLiteral(physical.zone)}) at time zone 'UTC' as datetime2(7))`;
+}
+
 export const SQLSERVER: SqlDialect = {
   name: "sqlserver",
   boolLiteral: (value) => `cast(${value ? 1 : 0} as bit)`,
@@ -379,45 +434,40 @@ export const SQLSERVER: SqlDialect = {
     `exists (select 1 from openjson(${sql}) with (id nvarchar(1000) '$.id') e where e.id in (${list}))`,
   readColumn: (ref, fieldType, physical) => {
     const type = typeName(physical.type);
-    // A float past what decimal(38,10) holds reads empty, and is said
-    // beside it (`storedError`): cast, it would stop the whole page.
+    // Past what decimal(38,10) holds, or too small to write out, a float
+    // reads empty and is said beside it (`storedError`).
     if (type === "float" || type === "real") {
-      return `(case when abs(${ref}) < 1e28 then cast(${ref} as decimal(38,10)) end)`;
+      return `(case when ${floatFits(ref)} then cast(${ref} as decimal(38,10)) end)`;
     }
-    // Read-only types shown as text (`mapSqlServerType`), read as text:
-    // FOR JSON writes no CLR type, and none of these compares with one.
-    switch (type) {
-      case "geography":
-      case "geometry":
-        return `${ref}.STAsText()`;
-      case "hierarchyid":
-        return `${ref}.ToString()`;
-      case "xml":
-        return `cast(${ref} as nvarchar(max))`;
-      case "sql_variant":
-        return `cast(${ref} as nvarchar(4000))`;
-      case "uniqueidentifier":
-        return `cast(${ref} as char(36))`;
-      case "time":
-        return `cast(${ref} as varchar(16))`;
-      case "timestamp":
-      case "rowversion":
-        return `convert(varchar(18), ${ref}, 1)`;
-      default:
-        break;
+    // Their own four decimals: a cast to text would keep two.
+    if (type === "money") return `cast(${ref} as decimal(19,4))`;
+    if (type === "smallmoney") return `cast(${ref} as decimal(10,4))`;
+    // Through binary(8): as it is stored, FOR JSON writes its raw bytes.
+    if (type === "timestamp" || type === "rowversion") {
+      return `convert(varchar(18), cast(${ref} as binary(8)), 1)`;
     }
-    // The old large types can be neither compared, sorted, nor grouped.
-    if (type === "text" || type === "ntext") {
-      return `cast(${ref} as nvarchar(max))`;
-    }
-    if (type === "image") return `cast(${ref} as varbinary(max))`;
-    if (fieldType !== "datetime") return ref;
-    if (type === "datetimeoffset") {
-      return `cast(switchoffset(${ref}, '+00:00') as datetime2(7))`;
-    }
-    // A datetime without a zone is in the source's.
-    if (physical.zone === "UTC") return `cast(${ref} as datetime2(7))`;
-    return `cast((${ref} at time zone ${zoneLiteral(physical.zone)}) at time zone 'UTC' as datetime2(7))`;
+    return firstRead(ref, fieldType, physical);
+  },
+  floatOutput: (stored, physical) => {
+    const type = typeName(physical.type);
+    if (type !== "float" && type !== "real") return undefined;
+    const kind = type === "real" ? "f" : "d";
+    return `(case when ${floatFits(stored)} then '${kind}' + convert(varchar(32), ${stored}, 3) end)`;
+  },
+  readsCanonical: (physical) =>
+    ["money", "smallmoney"].includes(typeName(physical.type)),
+  firstSeal: {
+    readColumn: firstRead,
+    storedError: (ref, physical) => {
+      const type = typeName(physical.type);
+      return type === "float" || type === "real"
+        ? `(case when abs(${ref}) >= 1e28 then convert(varchar(32), ${ref}, 2) end)`
+        : undefined;
+    },
+    storedNumber: (ref, physical) => {
+      const type = typeName(physical.type);
+      return type === "float" || type === "real" ? ref : undefined;
+    },
   },
   // SUM(int) stays an int and overflows; AVG(int) drops the fraction.
   summed: (sql, physical) =>
@@ -431,7 +481,7 @@ export const SQLSERVER: SqlDialect = {
   storedError: (ref, physical) => {
     const type = typeName(physical.type);
     return type === "float" || type === "real"
-      ? `(case when abs(${ref}) >= 1e28 then convert(varchar(32), ${ref}, 2) end)`
+      ? `(case when not (${floatFits(ref)}) then convert(varchar(32), ${ref}, 2) end)`
       : undefined;
   },
   keyId: (columns) =>

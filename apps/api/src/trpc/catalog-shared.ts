@@ -8,6 +8,7 @@ import {
   describeColumns,
   type EngineCatalog,
   formatFormula,
+  instantDigitsOf,
   linkColumnConfig,
   readerColumnConfig,
   selectOptionNames,
@@ -131,6 +132,8 @@ export function publicColumns(
             !access?.readOnly(engine.table.id, column.name)
           : !access?.readOnly(engine.table.id, column.name),
       config,
+      /** The decimals of a second its column keeps, past the usual six. */
+      instantDigits: instantDigitsOf(engineByName.get(column.name)?.physical),
       kind: described?.kind ?? "text",
       elem: described?.elem ?? null,
       error: described?.error ?? null,

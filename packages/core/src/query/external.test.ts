@@ -309,10 +309,10 @@ describe("reading a client's table", () => {
         limit: 10,
       }).text;
       expect(sql).toContain(
-        `(case when abs(r."AMOUNT") < 1e28 then cast(r."AMOUNT" as decimal(38,10)) end) as "amount"`,
+        `(case when abs(r."AMOUNT") < 1e28 and (r."AMOUNT" = 0 or abs(r."AMOUNT") >= 1e-30) then cast(r."AMOUNT" as decimal(38,10)) end) as "amount"`,
       );
       expect(sql).toContain(
-        `(case when abs(r."AMOUNT") >= 1e28 then convert(varchar(32), r."AMOUNT", 2) end)`,
+        `(case when not (abs(r."AMOUNT") < 1e28 and (r."AMOUNT" = 0 or abs(r."AMOUNT") >= 1e-30)) then convert(varchar(32), r."AMOUNT", 2) end)`,
       );
     });
 
@@ -321,10 +321,10 @@ describe("reading a client's table", () => {
         limit: 10,
       }).text;
       expect(sql).toContain(
-        `(case when abs(r."AMOUNT") < 1e28 then cast(r."AMOUNT" as number(38,10)) end) as "amount"`,
+        `(case when abs(r."AMOUNT") < 1e28 and (r."AMOUNT" = 0 or abs(r."AMOUNT") >= 1e-30) then cast(r."AMOUNT" as number(38,10)) end) as "amount"`,
       );
       expect(sql).toContain(
-        `(case when r."AMOUNT" is not null and not abs(r."AMOUNT") < 1e28 then '!' || to_char(r."AMOUNT") end)`,
+        `(case when r."AMOUNT" is not null and not (abs(r."AMOUNT") < 1e28 and (r."AMOUNT" = 0 or abs(r."AMOUNT") >= 1e-30)) then '!' || to_char(r."AMOUNT") end)`,
       );
     });
 
@@ -449,9 +449,7 @@ describe("reading a client's table", () => {
         limit: 5,
         filter,
       }).text;
-      expect(sqlServer).toMatch(
-        /q\."ag_e\d+" is not null and \(q\."ag_n\d+" >/,
-      );
+      expect(sqlServer).toMatch(/where \(\(q\."ag_n\d+" >/);
       const oracle = buildReadRows(numberColumn("oracle", "binary_double"), {
         limit: 5,
         filter,

@@ -80,7 +80,7 @@ export function RowStatus({ row }: { row: RowItem }) {
     }
   }
 
-  const drift = row.drift;
+  const drift = row.ag_drift;
   const byName = new Map(
     table.table.columns.map((column) => [column.name, column]),
   );
@@ -139,11 +139,11 @@ export function RowStatus({ row }: { row: RowItem }) {
           ) : null}
         </div>
       </div>
-      {row.signature ? (
+      {row.ag_signature ? (
         <p className="text-xs text-muted-foreground">
-          {t`Signed by ${{ name: row.signature.displayName }} on ${{
-            date: formatInstant(row.signature.signedAt, table.locale),
-          }}: “${{ meaning: row.signature.meaning }}”`}
+          {t`Signed by ${{ name: row.ag_signature.displayName }} on ${{
+            date: formatInstant(row.ag_signature.signedAt, table.locale),
+          }}: “${{ meaning: row.ag_signature.meaning }}”`}
         </p>
       ) : null}
       {external && status === "locked" && !drift ? (

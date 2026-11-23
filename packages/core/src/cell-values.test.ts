@@ -486,3 +486,29 @@ describe("a text nothing can keep", () => {
     ).toEqual({ value: "é 🌍 \u0001" });
   });
 });
+
+describe("an instant's decimals follow its column", () => {
+  const plain = { fieldType: "datetime" as const, config: {} };
+  const seven = { ...plain, instantDigits: 7 };
+
+  it("takes seven decimals where the column keeps them", () => {
+    expect(() => {
+      assertCellValue(seven, "2026-01-02T03:04:05.1234567+00:00");
+    }).not.toThrow();
+    expect(coerceCellValue(seven, "2026-01-02T03:04:05.1234567+00:00")).toBe(
+      "2026-01-02T03:04:05.1234567+00:00",
+    );
+  });
+
+  it("refuses them where it does not, and eight everywhere", () => {
+    expect(() => {
+      assertCellValue(plain, "2026-01-02T03:04:05.1234567+00:00");
+    }).toThrow();
+    expect(
+      coerceCellValue(plain, "2026-01-02T03:04:05.1234567+00:00"),
+    ).toBeUndefined();
+    expect(() => {
+      assertCellValue(seven, "2026-01-02T03:04:05.12345678+00:00");
+    }).toThrow();
+  });
+});

@@ -4,7 +4,12 @@
  * that could say two things is not settled by guessing.
  */
 import { toDecimalString } from "./decimal";
-import { isIsoDate, isIsoDateTime, utcMillis } from "./iso-date";
+import {
+  INSTANT_DIGITS,
+  isIsoDate,
+  isIsoDateTime,
+  utcMillis,
+} from "./iso-date";
 
 /** What separates a number's decimals where the text was written. */
 export type DecimalMark = "." | ",";
@@ -295,7 +300,7 @@ function startOfDay(day: string, timeZone: string): string | undefined {
 
 const WRITTEN_ZONE =
   /^(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2}(?::\d{2}(?:\.\d{1,6})?)?) ?(Z|[+-]\d{2}(?::?\d{2})?)$/i;
-const CLOCK = /^(\d{1,2}):([0-5]\d)(?::([0-5]\d)(?:\.(\d{1,6}))?)?$/;
+const CLOCK = /^(\d{1,2}):([0-5]\d)(?::([0-5]\d)(?:\.(\d{1,7}))?)?$/;
 const MERIDIEM = / ?([ap])\.?m\.?$/i;
 
 /** An offset as an instant writes it: `+02` and `+0200` are `+02:00`. */
@@ -337,14 +342,14 @@ function readClock(
  */
 export function readInstantText(
   raw: string,
-  options: { order?: DayOrder; timeZone: string },
+  options: { order?: DayOrder; timeZone: string; digits?: number | undefined },
 ): string | undefined {
   const text = raw.trim().replace(/\s+/g, " ");
-  if (isIsoDateTime(text)) return text;
+  if (isIsoDateTime(text, options.digits)) return text;
   const zoned = WRITTEN_ZONE.exec(text);
   if (zoned) {
     const written = `${zoned[1]}T${zoned[2]}${offsetText(zoned[3] ?? "")}`;
-    return isIsoDateTime(written) ? written : undefined;
+    return isIsoDateTime(written, options.digits) ? written : undefined;
   }
   const day = readDayText(text, options.order);
   if (day) return startOfDay(day, options.timeZone);
@@ -355,6 +360,9 @@ export function readInstantText(
   const date = readDayText(text.slice(0, at), options.order);
   const clock = readClock(text.slice(at + 1));
   if (!date || !clock) return undefined;
+  if (clock.fraction.length > (options.digits ?? INSTANT_DIGITS)) {
+    return undefined;
+  }
   const wall =
     wallOfDay(date) +
     clock.hour * 3_600_000 +

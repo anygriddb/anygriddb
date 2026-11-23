@@ -124,6 +124,8 @@ export type EngineCatalog = {
   /** False for a table the caller cannot read: its values compile to empty. */
   readable: (tableId: string) => boolean;
   access?: EngineAccess;
+  /** Read as the first seal format read a client's row (ADR 0118). */
+  firstSealReading?: boolean;
 };
 
 export function findColumn(

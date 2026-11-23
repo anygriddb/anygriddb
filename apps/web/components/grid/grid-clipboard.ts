@@ -1,6 +1,7 @@
 import {
   decimalSeries,
   isDecimalString,
+  isIsoDateTime,
   parseDelimited,
   readCellValue,
 } from "@anygriddb/core";
@@ -123,6 +124,7 @@ const EXACT_FIELDS = new Set([
   "rating",
   "json",
   "boolean",
+  "datetime",
 ]);
 
 /**
@@ -136,6 +138,14 @@ function exactValue(
   if (copied?.fieldType !== column.fieldType) return undefined;
   if (!EXACT_FIELDS.has(column.fieldType)) return undefined;
   const { value } = copied;
+  // An instant finer than this column keeps is read as text, and refused.
+  if (
+    column.fieldType === "datetime" &&
+    typeof value === "string" &&
+    !isIsoDateTime(value, column.instantDigits)
+  ) {
+    return undefined;
+  }
   return value === null ||
     typeof value === "string" ||
     typeof value === "number" ||
@@ -246,7 +256,13 @@ export function planPaste(input: {
         continue;
       }
       const reading = readCellValue(
-        { fieldType: column.fieldType, config: column.config },
+        {
+          fieldType: column.fieldType,
+          config: column.config,
+          ...(column.instantDigits
+            ? { instantDigits: column.instantDigits }
+            : {}),
+        },
         raw,
         { resolveUser: input.resolveUser, ...input.reading },
       );

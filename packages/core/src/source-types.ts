@@ -192,17 +192,25 @@ const ORACLE: Record<string, FieldType> = {
 };
 
 /**
- * A column of Oracle: NUMBER(1) is its usual flag, as BOOLEAN is from 23ai;
+ * A column of Oracle: NUMBER(1) with a check to 0 and 1 is a flag, as BOOLEAN
+ * is from 23ai, and a code otherwise: unticking a 5 would lose it;
  * DATE, which also holds a time of day, reads as a date. JSON shows as
  * read-only long text; RAW, BLOB, intervals, ROWID, XML, and vectors as
  * read-only text. LONG, BFILE, and a type of the client's own are listed
  * too: their cell says the type, since no expression makes text of them.
  */
-export function mapOracleType(column: { type: string }): MappedField {
+export function mapOracleType(column: {
+  type: string;
+  /** A check keeps it to 0 and 1 (`checksFlag`): only then is it a flag. */
+  flagChecked?: boolean;
+}): MappedField {
   const type = column.type.trim().toLowerCase();
   const base = cutAtSpace(cutAt(type, "("));
   if (/^number\(1\)$/.test(type)) {
-    return { fieldType: "boolean", readOnly: false };
+    return {
+      fieldType: column.flagChecked ? "boolean" : "number",
+      readOnly: false,
+    };
   }
   const fieldType = ORACLE[base];
   if (fieldType) return { fieldType, readOnly: false };
@@ -279,6 +287,33 @@ export function checkChoices(
     return null;
   }
   return [...new Set(values)];
+}
+
+/** The decimals of a second a column keeps, where they pass the usual six. */
+export function instantDigitsOf(
+  physical: { type: string } | undefined,
+): 7 | undefined {
+  return physical &&
+    /^datetime(?:2|offset)(?:\(7\))?$/i.test(physical.type.trim())
+    ? 7
+    : undefined;
+}
+
+/** Whether a check keeps a column to the two values of a flag. */
+export function checksFlag(
+  definition: string | null | undefined,
+  column: string,
+): boolean {
+  if (!definition || definition.length > 200) return false;
+  const name = column.toUpperCase();
+  const text = definition.toUpperCase().replace(/["()\s]/g, "");
+  return [
+    `${name}IN0,1`,
+    `${name}IN1,0`,
+    `${name}=0OR${name}=1`,
+    `${name}=1OR${name}=0`,
+    `${name}BETWEEN0AND1`,
+  ].includes(text);
 }
 
 /** A text column a check limits to a list reads as a single select of it. */

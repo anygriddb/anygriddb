@@ -9318,6 +9318,10 @@ msgid "Rename view"
 msgstr "Rename view"
 
 #: components/record/record-panel.tsx
+msgid "renewed the seal after an update, the values unchanged"
+msgstr "renewed the seal after an update, the values unchanged"
+
+#: components/record/record-panel.tsx
 msgid "Reopen"
 msgstr "Reopen"
 
@@ -11406,6 +11410,10 @@ msgid "The client's database cannot find the linked row"
 msgstr "The client's database cannot find the linked row"
 
 #: lib/errors.ts
+msgid "The client's database cannot keep these characters in this field, so nothing was changed"
+msgstr "The client's database cannot keep these characters in this field, so nothing was changed"
+
+#: lib/errors.ts
 msgid "The client's database does not give the new row's key: fill it in"
 msgstr "The client's database does not give the new row's key: fill it in"
 
@@ -12258,6 +12266,10 @@ msgid "This channel's address changed: enter its secret again, so that it is not
 msgstr "This channel's address changed: enter its secret again, so that it is not sent to the new host unasked"
 
 #: lib/errors.ts
+msgid "This checkbox holds another value in the client's database, so it cannot be changed here"
+msgstr "This checkbox holds another value in the client's database, so it cannot be changed here"
+
+#: lib/errors.ts
 msgid "This code is wrong, or works no longer"
 msgstr "This code is wrong, or works no longer"
 
@@ -12501,6 +12513,10 @@ msgstr "This list leaves out the address you are saving it from, and would refus
 #: components/table/filter-builder.tsx
 msgid "this month"
 msgstr "this month"
+
+#: lib/errors.ts
+msgid "This number has more than 60 digits"
+msgstr "This number has more than 60 digits"
 
 #: lib/errors.ts
 msgid "This number reads two ways: say which decimal separator it uses"

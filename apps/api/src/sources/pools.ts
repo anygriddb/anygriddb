@@ -9,7 +9,7 @@
  * and drains the old one.
  */
 import type { KeyRing } from "../auth/key-ring.js";
-import { AppError, isCopySourceEngine } from "@anygriddb/core";
+import { AppError, isCopySourceEngine, withExactFloats } from "@anygriddb/core";
 import type { Database } from "@anygriddb/db";
 import mysql from "mysql2/promise";
 import pg from "pg";
@@ -99,9 +99,11 @@ async function inWrite<T>(
 function unpacked(row: Record<string, unknown>): Record<string, unknown> {
   const packed: unknown = row.ag_row;
   if (packed === undefined) return row;
-  return (
-    typeof packed === "string" ? JSON.parse(packed) : (packed ?? {})
-  ) as Record<string, unknown>;
+  return withExactFloats(
+    (typeof packed === "string"
+      ? JSON.parse(packed)
+      : (packed ?? {})) as Record<string, unknown>,
+  );
 }
 
 type Entry = {
@@ -211,6 +213,8 @@ function postgresBackend(
         );
         // Instants add and subtract in UTC, as on every engine (ADR 0005).
         await client.query("set local time zone 'UTC'");
+        // A float's text is its shortest exact form, whatever the role sets.
+        await client.query("set local extra_float_digits = 1");
         const result = await body(async (statement) => {
           const answer = await client.query(statement.text, [
             ...statement.values,
@@ -246,6 +250,7 @@ function postgresBackend(
               `set local lock_timeout = ${String(Math.min(row.queryTimeoutMs, LOCK_WAIT_MS))}`,
             );
             await client.query("set local time zone 'UTC'");
+            await client.query("set local extra_float_digits = 1");
             return body(
               async (statement) =>
                 (await client.query(statement.text, [...statement.values]))

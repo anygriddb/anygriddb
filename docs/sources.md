@@ -265,6 +265,9 @@ AnyGridDB does not change the client's schema to prevent it. What it does:
 - A job compares sealed rows with the client's database every five
   minutes. On a table watched for changes made elsewhere, a changed
   sealed row is compared within seconds.
+- A row sealed by an earlier version is compared the way that version
+  read it, then sealed again by the next check, with an entry in its
+  trail. The signatures keep the fingerprint they signed.
 - A row that no longer matches is marked in the grid and its panel,
   with the fields that moved and their sealed values. Those who locked
   or signed it and the table's owners are notified. It cannot be signed
@@ -342,7 +345,10 @@ other engines, and why:
   values holds nothing where the others hold an empty text.
 - `NUMBER` keeps no scale: `7.50` is stored and read as `7.5`. A
   `NUMBER(p)` column refuses a value with decimals rather than round it.
-- `NUMBER(1)` reads as a checkbox; so does `BOOLEAN` from 23ai.
+- `NUMBER(1)` reads as a checkbox when a check keeps it to 0 and 1, and
+  as a number otherwise; `BOOLEAN` from 23ai is a checkbox. A field already
+  exposed keeps its type: a checkbox over a stored 5 shows an error in its
+  cell rather than a state, so that nothing writes over the code.
 - `DATE` also holds a time of day: it reads as a date, the day alone,
   and a date written there is at midnight. Use `TIMESTAMP` for times.
 - `REGEX_MATCH`, `REGEX_EXTRACT`, and `REGEX_REPLACE` are refused, as on
@@ -467,7 +473,10 @@ mysql_tzinfo_to_sql /usr/share/zoneinfo | mysql -u root mysql
 
 Notes:
 
-- `tinyint(1)` reads as a checkbox and an `enum` as a single select.
+- `tinyint(1)` reads as a checkbox, ticked for anything but 0, and an
+  `enum` as a single select.
+- `TIME` reads as its text, past 24 hours and negative included. Binary
+  and blob columns read as `0x` and hexadecimal, their first 1,000 bytes.
 - A foreign key becomes a link only when the table declares it with
   `FOREIGN KEY … REFERENCES`: MySQL ignores a `REFERENCES` written in a
   column's definition.
@@ -504,6 +513,11 @@ Notes:
 
 - SQL Server has no read-only transaction: the account's grants keep
   AnyGridDB's reads reads. Grant it `SELECT`, and the writes people make.
+- `money` and `smallmoney` read with their four decimals. A `datetime2(7)`
+  or `datetimeoffset(7)` keeps its seven decimals of a second, written too.
+- A `varchar` keeps what its code page can. A text with a character it
+  lacks is refused, naming the field, and nothing is written; use
+  `nvarchar` or a `_UTF8` collation to keep any text.
 - Time zones reach SQL Server by their Windows names, mapped from the
   reader's zone (Unicode CLDR).
 - Formulas, lookups, and rollups run on SQL Server tables. T-SQL keeps at

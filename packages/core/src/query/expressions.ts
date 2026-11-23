@@ -1879,6 +1879,7 @@ export function columnError(
     return ctx.d.storedError?.(
       `${alias}.${quoteExternalIdent(physical.name)}`,
       physical,
+      column.fieldType,
     );
   }
   const expr = column.config.expr;

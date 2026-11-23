@@ -142,12 +142,30 @@ export interface SqlDialect {
    * undefined for a type that holds them all. The cell shows it as an
    * error: one value must not stop the read of a whole page.
    */
-  storedError?(ref: string, physical: PhysicalColumn): string | undefined;
+  storedError?(
+    ref: string,
+    physical: PhysicalColumn,
+    fieldType?: FieldType,
+  ): string | undefined;
   /**
    * A stored number as a comparison reads it, for a type that can hold what
-   * `storedError` says: what is not a number reads as null.
+   * `storedError` says: what is not a number reads as null. A filter and a
+   * sort compare this, so that a value keeps its place whatever a read of it
+   * rounds.
    */
   storedNumber?(ref: string, physical: PhysicalColumn): string | undefined;
+  /**
+   * What the row carries for a float this engine would round on its way
+   * out: the value `storedNumber` read, coded as `float-text.ts` says.
+   */
+  floatOutput?(stored: string, physical: PhysicalColumn): string | undefined;
+  /** Whether a stored number reads without the zeros its type pads it with. */
+  readsCanonical?(physical: PhysicalColumn): boolean;
+  /**
+   * How the first seal format read a column (ADR 0118): a row sealed then is
+   * compared by this reading until it is sealed again.
+   */
+  firstSeal?: Pick<SqlDialect, "readColumn" | "storedError" | "storedNumber">;
   /**
    * A number as a sum or a mean takes it, where the engine would keep the
    * column's own type and overflow or drop the fraction.
@@ -554,6 +572,40 @@ const PG_SCALAR: Record<ScalarKind, string> = {
   datetime: "timestamptz",
 };
 
+/** A number field over one of PostgreSQL's two float types. */
+function isPostgresFloat(
+  fieldType: FieldType,
+  physical: PhysicalColumn,
+): boolean {
+  const stored = typeName(physical.type);
+  return (
+    fieldType === "number" &&
+    (stored === "real" || stored === "double precision")
+  );
+}
+
+function postgresNotFinite(ref: string): string {
+  return `${ref} in ('Infinity'::float8, '-Infinity'::float8, 'NaN'::float8)`;
+}
+
+/** A client column as the first seal format read it (ADR 0118). */
+function firstPostgresRead(
+  ref: string,
+  fieldType: FieldType,
+  physical: PhysicalColumn,
+): string {
+  if (!isWritableType(fieldType)) return ref;
+  // A document is read as its text, as a table of AnyGridDB's own is.
+  if (fieldType === "json") return `(${ref})::text`;
+  const wanted = physicalSqlType(fieldType);
+  const stored = typeName(physical.type);
+  if (stored === wanted || stored === SAME_TYPE[wanted]) return ref;
+  if (wanted === "timestamptz" && stored === "timestamp without time zone") {
+    return `(${ref} at time zone ${zoneLiteral(physical.zone)})`;
+  }
+  return `(${ref})::${wanted}`;
+}
+
 export const POSTGRES: SqlDialect = {
   name: "postgres",
   boolLiteral: (value) => (value ? "true" : "false"),
@@ -605,17 +657,20 @@ export const POSTGRES: SqlDialect = {
     `exists (select 1 from jsonb_array_elements(${sql}) e where e->>'label' ilike ${pattern} escape '\\')`,
   linksIdIn: (sql, list) =>
     `exists (select 1 from jsonb_array_elements(${sql}) e where e->>'id' = any(${list}))`,
-  readColumn: (ref, fieldType, physical) => {
-    if (!isWritableType(fieldType)) return ref;
-    // A document is read as its text, as a table of AnyGridDB's own is.
-    if (fieldType === "json") return `(${ref})::text`;
-    const wanted = physicalSqlType(fieldType);
-    const stored = typeName(physical.type);
-    if (stored === wanted || stored === SAME_TYPE[wanted]) return ref;
-    if (wanted === "timestamptz" && stored === "timestamp without time zone") {
-      return `(${ref} at time zone ${zoneLiteral(physical.zone)})`;
-    }
-    return `(${ref})::${wanted}`;
+  readColumn: (ref, fieldType, physical) =>
+    isPostgresFloat(fieldType, physical)
+      ? `(case when ${postgresNotFinite(ref)} then null else ((${ref})::text)::numeric end)`
+      : firstPostgresRead(ref, fieldType, physical),
+  // Infinity and NaN are no number a field holds, and PostgreSQL 13 cannot
+  // cast the first to numeric at all: one value must not stop the page.
+  storedError: (ref, physical, fieldType) =>
+    fieldType && isPostgresFloat(fieldType, physical)
+      ? `(case when ${postgresNotFinite(ref)} then (${ref})::text end)`
+      : undefined,
+  firstSeal: {
+    readColumn: firstPostgresRead,
+    storedError: undefined,
+    storedNumber: undefined,
   },
   keyId: (columns) =>
     columns.length === 1
@@ -1114,6 +1169,45 @@ function mysqlLocal(sql: string, tz: string): string {
   return `convert_tz(${sql}, '+00:00', ${tz})`;
 }
 
+const MYSQL_BINARY: ReadonlySet<string> = new Set([
+  "binary",
+  "varbinary",
+  "tinyblob",
+  "blob",
+  "mediumblob",
+  "longblob",
+]);
+
+/** A client column as the first seal format read it (ADR 0118). */
+function firstMysqlRead(
+  ref: string,
+  fieldType: FieldType,
+  physical: PhysicalColumn,
+): string {
+  const type = typeName(physical.type);
+  // A JSON document (MySQL's JSON, MariaDB's LONGTEXT alias) shows as
+  // its text: JSON_OBJECT would nest it as an object otherwise.
+  if (
+    (fieldType === "text" ||
+      fieldType === "long_text" ||
+      fieldType === "json") &&
+    (type === "json" || type === "longtext")
+  ) {
+    return `cast(${ref} as char)`;
+  }
+  // Bits as a person reads them: raw, they are no text JSON can hold.
+  if (type === "bit") {
+    const width = /\((\d+)\)/.exec(physical.type)?.[1] ?? "1";
+    return `lpad(bin(${ref}), ${width}, '0')`;
+  }
+  if (MYSQL_SPATIAL.has(type)) return `st_astext(${ref})`;
+  if (fieldType !== "datetime") return ref;
+  // TIMESTAMP reads in the session's zone, UTC; DATETIME has none:
+  // it is in the source's.
+  if (type !== "datetime" || physical.zone === "UTC") return ref;
+  return `convert_tz(${ref}, ${zoneLiteral(physical.zone)}, '+00:00')`;
+}
+
 function mysqlDialect(name: "mysql" | "mariadb"): SqlDialect {
   return {
     name,
@@ -1189,27 +1283,23 @@ function mysqlDialect(name: "mysql" | "mariadb"): SqlDialect {
         .join(" or ")})`,
     readColumn: (ref, fieldType, physical) => {
       const type = typeName(physical.type);
-      // A JSON document (MySQL's JSON, MariaDB's LONGTEXT alias) shows as
-      // its text: JSON_OBJECT would nest it as an object otherwise.
-      if (
-        (fieldType === "text" ||
-          fieldType === "long_text" ||
-          fieldType === "json") &&
-        (type === "json" || type === "longtext")
-      ) {
-        return `cast(${ref} as char)`;
+      // JSON_OBJECT writes a TIME wrong past 31 hours.
+      if (type === "time") return `cast(${ref} as char)`;
+      // Bytes as hexadecimal, a thousand at most, as on Oracle: raw, they
+      // are no text JSON can hold.
+      if (MYSQL_BINARY.has(type)) {
+        return `concat('0x', hex(left(${ref}, 1000)))`;
       }
-      // Bits as a person reads them: raw, they are no text JSON can hold.
-      if (type === "bit") {
-        const width = /\((\d+)\)/.exec(physical.type)?.[1] ?? "1";
-        return `lpad(bin(${ref}), ${width}, '0')`;
+      // A flag holding 2 is checked: the grid, a filter and a group agree.
+      if (fieldType === "boolean" && type.startsWith("tinyint")) {
+        return `(${ref} <> 0)`;
       }
-      if (MYSQL_SPATIAL.has(type)) return `st_astext(${ref})`;
-      if (fieldType !== "datetime") return ref;
-      // TIMESTAMP reads in the session's zone, UTC; DATETIME has none:
-      // it is in the source's.
-      if (type !== "datetime" || physical.zone === "UTC") return ref;
-      return `convert_tz(${ref}, ${zoneLiteral(physical.zone)}, '+00:00')`;
+      return firstMysqlRead(ref, fieldType, physical);
+    },
+    firstSeal: {
+      readColumn: firstMysqlRead,
+      storedError: undefined,
+      storedNumber: undefined,
     },
     keyId: (columns) =>
       columns.length === 1
@@ -1516,6 +1606,16 @@ export const MYSQL = mysqlDialect("mysql");
 export const MARIADB = mysqlDialect("mariadb");
 
 /** The dialect a table's rows are read in. */
+/** The dialect as a row sealed in the first format was read (ADR 0118). */
+export function firstSealDialect(dialect: SqlDialect): SqlDialect {
+  return {
+    ...dialect,
+    ...dialect.firstSeal,
+    floatOutput: undefined,
+    readsCanonical: undefined,
+  };
+}
+
 export function dialectOf(table: EngineTable): SqlDialect {
   const dialect = baseDialect(table);
   return table.serverVersion

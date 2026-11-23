@@ -9318,6 +9318,10 @@ msgid "Rename view"
 msgstr "Renommer la vue"
 
 #: components/record/record-panel.tsx
+msgid "renewed the seal after an update, the values unchanged"
+msgstr "a renouvelé le sceau après une mise à jour, valeurs inchangées"
+
+#: components/record/record-panel.tsx
 msgid "Reopen"
 msgstr "Rouvrir"
 
@@ -11406,6 +11410,10 @@ msgid "The client's database cannot find the linked row"
 msgstr "La base du client ne trouve pas la ligne liée"
 
 #: lib/errors.ts
+msgid "The client's database cannot keep these characters in this field, so nothing was changed"
+msgstr "La base du client ne peut pas garder ces caractères dans ce champ : rien n’a été modifié"
+
+#: lib/errors.ts
 msgid "The client's database does not give the new row's key: fill it in"
 msgstr "La base du client ne donne pas la clé de la nouvelle ligne : renseignez-la"
 
@@ -12258,6 +12266,10 @@ msgid "This channel's address changed: enter its secret again, so that it is not
 msgstr "L’adresse de ce canal a changé : saisissez de nouveau son secret, pour qu’il ne soit pas envoyé au nouvel hôte sans votre accord"
 
 #: lib/errors.ts
+msgid "This checkbox holds another value in the client's database, so it cannot be changed here"
+msgstr "Cette case contient une autre valeur dans la base du client : elle ne peut pas être modifiée ici"
+
+#: lib/errors.ts
 msgid "This code is wrong, or works no longer"
 msgstr "Ce code est faux, ou ne sert plus"
 
@@ -12501,6 +12513,10 @@ msgstr "Cette liste exclut l’adresse depuis laquelle vous l’enregistrez, et 
 #: components/table/filter-builder.tsx
 msgid "this month"
 msgstr "ce mois-ci"
+
+#: lib/errors.ts
+msgid "This number has more than 60 digits"
+msgstr "Ce nombre a plus de 60 chiffres"
 
 #: lib/errors.ts
 msgid "This number reads two ways: say which decimal separator it uses"

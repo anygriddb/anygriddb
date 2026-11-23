@@ -95,7 +95,11 @@ function useSeenAtOpen(
 }
 
 function toCellColumn(column: CatalogColumn) {
-  return { fieldType: column.fieldType, config: column.config };
+  return {
+    fieldType: column.fieldType,
+    config: column.config,
+    ...(column.instantDigits ? { instantDigits: column.instantDigits } : {}),
+  };
 }
 
 /** Text shown in an input when editing an existing value. */
