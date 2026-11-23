@@ -788,9 +788,14 @@ test.describe("the grid", () => {
     const header = (label: string) =>
       page.getByRole("columnheader", { name: new RegExp(`^${label}`) });
     await expect(header("Amount")).toHaveAttribute("aria-colindex", "5");
+    // The save of the fields' order, and not that of the rows' height just
+    // before it: a view's saves go one after another, and the first to
+    // answer after this line may still be the other.
     const stored = page.waitForResponse(
       (response) =>
-        response.url().includes("catalog.updateView") && response.ok(),
+        response.url().includes("catalog.updateView") &&
+        (response.request().postData() ?? "").includes("fieldOrder") &&
+        response.ok(),
     );
     await header("Amount").dragTo(header("Notes"));
     await expect(header("Amount")).toHaveAttribute("aria-colindex", "3");
