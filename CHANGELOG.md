@@ -8,6 +8,11 @@ first.
 
 ## Unreleased
 
+## 0.7.3 - 2026-11-24
+
+**Upgrade with this release's Compose files and its pin, as usual: nothing else
+to do.** No migration.
+
 ### Added
 
 - **A timeline's bars move under the pointer.** Dragged by its middle, a bar
