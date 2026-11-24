@@ -110,6 +110,32 @@ describe("the role the application signs in as", () => {
     ).rejects.toThrow(/must be owner/);
   });
 
+  it("cannot choose an event's place in the trail, or leave it without one", async () => {
+    // Placed below what the collectors already have, or with no order at
+    // all, an event would never leave for them (ADR 0121).
+    const { rows: before } = await ownerPool.query<{ top: string }>(
+      "select coalesce(max(write_order), 0)::text as top from audit_events",
+    );
+    const { rows } = await pool.query<{
+      order: string | null;
+      xact: string;
+      own: string;
+    }>(
+      `insert into audit_events (user_id, action, write_order, xact_id)
+       values ($1, 'update', 1, '1'::xid8), ($1, 'update', null, null)
+       returning write_order::text as "order", xact_id::text as xact,
+                 pg_current_xact_id()::text as own`,
+      [userId],
+    );
+    expect(rows).toHaveLength(2);
+    for (const row of rows) {
+      expect(BigInt(row.order ?? "0")).toBeGreaterThan(
+        BigInt(before[0]?.top ?? "0"),
+      );
+      expect(row.xact).toBe(row.own);
+    }
+  });
+
   it("does not get past the trail with the flags that open it", async () => {
     await expect(
       inTransaction(

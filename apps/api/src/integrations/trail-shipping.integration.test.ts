@@ -9,7 +9,12 @@ import type pg from "pg";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { keyRing } from "../auth/key-ring.js";
 import { createTestDatabase } from "../test-database.js";
-import { BATCH_EVENTS, shipTrail, type TrailBatch } from "./trail-shipping.js";
+import {
+  BATCH_EVENTS,
+  shipTrail,
+  trailShippingStatus,
+  type TrailBatch,
+} from "./trail-shipping.js";
 import { verifyTrail } from "./trail-verify.js";
 
 describe("the change trail's copy at the collectors", () => {
@@ -21,6 +26,8 @@ describe("the change trail's copy at the collectors", () => {
   let close: (() => Promise<void>) | undefined;
   let alice = "";
   let bob = "";
+  /** Events from before the write order, oldest first (migration 0128). */
+  const early: string[] = [];
 
   const account = async (name: string) =>
     (
@@ -79,6 +86,17 @@ describe("the change trail's copy at the collectors", () => {
     close = created.close;
     alice = await account("Alice");
     bob = await account("Bob");
+    // Only the trail's owner can still write an event without an order.
+    for (const daysAgo of [3, 2, 1]) {
+      const { rows } = await ownerPool.query<{ id: string }>(
+        `insert into audit_events
+           (user_id, action, reason, occurred_at, write_order, xact_id)
+         values ($1, 'update', $2, now() - make_interval(days => $3), null, null)
+         returning id::text as id`,
+        [alice, randomUUID(), daysAgo],
+      );
+      early.push(rows[0]?.id ?? "");
+    }
     await pool.query(
       `insert into instance_settings (key, value, updated_by)
        values ('trailToCollector', 'true', $1)`,
@@ -90,17 +108,26 @@ describe("the change trail's copy at the collectors", () => {
     await close?.();
   });
 
-  it("starts when it is turned on, whether a collector is named yet or not", async () => {
-    await write(alice);
+  it("sends the whole trail: the events from before the write order by date, then the others in order", async () => {
+    const before = await write(alice);
+    // Turned on with no collector named yet: it begins from the start all the same.
     expect(await shipTrail({ db, key: ring, syslog: undefined })).toBe(0);
     const after = await write(bob);
-    await shipUntil([after]);
-    expect(sentIds()).toEqual([after]);
-    expect(sent.map((batch) => batch.batch)).toEqual([1]);
+    await shipUntil([...early, before, after]);
+    expect(sentIds().slice(0, early.length)).toEqual(early);
+    expect(sent[0]?.events.every((event) => event.order === null)).toBe(true);
+    const ordered = sentIds().slice(early.length);
+    expect(ordered.indexOf(before)).toBeGreaterThanOrEqual(0);
+    expect(ordered.indexOf(before)).toBeLessThan(ordered.indexOf(after));
+    expect(sent.map((batch) => batch.batch)).toEqual(
+      sent.map((_, index) => index + 1),
+    );
   });
 
   it("sends every event, in the order written, in chained batches", async () => {
     const from = sent.length;
+    const before = sent[from - 1];
+    if (!before) throw new Error("a batch before");
     const written: string[] = [];
     for (let index = 0; index < BATCH_EVENTS + 5; index += 1) {
       written.push(await write(index % 2 === 0 ? alice : bob));
@@ -110,8 +137,11 @@ describe("the change trail's copy at the collectors", () => {
     expect(
       batches.flatMap((batch) => batch.events.map((event) => event.id)),
     ).toEqual(written);
-    expect(batches.map((batch) => batch.batch)).toEqual([2, 3]);
-    expect(batches[0]?.previous).toBe(sent[0]?.digest);
+    expect(batches.map((batch) => batch.batch)).toEqual([
+      before.batch + 1,
+      before.batch + 2,
+    ]);
+    expect(batches[0]?.previous).toBe(before.digest);
     expect(batches[1]?.previous).toBe(batches[0]?.digest);
     expect(batches[0]?.key).toBe("test");
     expect((await ship()) + (await ship())).toBe(0);
@@ -145,15 +175,18 @@ describe("the change trail's copy at the collectors", () => {
   });
 
   it("names what the owner of the trail rewrote, and the batches lost", async () => {
-    const [altered, deleted, reassigned] = sent[1]?.events ?? [];
-    if (!altered || !deleted || !reassigned) throw new Error("three events");
+    const full = sent.find((batch) => batch.events.length === BATCH_EVENTS);
+    const [altered, deleted, reassigned] = full?.events ?? [];
+    if (!full || !altered || !deleted || !reassigned) {
+      throw new Error("a full batch");
+    }
     const owner = await ownerPool.connect();
     try {
       await owner.query("begin");
       await owner.query("alter table audit_events disable trigger user");
       await owner.query(
-        "update audit_events set reason = 'nothing happened' where id = $1",
-        [altered.id],
+        "update audit_events set reason = 'nothing happened' where id = any($1::uuid[])",
+        [[early[0], altered.id]],
       );
       await owner.query("delete from audit_events where id = $1", [deleted.id]);
       await owner.query("update audit_events set user_id = $1 where id = $2", [
@@ -167,18 +200,49 @@ describe("the change trail's copy at the collectors", () => {
     }
     const report = await verifyTrail(db, ring, file());
     expect(report.findings).toEqual([
-      { kind: "event_altered", batch: 2, id: altered.id },
-      { kind: "event_deleted", batch: 2, id: deleted.id },
-      { kind: "author_changed", batch: 2, id: reassigned.id },
+      { kind: "event_altered", batch: 1, id: early[0] },
+      { kind: "event_altered", batch: full.batch, id: altered.id },
+      { kind: "event_deleted", batch: full.batch, id: deleted.id },
+      { kind: "author_changed", batch: full.batch, id: reassigned.id },
     ]);
-    const lost = sent[2];
+    const lost = sent.find((batch) => batch.batch === full.batch + 1);
     const kept = sent.filter((batch) => batch !== lost);
     const gaps = await verifyTrail(db, ring, file(kept));
-    expect(gaps.findings).toContainEqual({ kind: "batch_missing", batch: 3 });
+    expect(gaps.findings).toContainEqual({
+      kind: "batch_missing",
+      batch: full.batch + 1,
+    });
     expect(
       gaps.findings.filter((finding) => finding.kind === "event_not_sent"),
     ).toEqual(
       lost?.events.map((event) => ({ kind: "event_not_sent", id: event.id })),
     );
+  });
+
+  it("names an early event no batch carried", async () => {
+    const [first, ...rest] = sent;
+    if (!first) throw new Error("the first batch");
+    const thinned = {
+      ...first,
+      events: first.events.filter((event) => event.id !== early[1]),
+    };
+    const report = await verifyTrail(db, ring, file([thinned, ...rest]));
+    expect(report.findings).toContainEqual({ kind: "batch_altered", batch: 1 });
+    expect(report.findings).toContainEqual({
+      kind: "event_not_sent",
+      id: early[1],
+    });
+  });
+
+  it("says how far it went, and what waits", async () => {
+    expect(await trailShippingStatus(db, undefined)).toMatchObject({
+      on: true,
+      collector: false,
+      indexed: true,
+      batch: sent.at(-1)?.batch,
+      waiting: 0,
+    });
+    await write(alice);
+    expect((await trailShippingStatus(db, undefined)).waiting).toBe(1);
   });
 });

@@ -8,6 +8,24 @@ first.
 
 ## Unreleased
 
+### Security
+
+- **An event's place in the change trail is the database's to give.** The
+  application's database role could insert an event with a write order of
+  its choosing, or none, and such an event would never have reached the
+  collectors. Its order and transaction are now taken by the database (ADR
+  0121).
+
+### Changed
+
+- **The copy of the change trail sends the whole trail**, oldest first, and no
+  longer starts at the newest event when it is turned on. The events written
+  before 0.6.1, which have no write order, go first, by date. A copy turned
+  on with 0.7.1 sends everything again in the same chain: a collector may get
+  an event twice. `anygriddb trail verify` checks them too. A long trail first
+  needs the indexes the copy reads: `docker compose run --rm indexes` under
+  Compose.
+
 ## 0.7.1 - 2026-11-24
 
 **Upgrade with this release's Compose files and its pin, as usual: nothing else

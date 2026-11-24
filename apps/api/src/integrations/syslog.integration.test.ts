@@ -341,25 +341,34 @@ describe("sign-in events to a syslog collector", () => {
     );
     const ship = () =>
       shipTrail({ db, key: env.AUTH_ENCRYPTION_KEY, syslog: collector });
-    await ship();
-    await pool.query(
-      "insert into audit_events (user_id, action) values ($1, 'update')",
+    const { rows } = await pool.query<{ id: string }>(
+      "insert into audit_events (user_id, action) values ($1, 'update') returning id::text as id",
       [author],
     );
-    // Once no transaction of the cluster open when it looked is still open.
-    for (let tries = 0; tries < 100 && received.length === 0; tries += 1) {
+    const written = rows[0]?.id ?? "";
+    const lines = () =>
+      received.map((frame) => frame.slice(frame.indexOf(" ") + 1));
+    // The whole trail goes; this event once no transaction of the cluster
+    // open when it looked is still open.
+    for (
+      let tries = 0;
+      tries < 100 && !lines().some((line) => line.includes(written));
+      tries += 1
+    ) {
       await ship();
       await new Promise((resolve) => setTimeout(resolve, 50));
     }
-    expect(received).toHaveLength(1);
-    const [frame = ""] = received;
-    const line = frame.slice(frame.indexOf(" ") + 1);
-    expect(line).toMatch(/^<133>1 \S+ \S+ anygriddb - trail - \{/);
-    expect(await verifyTrail(db, env.AUTH_ENCRYPTION_KEY, line)).toMatchObject({
-      batches: 1,
-      events: 1,
-      matched: 1,
-      findings: [],
-    });
+    expect(lines().some((line) => line.includes(written))).toBe(true);
+    for (const line of lines()) {
+      expect(line).toMatch(/^<133>1 \S+ \S+ anygriddb - trail - \{/);
+    }
+    const report = await verifyTrail(
+      db,
+      env.AUTH_ENCRYPTION_KEY,
+      lines().join("\n"),
+    );
+    expect(report.findings).toEqual([]);
+    expect(report.matched).toBe(report.events);
+    expect(report.batches).toBe(received.length);
   });
 });

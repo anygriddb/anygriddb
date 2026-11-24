@@ -3133,10 +3133,6 @@ msgstr "Changes are not allowed on this table: an administrator can enable them 
 msgid "Changes made elsewhere"
 msgstr "Changes made elsewhere"
 
-#: components/admin/security-tab.tsx
-msgid "Changes made from now on are sent within a minute."
-msgstr "Changes made from now on are sent within a minute."
-
 #: components/settings/table-rules-panel.tsx
 msgid "Changes not saved yet are not in this preview."
 msgstr "Changes not saved yet are not in this preview."
@@ -12149,6 +12145,10 @@ msgstr "The whole number just below: INT(-1.5) is -2."
 #: components/admin/account-page.tsx
 msgid "The whole sign-in trail"
 msgstr "The whole sign-in trail"
+
+#: components/admin/security-tab.tsx
+msgid "The whole trail is sent first, its oldest change first, then each change within a minute."
+msgstr "The whole trail is sent first, its oldest change first, then each change within a minute."
 
 #: components/fields/formula-docs.ts
 msgid "The working days between two dates, both counted."

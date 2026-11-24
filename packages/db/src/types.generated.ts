@@ -1045,6 +1045,9 @@ export interface TotpSecrets {
 export interface TrailShipping {
   batch: Generated<Int8>;
   digest: string | null;
+  earlyAt: Timestamp | null;
+  earlyDone: Generated<boolean>;
+  earlyId: string | null;
   failedAt: Timestamp | null;
   horizonOrder: Int8 | null;
   horizonXact: string | null;

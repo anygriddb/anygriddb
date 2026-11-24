@@ -95,7 +95,7 @@ function TrailCopyStatus() {
     const batch = data.batch;
     said = t`Last batch sent ${sent}, number ${batch}.`;
   } else {
-    said = t`Changes made from now on are sent within a minute.`;
+    said = t`The whole trail is sent first, its oldest change first, then each change within a minute.`;
   }
   return (
     <p className="max-w-2xl text-sm text-muted-foreground" role="status">

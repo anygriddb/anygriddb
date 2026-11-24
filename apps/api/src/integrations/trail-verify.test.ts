@@ -176,6 +176,25 @@ describe("verdictOf", () => {
   });
 });
 
+describe("an event from before the write order", () => {
+  const held = row(7, { order: null });
+  const batch = buildBatch([held], KEY, 1, null);
+  const entry = batch.events[0];
+  if (!entry) throw new Error("one event");
+
+  it("is sent with no order, and matches as it is held", () => {
+    expect(entry.order).toBeNull();
+    expect(checkChain([batch]).findings).toEqual([]);
+    expect(verdictOf(entry, KEY.id, held, context)).toBe("matched");
+  });
+
+  it("does not match an event that took an order since", () => {
+    expect(verdictOf(entry, KEY.id, { ...held, order: "7" }, context)).toBe(
+      "event_altered",
+    );
+  });
+});
+
 describe("describeTrailReport", () => {
   it("says what was found, one line each", () => {
     const text = describeTrailReport({

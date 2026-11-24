@@ -1204,8 +1204,9 @@ address, never an email or a secret. Two ways, alone or together:
 The change trail stays in the database, and whoever holds the credentials
 of the role that owns the tables can rewrite it. To keep a copy out of its
 reach, turn on Administration, Security, Change trail, "Send to the
-collectors". The collectors above then also get, within a minute of each
-change, what it is and never what it held (ADR 0120):
+collectors". The collectors above then also get the whole trail, oldest
+change first, then each change within a minute: what it is, never what it
+held (ADRs 0120, 0121):
 
 ```json
 {
@@ -1232,10 +1233,12 @@ change, what it is and never what it held (ADR 0120):
 Up to 25 events a batch, so a syslog line (message id `trail`) stays under
 8 KiB. Batches are numbered from 1 and chained: keep them all, in a store
 the instance's own accounts cannot write to. A batch may arrive twice, with
-the same number and content, when a collector was away. What was written
-before the copy was turned on is not sent.
+the same number and content, when a collector was away. The events written
+before 0.6.1 carry no write order (`"order": null`) and go first, by date. A
+long trail takes a while to send: each batch is one request, and
+Administration says how many events still wait.
 
-A long trail first needs the index the batches are read by. An instance
+A long trail first needs the two indexes the batches are read by. An instance
 whose application owns the tables builds it at its start; under Compose,
 where it does not, run `docker compose run --rm indexes`. Administration
 shows the copy's state: the last batch, what waits, a failure.

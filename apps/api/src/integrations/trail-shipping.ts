@@ -2,8 +2,9 @@
  * The change trail's copy where the database cannot reach it (ADR 0120).
  * Each event leaves for the instance's collectors as a fingerprint: what it
  * is (its id, order, time, action and authors) and a keyed digest of all it
- * holds, never a value. Events go in the order they were written, in
- * numbered batches that each carry the digest of the batch before, so that
+ * holds, never a value. The whole trail goes, oldest first: the events from
+ * before the write order by their date, then the others in the order they
+ * were written. They go in numbered batches that each carry the digest of the batch before, so that
  * a batch lost or changed on the way shows at the collector, and an event
  * later rewritten in the database shows against it (`trail-verify.ts`).
  */
@@ -20,14 +21,20 @@ import { sendTrailToSyslog, syslogNamed } from "./syslog.js";
 export const BATCH_EVENTS = 25;
 /** How long one run sends: the next minute's run takes up from there. */
 const RUN_MS = 45_000;
-/** The index the batches are read by (migration 0133). */
-export const TRAIL_ORDER_INDEX = "audit_events_write_order";
+/**
+ * The indexes the batches are read by (migrations 0133, 0134): a long trail
+ * gets them after the start (`trail-index.ts`).
+ */
+export const TRAIL_INDEXES = {
+  audit_events_write_order: "(write_order) where write_order is not null",
+  audit_events_early: "(occurred_at, id) where write_order is null",
+} as const;
 
 /** One event as a collector gets it. */
 export type TrailEntry = {
   id: string;
-  /** Its write order, as a decimal text: a bigint. */
-  order: string;
+  /** Its write order, as a decimal text: a bigint. None before 0.6.1. */
+  order: string | null;
   /** When its transaction began, UTC, to the microsecond. */
   at: string;
   action: string;
@@ -115,20 +122,20 @@ type ShippingState = {
   digest: string | null;
   horizonOrder: string | null;
   horizonXact: string | null;
+  earlyDone: boolean;
 };
 
 /**
- * Where the copy stands, made the first time it is asked for: from the
- * newest event then, since the events before were never sent.
+ * Where the copy stands, made the first time it is asked for: before the
+ * first event, so that the whole trail goes.
  */
 async function startingState(db: Database): Promise<ShippingState> {
-  await sql`insert into trail_shipping (shipped_order)
-    select coalesce(max(write_order), 0) from audit_events
+  await sql`insert into trail_shipping (shipped_order) values (0)
     on conflict (id) do nothing`.execute(db);
   const { rows } =
     await sql<ShippingState>`select shipped_order::text as "shippedOrder",
       batch::text as "batch", digest, horizon_order::text as "horizonOrder",
-      horizon_xact::text as "horizonXact"
+      horizon_xact::text as "horizonXact", early_done as "earlyDone"
     from trail_shipping where id`.execute(db);
   const state = rows[0];
   if (!state) throw new Error("trail_shipping has no row");
@@ -140,8 +147,8 @@ async function startingState(db: Database): Promise<ShippingState> {
  * written, so one taken by a transaction still open can be below one
  * already seen. The newest order is noted with the snapshot's horizon; once
  * every transaction open then has ended, nothing below that order can still
- * appear, and batches may reach it. The transaction's id is taken first,
- * by the trail's column default, before its write order.
+ * appear, and batches may reach it. An event's transaction is taken before
+ * its write order (migration 0134).
  */
 async function safeOrder(
   db: Database,
@@ -185,12 +192,28 @@ async function eventsAfter(
   return rows;
 }
 
-/** Whether the index batches are read by exists and can be used. */
+/**
+ * The next events from before the write order, by their date then their
+ * id, after the last one sent. None is added any more: only the trail's
+ * owner could write one without an order.
+ */
+async function earlyEvents(db: Database): Promise<TrailRow[]> {
+  const { rows } = await sql<TrailRow>`select ${TRAIL_ROW} from audit_events
+    where write_order is null
+      and (occurred_at, id) > (
+        select coalesce(early_at, '-infinity'), coalesce(early_id, '00000000-0000-0000-0000-000000000000')
+          from trail_shipping where id)
+    order by occurred_at, id limit ${BATCH_EVENTS}`.execute(db);
+  return rows;
+}
+
+/** Whether every index the batches are read by exists and can be used. */
 export async function trailOrderIndexed(db: Database): Promise<boolean> {
-  const { rows } = await sql<{ valid: boolean }>`select i.indisvalid as "valid"
+  const names = Object.keys(TRAIL_INDEXES);
+  const { rows } = await sql<{ name: string }>`select c.relname as "name"
     from pg_index i join pg_class c on c.oid = i.indexrelid
-    where c.relname = ${TRAIL_ORDER_INDEX}`.execute(db);
-  return rows.some((row) => row.valid);
+    where c.relname = any(${names}::text[]) and i.indisvalid`.execute(db);
+  return names.every((name) => rows.some((row) => row.name === name));
 }
 
 export type ShipDeps = {
@@ -218,6 +241,92 @@ async function collectors(
   };
 }
 
+/** Sends one batch, saying when it failed. */
+async function sendBatch(
+  deps: ShipDeps,
+  send: (batch: TrailBatch) => Promise<void>,
+  rows: readonly TrailRow[],
+  state: ShippingState,
+): Promise<TrailBatch> {
+  const made = buildBatch(
+    rows,
+    currentKey(deps.key, "trail"),
+    Number(state.batch) + 1,
+    state.digest,
+  );
+  try {
+    await send(made);
+  } catch (error) {
+    await sql`update trail_shipping set failed_at = now() where id`.execute(
+      deps.db,
+    );
+    throw error;
+  }
+  return made;
+}
+
+/**
+ * Sends the next batch of early events, or says they are all sent. Answers
+ * how many went, or null when another run moved on.
+ */
+async function shipEarly(
+  deps: ShipDeps,
+  send: (batch: TrailBatch) => Promise<void>,
+  state: ShippingState,
+): Promise<{ sent: number; state: ShippingState } | null> {
+  const rows = await earlyEvents(deps.db);
+  const last = rows.at(-1);
+  if (!last) {
+    await sql`update trail_shipping set early_done = true where id`.execute(
+      deps.db,
+    );
+    return { sent: 0, state: { ...state, earlyDone: true } };
+  }
+  const made = await sendBatch(deps, send, rows, state);
+  const moved = await sql`update trail_shipping
+    set early_at = ${last.at}::timestamptz, early_id = ${last.id}::uuid,
+        batch = ${made.batch}, digest = ${made.digest},
+        failed_at = null, shipped_at = now()
+    where id and batch = ${state.batch}::bigint`.execute(deps.db);
+  if (moved.numAffectedRows !== 1n) return null;
+  return {
+    sent: rows.length,
+    state: { ...state, batch: String(made.batch), digest: made.digest },
+  };
+}
+
+/**
+ * Sends the next batch of events in their write order, as far as the
+ * horizon allows. Answers how many went, or null when there is nothing to
+ * send yet or another run moved on.
+ */
+async function shipOrdered(
+  deps: ShipDeps,
+  send: (batch: TrailBatch) => Promise<void>,
+  before: ShippingState,
+): Promise<{ sent: number; state: ShippingState } | null> {
+  const { safe, state } = await safeOrder(deps.db, before);
+  if (BigInt(state.shippedOrder) >= BigInt(safe)) return null;
+  const rows = await eventsAfter(deps.db, state.shippedOrder, safe);
+  const last = rows.at(-1)?.order ?? safe;
+  const made =
+    rows.length > 0 ? await sendBatch(deps, send, rows, state) : null;
+  const batch = made ? String(made.batch) : state.batch;
+  const digest = made ? made.digest : state.digest;
+  // Another run that sent the same batch has moved on: this one stops.
+  const moved = await sql`update trail_shipping
+    set shipped_order = ${last}::bigint, batch = ${batch}::bigint,
+        digest = ${digest}, failed_at = null,
+        shipped_at = case when ${made !== null}::boolean then now() else shipped_at end
+    where id and batch = ${state.batch}::bigint
+      and shipped_order = ${state.shippedOrder}::bigint`.execute(deps.db);
+  if (moved.numAffectedRows !== 1n) return null;
+  return {
+    sent: rows.length,
+    state: { ...state, shippedOrder: last, batch, digest },
+  };
+}
+
 /**
  * Sends what the collectors do not have yet, a batch at a time, for at
  * most `runMs`. Answers how many events went. A collector that refuses
@@ -226,49 +335,19 @@ async function collectors(
 export async function shipTrail(deps: ShipDeps): Promise<number> {
   if (!(await readSettings(deps.db)).trailToCollector) return 0;
   if (!(await trailOrderIndexed(deps.db))) return 0;
-  // From here on every event goes, a collector named now or later.
+  // From here on the whole trail goes, a collector named now or later.
   let state = await startingState(deps.db);
   const send = deps.send ?? (await collectors(deps));
   if (!send) return 0;
   const until = Date.now() + (deps.runMs ?? RUN_MS);
   let sent = 0;
   while (Date.now() < until) {
-    const next = await safeOrder(deps.db, state);
-    state = next.state;
-    const safe = next.safe;
-    if (BigInt(state.shippedOrder) >= BigInt(safe)) break;
-    const rows = await eventsAfter(deps.db, state.shippedOrder, safe);
-    const last = rows.at(-1)?.order ?? safe;
-    let digest = state.digest;
-    let batch = state.batch;
-    if (rows.length > 0) {
-      const made = buildBatch(
-        rows,
-        currentKey(deps.key, "trail"),
-        Number(state.batch) + 1,
-        state.digest,
-      );
-      try {
-        await send(made);
-      } catch (error) {
-        await sql`update trail_shipping set failed_at = now() where id`.execute(
-          deps.db,
-        );
-        throw error;
-      }
-      digest = made.digest;
-      batch = String(made.batch);
-      sent += rows.length;
-    }
-    // Another run that sent the same batch has moved on: this one stops.
-    const moved = await sql`update trail_shipping
-      set shipped_order = ${last}::bigint, batch = ${batch}::bigint,
-          digest = ${digest}, failed_at = null,
-          shipped_at = case when ${rows.length > 0}::boolean then now() else shipped_at end
-      where id and batch = ${state.batch}::bigint
-        and shipped_order = ${state.shippedOrder}::bigint`.execute(deps.db);
-    if (moved.numAffectedRows !== 1n) break;
-    state = { ...state, shippedOrder: last, batch, digest };
+    const step = state.earlyDone
+      ? await shipOrdered(deps, send, state)
+      : await shipEarly(deps, send, state);
+    if (!step) break;
+    sent += step.sent;
+    state = step.state;
   }
   return sent;
 }
@@ -277,12 +356,12 @@ export type TrailShippingStatus = {
   on: boolean;
   /** A collector is named: the HTTPS one, or syslog. */
   collector: boolean;
-  /** The index batches are read by; a long trail gets it after the start. */
+  /** The indexes batches are read by; a long trail gets them after the start. */
   indexed: boolean;
   batch: number;
   shippedAt: string | null;
   failedAt: string | null;
-  /** Events written and not sent yet; null when it cannot be counted cheaply. */
+  /** Events not sent yet; null when they cannot be counted cheaply. */
   waiting: number | null;
 };
 
@@ -303,13 +382,22 @@ export async function trailShippingStatus(
       .executeTakeFirst(),
   ]);
   let waiting: number | null = null;
-  if (indexed && state) {
-    const { rows } = await sql<{
-      waiting: string;
-    }>`select count(*)::text as "waiting"
-      from audit_events where write_order > ${state.shippedOrder}::bigint`.execute(
-      db,
-    );
+  if (indexed) {
+    // Read where the copy stands in the database itself: its cursor keeps
+    // microseconds a date in this process would lose.
+    const { rows } = await sql<{ waiting: string }>`select (
+        (select count(*) from audit_events
+          where write_order > coalesce(
+            (select shipped_order from trail_shipping where id), 0))
+        + (select count(*) from audit_events e
+            where e.write_order is null
+              and not coalesce((select early_done from trail_shipping where id), false)
+              and (e.occurred_at, e.id) > (
+                select coalesce(t.early_at, '-infinity'),
+                       coalesce(t.early_id, '00000000-0000-0000-0000-000000000000')
+                  from (select 1) one
+                  left join trail_shipping t on t.id))
+      )::text as "waiting"`.execute(db);
     waiting = Number(rows[0]?.waiting ?? 0);
   }
   return {
