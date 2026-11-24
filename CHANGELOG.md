@@ -8,6 +8,13 @@ first.
 
 ## Unreleased
 
+## 0.7.4 - 2026-11-24
+
+**Upgrade with this release's Compose files and its pin, as usual: nothing else
+to do.** No migration. Going back to 0.7.3 afterwards, a restore point that
+0.7.4 made of a base with comments can no longer be read: make again the
+points you need.
+
 ### Added
 
 - **A restore point, a copy of a base, and a copy of a table with its rows
