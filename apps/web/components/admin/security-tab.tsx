@@ -77,6 +77,16 @@ function TrailCopyStatus() {
   const data = status.data;
   if (!data) return <Spinner />;
   const waiting = data.waiting ?? 0;
+  // The count stops at a bound: past it, the page says "more than".
+  const waitingText = data.waitingMore
+    ? plural(waiting, {
+        one: "More than # change not sent yet.",
+        other: "More than # changes not sent yet.",
+      })
+    : plural(waiting, {
+        one: "# change not sent yet.",
+        other: "# changes not sent yet.",
+      });
   const when = (iso: string) =>
     new Date(iso).toLocaleString(intlLocale(i18n.locale), {
       dateStyle: "long",
@@ -100,12 +110,7 @@ function TrailCopyStatus() {
   return (
     <p className="max-w-2xl text-sm text-muted-foreground" role="status">
       {said}
-      {waiting > 0
-        ? ` ${plural(waiting, {
-            one: "# change not sent yet.",
-            other: "# changes not sent yet.",
-          })}`
-        : ""}
+      {waiting > 0 ? ` ${waitingText}` : ""}
     </p>
   );
 }
