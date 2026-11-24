@@ -5,6 +5,7 @@ A spreadsheet interface on the databases you already run: open source, **AGPL-3.
 [![License](https://img.shields.io/badge/license-AGPL--3.0-blue.svg)](LICENSE)
 [![OSI](https://img.shields.io/badge/OSI-approved-green.svg)](https://opensource.org/licenses/AGPL-3.0)
 [![Commits](https://img.shields.io/badge/commits-conventional-green.svg)](https://www.conventionalcommits.org/en/v1.0.0/)
+[![Quality gate](https://sonarcloud.io/api/project_badges/measure?project=anygriddb_anygriddb&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=anygriddb_anygriddb)
 
 Every table is a real SQL table, in AnyGridDB's own PostgreSQL or in your own database: PostgreSQL, MySQL, MariaDB, SQL Server, or Oracle.
 
