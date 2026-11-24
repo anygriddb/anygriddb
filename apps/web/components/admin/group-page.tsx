@@ -3,6 +3,7 @@ import {
   Input,
   Label,
   ListPicker,
+  ReadOnly,
   Select,
   Spinner,
   Textarea,
@@ -15,6 +16,7 @@ import { ArrowLeft, Plus, X } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { useErrorText } from "../../lib/errors";
+import { useSession } from "../../lib/session";
 import { trpc, useTRPC } from "../../lib/trpc";
 import type { Role } from "../../lib/types";
 import { useRoleLabel } from "../settings/role-label";
@@ -38,6 +40,7 @@ export function GroupAdminPage({ groupId }: { groupId: string }) {
   const navigate = useNavigate();
   const stepUp = useStepUp();
   const roleLabel = useRoleLabel();
+  const isAdmin = useSession().data?.isAdmin === true;
   const detail = useQuery(api.admin.groups.get.queryOptions({ groupId }));
   const [busy, setBusy] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -316,157 +319,161 @@ export function GroupAdminPage({ groupId }: { groupId: string }) {
         ) : null}
       </section>
 
-      <section className="flex flex-col gap-2" aria-labelledby="group-bases">
-        <h3 id="group-bases" className="text-sm font-semibold">
-          {t`Roles on bases`}
-        </h3>
-        {group.roles.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            {t`No base gives this group a role yet.`}
-          </p>
-        ) : (
-          <ul className="divide-y divide-border rounded-sm border border-border">
-            {group.roles.map((row) => (
-              <li
-                key={row.baseId}
-                className="flex flex-wrap items-center justify-between gap-2 px-3 py-2"
-              >
-                <Link
-                  to="/admin/bases/$baseId"
-                  params={{ baseId: row.baseId }}
-                  className="min-w-0 flex-1 truncate hover:underline"
+      {/* The role a group holds on a base is an administrator's to give,
+          never an account manager's (ADR 0126). */}
+      <ReadOnly when={!isAdmin}>
+        <section className="flex flex-col gap-2" aria-labelledby="group-bases">
+          <h3 id="group-bases" className="text-sm font-semibold">
+            {t`Roles on bases`}
+          </h3>
+          {group.roles.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              {t`No base gives this group a role yet.`}
+            </p>
+          ) : (
+            <ul className="divide-y divide-border rounded-sm border border-border">
+              {group.roles.map((row) => (
+                <li
+                  key={row.baseId}
+                  className="flex flex-wrap items-center justify-between gap-2 px-3 py-2"
                 >
-                  {row.baseName}
-                </Link>
-                <span className="flex items-center gap-1">
-                  <Select
-                    aria-label={t`Role on ${{ base: row.baseName }}`}
-                    className="w-36"
-                    value={row.role}
-                    disabled={busy}
-                    onChange={(event) => {
-                      const next = event.target.value as Role;
-                      void run(
-                        () =>
-                          trpc.admin.groups.setBaseRole.mutate({
-                            groupId,
-                            baseId: row.baseId,
-                            role: next,
-                          }),
-                        t`Role changed`,
-                        true,
-                      );
-                    }}
+                  <Link
+                    to="/admin/bases/$baseId"
+                    params={{ baseId: row.baseId }}
+                    className="min-w-0 flex-1 truncate hover:underline"
                   >
-                    {ROLES.map((option) => (
-                      <option key={option} value={option}>
-                        {roleLabel(option)}
-                      </option>
-                    ))}
-                  </Select>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    aria-label={t`Remove from ${{ base: row.baseName }}`}
-                    disabled={busy}
-                    onClick={() =>
-                      void run(
-                        () =>
-                          trpc.admin.groups.setBaseRole.mutate({
-                            groupId,
-                            baseId: row.baseId,
-                            role: null,
-                          }),
-                        t`Role removed`,
-                        true,
-                      )
-                    }
-                  >
-                    <X className="h-4 w-4" aria-hidden />
-                  </Button>
-                </span>
-              </li>
-            ))}
-          </ul>
-        )}
-        {!pickingBase ? (
-          <Button
-            size="sm"
-            variant="outline"
-            className="self-start"
-            onClick={() => setPickingBase(true)}
-          >
-            <Plus className="h-3.5 w-3.5" aria-hidden />
-            {t`Give a role on a base`}
-          </Button>
-        ) : (
-          <div className="flex flex-col gap-2 rounded-sm border border-border p-2">
-            <ListPicker
-              label={t`Find a base`}
-              listLabel={t`Bases of the instance`}
-              inputValue={baseTyped}
-              onInputChange={setBaseTyped}
-              options={baseOptions}
-              selectionMode="single"
-              selected={[]}
-              onToggle={(id) => {
-                const chosen = bases.found.find((base) => base.id === id);
-                if (!chosen) return;
-                void run(
-                  () =>
-                    trpc.admin.groups.setBaseRole.mutate({
-                      groupId,
-                      baseId: chosen.id,
-                      role: baseRole,
-                    }),
-                  t`Role given on ${{ base: chosen.name }}`,
-                  true,
-                ).then((ok) => {
-                  if (!ok) return;
-                  setPickingBase(false);
-                  setBaseTyped("");
-                  setBaseRole("viewer");
-                });
-              }}
-              className="max-h-48"
-              empty={
-                bases.loading ? (
-                  <span className="flex justify-center">
-                    <Spinner />
+                    {row.baseName}
+                  </Link>
+                  <span className="flex items-center gap-1">
+                    <Select
+                      aria-label={t`Role on ${{ base: row.baseName }}`}
+                      className="w-36"
+                      value={row.role}
+                      disabled={busy}
+                      onChange={(event) => {
+                        const next = event.target.value as Role;
+                        void run(
+                          () =>
+                            trpc.admin.groups.setBaseRole.mutate({
+                              groupId,
+                              baseId: row.baseId,
+                              role: next,
+                            }),
+                          t`Role changed`,
+                          true,
+                        );
+                      }}
+                    >
+                      {ROLES.map((option) => (
+                        <option key={option} value={option}>
+                          {roleLabel(option)}
+                        </option>
+                      ))}
+                    </Select>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      aria-label={t`Remove from ${{ base: row.baseName }}`}
+                      disabled={busy}
+                      onClick={() =>
+                        void run(
+                          () =>
+                            trpc.admin.groups.setBaseRole.mutate({
+                              groupId,
+                              baseId: row.baseId,
+                              role: null,
+                            }),
+                          t`Role removed`,
+                          true,
+                        )
+                      }
+                    >
+                      <X className="h-4 w-4" aria-hidden />
+                    </Button>
                   </span>
-                ) : (
-                  t`No base by that name`
-                )
-              }
-            />
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <Select
-                aria-label={t`Role`}
-                className="w-36"
-                value={baseRole}
-                onChange={(event) => setBaseRole(event.target.value as Role)}
-              >
-                {ROLES.map((option) => (
-                  <option key={option} value={option}>
-                    {roleLabel(option)}
-                  </option>
-                ))}
-              </Select>
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() => {
-                  setPickingBase(false);
-                  setBaseTyped("");
-                  setBaseRole("viewer");
+                </li>
+              ))}
+            </ul>
+          )}
+          {!isAdmin ? null : !pickingBase ? (
+            <Button
+              size="sm"
+              variant="outline"
+              className="self-start"
+              onClick={() => setPickingBase(true)}
+            >
+              <Plus className="h-3.5 w-3.5" aria-hidden />
+              {t`Give a role on a base`}
+            </Button>
+          ) : (
+            <div className="flex flex-col gap-2 rounded-sm border border-border p-2">
+              <ListPicker
+                label={t`Find a base`}
+                listLabel={t`Bases of the instance`}
+                inputValue={baseTyped}
+                onInputChange={setBaseTyped}
+                options={baseOptions}
+                selectionMode="single"
+                selected={[]}
+                onToggle={(id) => {
+                  const chosen = bases.found.find((base) => base.id === id);
+                  if (!chosen) return;
+                  void run(
+                    () =>
+                      trpc.admin.groups.setBaseRole.mutate({
+                        groupId,
+                        baseId: chosen.id,
+                        role: baseRole,
+                      }),
+                    t`Role given on ${{ base: chosen.name }}`,
+                    true,
+                  ).then((ok) => {
+                    if (!ok) return;
+                    setPickingBase(false);
+                    setBaseTyped("");
+                    setBaseRole("viewer");
+                  });
                 }}
-              >
-                {t`Cancel`}
-              </Button>
+                className="max-h-48"
+                empty={
+                  bases.loading ? (
+                    <span className="flex justify-center">
+                      <Spinner />
+                    </span>
+                  ) : (
+                    t`No base by that name`
+                  )
+                }
+              />
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <Select
+                  aria-label={t`Role`}
+                  className="w-36"
+                  value={baseRole}
+                  onChange={(event) => setBaseRole(event.target.value as Role)}
+                >
+                  {ROLES.map((option) => (
+                    <option key={option} value={option}>
+                      {roleLabel(option)}
+                    </option>
+                  ))}
+                </Select>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => {
+                    setPickingBase(false);
+                    setBaseTyped("");
+                    setBaseRole("viewer");
+                  }}
+                >
+                  {t`Cancel`}
+                </Button>
+              </div>
             </div>
-          </div>
-        )}
-      </section>
+          )}
+        </section>
+      </ReadOnly>
 
       {deleting ? (
         <ConfirmDialog

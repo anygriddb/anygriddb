@@ -279,6 +279,8 @@ export function Sidebar({
     isAdmin?: boolean;
     isSupport?: boolean;
     isAuditor?: boolean;
+    /** Parts of Administration given apart (ADR 0126). */
+    instanceRoles?: readonly string[];
   };
 }) {
   const { t } = useLingui();
@@ -636,7 +638,11 @@ export function Sidebar({
       </nav>
       <div className="mt-auto flex items-center gap-1 border-t border-border px-2 py-1.5">
         <UserMenu user={user} />
-        {reads && (user.isAdmin || user.isSupport || user.isAuditor) ? (
+        {reads &&
+        (user.isAdmin ||
+          user.isSupport ||
+          user.isAuditor ||
+          (user.instanceRoles?.length ?? 0) > 0) ? (
           <Button
             size="icon"
             variant="ghost"

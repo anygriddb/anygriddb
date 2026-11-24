@@ -1,7 +1,12 @@
 import { createHash, randomBytes } from "node:crypto";
 import type { Database } from "@anygriddb/db";
-import { AppError, sessionWindows } from "@anygriddb/core";
+import { AppError, type InstanceRole, sessionWindows } from "@anygriddb/core";
 import { recordAuthEvent } from "./auth-events.js";
+import {
+  holdsInstanceRole,
+  instanceRolesOf,
+  knownInstanceRoles,
+} from "./instance-roles.js";
 import { assertLocalSignInAllowed } from "./sso-only.js";
 import { ERASED_USER_ID } from "../data/erasure.js";
 import { readGateSettings, readSettings } from "../settings.js";
@@ -73,6 +78,8 @@ export type SessionUser = {
   isSupport: boolean;
   /** Reads Administration and changes nothing (ADR 0071). */
   isAuditor: boolean;
+  /** The parts of Administration given to this account (ADR 0126). */
+  instanceRoles: InstanceRole[];
   /** This cookie's session, when the lookup has one. */
   sessionId?: string;
   /**
@@ -102,6 +109,7 @@ type ActingRow = {
   personAdmin: boolean | null;
   personSupport: boolean | null;
   personAuditor: boolean | null;
+  personRoles: boolean;
 };
 
 /** Whether this session still acts as its person (ADR 0091). */
@@ -115,6 +123,7 @@ function holdsActing(row: ActingRow): boolean {
     row.personAdmin !== true &&
     row.personSupport !== true &&
     row.personAuditor !== true &&
+    !row.personRoles &&
     row.impersonatedUserId !== ERASED_USER_ID
   );
 }
@@ -125,7 +134,13 @@ function holdsActing(row: ActingRow): boolean {
  */
 export function withActingRights(user: SessionUser): SessionUser {
   return user.actingAs
-    ? { ...user, isAdmin: false, isSupport: false, isAuditor: false }
+    ? {
+        ...user,
+        isAdmin: false,
+        isSupport: false,
+        isAuditor: false,
+        instanceRoles: [],
+      }
     : user;
 }
 
@@ -150,11 +165,13 @@ export async function findSessionUser(
       "u.isAdmin",
       "u.isSupport",
       "u.isAuditor",
+      instanceRolesOf("u.id").as("instanceRoles"),
       "p.displayName as personName",
       "p.disabledAt as personDisabled",
       "p.isAdmin as personAdmin",
       "p.isSupport as personSupport",
       "p.isAuditor as personAuditor",
+      holdsInstanceRole("p.id").as("personRoles"),
     ])
     .where("s.tokenHash", "=", hashSessionToken(token))
     .where("s.expiresAt", ">", new Date())
@@ -185,6 +202,7 @@ export async function findSessionUser(
     isAdmin: row.isAdmin,
     isSupport: row.isSupport,
     isAuditor: row.isAuditor,
+    instanceRoles: knownInstanceRoles(row.instanceRoles),
     sessionId: row.sessionId,
     actingAs:
       personId !== null && until !== null && allowed
@@ -221,6 +239,7 @@ export async function sessionIdentities(
       "p.isAdmin as personAdmin",
       "p.isSupport as personSupport",
       "p.isAuditor as personAuditor",
+      holdsInstanceRole("p.id").as("personRoles"),
     ])
     .where("s.tokenHash", "in", tokenHashes)
     .where("s.expiresAt", ">", new Date())

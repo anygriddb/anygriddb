@@ -342,6 +342,7 @@ export {
 } from "./names";
 
 export {
+  INSTANCE_ROLES,
   ROLES,
   can,
   effectiveTableRole,
@@ -351,6 +352,7 @@ export {
   roleRank,
   type Action,
   type Binding,
+  type InstanceRole,
   type Role,
 } from "./rbac";
 

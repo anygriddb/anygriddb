@@ -639,6 +639,12 @@ export interface InstanceOidc {
   updatedBy: string | null;
 }
 
+export interface InstanceRoles {
+  grantedAt: Generated<Timestamp>;
+  role: string;
+  userId: string;
+}
+
 export interface InstanceSaml {
   entryPoint: string;
   id: Generated<boolean>;
@@ -1269,6 +1275,7 @@ export interface DB {
   instanceIntegrations: InstanceIntegrations;
   instanceLogo: InstanceLogo;
   instanceOidc: InstanceOidc;
+  instanceRoles: InstanceRoles;
   instanceSaml: InstanceSaml;
   instanceSettings: InstanceSettings;
   instanceSiem: InstanceSiem;

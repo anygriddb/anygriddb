@@ -715,7 +715,13 @@ async function authorActor(db: Database, userId: string): Promise<Actor> {
     .executeTakeFirst();
   if (!user) throw new AppError("access_denied");
   return {
-    user: { ...user, isAdmin: false, isSupport: false, isAuditor: false },
+    user: {
+      ...user,
+      isAdmin: false,
+      isSupport: false,
+      isAuditor: false,
+      instanceRoles: [],
+    },
     bindings: await loadBindings(db, userId),
   };
 }

@@ -42,6 +42,8 @@ export function UserMenu({
     isAdmin?: boolean;
     isSupport?: boolean;
     isAuditor?: boolean;
+    /** Parts of Administration given apart (ADR 0126). */
+    instanceRoles?: readonly string[];
   };
 }) {
   const { t } = useLingui();
@@ -69,7 +71,11 @@ export function UserMenu({
             <Settings className="h-4 w-4" aria-hidden />
             {t`Account settings`}
           </DropdownMenuItem>
-          {reads && (user.isAdmin || user.isSupport || user.isAuditor) ? (
+          {reads &&
+          (user.isAdmin ||
+            user.isSupport ||
+            user.isAuditor ||
+            (user.instanceRoles?.length ?? 0) > 0) ? (
             <DropdownMenuItem onSelect={() => void navigate({ to: "/admin" })}>
               <ShieldCheck className="h-4 w-4" aria-hidden />
               {t`Administration`}

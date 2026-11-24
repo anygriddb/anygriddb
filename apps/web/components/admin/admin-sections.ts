@@ -53,8 +53,9 @@ export type AdminSection = {
  * they sign in, what the instance connects to, the client databases, the
  * trails, and the instance itself, after a first page of what needs action.
  * Support (ADR 0054) sees the first page, accounts and sessions, and the
- * trails. An auditor (ADR 0071) sees every page, as an administrator
- * does, and changes none.
+ * trails. An account manager (ADR 0126) sees the first page, the accounts,
+ * the groups and the sessions; a source manager, the sources. An auditor
+ * (ADR 0071) sees every page, as an administrator does, and changes none.
  */
 export function useAdminSections(): AdminSection[] {
   const { t } = useLingui();
@@ -63,7 +64,11 @@ export function useAdminSections(): AdminSection[] {
   const seesAll =
     session.data?.isAdmin === true || session.data?.isAuditor === true;
   const isSupport = session.data?.isSupport === true;
-  if (!seesAll && !isSupport) return [];
+  const roles = session.data?.instanceRoles ?? [];
+  const managesAccounts = roles.includes("account_manager");
+  const managesSources = roles.includes("source_manager");
+  const helpsPeople = isSupport || managesAccounts;
+  if (!seesAll && !helpsPeople && !managesSources) return [];
   const overview: AdminSection = {
     id: "overview",
     label: t`Overview`,
@@ -76,7 +81,7 @@ export function useAdminSections(): AdminSection[] {
     icon: Users,
     pages: [
       { to: "/admin/people/accounts", label: t`Accounts` },
-      ...(seesAll
+      ...(seesAll || managesAccounts
         ? ([{ to: "/admin/people/groups", label: t`Groups` }] as const)
         : []),
       { to: "/admin/people/sessions", label: t`Sessions` },
@@ -99,7 +104,19 @@ export function useAdminSections(): AdminSection[] {
       { to: "/admin/trails/sign-ins", label: t`Sign-ins` },
     ],
   };
-  if (!seesAll) return [overview, people, trails];
+  const sources: AdminSection = {
+    id: "sources",
+    label: t`Sources`,
+    icon: Database,
+    pages: [{ to: "/admin/sources", label: t`Sources` }],
+  };
+  if (!seesAll) {
+    return [
+      ...(helpsPeople ? [overview, people] : []),
+      ...(managesSources ? [sources] : []),
+      ...(isSupport ? [trails] : []),
+    ];
+  }
   return [
     overview,
     people,
@@ -120,12 +137,7 @@ export function useAdminSections(): AdminSection[] {
         { to: "/admin/connections/applications", label: t`Applications` },
       ],
     },
-    {
-      id: "sources",
-      label: t`Sources`,
-      icon: Database,
-      pages: [{ to: "/admin/sources", label: t`Sources` }],
-    },
+    sources,
     {
       id: "bases",
       label: t`Bases`,

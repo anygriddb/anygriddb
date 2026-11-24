@@ -126,6 +126,8 @@ export async function findApiToken(
       isAdmin: row.isAdmin,
       isSupport: row.isSupport,
       isAuditor: row.isAuditor,
+      // A token never opens Administration: its parts stay with the session.
+      instanceRoles: [],
     },
     scope: {
       tokenId: row.tokenId,

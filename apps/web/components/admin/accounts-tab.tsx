@@ -1,3 +1,4 @@
+import type { InstanceRole } from "@anygriddb/core";
 import {
   Avatar,
   Button,
@@ -59,6 +60,7 @@ function accountTarget(user: {
   isAdmin: boolean;
   isSupport: boolean;
   isAuditor: boolean;
+  instanceRoles: readonly InstanceRole[];
   disabledAt: string | null;
   lock: { until: string | null } | null;
   hasPassword: boolean;
@@ -73,6 +75,7 @@ function accountTarget(user: {
     isAdmin: user.isAdmin,
     isSupport: user.isSupport,
     isAuditor: user.isAuditor,
+    instanceRoles: user.instanceRoles,
     disabled: user.disabledAt !== null,
     locked: user.lock !== null,
     hasPassword: user.hasPassword,
@@ -113,6 +116,10 @@ export function AccountsTab({
   const api = useTRPC();
   const session = useSession();
   const isAdmin = session.data?.isAdmin === true;
+  // An account manager adds people and disables them, as an administrator
+  // does, on the accounts that hold no role of Administration (ADR 0126).
+  const manages =
+    isAdmin || session.data?.instanceRoles.includes("account_manager") === true;
   const readsAll = useReadsAll();
   const errorText = useErrorText();
   const [adding, setAdding] = useState(false);
@@ -151,7 +158,18 @@ export function AccountsTab({
   const [disabling, setDisabling] = useState(false);
   const stepUp = useStepUp();
   const tickable = (list.data?.users ?? [])
-    .filter((user) => user.id !== session.data?.id && !user.disabledAt)
+    .filter(
+      (user) =>
+        user.id !== session.data?.id &&
+        !user.disabledAt &&
+        (isAdmin ||
+          !(
+            user.isAdmin ||
+            user.isSupport ||
+            user.isAuditor ||
+            user.instanceRoles.length > 0
+          )),
+    )
     .map((user) => user.id);
   const chosen = tickable.filter((id) => ticked.has(id));
   const chosenCount = chosen.length;
@@ -225,7 +243,7 @@ export function AccountsTab({
         <p className="text-sm text-muted-foreground" aria-live="polite">
           {plural(total, { one: "# account", other: "# accounts" })}
         </p>
-        {isAdmin ? (
+        {manages ? (
           <div className="flex flex-wrap items-center justify-end gap-2">
             {chosenCount > 0 ? (
               <Button variant="danger" onClick={() => setDisabling(true)}>
@@ -235,10 +253,12 @@ export function AccountsTab({
                 })}
               </Button>
             ) : null}
-            <Button variant="outline" onClick={() => setFromFile(true)}>
-              <FileUp className="h-4 w-4" aria-hidden />
-              {t`Add from a file`}
-            </Button>
+            {isAdmin ? (
+              <Button variant="outline" onClick={() => setFromFile(true)}>
+                <FileUp className="h-4 w-4" aria-hidden />
+                {t`Add from a file`}
+              </Button>
+            ) : null}
             <Button onClick={() => setAdding(true)}>
               <Plus className="h-4 w-4" aria-hidden />
               {t`Add a person`}
@@ -350,7 +370,7 @@ export function AccountsTab({
         <AdminTable>
           <AdminTableHead>
             <tr>
-              {isAdmin ? (
+              {manages ? (
                 <th className="w-8 py-2 pl-3">
                   <Checkbox
                     aria-label={t`Select every account of this page`}
@@ -380,7 +400,7 @@ export function AccountsTab({
               const self = user.id === session.data?.id;
               return (
                 <tr key={user.id} className="border-t border-border">
-                  {isAdmin ? (
+                  {manages ? (
                     <td className="w-8 py-2 pl-3">
                       {tickable.includes(user.id) ? (
                         <Checkbox
@@ -479,6 +499,7 @@ export function AccountsTab({
 
       {adding ? (
         <AddPersonDialog
+          full={isAdmin}
           mails={list.data?.smtpReady ?? false}
           onClose={() => setAdding(false)}
           onHanded={(name, link) => actions.hand({ name, link })}
@@ -573,11 +594,14 @@ const MAX_BASES = 20;
  * to them by mail, or comes back to pass on.
  */
 function AddPersonDialog({
+  full,
   mails,
   onClose,
   onHanded,
   onAdded,
 }: {
+  /** An administrator's: the person may be made one, and given bases. */
+  full: boolean;
   mails: boolean;
   onClose: () => void;
   onHanded: (name: string, link: string) => void;
@@ -684,102 +708,109 @@ function AddPersonDialog({
                 />
               </div>
             </div>
-            <label className="flex items-center gap-2 text-sm">
-              <Checkbox
-                checked={admin}
-                onChange={(event) => setAdmin(event.target.checked)}
-              />
-              {t`Administrator of the instance`}
-            </label>
-            <fieldset className="flex flex-col gap-2">
-              <legend className="mb-1 text-sm font-medium">{t`Bases`}</legend>
-              {memberships.length === 0 ? (
-                <p className="text-xs text-muted-foreground">
-                  {t`Optional: the bases they reach from the start, and their role on each. Any base of the instance; each role is on the change trail under your name.`}
-                </p>
-              ) : (
-                <ul className="flex flex-col gap-1.5">
-                  {memberships.map((row) => (
-                    <li key={row.baseId} className="flex items-center gap-2">
-                      <span className="min-w-0 flex-1">
-                        <BaseName name={row.name} owners={row.owners} />
-                      </span>
-                      <Select
-                        aria-label={t`Role on ${{ base: row.name }}`}
-                        className="w-36"
-                        value={row.role}
-                        onChange={(event) =>
-                          setMemberships((rows) =>
-                            rows.map((other) =>
-                              other.baseId === row.baseId
-                                ? { ...other, role: event.target.value as Role }
-                                : other,
-                            ),
-                          )
-                        }
-                      >
-                        {ROLES.map((role) => (
-                          <option key={role} value={role}>
-                            {roleLabel(role)}
-                          </option>
-                        ))}
-                      </Select>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        aria-label={t`Remove ${{ base: row.name }}`}
-                        onClick={() => toggle(row.baseId)}
-                      >
-                        <X className="h-4 w-4" aria-hidden />
-                      </Button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-              {picking ? (
-                <div className="flex flex-col rounded-sm border border-border">
-                  <ListPicker
-                    label={t`Find a base`}
-                    listLabel={t`Bases of the instance`}
-                    inputValue={typed}
-                    onInputChange={setTyped}
-                    options={bases.options}
-                    selectionMode="multiple"
-                    selected={memberships.map((row) => row.baseId)}
-                    onToggle={toggle}
-                    className="max-h-48"
-                    empty={
-                      bases.loading ? (
-                        <span className="flex justify-center">
-                          <Spinner />
+            {full ? (
+              <label className="flex items-center gap-2 text-sm">
+                <Checkbox
+                  checked={admin}
+                  onChange={(event) => setAdmin(event.target.checked)}
+                />
+                {t`Administrator of the instance`}
+              </label>
+            ) : null}
+            {full ? (
+              <fieldset className="flex flex-col gap-2">
+                <legend className="mb-1 text-sm font-medium">{t`Bases`}</legend>
+                {memberships.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">
+                    {t`Optional: the bases they reach from the start, and their role on each. Any base of the instance; each role is on the change trail under your name.`}
+                  </p>
+                ) : (
+                  <ul className="flex flex-col gap-1.5">
+                    {memberships.map((row) => (
+                      <li key={row.baseId} className="flex items-center gap-2">
+                        <span className="min-w-0 flex-1">
+                          <BaseName name={row.name} owners={row.owners} />
                         </span>
-                      ) : (
-                        t`No base by that name`
-                      )
-                    }
-                  />
+                        <Select
+                          aria-label={t`Role on ${{ base: row.name }}`}
+                          className="w-36"
+                          value={row.role}
+                          onChange={(event) =>
+                            setMemberships((rows) =>
+                              rows.map((other) =>
+                                other.baseId === row.baseId
+                                  ? {
+                                      ...other,
+                                      role: event.target.value as Role,
+                                    }
+                                  : other,
+                              ),
+                            )
+                          }
+                        >
+                          {ROLES.map((role) => (
+                            <option key={role} value={role}>
+                              {roleLabel(role)}
+                            </option>
+                          ))}
+                        </Select>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          aria-label={t`Remove ${{ base: row.name }}`}
+                          onClick={() => toggle(row.baseId)}
+                        >
+                          <X className="h-4 w-4" aria-hidden />
+                        </Button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                {picking ? (
+                  <div className="flex flex-col rounded-sm border border-border">
+                    <ListPicker
+                      label={t`Find a base`}
+                      listLabel={t`Bases of the instance`}
+                      inputValue={typed}
+                      onInputChange={setTyped}
+                      options={bases.options}
+                      selectionMode="multiple"
+                      selected={memberships.map((row) => row.baseId)}
+                      onToggle={toggle}
+                      className="max-h-48"
+                      empty={
+                        bases.loading ? (
+                          <span className="flex justify-center">
+                            <Spinner />
+                          </span>
+                        ) : (
+                          t`No base by that name`
+                        )
+                      }
+                    />
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="self-end"
+                      onClick={() => setPicking(false)}
+                    >
+                      {t`Done`}
+                    </Button>
+                  </div>
+                ) : (
                   <Button
                     size="sm"
-                    variant="ghost"
-                    className="self-end"
-                    onClick={() => setPicking(false)}
+                    variant="outline"
+                    className="self-start"
+                    disabled={memberships.length >= MAX_BASES}
+                    onClick={() => setPicking(true)}
                   >
-                    {t`Done`}
+                    <Plus className="h-3.5 w-3.5" aria-hidden />
+                    {t`Add bases`}
                   </Button>
-                </div>
-              ) : (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="self-start"
-                  disabled={memberships.length >= MAX_BASES}
-                  onClick={() => setPicking(true)}
-                >
-                  <Plus className="h-3.5 w-3.5" aria-hidden />
-                  {t`Add bases`}
-                </Button>
-              )}
-            </fieldset>
+                )}
+              </fieldset>
+            ) : null}
           </div>
           <DialogFooter>
             <Button variant="ghost" onClick={onClose}>

@@ -2,7 +2,11 @@
  * Accounts: who they are, what they may do in Administration, and how
  * they sign in.
  */
-import { AppError, PEOPLE_FILE_MAX_BYTES } from "@anygriddb/core";
+import {
+  AppError,
+  INSTANCE_ROLES,
+  PEOPLE_FILE_MAX_BYTES,
+} from "@anygriddb/core";
 import { z } from "zod";
 import {
   adminEraseInputSchema,
@@ -44,6 +48,7 @@ import {
   getAccountDetail,
   listUsers,
   listUsersInputSchema,
+  setInstanceRole,
   setUserAdmin,
   setUserAuditor,
   setUserDisabled,
@@ -103,6 +108,7 @@ export const adminAccountProcedures = {
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
         const admin = await requireAdmin(ctx);
+        await helpdeskReach(ctx.db, admin, input.userId);
         const changed = await updateAccount(ctx.db, admin.id, input);
         ctx.req.log.info(
           { actor: admin.id, target: input.userId, changed },
@@ -116,6 +122,7 @@ export const adminAccountProcedures = {
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
         const admin = await requireAdmin(ctx);
+        await helpdeskReach(ctx.db, admin, input.userId);
         await setUserDisabled(ctx.db, admin.id, input.userId, input.disabled);
         if (input.disabled) ctx.hub.closeUser(input.userId);
         ctx.req.log.info(
@@ -134,7 +141,7 @@ export const adminAccountProcedures = {
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
         const admin = await requireAdmin(ctx);
-        const result = await disableAccounts(ctx.db, admin.id, input.userIds);
+        const result = await disableAccounts(ctx.db, admin, input.userIds);
         for (const userId of result.disabled) ctx.hub.closeUser(userId);
         ctx.req.log.info(
           {
@@ -323,6 +330,11 @@ export const adminAccountProcedures = {
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
         const admin = await requireAdmin(ctx);
+        // An account manager makes people, never an administrator nor a
+        // member of a base: those stay an administrator's (ADR 0126).
+        if (!admin.isAdmin && (input.admin || input.memberships.length > 0)) {
+          throw new AppError("access_denied");
+        }
         const created = await createAccount(ctx.db, admin.id, input);
         for (const { baseId, role } of input.memberships) {
           await tellOwnersOfRole(await roleNoticeDeps(ctx), {
@@ -389,6 +401,35 @@ export const adminAccountProcedures = {
         ctx.req.log.info(
           { actor: admin.id, target: input.userId, auditor: input.auditor },
           "auditor role changed",
+        );
+        return { ok: true as const };
+      }),
+    ),
+  /**
+   * Gives a part of Administration, or takes it away (ROADMAP #34, ADR
+   * 0126): an administrator's alone, as every role of Administration is.
+   */
+  setInstanceRole: procedure
+    .input(
+      z.object({
+        userId: z.uuid(),
+        role: z.enum(INSTANCE_ROLES),
+        granted: z.boolean(),
+      }),
+    )
+    .mutation(({ ctx, input }) =>
+      handle(ctx, async () => {
+        const admin = await requireAdmin(ctx);
+        if (!admin.isAdmin) throw new AppError("access_denied");
+        await setInstanceRole(ctx.db, admin.id, input);
+        ctx.req.log.info(
+          {
+            actor: admin.id,
+            target: input.userId,
+            role: input.role,
+            granted: input.granted,
+          },
+          "instance role changed",
         );
         return { ok: true as const };
       }),

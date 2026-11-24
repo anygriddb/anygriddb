@@ -29,7 +29,7 @@ In short; [`ROADMAP.md`](ROADMAP.md#done) says what works, area by area.
 - **Integrations**: a REST API with an OpenAPI 3.1 document per base, an [MCP server](docs/mcp.md) for the AI you run, scoped tokens, OAuth for applications, webhooks, and automations that run scripts of your own.
 - **Dashboards**: metrics, charts, and a view's rows, computed by the database under each reader's rights.
 - **Security**: Argon2id passwords, TOTP and passkeys, OIDC, SAML, and SCIM; an append-only audit trail; row statuses and signatures; HTTPS only, every connection encrypted and verified.
-- **Administration**: accounts, the security policy, sources, the trails, and health in one place; support and auditor roles; an [administration API](docs/operations.md#the-administration-api) for an operator's scripts. An administrator who opens a base they are not a member of, or acts with a person's rights, gives a reason, and the people concerned are told.
+- **Administration**: accounts, the security policy, sources, the trails, and health in one place; support, auditor, account manager and source manager roles; an [administration API](docs/operations.md#the-administration-api) for an operator's scripts. An administrator who opens a base they are not a member of, or acts with a person's rights, gives a reason, and the people concerned are told.
 - **Interface**: English source with a complete French locale, light and dark themes, on a phone and from the keyboard.
 
 ## Quick start

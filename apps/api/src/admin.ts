@@ -5,6 +5,7 @@ import {
   ADMIN_LOCK_MINUTES,
   AppError,
   emailDomainAllowed,
+  type InstanceRole,
   labelSchema,
   lockState,
   memberDomainAllowed,
@@ -25,6 +26,7 @@ import { liveBase } from "./data/live.js";
 import { bindRole } from "./data/members.js";
 import { assertMemberDomain } from "./data/sharing.js";
 import { recordAuthEvent } from "./auth/auth-events.js";
+import { instanceRolesOf, knownInstanceRoles } from "./auth/instance-roles.js";
 import { diskSpace } from "./alerts.js";
 import { BUILD } from "./build-info.js";
 import { isUniqueViolation } from "./data/schema-ops.js";
@@ -251,6 +253,7 @@ export async function listUsers(
       "u.isAdmin",
       "u.isSupport",
       "u.isAuditor",
+      instanceRolesOf("u.id").as("instanceRoles"),
       "u.disabledAt",
       "u.createdAt",
       "u.scimUserName",
@@ -285,6 +288,7 @@ export async function listUsers(
   const users = rows.map(
     ({ scimUserName, deprovisionedAt, lockedAt, ...row }) => ({
       ...row,
+      instanceRoles: knownInstanceRoles(row.instanceRoles),
       // Locked by failed sign-ins (ADR 0043); `until: null` waits for an
       // administrator.
       lock: (() => {
@@ -519,6 +523,7 @@ export async function getAccountDetail(db: Database, userId: string) {
       "u.isAdmin",
       "u.isSupport",
       "u.isAuditor",
+      instanceRolesOf("u.id").as("instanceRoles"),
       "u.disabledAt",
       "u.disabledReason",
       "u.createdAt",
@@ -584,6 +589,7 @@ export async function getAccountDetail(db: Database, userId: string) {
     isAdmin: account.isAdmin,
     isSupport: account.isSupport,
     isAuditor: account.isAuditor,
+    instanceRoles: knownInstanceRoles(account.instanceRoles),
     origin,
     hasPassword: account.hasPassword,
     provisioned: account.scimUserName !== null,
@@ -799,6 +805,44 @@ export async function setUserAuditor(
       actorId,
       method: "admin",
       detail: auditor ? "auditor_granted" : "auditor_revoked",
+    });
+  });
+}
+
+/**
+ * Gives a part of Administration, or takes it away (ROADMAP #34, ADR
+ * 0126), on the sign-in trail as the other roles of Administration are.
+ */
+export async function setInstanceRole(
+  db: Database,
+  actorId: string,
+  input: { userId: string; role: InstanceRole; granted: boolean },
+): Promise<void> {
+  if (input.userId === ERASED_USER_ID) {
+    throw new AppError("invalid_account");
+  }
+  await db.transaction().execute(async (tx) => {
+    await assertAccount(tx, input.userId);
+    const changed = input.granted
+      ? await tx
+          .insertInto("instanceRoles")
+          .values({ userId: input.userId, role: input.role })
+          .onConflict((conflict) => conflict.doNothing())
+          .returning("userId")
+          .execute()
+      : await tx
+          .deleteFrom("instanceRoles")
+          .where("userId", "=", input.userId)
+          .where("role", "=", input.role)
+          .returning("userId")
+          .execute();
+    if (changed.length === 0) return;
+    await recordAuthEvent(tx, {
+      action: "account_updated",
+      userId: input.userId,
+      actorId,
+      method: "admin",
+      detail: `${input.role}_${input.granted ? "granted" : "revoked"}`,
     });
   });
 }

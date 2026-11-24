@@ -921,6 +921,133 @@ test("an auditor reads every page of Administration and changes nothing", async 
   }
 });
 
+// An account manager (ADR 0126): a part of Administration an administrator
+// gives apart. It adds people and manages groups, on accounts that hold no
+// role of Administration, and opens nothing else.
+test("an account manager adds a person, and reaches nothing else", async ({
+  page,
+  browser,
+}) => {
+  const blocked = watchPolicy(page);
+  const control = new pg.Client({ connectionString: controlUrl });
+  await control.connect();
+  try {
+    const { email: adminEmail } = await signUpWithTable(page, "Delegate Admin");
+    await control.query("update users set is_admin = true where email = $1", [
+      adminEmail,
+    ]);
+    const theirs = await browser.newContext(from("198.51.100.36"));
+    const manager = await theirs.newPage();
+    const stamp = uniqueStamp();
+    const managerEmail = `e2e-manager-${stamp}@example.com`;
+    await signUp(manager, {
+      email: managerEmail,
+      name: `Manager ${stamp}`,
+      password: "correct-horse-battery",
+    });
+    await enableTotp(manager);
+    await manager.goto("/admin");
+    await expect(
+      manager.getByText("This page is for instance administrators."),
+    ).toBeVisible();
+
+    await page.goto("/admin/people/accounts");
+    await findAccount(page, managerEmail);
+    await page
+      .getByRole("button", { name: `Actions for Manager ${stamp}` })
+      .click();
+    await page
+      .getByRole("menuitem", { name: "Give the account manager role" })
+      .click();
+    await page
+      .getByRole("dialog", {
+        name: `Give Manager ${stamp} the account manager role?`,
+      })
+      .getByRole("button", { name: "Give the role" })
+      .click();
+    await proveItIsYou(page);
+    await expect(page.getByText("Saved")).toBeVisible();
+
+    // Its part and nothing else.
+    await manager.goto("/admin");
+    const sections = manager.getByRole("navigation", {
+      name: "Administration",
+    });
+    await expect(
+      sections.getByRole("link", { name: "People", exact: true }),
+    ).toBeVisible();
+    for (const other of ["Security", "Sources", "Bases", "Instance"]) {
+      await expect(
+        sections.getByRole("link", { name: other, exact: true }),
+      ).toBeHidden();
+    }
+    expect(await accessibilityViolations(manager)).toEqual([]);
+
+    // A person added: never an administrator, never given a base.
+    await openAdmin(manager, "People", "Accounts");
+    await manager.getByRole("button", { name: "Add a person" }).click();
+    const adding = manager.getByRole("dialog", { name: "Add a person" });
+    await expect(
+      adding.getByLabel("Administrator of the instance"),
+    ).toBeHidden();
+    await expect(
+      adding.getByRole("button", { name: "Add bases" }),
+    ).toBeHidden();
+    const madeEmail = `e2e-made-${stamp}@example.com`;
+    await adding.getByLabel("Display name").fill(`Made ${stamp}`);
+    await adding.getByLabel("Email").fill(madeEmail);
+    expect(await accessibilityViolations(manager)).toEqual([]);
+    await adding.getByRole("button", { name: "Add", exact: true }).click();
+    await proveItIsYou(manager);
+    await expect(
+      manager.getByText(`Made ${stamp} added. Their link went to ${madeEmail}`),
+    ).toBeVisible();
+
+    // An administrator's account is out of its reach, and says why.
+    await findAccount(manager, adminEmail);
+    await manager
+      .getByRole("button", { name: "Actions for Delegate Admin" })
+      .click();
+    await expect(
+      manager.getByRole("menuitem", { name: /^Disable/ }),
+    ).toBeDisabled();
+    await expect(
+      manager.getByRole("menuitem", { name: /^Disable/ }),
+    ).toContainText("Holds a role of Administration: administrators only");
+    await manager.keyboard.press("Escape");
+
+    // The groups are its own to make.
+    await openAdmin(manager, "People", "Groups");
+    await expect(
+      manager.getByRole("button", { name: "New group" }),
+    ).toBeEnabled();
+
+    // Asked past the page, the server answers the same: no.
+    const refused = await manager.evaluate(async () => {
+      const answer = await fetch("/trpc/admin.updateSettings", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ banner: "Not theirs to set" }),
+      });
+      return answer.status;
+    });
+    expect(refused).toBe(403);
+
+    // The sign-in trail says who gave it.
+    await openAdmin(page, "Trails", "Sign-ins");
+    await expect(
+      page
+        .getByRole("row", { name: new RegExp(`Manager ${stamp}`) })
+        .filter({ hasText: "Given the account manager role" }),
+    ).toContainText("Delegate Admin");
+
+    await theirs.close();
+    expect(blocked).toEqual([]);
+  } finally {
+    await control.end();
+  }
+});
+
 // An administrator's way into a base (ADR 0074): Administration shows what
 // a base is made of, never its rows. To read them, an administrator opens
 // the base for an hour and says why; they read and change nothing, and the

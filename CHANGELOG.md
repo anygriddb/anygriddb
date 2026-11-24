@@ -8,6 +8,9 @@ first.
 
 ## Unreleased
 
+**One migration runs as the instance starts; nothing to do before or
+after.**
+
 ### Security
 
 - **Support acts only on accounts that hold no role of Administration.**
@@ -16,6 +19,18 @@ first.
   helpdesk could become an administrator. The same held for another
   support account and for an auditor. Support's "sign everyone out" now
   leaves those accounts signed in; an administrator's reach is unchanged.
+
+### Added
+
+- **Two parts of Administration an administrator gives apart.** An
+  account manager adds people, changes their name and address, disables
+  them, helps them sign in again, and manages the groups and who is in
+  them. A source manager connects client databases and brings their
+  tables into the bases it owns. Each opens only its part: neither gives
+  a role of Administration or a role on a base, deletes an account, acts
+  as someone, or changes a setting, and an account manager acts only on
+  accounts that hold no role of Administration. Given and taken away on
+  an account's page, with the proof, on the sign-in trail.
 
 ### Changed
 

@@ -5,6 +5,7 @@ import { useLingui } from "@lingui/react/macro";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { useErrorText } from "../../lib/errors";
+import { useSession } from "../../lib/session";
 import { trpc, useTRPC } from "../../lib/trpc";
 import { sortRows } from "../../lib/sort-rows";
 import { useWhen } from "../../lib/i18n";
@@ -33,7 +34,16 @@ export function SessionsTab() {
     placeholderData: (previous) => previous,
   });
   const [confirmAll, setConfirmAll] = useState(false);
-  const settings = useQuery(api.admin.settings.queryOptions());
+  const viewer = useSession().data;
+  const isAdmin = viewer?.isAdmin === true;
+  // Signing everyone out is an administrator's and support's (ADR 0054);
+  // support's spares the accounts that hold a role of Administration.
+  const signsAllOut = isAdmin || viewer?.isSupport === true;
+  const readsSettings = isAdmin || viewer?.isAuditor === true;
+  const settings = useQuery({
+    ...api.admin.settings.queryOptions(),
+    enabled: readsSettings,
+  });
   const columns = useColumnSort<"account" | "signedIn" | "ends">();
   async function run(action: () => Promise<unknown>, done: string) {
     try {
@@ -93,14 +103,16 @@ export function SessionsTab() {
             {t`This is who is signed in on the instance. Who has a table open is shown as “People here” on that table, not here.`}
           </p>
         </div>
-        <Button
-          size="sm"
-          variant="outline"
-          disabled={!list.some((session) => !session.mine)}
-          onClick={() => setConfirmAll(true)}
-        >
-          {t`Sign everyone else out`}
-        </Button>
+        {signsAllOut ? (
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={!list.some((session) => !session.mine)}
+            onClick={() => setConfirmAll(true)}
+          >
+            {t`Sign everyone else out`}
+          </Button>
+        ) : null}
       </div>
       {sessions.isLoading ? <Spinner /> : null}
       {loaded && total === 0 ? (
@@ -148,6 +160,10 @@ export function SessionsTab() {
                       <span className="text-xs text-muted-foreground">
                         {t`You`}
                       </span>
+                    ) : !isAdmin && session.holdsRole ? (
+                      <span className="text-xs text-muted-foreground">
+                        {t`Administrators only`}
+                      </span>
                     ) : (
                       <Button
                         size="sm"
@@ -186,7 +202,11 @@ export function SessionsTab() {
           danger
           onOpenChange={(open) => !open && setConfirmAll(false)}
           title={t`Sign everyone else out?`}
-          description={t`Every other session ends now, administrators' too. Your own stays open. API tokens keep working.`}
+          description={
+            isAdmin
+              ? t`Every other session ends now, administrators' too. Your own stays open. API tokens keep working.`
+              : t`Every other session ends now, but those of accounts that hold a role of Administration. Your own stays open. API tokens keep working.`
+          }
           confirmLabel={t`Sign out`}
           onConfirm={() =>
             run(

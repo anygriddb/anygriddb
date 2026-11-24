@@ -14,6 +14,7 @@ import {
 import type { Database } from "@anygriddb/db";
 import { sql } from "kysely";
 import { z } from "zod";
+import { helpdeskReach } from "./admin-control.js";
 import { createAccount, setUserDisabled } from "./admin.js";
 import {
   ACCOUNT_LINK_TTL_MS,
@@ -40,14 +41,15 @@ export const bulkDisableInputSchema = z
  */
 export async function disableAccounts(
   db: Database,
-  actorId: string,
+  actor: { id: string; isAdmin: boolean },
   userIds: readonly string[],
 ): Promise<{ disabled: string[]; refused: string[] }> {
   const disabled: string[] = [];
   const refused: string[] = [];
   for (const userId of new Set(userIds)) {
     try {
-      await setUserDisabled(db, actorId, userId, true);
+      await helpdeskReach(db, actor, userId);
+      await setUserDisabled(db, actor.id, userId, true);
       disabled.push(userId);
     } catch (error) {
       if (!(error instanceof AppError)) throw error;
