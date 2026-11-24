@@ -39,7 +39,8 @@ describe("public errors", () => {
     expect(new Set(messages).size).toBe(messages.length);
     for (const code of ERROR_CODES) {
       expect(code).toMatch(/^[a-z]+(?:_[a-z]+)*$/);
-      expect([400, 401, 403, 404, 409, 412, 413, 429, 500, 503]).toContain(
+      // 499 is for the logs alone: its client has gone and reads nothing.
+      expect([400, 401, 403, 404, 409, 412, 413, 429, 499, 500, 503]).toContain(
         ERRORS[code][0],
       );
     }

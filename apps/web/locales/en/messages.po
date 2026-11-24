@@ -11952,6 +11952,10 @@ msgstr "The remainder of the division."
 msgid "The request goes out with your session, under your rights. A write is real, and recorded like any other."
 msgstr "The request goes out with your session, under your rights. A write is real, and recorded like any other."
 
+#: lib/errors.ts
+msgid "The request was stopped before its answer. Try again."
+msgstr "The request was stopped before its answer. Try again."
+
 #: components/fields/formula-docs.ts
 msgid "The result of the first case equal to the value."
 msgstr "The result of the first case equal to the value."

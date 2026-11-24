@@ -33,6 +33,12 @@ stopped needs one step after the upgrade: `docker compose restart db`, then
 - **An address that is no address is refused as one.** A call saved with
   `https://` alone ended in an internal error: it is now refused as an
   address the instance will not call, as a private one is.
+- **A read whose page was left is no longer logged as the instance busy.**
+  Moving from one view to another before a read ended logged an error
+  saying `reads_busy`, the code that tells an operator to give the
+  container more memory. It is now `request_closed` (499), at the `info`
+  level; a read refused for the memory the process holds still answers
+  `reads_busy`.
 
 ## 0.7.4 - 2026-11-24
 

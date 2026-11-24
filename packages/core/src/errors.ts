@@ -46,6 +46,8 @@ export const ERRORS = {
   instance_maintenance: [503, "Instance under maintenance"],
   uploads_busy: [503, "Too many uploads at once"],
   reads_busy: [503, "Too many large reads at once"],
+  /** The client went away during its read: nobody waits for an answer. */
+  request_closed: [499, "Request closed by its client"],
   read_timeout: [503, "This request took too long"],
   page_too_large: [BAD, "This page is too large: ask for fewer rows or fields"],
   unknown_account: [404, "Unknown account"],

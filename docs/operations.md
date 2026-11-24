@@ -1136,6 +1136,9 @@ process holds at most a quarter of its heap for all of them (ADR 0110).
   or fields. The app's own pages of 100 rows are far below it.
 - Past the second, it answers `reads_busy` (503): try again in a moment. If it
   comes often, give the container more memory or add a process.
+- A read whose client went away (a page left, a tab closed) stops there, and
+  is logged at the `info` level as `request_closed` (499): it says nothing of
+  the instance's capacity.
 
 Exports, snapshots and automations run in the background and are not counted.
 
