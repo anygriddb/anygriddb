@@ -90,16 +90,24 @@ A row moves up only when it unblocks another.
 
 1. Field types: 113 (in flight; unblocks every new type and every new
    capability that today needs a switch in twenty files).
-2. Applications and languages: 106 once decided; 105 once its languages
+2. Outbound: 112 (security tests of the service first, then one emitter
+   at a time).
+3. Applications and languages: 106 once decided; 105 once its languages
    are chosen.
-3. Administration: 38 and 43 on request; 34 once decided.
-4. Views and organisation: 8, 9, and 10, later.
+4. Administration: 38 and 43 on request; 34 once decided.
+5. Views and organisation: 8, 9, and 10, later.
 
 ### Field types
 
 | #   | What                                                         | Effort | Notes                                                                                                                                                                                                 |
 | --- | ------------------------------------------------------------ | ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 113 | One definition per field type that owns all of its behaviour | L      | Storage, cell read/write, filters, sort/group, conversion, import/export, OpenAPI, engine capabilities, web editor and render. The type system refuses an incomplete definition. No behaviour change. |
+
+### Outbound
+
+| #   | What                                                                   | Effort | Notes                                                                                                                                                                                                   |
+| --- | ---------------------------------------------------------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 112 | One outbound service, one delivery queue and journal, one admin screen | L      | ADR 0125. Security tests of the HTTPS gate first (private, reserved, IPv6, redirects, rebinding, size, timeout). Then migrate webhooks, notifications, automations, collectors; one emitter per change. |
 
 ### Applications and languages
 

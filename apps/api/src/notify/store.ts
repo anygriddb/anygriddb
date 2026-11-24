@@ -11,7 +11,7 @@ import type { KeyRing } from "../auth/key-ring.js";
 import { decryptSecret, encryptSecret } from "../auth/crypto.js";
 import { recordAuthEvent } from "../auth/auth-events.js";
 import { readSettings } from "../settings.js";
-import { assertNotifyTarget } from "./target.js";
+import { assertOutboundTarget } from "../outbound/index.js";
 import { appriseTargets } from "./providers/apprise.js";
 import { gotifyTargets } from "./providers/gotify.js";
 import { ntfyTargets } from "./providers/ntfy.js";
@@ -291,7 +291,11 @@ async function targetsOf(
     ...(provider === "sentry" ? sentryTargets(secrets) : urlsIn(secrets)),
   ];
   for (const url of urls) {
-    await assertNotifyTarget(url, { allowPrivate });
+    try {
+      await assertOutboundTarget(url, { allowPrivate });
+    } catch (error) {
+      throw new AppError("invalid_notify_target", { cause: error });
+    }
   }
 }
 

@@ -5,7 +5,7 @@ import type { KeyRing } from "../auth/key-ring.js";
 import { decryptSecret } from "../auth/crypto.js";
 import { readSettings } from "../settings.js";
 import {
-  requestOutbound,
+  sendOutbound,
   type Outbound,
   type OutboundResponse,
 } from "./outbound.js";
@@ -98,7 +98,7 @@ export async function captureServerError(
   );
   if (!envelope) return;
   const allowPrivate = (await readSettings(db)).notifyAllowPrivate;
-  await requestOutbound(
+  await sendOutbound(
     {
       url: envelope.url,
       method: "POST",

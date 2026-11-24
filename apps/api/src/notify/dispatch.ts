@@ -20,11 +20,10 @@ import type { Env } from "../env.js";
 import { resolveSmtp } from "../integrations/smtp.js";
 import { sendMail, smtpReady } from "../mail.js";
 import { readMailVoice, readSettings } from "../settings.js";
+import { redactSecrets, secretStrings } from "../outbound/index.js";
 import {
   notifyFailureText,
-  redactSecrets,
-  requestOutbound,
-  secretStrings,
+  sendOutbound,
   type Outbound,
   type OutboundResponse,
 } from "./outbound.js";
@@ -288,7 +287,7 @@ export async function runIntegrationDelivery(
   const row = await loadAttempt(deps.db, deliveryId);
   if (!row || row.status !== "pending") return;
   const send = senderFor(row.provider);
-  const outbound = deps.send ?? requestOutbound;
+  const outbound = deps.send ?? sendOutbound;
   let response: OutboundResponse | undefined;
   let failure: string | undefined;
   try {
@@ -436,7 +435,7 @@ export async function testIntegration(
   if (!row) throw new AppError("unknown_integration");
   const provider = notifyProvider(row.provider);
   if (!provider) throw new AppError("unknown_integration");
-  const outbound = deps.send ?? requestOutbound;
+  const outbound = deps.send ?? sendOutbound;
   const event: NotifyPayload = {
     id: randomUUID(),
     type: "test",
