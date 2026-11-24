@@ -88,10 +88,18 @@ work below decides. Why each piece is as it is: the
 
 A row moves up only when it unblocks another.
 
-1. Applications and languages: 106 once decided; 105 once its languages
+1. Field types: 113 (in flight; unblocks every new type and every new
+   capability that today needs a switch in twenty files).
+2. Applications and languages: 106 once decided; 105 once its languages
    are chosen.
-2. Administration: 38 and 43 on request; 34 once decided.
-3. Views and organisation: 8, 9, and 10, later.
+3. Administration: 38 and 43 on request; 34 once decided.
+4. Views and organisation: 8, 9, and 10, later.
+
+### Field types
+
+| #   | What                                                         | Effort | Notes                                                                                                                                                                                                 |
+| --- | ------------------------------------------------------------ | ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 113 | One definition per field type that owns all of its behaviour | L      | Storage, cell read/write, filters, sort/group, conversion, import/export, OpenAPI, engine capabilities, web editor and render. The type system refuses an incomplete definition. No behaviour change. |
 
 ### Applications and languages
 

@@ -1,8 +1,11 @@
 import { AppError } from "./errors";
+
 /**
- * Field type registry: which types own a physical column, which are
- * computed, which read a system column, and the SQL type behind each one.
+ * Field type registry: one definition per type owns its storage role, its
+ * value kind, and what it may be (primary, required, kept beside a
+ * client's table). The predicates below read it.
  */
+
 export const FIELD_TYPES = [
   "text",
   "long_text",
@@ -62,64 +65,6 @@ export const WRITABLE_TYPES = [
 
 export type WritableType = (typeof WRITABLE_TYPES)[number];
 
-const SYSTEM_TYPES = [
-  "created_time",
-  "last_modified_time",
-  "created_by",
-  "last_modified_by",
-  "autonumber",
-  "row_id",
-] as const;
-
-type SystemType = (typeof SYSTEM_TYPES)[number];
-
-const COMPUTED_TYPES = ["formula", "lookup", "rollup"] as const;
-
-type ComputedType = (typeof COMPUTED_TYPES)[number];
-
-export const SYSTEM_COLUMN: Record<SystemType, string> = {
-  created_time: "ag_created_at",
-  last_modified_time: "ag_updated_at",
-  created_by: "ag_created_by",
-  last_modified_by: "ag_updated_by",
-  autonumber: "ag_seq",
-  // On a client's table, the row's key: `compileColumn` reads it from there.
-  row_id: "id",
-};
-
-/** Names a user column can never take: row identity and system columns. */
-export const RESERVED_COLUMN_NAMES: ReadonlySet<string> = new Set([
-  "id",
-  "ag_status",
-  "ag_seq",
-  "ag_position",
-  "ag_created_at",
-  "ag_updated_at",
-  "ag_created_by",
-  "ag_updated_by",
-]);
-
-const SQL_TYPE: Record<WritableType, string> = {
-  text: "text",
-  long_text: "text",
-  email: "text",
-  url: "text",
-  phone: "text",
-  color: "text",
-  place: "text",
-  json: "jsonb",
-  single_select: "text",
-  number: "numeric",
-  rating: "numeric",
-  duration: "numeric",
-  boolean: "boolean",
-  date: "date",
-  datetime: "timestamptz",
-  multi_select: "text[]",
-  user: "uuid[]",
-  attachment: "text[]",
-};
-
 /**
  * The kind of value a column yields, which decides filter operators,
  * sorting, formula typing, and how a cell is rendered.
@@ -136,64 +81,215 @@ export type ValueKind =
   | "files"
   | "links";
 
-const VALUE_KIND: Record<Exclude<FieldType, ComputedType>, ValueKind> = {
-  text: "text",
-  long_text: "text",
-  email: "text",
-  url: "text",
-  phone: "text",
-  color: "text",
-  place: "text",
-  // Read as its text: a filter, a sort and a formula take it as one.
-  json: "text",
-  single_select: "text",
-  number: "number",
-  rating: "number",
-  duration: "number",
-  boolean: "boolean",
-  date: "date",
-  datetime: "datetime",
-  multi_select: "options",
-  user: "users",
-  attachment: "files",
-  relation_one_to_many: "links",
-  relation_many_to_many: "links",
-  created_time: "datetime",
-  last_modified_time: "datetime",
-  created_by: "user",
-  last_modified_by: "user",
-  autonumber: "number",
-  row_id: "text",
-  button: "text",
+type PhysicalRole =
+  | { role: "writable"; sqlType: string }
+  | { role: "relation_fk"; sqlType: "uuid" }
+  | { role: "system"; column: string }
+  | { role: "computed" }
+  | { role: "virtual" }
+  | { role: "relation_virtual" };
+
+export type FieldTypeDefinition = {
+  physical: PhysicalRole;
+  /**
+   * Filter/sort/rollup typing for stored columns. Computed types resolve
+   * their kind when the expression is compiled.
+   */
+  storedValueKind: ValueKind | null;
+  primaryEligible: boolean;
+  requiredAllowed: boolean;
+  /** Fields AnyGridDB may keep in a client's side table (ADR 0032). */
+  sideEligible: boolean;
 };
+
+function writable(
+  sqlType: string,
+  kind: ValueKind,
+  extras: Partial<
+    Pick<
+      FieldTypeDefinition,
+      "primaryEligible" | "requiredAllowed" | "sideEligible"
+    >
+  > = {},
+): FieldTypeDefinition {
+  return {
+    physical: { role: "writable", sqlType },
+    storedValueKind: kind,
+    primaryEligible: extras.primaryEligible ?? false,
+    requiredAllowed: extras.requiredAllowed ?? true,
+    sideEligible: extras.sideEligible ?? false,
+  };
+}
+
+function system(column: string, kind: ValueKind): FieldTypeDefinition {
+  return {
+    physical: { role: "system", column },
+    storedValueKind: kind,
+    primaryEligible: column === "ag_seq" || column === "id",
+    requiredAllowed: false,
+    sideEligible: false,
+  };
+}
+
+/**
+ * One definition per FieldType. `satisfies Record<FieldType, …>` refuses a
+ * missing type; a new property on `FieldTypeDefinition` forces every type
+ * to fill it in.
+ */
+export const FIELD_DEFINITIONS = {
+  text: writable("text", "text", {
+    primaryEligible: true,
+    sideEligible: true,
+  }),
+  long_text: writable("text", "text", {
+    primaryEligible: true,
+    sideEligible: true,
+  }),
+  number: writable("numeric", "number", {
+    primaryEligible: true,
+    sideEligible: true,
+  }),
+  boolean: writable("boolean", "boolean", {
+    requiredAllowed: false,
+    sideEligible: true,
+  }),
+  date: writable("date", "date", {
+    primaryEligible: true,
+    sideEligible: true,
+  }),
+  datetime: writable("timestamptz", "datetime", {
+    primaryEligible: true,
+    sideEligible: true,
+  }),
+  single_select: writable("text", "text", {
+    primaryEligible: true,
+    sideEligible: true,
+  }),
+  multi_select: writable("text[]", "options"),
+  email: writable("text", "text", {
+    primaryEligible: true,
+    sideEligible: true,
+  }),
+  url: writable("text", "text", {
+    primaryEligible: true,
+    sideEligible: true,
+  }),
+  phone: writable("text", "text", {
+    primaryEligible: true,
+    sideEligible: true,
+  }),
+  color: writable("text", "text", { sideEligible: true }),
+  place: writable("text", "text", { sideEligible: true }),
+  // Read as its text: a filter, a sort and a formula take it as one.
+  json: writable("jsonb", "text", { sideEligible: true }),
+  rating: writable("numeric", "number", { sideEligible: true }),
+  duration: writable("numeric", "number"),
+  user: writable("uuid[]", "users", { requiredAllowed: false }),
+  attachment: writable("text[]", "files", { requiredAllowed: false }),
+  relation_one_to_many: {
+    physical: { role: "relation_fk", sqlType: "uuid" },
+    storedValueKind: "links",
+    primaryEligible: false,
+    requiredAllowed: false,
+    sideEligible: false,
+  },
+  relation_many_to_many: {
+    physical: { role: "relation_virtual" },
+    storedValueKind: "links",
+    primaryEligible: false,
+    requiredAllowed: false,
+    sideEligible: false,
+  },
+  formula: {
+    physical: { role: "computed" },
+    storedValueKind: null,
+    primaryEligible: true,
+    requiredAllowed: false,
+    sideEligible: false,
+  },
+  lookup: {
+    physical: { role: "computed" },
+    storedValueKind: null,
+    primaryEligible: false,
+    requiredAllowed: false,
+    sideEligible: false,
+  },
+  rollup: {
+    physical: { role: "computed" },
+    storedValueKind: null,
+    primaryEligible: false,
+    requiredAllowed: false,
+    sideEligible: false,
+  },
+  created_time: system("ag_created_at", "datetime"),
+  last_modified_time: system("ag_updated_at", "datetime"),
+  created_by: system("ag_created_by", "user"),
+  last_modified_by: system("ag_updated_by", "user"),
+  autonumber: system("ag_seq", "number"),
+  // On a client's table, the row's key: `compileColumn` reads it from there.
+  row_id: system("id", "text"),
+  button: {
+    physical: { role: "virtual" },
+    storedValueKind: "text",
+    primaryEligible: false,
+    requiredAllowed: false,
+    sideEligible: false,
+  },
+} satisfies Record<FieldType, FieldTypeDefinition>;
+
+type SystemType =
+  | "created_time"
+  | "last_modified_time"
+  | "created_by"
+  | "last_modified_by"
+  | "autonumber"
+  | "row_id";
+
+type ComputedType = "formula" | "lookup" | "rollup";
+
+export const SYSTEM_COLUMN: Record<SystemType, string> = {
+  created_time: "ag_created_at",
+  last_modified_time: "ag_updated_at",
+  created_by: "ag_created_by",
+  last_modified_by: "ag_updated_by",
+  autonumber: "ag_seq",
+  row_id: "id",
+};
+
+/** Names a user column can never take: row identity and system columns. */
+export const RESERVED_COLUMN_NAMES: ReadonlySet<string> = new Set([
+  "id",
+  "ag_status",
+  "ag_seq",
+  "ag_position",
+  "ag_created_at",
+  "ag_updated_at",
+  "ag_created_by",
+  "ag_updated_by",
+]);
 
 /**
  * Types that may be a table's primary field (row label for links, panels,
  * and card titles). Must coerce cleanly through `asText` / `labelSql`.
  */
-export const PRIMARY_TYPES: ReadonlySet<FieldType> = new Set([
-  "text",
-  "long_text",
-  "email",
-  "url",
-  "phone",
-  "number",
-  "date",
-  "datetime",
-  "single_select",
-  "formula",
-  "autonumber",
-  "row_id",
-]);
+export const PRIMARY_TYPES: ReadonlySet<FieldType> = new Set(
+  FIELD_TYPES.filter((type) => FIELD_DEFINITIONS[type].primaryEligible),
+);
+
+function definitionOf(fieldType: string): FieldTypeDefinition | undefined {
+  return Object.hasOwn(FIELD_DEFINITIONS, fieldType)
+    ? FIELD_DEFINITIONS[fieldType as FieldType]
+    : undefined;
+}
 
 export function isPrimaryType(fieldType: FieldType): boolean {
-  return PRIMARY_TYPES.has(fieldType);
+  return definitionOf(fieldType)?.primaryEligible === true;
 }
 
 export function isWritableType(
   fieldType: FieldType,
 ): fieldType is WritableType {
-  return (WRITABLE_TYPES as readonly string[]).includes(fieldType);
+  return definitionOf(fieldType)?.physical.role === "writable";
 }
 
 /**
@@ -202,44 +298,36 @@ export function isWritableType(
  * a row once it exists.
  */
 export function canBeRequired(fieldType: FieldType): boolean {
-  return (
-    isWritableType(fieldType) &&
-    fieldType !== "boolean" &&
-    fieldType !== "user" &&
-    fieldType !== "attachment"
-  );
+  return definitionOf(fieldType)?.requiredAllowed === true;
 }
 
 export function isSystemType(fieldType: FieldType): fieldType is SystemType {
-  return (SYSTEM_TYPES as readonly string[]).includes(fieldType);
+  return definitionOf(fieldType)?.physical.role === "system";
 }
 
 export function isComputedType(
   fieldType: FieldType,
 ): fieldType is ComputedType {
-  return (COMPUTED_TYPES as readonly string[]).includes(fieldType);
+  return definitionOf(fieldType)?.physical.role === "computed";
 }
 
 export function isRelationType(
   fieldType: FieldType,
 ): fieldType is "relation_one_to_many" | "relation_many_to_many" {
-  return (
-    fieldType === "relation_one_to_many" ||
-    fieldType === "relation_many_to_many"
-  );
+  const role = definitionOf(fieldType)?.physical.role;
+  return role === "relation_fk" || role === "relation_virtual";
 }
 
 /** True when the column owns a physical column of its own name. */
 export function hasPhysicalColumn(fieldType: FieldType): boolean {
-  return isWritableType(fieldType) || fieldType === "relation_one_to_many";
+  const role = definitionOf(fieldType)?.physical.role;
+  return role === "writable" || role === "relation_fk";
 }
 
 export function physicalSqlType(fieldType: FieldType): string {
-  if (isWritableType(fieldType)) {
-    return SQL_TYPE[fieldType];
-  }
-  if (fieldType === "relation_one_to_many") {
-    return "uuid";
+  const physical = definitionOf(fieldType)?.physical;
+  if (physical?.role === "writable" || physical?.role === "relation_fk") {
+    return physical.sqlType;
   }
   throw new AppError("invalid_column");
 }
@@ -248,5 +336,9 @@ export function physicalSqlType(fieldType: FieldType): string {
 export function storedValueKind(
   fieldType: Exclude<FieldType, ComputedType>,
 ): ValueKind {
-  return VALUE_KIND[fieldType];
+  const kind = definitionOf(fieldType)?.storedValueKind;
+  if (kind === null || kind === undefined) {
+    throw new AppError("invalid_column");
+  }
+  return kind;
 }
