@@ -3,21 +3,16 @@
  * an account that holds no role of Administration. On an administrator, an
  * auditor or another support they would hand support that account.
  */
-import { randomBytes } from "node:crypto";
 import type { Database } from "@anygriddb/db";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { keyRing } from "../auth/key-ring.js";
-import type { Env } from "../env.js";
-import { createTestDatabase } from "../test-database.js";
+import { adminBench } from "./admin-bench.test-helpers.js";
 import {
-  browserFactory,
   enrollTotp,
   errorCode,
   signUpProved,
   type TestBrowser,
 } from "./caller.test-helpers.js";
 
-const suffix = randomBytes(6).toString("hex");
 const PASSWORD = "correct horse battery staple";
 
 describe("support's reach", () => {
@@ -26,21 +21,7 @@ describe("support's reach", () => {
   let admin: TestBrowser;
   let helper: TestBrowser;
   const ids = { admin: "", auditor: "", support: "", person: "" };
-  const env = {
-    AUTH_ENCRYPTION_KEY: keyRing(randomBytes(32)),
-    PUBLIC_URL: "https://grid.example.org",
-  } as unknown as Env;
-  const hub = {
-    closeUser: () => 0,
-    closeAllBut: () => 0,
-    closeSession: () => 0,
-  };
-  const browser = browserFactory({ db: () => db, env, hub });
-  const account = (name: string) => ({
-    email: `${name}-${suffix}@example.org`,
-    displayName: name,
-    password: PASSWORD,
-  });
+  const { browser, account, start } = adminBench("support-reach", PASSWORD);
   const sessionsOf = (userId: string) =>
     db
       .selectFrom("sessions")
@@ -49,20 +30,9 @@ describe("support's reach", () => {
       .execute();
 
   beforeAll(async () => {
-    const created = await createTestDatabase("support-reach");
-    db = created.db;
-    close = created.close;
-    admin = browser();
-    await admin.signUpFirst(account("admin"));
-    await enrollTotp(admin);
-    await admin.call().admin.stepUp({ password: PASSWORD });
-    ids.admin = (
-      await db
-        .selectFrom("users")
-        .select("id")
-        .where("email", "=", account("admin").email)
-        .executeTakeFirstOrThrow()
-    ).id;
+    const bench = await start();
+    ({ db, close, admin } = bench);
+    ids.admin = bench.adminId;
 
     helper = browser();
     const helperId = await signUpProved(helper, db, account("helper"));

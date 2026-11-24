@@ -3,21 +3,16 @@
  * ADR 0126): an account manager and a source manager, each held to its
  * part, and neither able to climb out of it.
  */
-import { randomBytes } from "node:crypto";
 import type { Database } from "@anygriddb/db";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { keyRing } from "../auth/key-ring.js";
-import type { Env } from "../env.js";
-import { createTestDatabase } from "../test-database.js";
+import { adminBench } from "./admin-bench.test-helpers.js";
 import {
-  browserFactory,
   enrollTotp,
   errorCode,
   signUpProved,
   type TestBrowser,
 } from "./caller.test-helpers.js";
 
-const suffix = randomBytes(6).toString("hex");
 const PASSWORD = "correct horse battery staple";
 const NOWHERE = "00000000-0000-4000-8000-00000000abcd";
 
@@ -28,21 +23,10 @@ describe("delegated administration", () => {
   let accounts: TestBrowser;
   let sources: TestBrowser;
   const ids = { admin: "", accounts: "", sources: "", person: "" };
-  const env = {
-    AUTH_ENCRYPTION_KEY: keyRing(randomBytes(32)),
-    PUBLIC_URL: "https://grid.example.org",
-  } as unknown as Env;
-  const hub = {
-    closeUser: () => 0,
-    closeAllBut: () => 0,
-    closeSession: () => 0,
-  };
-  const browser = browserFactory({ db: () => db, env, hub });
-  const account = (name: string) => ({
-    email: `${name}-${suffix}@example.org`,
-    displayName: name,
-    password: PASSWORD,
-  });
+  const { suffix, browser, account, start } = adminBench(
+    "delegated-admin",
+    PASSWORD,
+  );
   const trail = (userId: string, detail: string) =>
     db
       .selectFrom("authEvents")
@@ -53,20 +37,9 @@ describe("delegated administration", () => {
       .execute();
 
   beforeAll(async () => {
-    const created = await createTestDatabase("delegated-admin");
-    db = created.db;
-    close = created.close;
-    admin = browser();
-    await admin.signUpFirst(account("admin"));
-    await enrollTotp(admin);
-    await admin.call().admin.stepUp({ password: PASSWORD });
-    ids.admin = (
-      await db
-        .selectFrom("users")
-        .select("id")
-        .where("email", "=", account("admin").email)
-        .executeTakeFirstOrThrow()
-    ).id;
+    const bench = await start();
+    ({ db, close, admin } = bench);
+    ids.admin = bench.adminId;
     accounts = browser();
     ids.accounts = await signUpProved(accounts, db, account("accounts"));
     sources = browser();
