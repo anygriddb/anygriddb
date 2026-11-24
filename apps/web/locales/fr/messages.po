@@ -5888,6 +5888,10 @@ msgstr "Historique"
 msgid "HMAC secret"
 msgstr "Secret HMAC"
 
+#: components/admin/account-actions.tsx
+msgid "Holds a role of Administration: administrators only"
+msgstr "A un rôle dans l’Administration : les administrateurs seulement"
+
 #: lib/key-names.ts
 msgctxt "keyboard key"
 msgid "Home"
@@ -12513,6 +12517,10 @@ msgstr "La personne gérera tous les comptes, les réglages de l’instance, et 
 #: lib/errors.ts
 msgid "This account already exists"
 msgstr "Ce compte existe déjà"
+
+#: lib/errors.ts
+msgid "This account holds a role of Administration: only an administrator can do this"
+msgstr "Ce compte a un rôle dans l’Administration : seul un administrateur peut le faire"
 
 #: lib/errors.ts
 msgid "This account is an administrator: create an account dedicated to AnyGridDB"

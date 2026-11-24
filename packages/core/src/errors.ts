@@ -53,6 +53,7 @@ export const ERRORS = {
   unknown_account: [404, "Unknown account"],
   account_already_exists: [409, "Account already exists"],
   invalid_account: [BAD, "Invalid account"],
+  account_out_of_reach: [403, "Account out of reach"],
   invalid_invitation: [BAD, "Invalid invitation"],
   invalid_origin: [BAD, "Invalid origin"],
   invalid_totp_secret: [BAD, "Invalid totp secret"],

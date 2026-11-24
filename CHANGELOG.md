@@ -8,6 +8,15 @@ first.
 
 ## Unreleased
 
+### Security
+
+- **Support acts only on accounts that hold no role of Administration.**
+  It could clear an administrator's second factors and, on an instance
+  without mail, take the reset link of the administrator's account: the
+  helpdesk could become an administrator. The same held for another
+  support account and for an auditor. Support's "sign everyone out" now
+  leaves those accounts signed in; an administrator's reach is unchanged.
+
 ## 0.8.0 - 2026-11-24
 
 **Upgrade with this release's Compose files and its pin, as usual. Two
