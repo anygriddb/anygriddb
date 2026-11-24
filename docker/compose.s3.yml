@@ -16,6 +16,9 @@
 # RustFS serves HTTPS with a certificate from the instance's internal
 # authority, on the stack's network only (ADR 0030).
 services:
+  # Compose replaces a service's whole command list: keep --application
+  # from compose.yml, and add rustfs. Without --application the stack
+  # never makes the application's database role (ADR 0119).
   certs:
     command:
       [
@@ -26,6 +29,8 @@ services:
         "/certs",
         "--postgres",
         "db:999:999",
+        "--application",
+        "app:1000:1000",
         "--service",
         "rustfs:10001:10001",
       ]

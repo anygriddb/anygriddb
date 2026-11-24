@@ -53,4 +53,20 @@ describe("the two ways to run AnyGridDB under Compose", () => {
     assert.deepEqual(appVariables(one), ["A", "B"]);
     assert.notDeepEqual(appVariables(one), appVariables(other));
   });
+
+  it("keeps the application's role when files run in an object store", async () => {
+    // compose.s3.yml replaces certs' whole command; without --application
+    // the merged stack never makes anygriddb_app (ADR 0119).
+    const s3 = await readFile(join(root, "docker", "compose.s3.yml"), "utf8");
+    const start = s3.indexOf("  certs:");
+    assert.notEqual(start, -1, "compose.s3.yml has no certs service");
+    const rest = s3.slice(start);
+    const end = rest.search(/\n  [a-z]/);
+    const certs = end === -1 ? rest : rest.slice(0, end);
+    assert.match(certs, /"--application"/);
+    assert.match(certs, /"app:1000:1000"/);
+    assert.match(certs, /"--postgres"/);
+    assert.match(certs, /"--service"/);
+    assert.match(certs, /"rustfs:10001:10001"/);
+  });
 });
