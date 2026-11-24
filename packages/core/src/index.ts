@@ -124,6 +124,8 @@ export {
 } from "./field-config";
 
 export {
+  FIELD_DEFINITIONS,
+  FIELD_TYPES,
   PRIMARY_TYPES,
   physicalSqlType,
   WRITABLE_TYPES,
@@ -131,9 +133,14 @@ export {
   isComputedType,
   isPrimaryType,
   isRelationType,
+  isSystemType,
   isWritableType,
   canBeRequired,
+  storedValueKind,
   type FieldType,
+  type FieldTypeDefinition,
+  type ValueKind,
+  type WritableType,
 } from "./field-types";
 
 export {
