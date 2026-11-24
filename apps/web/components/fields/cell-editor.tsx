@@ -594,7 +594,7 @@ function ListPanel({
     return () => window.removeEventListener("pointerdown", onPointer, true);
   }, [onClose, paused]);
   return (
-    <div
+    <div // NOSONAR: a popup around its list; the list and its search take the keys
       ref={ref}
       {...{ [LIST_PANEL_ATTRIBUTE]: "" }}
       className={cn(

@@ -197,20 +197,21 @@ export async function scanImportFileIsolated(
   path: string,
   maxRows: number,
   blank: string,
-  limits: ParseLimits = {
+  limits?: ParseLimits,
+): Promise<{ shape: SheetShape; preview: ImportPreview }> {
+  const { heapMb, timeMs } = limits ?? {
     heapMb: PARSE_LIMITS.heapMb,
     timeMs: PARSE_LIMITS.scanMs,
-  },
-): Promise<{ shape: SheetShape; preview: ImportPreview }> {
+  };
   if (format === "xlsx") {
     await assertZipFileWithinLimits(path, PARSE_LIMITS.zip);
   }
   const worker = new ParseWorker(
     { mode: "scan", format, path, maxRows, blank },
-    limits.heapMb,
+    heapMb,
   );
   try {
-    const reply = await worker.next(limits.timeMs);
+    const reply = await worker.next(timeMs);
     if (reply.kind !== "scan") refused(reply);
     return { shape: reply.shape, preview: reply.preview };
   } finally {
@@ -227,18 +228,19 @@ export async function scanWorkbookIsolated(
   path: string,
   maxRows: number,
   blank: string,
-  limits: ParseLimits = {
+  limits?: ParseLimits,
+): Promise<WorkbookSheet[]> {
+  const { heapMb, timeMs } = limits ?? {
     heapMb: PARSE_LIMITS.heapMb,
     timeMs: PARSE_LIMITS.scanMs,
-  },
-): Promise<WorkbookSheet[]> {
+  };
   await assertZipFileWithinLimits(path, PARSE_LIMITS.zip);
   const worker = new ParseWorker(
     { mode: "workbook", path, maxRows, blank },
-    limits.heapMb,
+    heapMb,
   );
   try {
-    const reply = await worker.next(limits.timeMs);
+    const reply = await worker.next(timeMs);
     if (reply.kind !== "workbook") refused(reply);
     return reply.sheets;
   } finally {
@@ -256,21 +258,22 @@ export async function* readImportFileIsolated(
   path: string,
   size: number,
   maxRows: number,
-  limits: ParseLimits = {
+  limits?: ParseLimits,
+): AsyncGenerator<SheetRow[]> {
+  const { heapMb, timeMs } = limits ?? {
     heapMb: PARSE_LIMITS.heapMb,
     timeMs: PARSE_LIMITS.batchMs,
-  },
-): AsyncGenerator<SheetRow[]> {
+  };
   if (shape.format === "xlsx") {
     await assertZipFileWithinLimits(path, PARSE_LIMITS.zip);
   }
   const worker = new ParseWorker(
     { mode: "read", shape, path, size, maxRows },
-    limits.heapMb,
+    heapMb,
   );
   try {
     for (;;) {
-      const reply = await worker.next(limits.timeMs);
+      const reply = await worker.next(timeMs);
       if (reply.kind === "done") return;
       if (reply.kind !== "batch") refused(reply);
       worker.more();

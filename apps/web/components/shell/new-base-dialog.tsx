@@ -596,7 +596,9 @@ function NewBaseForm(props: NewBaseProps) {
               <ul className="flex max-h-[40vh] flex-col gap-1 overflow-y-auto">
                 {workbook.sheets.map((sheet) => (
                   <li key={sheet.sheet}>
-                    <label className="flex items-start gap-2">
+                    <label // NOSONAR: name is the sheet's title in the span
+                      className="flex items-start gap-2"
+                    >
                       <input
                         type="checkbox"
                         className="mt-1"

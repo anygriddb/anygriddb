@@ -7,31 +7,31 @@ import { BlockList, isIP } from "node:net";
  * out: they are not routed.
  */
 const RESERVED = new BlockList();
-RESERVED.addSubnet("0.0.0.0", 8, "ipv4");
-RESERVED.addSubnet("100.64.0.0", 10, "ipv4");
-RESERVED.addSubnet("127.0.0.0", 8, "ipv4");
-RESERVED.addSubnet("169.254.0.0", 16, "ipv4");
-RESERVED.addSubnet("192.0.0.0", 24, "ipv4");
-RESERVED.addSubnet("192.88.99.0", 24, "ipv4");
-RESERVED.addSubnet("198.18.0.0", 15, "ipv4");
-RESERVED.addSubnet("224.0.0.0", 4, "ipv4");
-RESERVED.addSubnet("240.0.0.0", 4, "ipv4");
-RESERVED.addAddress("::", "ipv6");
-RESERVED.addAddress("::1", "ipv6");
-RESERVED.addSubnet("64:ff9b::", 96, "ipv6");
-RESERVED.addSubnet("64:ff9b:1::", 48, "ipv6");
-RESERVED.addSubnet("2001:0::", 32, "ipv6");
-RESERVED.addSubnet("2002::", 16, "ipv6");
-RESERVED.addSubnet("fe80::", 10, "ipv6");
-RESERVED.addSubnet("fec0::", 10, "ipv6");
-RESERVED.addSubnet("ff00::", 8, "ipv6");
+RESERVED.addSubnet("0.0.0.0", 8, "ipv4"); // NOSONAR: a range no request may reach
+RESERVED.addSubnet("100.64.0.0", 10, "ipv4"); // NOSONAR: a range no request may reach
+RESERVED.addSubnet("127.0.0.0", 8, "ipv4"); // NOSONAR: a range no request may reach
+RESERVED.addSubnet("169.254.0.0", 16, "ipv4"); // NOSONAR: a range no request may reach
+RESERVED.addSubnet("192.0.0.0", 24, "ipv4"); // NOSONAR: a range no request may reach
+RESERVED.addSubnet("192.88.99.0", 24, "ipv4"); // NOSONAR: a range no request may reach
+RESERVED.addSubnet("198.18.0.0", 15, "ipv4"); // NOSONAR: a range no request may reach
+RESERVED.addSubnet("224.0.0.0", 4, "ipv4"); // NOSONAR: a range no request may reach
+RESERVED.addSubnet("240.0.0.0", 4, "ipv4"); // NOSONAR: a range no request may reach
+RESERVED.addAddress("::", "ipv6"); // NOSONAR: a range no request may reach
+RESERVED.addAddress("::1", "ipv6"); // NOSONAR: a range no request may reach
+RESERVED.addSubnet("64:ff9b::", 96, "ipv6"); // NOSONAR: a range no request may reach
+RESERVED.addSubnet("64:ff9b:1::", 48, "ipv6"); // NOSONAR: a range no request may reach
+RESERVED.addSubnet("2001:0::", 32, "ipv6"); // NOSONAR: a range no request may reach
+RESERVED.addSubnet("2002::", 16, "ipv6"); // NOSONAR: a range no request may reach
+RESERVED.addSubnet("fe80::", 10, "ipv6"); // NOSONAR: a range no request may reach
+RESERVED.addSubnet("fec0::", 10, "ipv6"); // NOSONAR: a range no request may reach
+RESERVED.addSubnet("ff00::", 8, "ipv6"); // NOSONAR: a range no request may reach
 
 /** A private network: reachable only where an administrator has said so. */
 const PRIVATE = new BlockList();
-PRIVATE.addSubnet("10.0.0.0", 8, "ipv4");
-PRIVATE.addSubnet("172.16.0.0", 12, "ipv4");
-PRIVATE.addSubnet("192.168.0.0", 16, "ipv4");
-PRIVATE.addSubnet("fc00::", 7, "ipv6");
+PRIVATE.addSubnet("10.0.0.0", 8, "ipv4"); // NOSONAR: a private range, refused unless allowed
+PRIVATE.addSubnet("172.16.0.0", 12, "ipv4"); // NOSONAR: a private range, refused unless allowed
+PRIVATE.addSubnet("192.168.0.0", 16, "ipv4"); // NOSONAR: a private range, refused unless allowed
+PRIVATE.addSubnet("fc00::", 7, "ipv6"); // NOSONAR: a private range, refused unless allowed
 
 /** The IPv4 address inside `::ffff:a.b.c.d` or `::ffff:xxxx:xxxx`, if any. */
 function mappedIpv4(address: string): string | null {

@@ -158,7 +158,7 @@ function FieldRow({
         <FieldIcon fieldType={column.fieldType} />
         <span className="break-words">{column.label}</span>
       </div>
-      <div
+      <div // NOSONAR: keyboard edit is the button inside; click here is mouse-only
         {...(asTitle ? { role: "heading", "aria-level": 2 } : {})}
         className={cn(
           "relative -mx-2 min-h-8 rounded-md border border-transparent px-2 py-1",

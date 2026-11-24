@@ -42,8 +42,8 @@ export function TableHeader({
         {table.external ? (
           // A client's table (ADR 0006): its name in the database, always in view.
           <Tooltip content={ENGINE_NAMES[table.external.engine]}>
-            <span
-              tabIndex={0}
+            <button
+              type="button"
               className="inline-flex h-[22px] max-w-56 items-center gap-1.5 rounded-md border border-border bg-background px-2 font-mono text-xs text-muted-foreground focus-visible:outline-2 focus-visible:outline-ring"
             >
               <EngineMark
@@ -54,7 +54,7 @@ export function TableHeader({
               <span className="truncate">
                 {table.external.schema}.{table.external.name}
               </span>
-            </span>
+            </button>
           </Tooltip>
         ) : null}
       </div>
@@ -85,14 +85,13 @@ export function TableHeader({
       >
         {presence.slice(0, 6).map((peer) => (
           <Tooltip key={peer.userId} content={peer.name}>
-            <span
-              role="img"
+            <button
+              type="button"
               aria-label={peer.name}
-              tabIndex={0}
               className="rounded-full ring-2 ring-card outline-none focus-visible:ring-ring"
             >
               <Avatar name={peer.name} />
-            </span>
+            </button>
           </Tooltip>
         ))}
       </div>

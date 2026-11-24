@@ -341,7 +341,7 @@ function EditingRow(props: {
     drop !== undefined,
   );
   return (
-    <div
+    <div // NOSONAR: the grid holds the focus and names the active cell (aria-activedescendant)
       {...(drop ? dropProps : {})}
       ref={ref}
       role="row"

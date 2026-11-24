@@ -82,7 +82,7 @@ function PromptForm(props: PromptProps) {
       {props.multiline ? (
         <textarea
           id="prompt-value"
-          autoFocus
+          autoFocus // NOSONAR: a prompt opens with the caret in its field
           rows={4}
           maxLength={1_000}
           className="w-full resize-y rounded-md border border-border bg-card px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -92,7 +92,7 @@ function PromptForm(props: PromptProps) {
       ) : (
         <Input
           id="prompt-value"
-          autoFocus
+          autoFocus // NOSONAR: a prompt opens with the caret in its field
           value={value}
           onChange={(event) => setValue(event.target.value)}
         />

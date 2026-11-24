@@ -180,8 +180,12 @@ export async function writeAccountDataFile(
   path: string,
   onProgress?: (done: number, total: number | null) => Promise<void>,
   /** The most lines of a list, and the lines read at a time. */
-  limits: ListLimits = { list: ACCOUNT_LIST_LIMIT, page: ACCOUNT_DATA_PAGE },
+  limits?: ListLimits,
 ): Promise<{ size: number; counts: AccountDataCounts; displayName: string }> {
+  const resolved: ListLimits = limits ?? {
+    list: ACCOUNT_LIST_LIMIT,
+    page: ACCOUNT_DATA_PAGE,
+  };
   await assertPerson(db, userId);
 
   const account = await db
@@ -280,7 +284,7 @@ export async function writeAccountDataFile(
         "attached files",
         "password, tokens, and second factors",
       ],
-      listLimit: limits.list,
+      listLimit: resolved.list,
       profile: {
         id: account.id,
         email: account.email,
@@ -332,7 +336,7 @@ export async function writeAccountDataFile(
     // Without its closing brace: the long lists follow as its other keys.
     await writeText(stream, `${opening.slice(0, -1)},"signIns":`);
 
-    lists.signIns = await writeList(stream, limits, async (after, limit) => {
+    lists.signIns = await writeList(stream, resolved, async (after, limit) => {
       const rows = await db
         .selectFrom("authEvents")
         .select([
@@ -379,7 +383,7 @@ export async function writeAccountDataFile(
     await onProgress?.(1, 4);
 
     await writeText(stream, ',"comments":');
-    lists.comments = await writeList(stream, limits, async (after, limit) => {
+    lists.comments = await writeList(stream, resolved, async (after, limit) => {
       const rows = await db
         .selectFrom("comments as c")
         .leftJoin("dataTables as t", "t.id", "c.tableId")
@@ -421,7 +425,7 @@ export async function writeAccountDataFile(
     await onProgress?.(2, 4);
 
     await writeText(stream, ',"writes":');
-    lists.writes = await writeList(stream, limits, async (after, limit) => {
+    lists.writes = await writeList(stream, resolved, async (after, limit) => {
       const rows = await db
         .selectFrom("auditEvents as e")
         .leftJoin("dataTables as t", "t.id", "e.tableId")

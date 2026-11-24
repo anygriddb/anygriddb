@@ -27,7 +27,7 @@ const BATCH = 5_000;
 function generator(seed: number): () => number {
   let state = seed;
   return () => {
-    state = (state + 0x6d2b79f5) | 0;
+    state = (state + 0x6d2b79f5) | 0; // NOSONAR: Mulberry32 wraps to 32 bits, Math.trunc would not
     let mixed = Math.imul(state ^ (state >>> 15), 1 | state);
     mixed = (mixed + Math.imul(mixed ^ (mixed >>> 7), 61 | mixed)) ^ mixed;
     return ((mixed ^ (mixed >>> 14)) >>> 0) / 4_294_967_296;

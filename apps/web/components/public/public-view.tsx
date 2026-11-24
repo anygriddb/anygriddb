@@ -404,7 +404,7 @@ export function PublicRows({
       <div
         role="region"
         aria-label={t`Rows`}
-        tabIndex={0}
+        tabIndex={0} // NOSONAR: scrollable region takes the keyboard (cards hold nothing to focus)
         className="min-h-0 flex-1 overflow-auto focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring"
       >
         {cards ? (
