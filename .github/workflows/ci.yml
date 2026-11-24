@@ -243,12 +243,31 @@ jobs:
       - name: ShellCheck, Hadolint and Gitleaks
         run: scripts/lint-security.sh
 
+  # actionlint and zizmor on every pull request and every push to main, so a
+  # change that weakens a workflow cannot merge when ci-ok is required. Kept
+  # here rather than in a path-filtered workflow of its own.
+  workflows:
+    name: workflows
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: actionlint and zizmor
+        env:
+          # Read-only: zizmor asks GitHub about the actions the workflows pin.
+          GH_TOKEN: ${{ github.token }}
+        run: scripts/lint-workflows.sh
+
   # The one check the ruleset needs from this workflow: it passes only when
   # every job above passed, so a new job never means a new required check.
   ci-ok:
     name: ci-ok
     if: always()
-    needs: [unit, integration, engines, e2e, image, guards]
+    needs: [unit, integration, engines, e2e, image, guards, workflows]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -257,7 +276,7 @@ jobs:
           RESULTS: ${{ join(needs.*.result, ' ') }}
         run: |
           set -eu
-          echo "unit integration engines e2e image guards: $RESULTS"
+          echo "unit integration engines e2e image guards workflows: $RESULTS"
           for result in $RESULTS; do
             if [ "$result" != "success" ]; then
               echo "a job ended $result" >&2
