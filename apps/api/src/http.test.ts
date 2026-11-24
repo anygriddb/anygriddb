@@ -15,6 +15,18 @@ import {
   unservedProcedureMethod,
 } from "./http.js";
 
+/** A logger that keeps each line it is given, with its level. */
+function recordingLog() {
+  const lines: Array<[string, Record<string, unknown>, string]> = [];
+  const log = {
+    error: (object: Record<string, unknown>, message: string) =>
+      lines.push(["error", object, message]),
+    info: (object: Record<string, unknown>, message: string) =>
+      lines.push(["info", object, message]),
+  };
+  return { lines, log };
+}
+
 describe("API security headers", () => {
   it("sends clickjacking and content-type headers, and HSTS only on HTTPS", () => {
     const headers = new Map<string, string>();
@@ -57,13 +69,7 @@ describe("API security headers", () => {
   });
 
   it("logs a server fault as an error, with its stack", () => {
-    const lines: Array<[string, Record<string, unknown>, string]> = [];
-    const log = {
-      error: (object: Record<string, unknown>, message: string) =>
-        lines.push(["error", object, message]),
-      info: (object: Record<string, unknown>, message: string) =>
-        lines.push(["info", object, message]),
-    };
+    const { lines, log } = recordingLog();
     const fault = new Error("connection reset");
     logFailure(log, {
       error: fault,
@@ -77,19 +83,30 @@ describe("API security headers", () => {
   });
 
   it("keeps a refused request off the errors, on one line", () => {
-    const lines: Array<[string, Record<string, unknown>, string]> = [];
-    const log = {
-      error: (object: Record<string, unknown>, message: string) =>
-        lines.push(["error", object, message]),
-      info: (object: Record<string, unknown>, message: string) =>
-        lines.push(["info", object, message]),
-    };
+    const { lines, log } = recordingLog();
     logFailure(log, {
       error: { statusCode: 429, error: "Too many requests" },
       status: 429,
       message: "request failed",
     });
     expect(lines).toEqual([["info", { status: 429 }, "request failed"]]);
+  });
+
+  it("keeps a read its client left off the errors", () => {
+    const { lines, log } = recordingLog();
+    logFailure(log, {
+      error: new AppError("request_closed"),
+      status: 499,
+      message: "trpc failed",
+      context: { path: "rows.read", code: "request_closed" },
+    });
+    expect(lines).toEqual([
+      [
+        "info",
+        { path: "rows.read", code: "request_closed", status: 499 },
+        "trpc failed",
+      ],
+    ]);
   });
 
   it("keeps AppError codes on the Fastify error path", () => {
