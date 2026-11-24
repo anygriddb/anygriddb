@@ -1768,10 +1768,6 @@ msgstr "Account events"
 msgid "Account locked"
 msgstr "Account locked"
 
-#: components/admin/notification-defaults-section.tsx
-msgid "Account locked (admins)"
-msgstr "Account locked (admins)"
-
 #: components/settings/account-settings.tsx
 #: components/shell/command-palette.tsx
 #: components/shell/user-menu.tsx
@@ -1835,10 +1831,6 @@ msgstr "Act as {0}"
 #: components/admin/account-page.tsx
 msgid "Act as this person"
 msgstr "Act as this person"
-
-#: components/admin/notification-defaults-section.tsx
-msgid "Acting as"
-msgstr "Acting as"
 
 #: components/admin/trails.tsx
 #: components/fields/field-settings.tsx
@@ -2149,7 +2141,7 @@ msgstr "Administration token"
 msgid "Administrator"
 msgstr "Administrator"
 
-#: components/settings/notification-preferences.tsx
+#: components/settings/person-event-labels.ts
 msgid "Administrator acting as you"
 msgstr "Administrator acting as you"
 
@@ -2157,7 +2149,7 @@ msgstr "Administrator acting as you"
 msgid "Administrator of the instance"
 msgstr "Administrator of the instance"
 
-#: components/settings/notification-preferences.tsx
+#: components/settings/person-event-labels.ts
 msgid "Administrator opened a base you own"
 msgstr "Administrator opened a base you own"
 
@@ -2429,7 +2421,7 @@ msgstr "and"
 msgid "Announcement"
 msgstr "Announcement"
 
-#: components/settings/notification-preferences.tsx
+#: components/settings/person-event-labels.ts
 msgid "Another account locked (administrators)"
 msgstr "Another account locked (administrators)"
 
@@ -2560,10 +2552,6 @@ msgstr "API tokens and public links"
 msgid "API tokens revoked"
 msgstr "API tokens revoked"
 
-#: components/admin/notification-defaults-section.tsx
-msgid "App"
-msgstr "App"
-
 #: components/admin/admin-sections.ts
 #: components/admin/oauth-clients-tab.tsx
 msgid "Applications"
@@ -2602,13 +2590,9 @@ msgstr "Ask for AnyGridDB's own second factor too"
 msgid "Asked by the person"
 msgstr "Asked by the person"
 
-#: components/settings/notification-preferences.tsx
+#: components/settings/person-event-labels.ts
 msgid "Assigned to a row"
 msgstr "Assigned to a row"
-
-#: components/admin/notification-defaults-section.tsx
-msgid "Assignment"
-msgstr "Assignment"
 
 #: components/auth/auth-page.tsx
 #: components/auth/reset-page.tsx
@@ -2680,15 +2664,11 @@ msgstr "Auto"
 msgid "Automation"
 msgstr "Automation"
 
-#: components/admin/notification-defaults-section.tsx
-msgid "Automation failure"
-msgstr "Automation failure"
-
 #: components/shell/notification-items.ts
 msgid "Automation in {table}"
 msgstr "Automation in {table}"
 
-#: components/settings/notification-preferences.tsx
+#: components/settings/person-event-labels.ts
 msgid "Automation you authored failed"
 msgstr "Automation you authored failed"
 
@@ -3975,11 +3955,7 @@ msgstr "Cursor, Claude Desktop, and other clients"
 msgid "custom headers"
 msgstr "custom headers"
 
-#: components/admin/notification-defaults-section.tsx
-msgid "Daily"
-msgstr "Daily"
-
-#: components/settings/notification-preferences.tsx
+#: components/settings/person-event-labels.ts
 msgid "Daily digest"
 msgstr "Daily digest"
 
@@ -4649,7 +4625,6 @@ msgstr "Editor"
 #: components/admin/account-actions.tsx
 #: components/admin/accounts-tab.tsx
 #: components/admin/invitations-panel.tsx
-#: components/admin/notification-defaults-section.tsx
 #: components/admin/notifications-tab.tsx
 #: components/admin/sign-in-trail.tsx
 #: components/auth/auth-page.tsx
@@ -4696,7 +4671,7 @@ msgstr "Email is not set up: you get the link to choose their password, valid a 
 msgid "Email notices"
 msgstr "Email notices"
 
-#: components/settings/notification-preferences.tsx
+#: components/settings/person-event-labels.ts
 msgid "Email now"
 msgstr "Email now"
 
@@ -4715,10 +4690,6 @@ msgstr "Embedded in {sites}"
 #: components/dashboards/dashboard-board.tsx
 msgid "Embedded view"
 msgstr "Embedded view"
-
-#: components/admin/notification-defaults-section.tsx
-msgid "Emergency access"
-msgstr "Emergency access"
 
 #: components/fields/field-editor.tsx
 msgid "empty"
@@ -5136,10 +5107,6 @@ msgstr "Extend the selection"
 #: components/table/view-toolbar.tsx
 msgid "Extra tall"
 msgstr "Extra tall"
-
-#: components/admin/notification-defaults-section.tsx
-msgid "Factors removed"
-msgstr "Factors removed"
 
 #: components/admin/alerts-section.tsx
 #: components/admin/support-tab.tsx
@@ -6078,17 +6045,9 @@ msgstr "In progress"
 msgid "In progress ({percent}%)"
 msgstr "In progress ({percent}%)"
 
-#: components/settings/notification-preferences.tsx
+#: components/settings/person-event-labels.ts
 msgid "In the app"
 msgstr "In the app"
-
-#: components/admin/notification-defaults-section.tsx
-msgid "Inactivity disable"
-msgstr "Inactivity disable"
-
-#: components/admin/notification-defaults-section.tsx
-msgid "Inactivity warning"
-msgstr "Inactivity warning"
 
 #: components/views/form-view.tsx
 msgid "Include {field}"
@@ -7001,8 +6960,7 @@ msgstr "Locked"
 msgid "Locked row {row} of {table} changed outside AnyGridDB"
 msgstr "Locked row {row} of {table} changed outside AnyGridDB"
 
-#: components/admin/notification-defaults-section.tsx
-#: components/settings/notification-preferences.tsx
+#: components/settings/person-event-labels.ts
 msgid "Locked row changed outside"
 msgstr "Locked row changed outside"
 
@@ -7251,11 +7209,7 @@ msgstr "Members and access of {name}"
 msgid "Memory used"
 msgstr "Memory used"
 
-#: components/admin/notification-defaults-section.tsx
-msgid "Mention"
-msgstr "Mention"
-
-#: components/settings/notification-preferences.tsx
+#: components/settings/person-event-labels.ts
 msgid "Mention in a comment"
 msgstr "Mention in a comment"
 
@@ -8616,10 +8570,6 @@ msgstr "Otherwise:"
 msgid "Overview"
 msgstr "Overview"
 
-#: components/admin/notification-defaults-section.tsx
-msgid "Own account locked"
-msgstr "Own account locked"
-
 #: components/admin/effective-rights.tsx
 msgid "Own role"
 msgstr "Own role"
@@ -8632,10 +8582,6 @@ msgstr "Owned by {owners}"
 #: components/settings/role-label.ts
 msgid "Owner"
 msgstr "Owner"
-
-#: components/admin/notification-defaults-section.tsx
-msgid "Owner named"
-msgstr "Owner named"
 
 #: components/admin/bases-tab.tsx
 msgid "Owners"
@@ -8717,7 +8663,6 @@ msgid "Password asked"
 msgstr "Password asked"
 
 #: components/admin/auth-labels.ts
-#: components/admin/notification-defaults-section.tsx
 msgid "Password changed"
 msgstr "Password changed"
 
@@ -9639,12 +9584,11 @@ msgstr "Replica port"
 msgid "Replica username"
 msgstr "Replica username"
 
-#: components/admin/notification-defaults-section.tsx
 #: components/record/record-panel.tsx
 msgid "Reply"
 msgstr "Reply"
 
-#: components/settings/notification-preferences.tsx
+#: components/settings/person-event-labels.ts
 msgid "Reply to your comment"
 msgstr "Reply to your comment"
 
@@ -9880,16 +9824,12 @@ msgstr "Role changed"
 msgid "Role for {name}"
 msgstr "Role for {name}"
 
-#: components/admin/notification-defaults-section.tsx
-msgid "Role given"
-msgstr "Role given"
-
 #: components/admin/account-bases.tsx
 #: components/admin/group-page.tsx
 msgid "Role given on {base}"
 msgstr "Role given on {base}"
 
-#: components/settings/notification-preferences.tsx
+#: components/settings/person-event-labels.ts
 msgid "Role given on a base you own"
 msgstr "Role given on a base you own"
 
@@ -11039,7 +10979,7 @@ msgstr "Someone"
 msgid "Someone changed this value while you were changing it: the current value now shows, make your change again if needed"
 msgstr "Someone changed this value while you were changing it: the current value now shows, make your change again if needed"
 
-#: components/settings/notification-preferences.tsx
+#: components/settings/person-event-labels.ts
 msgid "Someone made an owner"
 msgstr "Someone made an owner"
 
@@ -11128,10 +11068,6 @@ msgstr "SQL Server no longer kept the changes: the table was read again in full"
 #: components/fields/formula-docs.ts
 msgid "Square root; blank for a negative number."
 msgstr "Square root; blank for a negative number."
-
-#: components/admin/notification-defaults-section.tsx
-msgid "SSO linked"
-msgstr "SSO linked"
 
 #: lib/aggregate-labels.ts
 msgid "Standard deviation"
@@ -13835,15 +13771,11 @@ msgstr "Webhook address"
 msgid "Webhook deliveries that failed"
 msgstr "Webhook deliveries that failed"
 
-#: components/admin/notification-defaults-section.tsx
-msgid "Webhook disabled"
-msgstr "Webhook disabled"
-
 #: lib/known-text.ts
 msgid "Webhook disabled after too many failures"
 msgstr "Webhook disabled after too many failures"
 
-#: components/settings/notification-preferences.tsx
+#: components/settings/person-event-labels.ts
 msgid "Webhook you created was disabled"
 msgstr "Webhook you created was disabled"
 
@@ -13861,11 +13793,7 @@ msgstr "Wednesday"
 msgid "Week"
 msgstr "Week"
 
-#: components/admin/notification-defaults-section.tsx
-msgid "Weekly"
-msgstr "Weekly"
-
-#: components/settings/notification-preferences.tsx
+#: components/settings/person-event-labels.ts
 msgid "Weekly digest"
 msgstr "Weekly digest"
 
@@ -14287,19 +14215,19 @@ msgstr "You read Administration as an auditor: every page is open to you, and no
 msgid "You register an application with the provider, and type its client ID and secret below."
 msgstr "You register an application with the provider, and type its client ID and secret below."
 
-#: components/settings/notification-preferences.tsx
+#: components/settings/person-event-labels.ts
 msgid "Your account linked to an identity provider"
 msgstr "Your account linked to an identity provider"
 
-#: components/settings/notification-preferences.tsx
+#: components/settings/person-event-labels.ts
 msgid "Your account locked"
 msgstr "Your account locked"
 
-#: components/settings/notification-preferences.tsx
+#: components/settings/person-event-labels.ts
 msgid "Your account was disabled for inactivity"
 msgstr "Your account was disabled for inactivity"
 
-#: components/settings/notification-preferences.tsx
+#: components/settings/person-event-labels.ts
 msgid "Your account will soon be disabled"
 msgstr "Your account will soon be disabled"
 
@@ -14335,7 +14263,7 @@ msgstr "Your own choice, by email and in your notifications: the other administr
 msgid "Your passkeys"
 msgstr "Your passkeys"
 
-#: components/settings/notification-preferences.tsx
+#: components/settings/person-event-labels.ts
 msgid "Your password changed"
 msgstr "Your password changed"
 
@@ -14351,7 +14279,7 @@ msgstr "Your password, to confirm a change of second factor"
 msgid "Your role: {role}"
 msgstr "Your role: {role}"
 
-#: components/settings/notification-preferences.tsx
+#: components/settings/person-event-labels.ts
 msgid "Your second factors removed"
 msgstr "Your second factors removed"
 

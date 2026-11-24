@@ -2,17 +2,11 @@ import { Checkbox } from "@anygriddb/ui";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLingui } from "@lingui/react/macro";
 import { toast } from "sonner";
-import type { PersonChannel, PersonEvent } from "@anygriddb/core";
+import { PERSON_CHANNELS } from "@anygriddb/core";
 import { trpc, useTRPC } from "../../lib/trpc";
 import { useErrorText } from "../../lib/errors";
+import { usePersonEventLabels } from "./person-event-labels";
 import { RuledSection } from "../shell/notebook-page";
-
-const CHANNELS: PersonChannel[] = [
-  "in_app",
-  "email_immediate",
-  "email_daily",
-  "email_weekly",
-];
 
 /**
  * Per-event channels and mutes for the signed-in person (ADR 0123).
@@ -24,31 +18,7 @@ export function NotificationPreferences() {
   const queryClient = useQueryClient();
   const preferences = useQuery(api.notifications.preferences.queryOptions());
 
-  const labels: Record<PersonEvent, string> = {
-    mention: t`Mention in a comment`,
-    reply: t`Reply to your comment`,
-    assigned: t`Assigned to a row`,
-    automation: t`Automation you authored failed`,
-    webhook_disabled: t`Webhook you created was disabled`,
-    row_changed: t`Locked row changed outside`,
-    role_given: t`Role given on a base you own`,
-    owner_named: t`Someone made an owner`,
-    account_locked: t`Another account locked (administrators)`,
-    admin_access: t`Administrator opened a base you own`,
-    acting_as: t`Administrator acting as you`,
-    password_changed: t`Your password changed`,
-    factors_removed: t`Your second factors removed`,
-    sso_linked: t`Your account linked to an identity provider`,
-    locked: t`Your account locked`,
-    inactive_soon: t`Your account will soon be disabled`,
-    inactive_disabled: t`Your account was disabled for inactivity`,
-  };
-  const channelLabel: Record<PersonChannel, string> = {
-    in_app: t`In the app`,
-    email_immediate: t`Email now`,
-    email_daily: t`Daily digest`,
-    email_weekly: t`Weekly digest`,
-  };
+  const { events: labels, channels: channelLabel } = usePersonEventLabels();
 
   async function run(action: () => Promise<void>) {
     try {
@@ -75,7 +45,7 @@ export function NotificationPreferences() {
               <thead>
                 <tr className="border-b border-border text-left text-xs text-muted-foreground">
                   <th className="py-2 pr-3 font-medium">{t`Event`}</th>
-                  {CHANNELS.map((channel) => (
+                  {PERSON_CHANNELS.map((channel) => (
                     <th key={channel} className="px-2 py-2 font-medium">
                       {channelLabel[channel]}
                     </th>
@@ -93,7 +63,7 @@ export function NotificationPreferences() {
                         </span>
                       ) : null}
                     </td>
-                    {CHANNELS.map((channel) => {
+                    {PERSON_CHANNELS.map((channel) => {
                       const checked = event.channels.includes(channel);
                       const locked = event.required.includes(channel);
                       return (

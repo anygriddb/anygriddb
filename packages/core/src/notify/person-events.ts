@@ -75,109 +75,42 @@ export type PersonEventDefinition = {
  * this catalogue: the former carries the only link to join; the latter
  * ignores preferences on purpose (ADR 0052).
  */
+const AT_ONCE: readonly PersonChannel[] = ["in_app", "email_immediate"];
+const BY_MAIL: readonly PersonChannel[] = ["email_immediate"];
+
+/** About the person's work in a base: every channel theirs to choose. */
+function aboutWork(id: PersonEvent): PersonEventDefinition {
+  return { id, required: [], defaults: AT_ONCE, scoped: true };
+}
+
+/** An administrator's emergency power: the mail stays. */
+function emergency(id: PersonEvent, scoped: boolean): PersonEventDefinition {
+  return { id, required: BY_MAIL, defaults: AT_ONCE, scoped };
+}
+
+/** The account's own safety: by mail, always. */
+function safety(id: PersonEvent): PersonEventDefinition {
+  return { id, required: BY_MAIL, defaults: BY_MAIL, scoped: false };
+}
+
 export const PERSON_EVENT_CATALOG: ReadonlyArray<PersonEventDefinition> = [
-  {
-    id: "mention",
-    required: [],
-    defaults: ["in_app", "email_immediate"],
-    scoped: true,
-  },
-  {
-    id: "reply",
-    required: [],
-    defaults: ["in_app", "email_immediate"],
-    scoped: true,
-  },
-  {
-    id: "assigned",
-    required: [],
-    defaults: ["in_app", "email_immediate"],
-    scoped: true,
-  },
-  {
-    id: "automation",
-    required: [],
-    defaults: ["in_app", "email_immediate"],
-    scoped: true,
-  },
-  {
-    id: "webhook_disabled",
-    required: [],
-    defaults: ["in_app", "email_immediate"],
-    scoped: true,
-  },
-  {
-    id: "row_changed",
-    required: [],
-    defaults: ["in_app", "email_immediate"],
-    scoped: true,
-  },
-  {
-    id: "role_given",
-    required: [],
-    defaults: ["in_app", "email_immediate"],
-    scoped: true,
-  },
-  {
-    id: "owner_named",
-    required: [],
-    defaults: ["in_app", "email_immediate"],
-    scoped: true,
-  },
-  {
-    id: "account_locked",
-    required: [],
-    defaults: ["in_app", "email_immediate"],
-    scoped: false,
-  },
-  {
-    id: "admin_access",
-    required: ["email_immediate"],
-    defaults: ["in_app", "email_immediate"],
-    scoped: true,
-  },
-  {
-    id: "acting_as",
-    required: ["email_immediate"],
-    defaults: ["in_app", "email_immediate"],
-    scoped: false,
-  },
-  {
-    id: "password_changed",
-    required: ["email_immediate"],
-    defaults: ["email_immediate"],
-    scoped: false,
-  },
-  {
-    id: "factors_removed",
-    required: ["email_immediate"],
-    defaults: ["email_immediate"],
-    scoped: false,
-  },
-  {
-    id: "sso_linked",
-    required: ["email_immediate"],
-    defaults: ["email_immediate"],
-    scoped: false,
-  },
-  {
-    id: "locked",
-    required: ["email_immediate"],
-    defaults: ["email_immediate"],
-    scoped: false,
-  },
-  {
-    id: "inactive_soon",
-    required: ["email_immediate"],
-    defaults: ["email_immediate"],
-    scoped: false,
-  },
-  {
-    id: "inactive_disabled",
-    required: ["email_immediate"],
-    defaults: ["email_immediate"],
-    scoped: false,
-  },
+  aboutWork("mention"),
+  aboutWork("reply"),
+  aboutWork("assigned"),
+  aboutWork("automation"),
+  aboutWork("webhook_disabled"),
+  aboutWork("row_changed"),
+  aboutWork("role_given"),
+  aboutWork("owner_named"),
+  { id: "account_locked", required: [], defaults: AT_ONCE, scoped: false },
+  emergency("admin_access", true),
+  emergency("acting_as", false),
+  safety("password_changed"),
+  safety("factors_removed"),
+  safety("sso_linked"),
+  safety("locked"),
+  safety("inactive_soon"),
+  safety("inactive_disabled"),
 ];
 
 const byId = new Map(

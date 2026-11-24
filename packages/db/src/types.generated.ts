@@ -758,19 +758,6 @@ export interface LoginChallenges {
   userId: string;
 }
 
-export interface Notifications {
-  actorId: string | null;
-  commentId: string | null;
-  createdAt: Generated<Timestamp>;
-  data: Record<string, string> | null;
-  id: Generated<string>;
-  kind: NotificationKind;
-  readAt: Timestamp | null;
-  rowId: string | null;
-  tableId: string | null;
-  userId: string;
-}
-
 export interface NotificationDefaults {
   channels: Json;
   event: string;
@@ -778,10 +765,14 @@ export interface NotificationDefaults {
   updatedBy: string | null;
 }
 
-export interface NotificationPreferences {
-  channels: Json;
+export interface NotificationDigestItems {
+  createdAt: Generated<Timestamp>;
   event: string;
-  updatedAt: Generated<Timestamp>;
+  id: Generated<string>;
+  payload: Json | null;
+  period: string;
+  rowId: string | null;
+  tableId: string | null;
   userId: string;
 }
 
@@ -793,12 +784,21 @@ export interface NotificationMutes {
   userId: string;
 }
 
-export interface NotificationDigestItems {
-  createdAt: Generated<Timestamp>;
+export interface NotificationPreferences {
+  channels: Json;
   event: string;
+  updatedAt: Generated<Timestamp>;
+  userId: string;
+}
+
+export interface Notifications {
+  actorId: string | null;
+  commentId: string | null;
+  createdAt: Generated<Timestamp>;
+  data: Record<string, string> | null;
   id: Generated<string>;
-  payload: JsonObject | null;
-  period: string;
+  kind: NotificationKind;
+  readAt: Timestamp | null;
   rowId: string | null;
   tableId: string | null;
   userId: string;

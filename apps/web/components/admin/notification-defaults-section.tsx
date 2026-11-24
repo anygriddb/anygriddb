@@ -2,18 +2,12 @@ import { Checkbox } from "@anygriddb/ui";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLingui } from "@lingui/react/macro";
 import { toast } from "sonner";
-import type { PersonChannel, PersonEvent } from "@anygriddb/core";
+import { PERSON_CHANNELS } from "@anygriddb/core";
 import { useStepUp } from "./step-up";
 import { trpc, useTRPC } from "../../lib/trpc";
 import { useErrorText } from "../../lib/errors";
 import { RuledSection } from "../shell/notebook-page";
-
-const CHANNELS: PersonChannel[] = [
-  "in_app",
-  "email_immediate",
-  "email_daily",
-  "email_weekly",
-];
+import { usePersonEventLabels } from "../settings/person-event-labels";
 
 /**
  * Instance defaults for person notification preferences (ADR 0123).
@@ -26,31 +20,7 @@ export function NotificationDefaultsSection() {
   const stepUp = useStepUp();
   const defaults = useQuery(api.admin.notificationDefaults.get.queryOptions());
 
-  const labels: Partial<Record<PersonEvent, string>> = {
-    mention: t`Mention`,
-    reply: t`Reply`,
-    assigned: t`Assignment`,
-    automation: t`Automation failure`,
-    webhook_disabled: t`Webhook disabled`,
-    row_changed: t`Locked row changed outside`,
-    role_given: t`Role given`,
-    owner_named: t`Owner named`,
-    account_locked: t`Account locked (admins)`,
-    admin_access: t`Emergency access`,
-    acting_as: t`Acting as`,
-    password_changed: t`Password changed`,
-    factors_removed: t`Factors removed`,
-    sso_linked: t`SSO linked`,
-    locked: t`Own account locked`,
-    inactive_soon: t`Inactivity warning`,
-    inactive_disabled: t`Inactivity disable`,
-  };
-  const channelLabel: Record<PersonChannel, string> = {
-    in_app: t`App`,
-    email_immediate: t`Email`,
-    email_daily: t`Daily`,
-    email_weekly: t`Weekly`,
-  };
+  const { events: labels, channels: channelLabel } = usePersonEventLabels();
 
   return (
     <>
@@ -68,7 +38,7 @@ export function NotificationDefaultsSection() {
               <thead>
                 <tr className="border-b border-border text-left text-xs text-muted-foreground">
                   <th className="py-2 pr-3 font-medium">{t`Event`}</th>
-                  {CHANNELS.map((channel) => (
+                  {PERSON_CHANNELS.map((channel) => (
                     <th key={channel} className="px-2 py-2 font-medium">
                       {channelLabel[channel]}
                     </th>
@@ -78,16 +48,14 @@ export function NotificationDefaultsSection() {
               <tbody>
                 {defaults.data.events.map((event) => (
                   <tr key={event.id} className="border-b border-border/60">
-                    <td className="py-2 pr-3">
-                      {labels[event.id] ?? event.id}
-                    </td>
-                    {CHANNELS.map((channel) => {
+                    <td className="py-2 pr-3">{labels[event.id]}</td>
+                    {PERSON_CHANNELS.map((channel) => {
                       const checked = event.channels.includes(channel);
                       const locked = event.required.includes(channel);
                       return (
                         <td key={channel} className="px-2 py-2">
                           <Checkbox
-                            aria-label={`${labels[event.id] ?? event.id} — ${channelLabel[channel]}`}
+                            aria-label={`${labels[event.id]} — ${channelLabel[channel]}`}
                             checked={checked}
                             disabled={locked}
                             onChange={(change) => {
