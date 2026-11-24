@@ -193,6 +193,7 @@ export {
   parseInstanceSettings,
   resolveAttachmentMaxBytes,
   sessionWindows,
+  POLICY_BOUNDS,
   signupAllowed,
   type InstanceSettings,
   type InstanceSettingsPatch,

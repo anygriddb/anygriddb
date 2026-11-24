@@ -58,6 +58,8 @@ export const TASKS = {
   siemEvent: "siem_event",
   /** One auth event sent to the syslog collector (ADR 0084). */
   syslogEvent: "syslog_event",
+  /** The change trail's fingerprints not sent yet, to the collectors (ADR 0120). */
+  trailShip: "trail_ship",
   /** The first link of one account a file of people added, mailed. */
   accountWelcome: "account_welcome",
   /** Daily usage snapshot and load-bucket purge (ROADMAP #40, #41). */

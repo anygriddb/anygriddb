@@ -8,6 +8,17 @@ first.
 
 ## Unreleased
 
+### Added
+
+- A copy of the change trail out of the database's reach (ADR 0120). Turned
+  on in Administration, Security, Change trail, each change leaves for the
+  instance's collectors as a fingerprint: its id, time, action and authors,
+  and a keyed digest of what it holds, never a value, in numbered and
+  chained batches. `anygriddb trail verify <file>` compares what a
+  collector kept with the database and names what was rewritten there. Off
+  by default: size the collector first. A long trail first needs its index:
+  `docker compose run --rm indexes` under Compose.
+
 ## 0.7.0 - 2026-11-24
 
 **Upgrade with this release's Compose files and its pin, as usual: nothing else

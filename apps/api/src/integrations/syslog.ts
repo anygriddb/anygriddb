@@ -47,10 +47,29 @@ export function formatSyslogLine(
   payload: CollectorPayload,
   host: string = hostname(),
 ): string {
+  const body = JSON.stringify({ source: "anygriddb", ...payload });
+  return syslogLine("auth", payload.occurredAt, body, host);
+}
+
+/** One RFC 5424 line of this message id, its message a JSON text. */
+function syslogLine(
+  messageId: "auth" | "trail",
+  at: string,
+  body: string,
+  host: string = hostname(),
+): string {
   // A header field holds no space: a host name never should, but is given.
   const name = host.replace(/[^\x21-\x7e]/g, "_").slice(0, 255) || "-";
-  const body = JSON.stringify({ source: "anygriddb", ...payload });
-  return `<133>1 ${payload.occurredAt} ${name} anygriddb - auth - ${body}`;
+  return `<133>1 ${at} ${name} anygriddb - ${messageId} - ${body}`;
+}
+
+/** A batch of the change trail as one syslog line (ADR 0120). */
+export function formatTrailLine(
+  body: string,
+  at: string,
+  host: string = hostname(),
+): string {
+  return syslogLine("trail", at, body, host);
 }
 
 /**
@@ -358,6 +377,35 @@ export async function deliverSyslogEvent(
   } catch (error) {
     throw new AppError("invalid_delivery", "syslog", { cause: error });
   }
+}
+
+/**
+ * Sends a batch of the change trail to the collector in force (ADR 0120).
+ * Answers false when none is named; a failure is thrown, naming no host.
+ */
+export async function sendTrailToSyslog(
+  db: Database,
+  fromEnvironment: SyslogCollector | undefined,
+  body: string,
+  reach?: SyslogReach,
+): Promise<boolean> {
+  const named = await resolveSyslog(db, fromEnvironment);
+  if (!named) return false;
+  const line = formatTrailLine(body, new Date().toISOString());
+  try {
+    await sendToCollector(db, named, line, reach);
+  } catch (error) {
+    throw new AppError("invalid_delivery", "syslog", { cause: error });
+  }
+  return true;
+}
+
+/** Whether a syslog collector is named, by the environment or here. */
+export async function syslogNamed(
+  db: Database,
+  fromEnvironment: SyslogCollector | undefined,
+): Promise<boolean> {
+  return (await resolveSyslog(db, fromEnvironment)) !== null;
 }
 
 /** One event sent now, for Administration's test: refused when it fails. */

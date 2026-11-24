@@ -84,6 +84,15 @@ test("an administrator sets the lock, unlocks an account, and sends a reset link
     await proveItIsYou(page);
     await expect(page.getByText("Settings saved")).toBeVisible();
 
+    // The change trail's copy is turned on before any collector is named,
+    // and says what it waits for (ADR 0120).
+    await page.getByLabel("Send to the collectors").selectOption("on");
+    await expect(
+      page.getByText(
+        "No collector is set: changes wait until one is, in Connections.",
+      ),
+    ).toBeVisible();
+
     // A list of sign-in addresses that leaves out the one it is saved
     // from is refused: it would refuse this administrator's next sign-in.
     await page.getByLabel("Allowed CIDR ranges").fill("192.0.2.0/24");

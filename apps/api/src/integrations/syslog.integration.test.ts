@@ -24,6 +24,8 @@ import { recordingBus } from "../realtime/recording-bus.test-helpers.js";
 import { createTestDatabase } from "../test-database.js";
 import { issueAuthority, issueServer } from "../tls/certificate.js";
 import { writeSettings } from "../settings.js";
+import { shipTrail } from "./trail-shipping.js";
+import { verifyTrail } from "./trail-verify.js";
 import {
   clearSyslog,
   deliverSyslogEvent,
@@ -320,6 +322,46 @@ describe("sign-in events to a syslog collector", () => {
       await expect(sendSyslogTest(db, undefined, admin)).rejects.toMatchObject({
         code: "not_found",
       });
+    });
+  });
+
+  it("carries the change trail's batches, which the trail then verifies against", async () => {
+    received.length = 0;
+    const author = (
+      await db
+        .insertInto("users")
+        .values({ email: "trail-author@example.org", displayName: "Trail" })
+        .returning("id")
+        .executeTakeFirstOrThrow()
+    ).id;
+    await pool.query(
+      `insert into instance_settings (key, value, updated_by)
+       values ('trailToCollector', 'true', $1)`,
+      [author],
+    );
+    const ship = () =>
+      shipTrail({ db, key: env.AUTH_ENCRYPTION_KEY, syslog: collector });
+    await ship();
+    await pool.query(
+      "insert into audit_events (user_id, action) values ($1, 'update')",
+      [author],
+    );
+    // Once no transaction of the cluster open when it looked is still open.
+    for (let tries = 0; tries < 100 && received.length === 0; tries += 1) {
+      await ship();
+      if (received.length === 0) {
+        await new Promise((resolve) => setTimeout(resolve, 100));
+      }
+    }
+    expect(received).toHaveLength(1);
+    const [frame = ""] = received;
+    const line = frame.slice(frame.indexOf(" ") + 1);
+    expect(line).toMatch(/^<133>1 \S+ \S+ anygriddb - trail - \{/);
+    expect(await verifyTrail(db, env.AUTH_ENCRYPTION_KEY, line)).toMatchObject({
+      batches: 1,
+      events: 1,
+      matched: 1,
+      findings: [],
     });
   });
 });

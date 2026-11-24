@@ -35,6 +35,8 @@ import {
   stopCurrentTracing,
 } from "./notify/tracing.js";
 import { buildFileIndexes, fileIndexesMissing } from "./data/file-indexes.js";
+import { buildTrailIndex } from "./data/trail-index.js";
+import { trailOrderIndexed } from "./integrations/trail-shipping.js";
 import { loadTls, TlsKeyUnreadable } from "./tls/authority.js";
 import { listeningText } from "./tls/listener.js";
 
@@ -191,7 +193,22 @@ if (ownsTables) {
       app.log.error({ err: error }, "file index build failed");
     },
   );
+  void buildTrailIndex(db, env.DATABASE_URL, app.log).catch(
+    (error: unknown) => {
+      app.log.error({ err: error }, "trail index build failed");
+    },
+  );
 } else {
+  void trailOrderIndexed(db)
+    .then((indexed) => {
+      if (indexed) return;
+      app.log.warn(
+        "the change trail lacks the index its copy to the collectors is read by: run `anygriddb database indexes` as the tables' owner (under Compose: docker compose run --rm indexes)",
+      );
+    })
+    .catch((error: unknown) => {
+      app.log.error({ err: error }, "trail index check failed");
+    });
   void fileIndexesMissing(db)
     .then((missing) => {
       if (missing === 0) return;

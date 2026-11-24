@@ -20,6 +20,7 @@
  * and `trash recover-links` also need DATABASE_URL; `keys status` and
  * `keys rotate` need DATABASE_URL and the encryption keys.
  */
+import { readFile } from "node:fs/promises";
 import { parseArgs } from "node:util";
 import { createDb, grantRuntimeRole, PostgresTooOld } from "@anygriddb/db";
 import type { RecoveryChange, RecoveryRefusal } from "./auth/admin-recovery.js";
@@ -50,6 +51,11 @@ import { sweepOrphanFiles } from "./files/sweep.js";
 import { copyFiles, type CopyReport } from "./files/transfer.js";
 import { recoverTrashedLinks } from "./data/trash-links.js";
 import { buildFileIndexes } from "./data/file-indexes.js";
+import { buildTrailIndex } from "./data/trail-index.js";
+import {
+  describeTrailReport,
+  verifyTrail,
+} from "./integrations/trail-verify.js";
 import { migrateStore } from "./database-start.js";
 import { notifyMigrationFailure } from "./notify/migrate.js";
 
@@ -67,8 +73,13 @@ const USAGE = `Usage:
       migrations, and gives <name> (anygriddb_app) what the application
       needs and no table of its own.
   anygriddb database indexes
-      With that same address: builds the indexes file fields lack, beside
-      the writes. A role of its own cannot.
+      With that same address: builds the indexes file fields and the change
+      trail lack, beside the writes. A role of its own cannot.
+  anygriddb trail verify <file>
+      Compares what a collector kept of the change trail, one batch a line,
+      with the database: a batch lost or changed, an event changed, deleted
+      outside a purge, given another author, or never sent. Exits 1 when
+      it finds one.
   anygriddb tls services --out <dir> [--postgres <name[:uid:gid]>] [--service <name[:uid:gid]>] [--application <name:uid:gid>]
       Issues the stack's services their certificates, from the instance's
       internal authority: <dir>/<name>/<name>_cert.pem and _key.pem, owned
@@ -260,18 +271,46 @@ async function databasePrepare(args: string[]): Promise<number> {
   }
 }
 
+/** Compares what a collector kept of the change trail with the database. */
+async function trailVerify(args: string[]): Promise<number> {
+  const { positionals } = parseArgs({
+    args,
+    options: {},
+    allowPositionals: true,
+    strict: true,
+  });
+  const [file] = positionals;
+  if (!file || positionals.length > 1) {
+    throw new UsageError("trail verify takes the file a collector kept");
+  }
+  const text = await readFile(file, "utf8");
+  const ring = readEncryptionKey();
+  const { db, close } = createDb(databaseUrl(), { max: 2 });
+  try {
+    const report = await verifyTrail(db, ring, text);
+    process.stdout.write(`${describeTrailReport(report)}\n`);
+    return report.findings.length > 0 ? 1 : 0;
+  } finally {
+    await close();
+  }
+}
+
 async function databaseIndexes(args: string[]): Promise<number> {
   parseArgs({ args, options: {}, strict: true });
   const url = databaseUrl();
   const { db, close } = createDb(url, { max: 2 });
   const failures: string[] = [];
+  const log = {
+    info: (_fields: object, text: string) => process.stdout.write(`${text}\n`),
+    error: (_fields: object, text: string) => {
+      failures.push(text);
+      process.stderr.write(`${text}\n`);
+    },
+  };
   try {
-    await buildFileIndexes(db, url, {
-      info: (_fields, text) => process.stdout.write(`${text}\n`),
-      error: (_fields, text) => {
-        failures.push(text);
-        process.stderr.write(`${text}\n`);
-      },
+    await buildFileIndexes(db, url, log);
+    await buildTrailIndex(db, url, log).catch((error: unknown) => {
+      log.error({ err: error }, "trail index failed");
     });
   } finally {
     await close();
@@ -692,6 +731,9 @@ async function main(argv: string[]): Promise<number> {
     }
     if (group === "database" && command === "prepare") {
       return await databasePrepare(rest);
+    }
+    if (group === "trail" && command === "verify") {
+      return await trailVerify(rest);
     }
     if (group === "database" && command === "indexes") {
       return await databaseIndexes(rest);

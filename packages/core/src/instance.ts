@@ -205,6 +205,11 @@ const fields = {
    */
   automationScripts: z.boolean(),
   /**
+   * Whether the change trail's fingerprints go to the collectors (ADR
+   * 0120). Off by default: an operator sizes the collector first.
+   */
+  trailToCollector: z.boolean(),
+  /**
    * Largest attachment in bytes (ADR 0050). Null keeps the environment
    * bootstrap, then the built-in 20 MiB default.
    */
@@ -332,6 +337,7 @@ export const INSTANCE_DEFAULTS: InstanceSettings = {
   lockAlerts: true,
   releaseCheck: false,
   automationScripts: false,
+  trailToCollector: false,
   attachmentMaxBytes: null,
   attachmentRefusedExtensions: [],
   attachmentRefusedKinds: [],
@@ -399,6 +405,9 @@ export const instanceSettingsSchema = z.object({
   releaseCheck: fields.releaseCheck.default(INSTANCE_DEFAULTS.releaseCheck),
   automationScripts: fields.automationScripts.default(
     INSTANCE_DEFAULTS.automationScripts,
+  ),
+  trailToCollector: fields.trailToCollector.default(
+    INSTANCE_DEFAULTS.trailToCollector,
   ),
   attachmentMaxBytes: fields.attachmentMaxBytes.default(
     INSTANCE_DEFAULTS.attachmentMaxBytes,
@@ -478,6 +487,7 @@ export const instanceSettingsPatchSchema = z
     lockAlerts: fields.lockAlerts.optional(),
     releaseCheck: fields.releaseCheck.optional(),
     automationScripts: fields.automationScripts.optional(),
+    trailToCollector: fields.trailToCollector.optional(),
     attachmentMaxBytes: fields.attachmentMaxBytes.optional(),
     attachmentRefusedExtensions: fields.attachmentRefusedExtensions.optional(),
     attachmentRefusedKinds: fields.attachmentRefusedKinds.optional(),

@@ -4,6 +4,7 @@
  * a slow webhook never delays an automation.
  */
 import { purgeAuditEvents } from "../data/audit-purge.js";
+import { shipTrail } from "../integrations/trail-shipping.js";
 import { checkAlerts } from "../alerts.js";
 import { purgeSourceLoad } from "../source-load.js";
 import { purgeUsageDaily, snapshotUsage } from "../usage-stats.js";
@@ -388,6 +389,13 @@ export function taskGroups(deps: TaskDeps): WorkerGroup[] {
         certificateExpires: deps.certificateExpires ?? (() => null),
       });
     },
+    [TASKS.trailShip]: async () => {
+      await shipTrail({
+        db: deps.db,
+        key: deps.env.AUTH_ENCRYPTION_KEY,
+        syslog: deps.env.SYSLOG,
+      });
+    },
     [TASKS.auditPurge]: () =>
       withPulse(deps, "audit_purge", async () => {
         const { auditRetentionDays } = await readSettings(deps.db);
@@ -609,6 +617,14 @@ export function taskGroups(deps: TaskDeps): WorkerGroup[] {
           // A purge missed while the instance was down runs at start.
           options: { maxAttempts: 1, backfillPeriod: 86_400_000 },
           identifier: "trash_purge",
+        },
+        {
+          // The change trail's copy at the collectors (ADR 0120): a
+          // minute behind at most, and nothing while it is off.
+          task: TASKS.trailShip,
+          match: "* * * * *",
+          options: once,
+          identifier: "trail_ship",
         },
         {
           // Opt-in GitHub release check (ADR 0048); no-op while off.

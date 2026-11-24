@@ -10,6 +10,7 @@ import {
   siemRouter,
   syslogRouter,
   smtpRouter,
+  trailShippingRouter,
 } from "./admin-integrations-router.js";
 import { notifyRouter } from "./admin-notify-router.js";
 import { sourcesRouter } from "./admin-sources-router.js";
@@ -33,6 +34,7 @@ export const adminRouter = t.router({
   saml: samlRouter,
   siem: siemRouter,
   syslog: syslogRouter,
+  trailShipping: trailShippingRouter,
   ...adminInstanceProcedures,
   ...adminAccountProcedures,
   ...adminBaseProcedures,
