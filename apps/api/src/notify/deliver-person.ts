@@ -1,9 +1,10 @@
 /**
  * Delivers person notifications once preferences and authorization are
- * known (ADR 0126): bell, immediate mail, or digest queue. Mail still
+ * known (ADR 0123): bell, immediate mail, or digest queue. Mail still
  * goes through sendMail and the instance relay.
  */
 import {
+  channelIsOptional,
   personEvent,
   type PersonChannel,
   type PersonEvent,
@@ -141,6 +142,15 @@ export async function deliverPersonNotices(
   }
 
   const digest = accepted.flatMap((notice) => {
+    // A notice with a mail of its own (a security one) keeps its subject:
+    // the digest has no other words for it.
+    const payload =
+      notice.mail || notice.data
+        ? {
+            ...notice.data,
+            ...(notice.mail ? { subject: notice.mail.subject } : {}),
+          }
+        : null;
     const rows: Array<{
       userId: string;
       event: PersonEvent;
@@ -156,7 +166,7 @@ export async function deliverPersonNotices(
         period: "daily",
         tableId: notice.tableId ?? null,
         rowId: notice.rowId ?? null,
-        payload: notice.data ?? null,
+        payload,
       });
     }
     if (notice.channels.includes("email_weekly")) {
@@ -166,7 +176,7 @@ export async function deliverPersonNotices(
         period: "weekly",
         tableId: notice.tableId ?? null,
         rowId: notice.rowId ?? null,
-        payload: notice.data ?? null,
+        payload,
       });
     }
     return rows;
@@ -194,13 +204,15 @@ export async function deliverPersonNotices(
   for (const notice of immediate) {
     const to = emailOf.get(notice.userId);
     if (!to) continue;
+    // No way out offered for a notice the person cannot turn off.
     const unsub =
-      deps.keys &&
-      unsubscribeUrl(deps.webOrigin, deps.keys, {
-        userId: notice.userId,
-        event: notice.event,
-        channel: "email_immediate",
-      });
+      deps.keys && channelIsOptional(notice.event, "email_immediate")
+        ? unsubscribeUrl(deps.webOrigin, deps.keys, {
+            userId: notice.userId,
+            event: notice.event,
+            channel: "email_immediate",
+          })
+        : undefined;
     if (notice.mail) {
       const text = unsub
         ? `${notice.mail.text}\n\n${unsubscribeLine(voice.locale, unsub)}`
@@ -225,7 +237,7 @@ export async function deliverPersonNotices(
       kind,
       tableName,
       notice.link,
-      unsub ?? undefined,
+      unsub,
     );
     await sendMail(deps.smtp, voice, { to, subject, text }).catch(
       (error: unknown) => deps.log(error, "notification email failed"),

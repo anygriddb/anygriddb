@@ -1,11 +1,13 @@
 /**
- * Resolves which channels a person gets for one event (ADR 0126): their
+ * Resolves which channels a person gets for one event (ADR 0123): their
  * own row, else the instance default, else the catalogue's built-in
  * defaults, always with required channels kept.
  */
 import {
+  channelIsOptional,
   personEvent,
   PERSON_EVENT_CATALOG,
+  PERSON_EVENTS,
   withRequiredChannels,
   type PersonChannel,
   type PersonEvent,
@@ -19,9 +21,12 @@ const CHANNELS = new Set<PersonChannel>([
   "email_weekly",
 ]);
 
-function asChannels(value: readonly string[]): PersonChannel[] {
-  return value.filter((item): item is PersonChannel =>
-    CHANNELS.has(item as PersonChannel),
+/** A stored list of channels, keeping only those the catalogue knows. */
+function asChannels(value: unknown): PersonChannel[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter(
+    (item): item is PersonChannel =>
+      typeof item === "string" && CHANNELS.has(item as PersonChannel),
   );
 }
 
@@ -201,15 +206,35 @@ export async function removeChannel(
   event: PersonEvent,
   channel: PersonChannel,
 ): Promise<{ channels: PersonChannel[]; refused: boolean }> {
-  const definition = personEvent(event);
-  if (definition.required.includes(channel)) {
-    const current = await channelsFor(db, userId, event);
+  const current = await channelsFor(db, userId, event);
+  if (!channelIsOptional(event, channel)) {
     return { channels: current, refused: true };
   }
-  const current = await channelsFor(db, userId, event);
   const next = current.filter((item) => item !== channel);
   const kept = await savePreference(db, userId, event, next);
   return { channels: kept, refused: false };
+}
+
+/**
+ * Removes one channel from every event that uses it and may lose it (a
+ * digest's unsubscribe link). Required channels stay where they are.
+ */
+export async function removeChannelEverywhere(
+  db: Database,
+  userId: string,
+  channel: PersonChannel,
+): Promise<void> {
+  for (const event of PERSON_EVENTS) {
+    if (!channelIsOptional(event, channel)) continue;
+    const current = await channelsFor(db, userId, event);
+    if (!current.includes(channel)) continue;
+    await savePreference(
+      db,
+      userId,
+      event,
+      current.filter((item) => item !== channel),
+    );
+  }
 }
 
 /** Administrator defaults for one event. */

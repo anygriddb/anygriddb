@@ -663,7 +663,7 @@ export function taskGroups(deps: TaskDeps): WorkerGroup[] {
           identifier: "usage_snapshot",
         },
         {
-          // Person notification digests (ADR 0126).
+          // Person notification digests (ADR 0123).
           task: TASKS.notificationDigestDaily,
           match: "10 8 * * *",
           options: once,

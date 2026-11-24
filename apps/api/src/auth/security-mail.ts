@@ -59,7 +59,7 @@ async function recipient(
   };
 }
 
-/** Maps a security notice to the person-event catalogue (ADR 0126). */
+/** Maps a security notice to the person-event catalogue (ADR 0123). */
 function securityEvent(
   notice: SecurityNotice,
 ):

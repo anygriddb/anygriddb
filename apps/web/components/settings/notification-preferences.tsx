@@ -15,7 +15,7 @@ const CHANNELS: PersonChannel[] = [
 ];
 
 /**
- * Per-event channels and mutes for the signed-in person (ADR 0126).
+ * Per-event channels and mutes for the signed-in person (ADR 0123).
  */
 export function NotificationPreferences() {
   const { t } = useLingui();
@@ -101,7 +101,7 @@ export function NotificationPreferences() {
                           <Checkbox
                             aria-label={`${labels[event.id]} — ${channelLabel[channel]}`}
                             checked={checked}
-                            disabled={locked || !preferences.data}
+                            disabled={locked}
                             onChange={(change) => {
                               const on = change.target.checked;
                               const next = on
@@ -137,7 +137,7 @@ export function NotificationPreferences() {
       >
         {mutes.length === 0 ? (
           <p className="text-sm text-muted-foreground">
-            {t`Nothing muted. Mute a noisy table from its settings later; for now remove a mute here.`}
+            {t`Nothing muted. A base's settings mute it, or one of its tables.`}
           </p>
         ) : (
           <ul className="divide-y divide-border text-sm">

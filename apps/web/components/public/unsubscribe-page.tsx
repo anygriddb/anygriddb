@@ -6,7 +6,7 @@ import { trpc } from "../../lib/trpc";
 import { useErrorText } from "../../lib/errors";
 
 /**
- * Applies a signed unsubscribe link from a notification email (ADR 0126).
+ * Applies a signed unsubscribe link from a notification email (ADR 0123).
  * No session: the token names the person and the channel to drop.
  */
 export function UnsubscribePage({ token }: { token: string }) {
@@ -43,14 +43,14 @@ export function UnsubscribePage({ token }: { token: string }) {
       {state.status === "idle" ? (
         <>
           <p className="text-sm text-muted-foreground">
-            {t`Stop immediate email for this kind of notice. You can change every preference again from your account.`}
+            {t`Stop these notices by email. Every other choice stays as it is, and you can change them all again from your account.`}
           </p>
           <Button onClick={() => void apply()}>{t`Confirm`}</Button>
         </>
       ) : null}
       {state.status === "done" ? (
         <p role="status" className="text-sm">
-          {t`That preference is updated. You will not get this kind of notice by immediate email anymore.`}
+          {t`Done: these notices no longer come by email.`}
         </p>
       ) : null}
       {state.status === "required" ? (
@@ -60,7 +60,7 @@ export function UnsubscribePage({ token }: { token: string }) {
       ) : null}
       {state.status === "invalid" ? (
         <p role="alert" className="text-sm text-danger">
-          {t`This link is not valid or has already been used.`}
+          {t`This link is not valid.`}
         </p>
       ) : null}
       {state.status === "error" ? (

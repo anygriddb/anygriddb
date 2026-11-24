@@ -67,7 +67,7 @@ export async function alertLock(
         };
   // Every other active administrator, but those who asked not to be
   // told of locks (ROADMAP #48 / alert_optouts). Person preferences then
-  // decide channels (ADR 0126).
+  // decide channels (ADR 0123).
   const admins = await alertRecipients(deps.db, "account_locked", input.userId);
   if (admins.length === 0) return 0;
   const data: Record<string, string> = alert.many

@@ -11,6 +11,7 @@ import {
   listMutes,
   readDefaultChannels,
   removeChannel,
+  removeChannelEverywhere,
   removeMute,
   savePreference,
 } from "../notify/person-preferences.js";
@@ -44,7 +45,7 @@ export const notificationsRouter = t.router({
         return { ok: true as const };
       }),
     ),
-  /** Catalogue, instance defaults, and this person's channels (ADR 0126). */
+  /** Catalogue, instance defaults, and this person's channels (ADR 0123). */
   preferences: procedure.query(({ ctx }) =>
     handle(ctx, async () => {
       const user = await requireEnrolledUser(ctx);
@@ -148,6 +149,14 @@ export const notificationsRouter = t.router({
           input.token,
         );
         if (!payload) return { ok: false as const, reason: "invalid" as const };
+        if (payload.event === null) {
+          await removeChannelEverywhere(
+            ctx.db,
+            payload.userId,
+            payload.channel,
+          );
+          return { ok: true as const, channel: payload.channel };
+        }
         const result = await removeChannel(
           ctx.db,
           payload.userId,

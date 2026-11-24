@@ -323,7 +323,7 @@ export const adminInstanceProcedures = {
       ),
   }),
   /**
-   * Instance defaults for person notification preferences (ADR 0126).
+   * Instance defaults for person notification preferences (ADR 0123).
    * Each person inherits these until they save their own.
    */
   notificationDefaults: t.router({

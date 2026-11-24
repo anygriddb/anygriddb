@@ -772,14 +772,14 @@ export interface Notifications {
 }
 
 export interface NotificationDefaults {
-  channels: string[];
+  channels: Json;
   event: string;
   updatedAt: Generated<Timestamp>;
   updatedBy: string | null;
 }
 
 export interface NotificationPreferences {
-  channels: string[];
+  channels: Json;
   event: string;
   updatedAt: Generated<Timestamp>;
   userId: string;

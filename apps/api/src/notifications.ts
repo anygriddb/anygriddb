@@ -62,7 +62,7 @@ async function readersOf(
  * Stores notifications, tells each recipient's open tabs, and emails those
  * who asked for it. Nobody is notified of their own action, and a row
  * notification only reaches people who can read the table. Preferences
- * and mutes are applied in deliverPersonNotices (ADR 0126).
+ * and mutes are applied in deliverPersonNotices (ADR 0123).
  */
 export async function notify(
   deps: NotifyDeps,

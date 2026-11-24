@@ -3,12 +3,21 @@ import {
   EMAIL_MIGRATION_EVENTS,
   PERSON_EVENT_CATALOG,
   PERSON_EVENTS,
+  channelIsOptional,
   personEvent,
   withRequiredChannels,
   wantsEmail,
 } from "./person-events";
 
 describe("person event catalogue", () => {
+  it("lets a person turn off what is not required, and only that", () => {
+    expect(channelIsOptional("mention", "email_immediate")).toBe(true);
+    expect(channelIsOptional("password_changed", "email_immediate")).toBe(
+      false,
+    );
+    expect(channelIsOptional("password_changed", "email_daily")).toBe(true);
+  });
+
   it("names every event once", () => {
     expect(PERSON_EVENT_CATALOG.map((event) => event.id).sort()).toEqual(
       [...PERSON_EVENTS].sort(),

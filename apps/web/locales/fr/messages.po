@@ -906,10 +906,6 @@ msgstr "Menu du champ {name}"
 msgid "{name} fields"
 msgstr "Champs de {name}"
 
-#: components/settings/base-settings.tsx
-msgid "{name} is muted for you"
-msgstr "{name} est coupée pour vous"
-
 #: components/shell/base-activity.tsx
 msgid "{name} locked “{row}” in {table}"
 msgstr "{name} a verrouillé « {row} » dans {table}"
@@ -4453,6 +4449,10 @@ msgstr "Terminé"
 #: components/dashboards/dashboard-board.tsx
 msgid "Done editing"
 msgstr "Terminer"
+
+#: components/public/unsubscribe-page.tsx
+msgid "Done: these notices no longer come by email."
+msgstr "C’est fait : ces avis n’arrivent plus par e-mail."
 
 #: components/fields/attachment-preview.tsx
 #: components/settings/base-settings.tsx
@@ -8219,8 +8219,8 @@ msgid "Nothing matches. Every write to a base, its fields, and its roles shows h
 msgstr "Rien ne correspond. Chaque écriture dans une base, ses champs et ses rôles apparaît ici, ainsi que chaque export, avec son auteur."
 
 #: components/settings/notification-preferences.tsx
-msgid "Nothing muted. Mute a noisy table from its settings later; for now remove a mute here."
-msgstr "Rien n’est coupé. Coupez une table bruyante depuis ses paramètres ; pour l’instant retirez une coupure ici."
+msgid "Nothing muted. A base's settings mute it, or one of its tables."
+msgstr "Rien n’est coupé. Les réglages d’une base la coupent, elle ou l’une de ses tables."
 
 #: components/admin/admin-overview.tsx
 msgid "Nothing needs your attention."
@@ -11231,8 +11231,8 @@ msgid "Stop being an owner of {base}?"
 msgstr "Ne plus être propriétaire de {base} ?"
 
 #: components/public/unsubscribe-page.tsx
-msgid "Stop immediate email for this kind of notice. You can change every preference again from your account."
-msgstr "Arrêter l’e-mail immédiat pour ce type d’avis. Vous pourrez tout régler à nouveau depuis votre compte."
+msgid "Stop these notices by email. Every other choice stays as it is, and you can change them all again from your account."
+msgstr "Ne plus recevoir ces avis par e-mail. Vos autres choix restent tels quels, et vous pouvez tous les changer depuis votre compte."
 
 #: components/admin/auth-labels.ts
 msgid "Stopped acting as this person"
@@ -11601,10 +11601,6 @@ msgstr "Ce n’est pas le nom du schéma, donc la base n’a pas été supprimé
 #: components/table/automations-dialog.tsx
 msgid "That match (optional):"
 msgstr "Qui remplissent (facultatif) :"
-
-#: components/public/unsubscribe-page.tsx
-msgid "That preference is updated. You will not get this kind of notice by immediate email anymore."
-msgstr "Cette préférence est mise à jour. Vous ne recevrez plus ce type d’avis par e-mail immédiat."
 
 #: components/admin/account-actions.tsx
 msgid "The account forgets which identity of the provider it belongs to. The next sign-on with its address binds it again. For an account made again at the provider; otherwise someone else with that address there could take it."
@@ -12571,10 +12567,6 @@ msgstr "Cette base a des tables dont l’hôte de source n’est pas autorisé."
 msgid "This base is empty."
 msgstr "Cette base est vide."
 
-#: components/settings/base-settings.tsx
-msgid "This base is muted for you"
-msgstr "Cette base est coupée pour vous"
-
 #: lib/errors.ts
 msgid "This base keeps as many restore points as it may: delete one to make another"
 msgstr "Cette base garde déjà autant de points de restauration qu’elle le peut : supprimez-en un pour en créer un autre"
@@ -12825,8 +12817,8 @@ msgid "This link is locked after too many wrong passwords. Try again later."
 msgstr "Ce lien est verrouillé après trop de mots de passe incorrects. Réessayez plus tard."
 
 #: components/public/unsubscribe-page.tsx
-msgid "This link is not valid or has already been used."
-msgstr "Ce lien n’est pas valide ou a déjà été utilisé."
+msgid "This link is not valid."
+msgstr "Ce lien n’est pas valide."
 
 #: components/oauth/consent-page.tsx
 msgid "This link names an address the application did not register. Open it again from the application."
@@ -13576,6 +13568,14 @@ msgstr "a déverrouillé"
 #: components/admin/account-actions.tsx
 msgid "Unlocked"
 msgstr "Déverrouillé"
+
+#: components/settings/base-settings.tsx
+msgid "Unmute {name}"
+msgstr "Rétablir {name}"
+
+#: components/settings/base-settings.tsx
+msgid "Unmute this base"
+msgstr "Rétablir cette base"
 
 #: components/shell/sidebar.tsx
 msgid "Unpin {name}"

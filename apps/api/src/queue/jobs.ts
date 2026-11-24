@@ -66,9 +66,9 @@ export const TASKS = {
   usageSnapshot: "usage_snapshot",
   /** One attempt to deliver one notification (ADR 0092). */
   integrationDelivery: "integration_delivery",
-  /** Daily person-notification digests (ADR 0126). */
+  /** Daily person-notification digests (ADR 0123). */
   notificationDigestDaily: "notification_digest_daily",
-  /** Weekly person-notification digests (ADR 0126). */
+  /** Weekly person-notification digests (ADR 0123). */
   notificationDigestWeekly: "notification_digest_weekly",
 } as const;
 

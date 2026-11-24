@@ -8,6 +8,7 @@ import { assertEnrolled } from "../auth/access.js";
 import { requireStepUp } from "../auth/step-up.js";
 import type { Context } from "./context.js";
 import { type RoleNoticeDeps } from "../data/role-notices.js";
+import { resolveSmtp } from "../integrations/smtp.js";
 import { auditorMayCall } from "./auditor-rule.js";
 import { asksProof } from "./proof-rule.js";
 import { procedure as baseProcedure, requireUser } from "./init.js";
@@ -66,7 +67,6 @@ export async function requireAdmin(ctx: Context) {
 
 /** What telling a base's owners of a role given needs: the app and mail. */
 export async function roleNoticeDeps(ctx: Context): Promise<RoleNoticeDeps> {
-  const { resolveSmtp } = await import("../integrations/smtp.js");
   const { config: smtp } = await resolveSmtp(ctx.db, ctx.env);
   return {
     db: ctx.db,

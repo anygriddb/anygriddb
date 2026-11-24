@@ -94,7 +94,7 @@ describe("emergency access to a base", () => {
     });
     await enrollTotp(coOwner);
     // The second owner keeps email on admin_access (required); preferences
-    // cannot silence that channel (ADR 0126).
+    // cannot silence that channel (ADR 0123).
     baseId = (await owner.call().catalog.createBase({ name: "Ventes" })).id;
     await setMemberRole(db, ownerId, {
       baseId,

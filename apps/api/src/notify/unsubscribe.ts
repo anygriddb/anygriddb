@@ -1,7 +1,8 @@
 /**
- * Signed unsubscribe links on person notification emails (ADR 0126).
- * The token carries the person, the event, and the channel to drop; no
- * session is required. Required channels refuse the change at apply time.
+ * Signed unsubscribe links on person notification emails (ADR 0123).
+ * The token carries the person, the channel to drop, and the event, or no
+ * event for a digest, which drops the channel from every event. No session
+ * is required. Required channels refuse the change at apply time.
  */
 import {
   personChannelSchema,
@@ -16,11 +17,16 @@ const USE = "notify-prefs" as const;
 
 export type UnsubscribePayload = {
   userId: string;
-  event: PersonEvent;
+  /** Null: every event that uses the channel (a digest's own link). */
+  event: PersonEvent | null;
   channel: PersonChannel;
 };
 
-/** Token put in the mail link: payload.urlsafe.signature.urlsafe */
+/**
+ * Token put in the mail link: the payload, `~`, the signature, both
+ * base64url. Not a dot: the server answers a path that ends like a file's
+ * name with a 404.
+ */
 export function unsubscribeToken(
   ring: KeyRing,
   payload: UnsubscribePayload,
@@ -28,23 +34,23 @@ export function unsubscribeToken(
   const body = Buffer.from(
     JSON.stringify({
       u: payload.userId,
-      e: payload.event,
+      ...(payload.event ? { e: payload.event } : {}),
       c: payload.channel,
     }),
     "utf8",
   ).toString("base64url");
   const signature = sign(ring, USE, body).toString("base64url");
-  return `${body}.${signature}`;
+  return `${body}~${signature}`;
 }
 
 export function readUnsubscribeToken(
   ring: KeyRing,
   token: string,
 ): UnsubscribePayload | null {
-  const dot = token.lastIndexOf(".");
-  if (dot <= 0 || dot === token.length - 1) return null;
-  const body = token.slice(0, dot);
-  const signature = token.slice(dot + 1);
+  const mark = token.indexOf("~");
+  if (mark <= 0 || mark === token.length - 1) return null;
+  const body = token.slice(0, mark);
+  const signature = token.slice(mark + 1);
   let given: Buffer;
   try {
     given = Buffer.from(signature, "base64url");
@@ -52,9 +58,6 @@ export function readUnsubscribeToken(
     return null;
   }
   if (!verify(ring, USE, body, given)) return null;
-  // Constant-time length check already done inside verify; keep a local
-  // compare of the decoded body length so a truncated token is refused.
-  if (body.length < 8) return null;
   try {
     const parsed = JSON.parse(
       Buffer.from(body, "base64url").toString("utf8"),
@@ -66,11 +69,12 @@ export function readUnsubscribeToken(
       )
         ? parsed.u
         : null;
-    const event = personEventSchema.safeParse(parsed.e);
+    const event =
+      parsed.e === undefined ? null : personEventSchema.safeParse(parsed.e);
     const channel = personChannelSchema.safeParse(parsed.c);
-    if (!userId || !event.success || !channel.success) return null;
+    if (!userId || event?.success === false || !channel.success) return null;
     if (channel.data === "in_app") return null;
-    return { userId, event: event.data, channel: channel.data };
+    return { userId, event: event?.data ?? null, channel: channel.data };
   } catch {
     return null;
   }

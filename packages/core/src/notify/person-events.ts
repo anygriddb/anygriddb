@@ -1,5 +1,5 @@
 /**
- * Events meant for a person, and the channels they may choose (ADR 0126).
+ * Events meant for a person, and the channels they may choose (ADR 0123).
  * Declared once from the inventory of what the product already tells people:
  * the bell's kinds, the security mails, and the notices that currently
  * bypass `notify()`. Instance channels (ADR 0092) are a different catalogue.
@@ -188,6 +188,14 @@ export function personEvent(id: PersonEvent): PersonEventDefinition {
   const found = byId.get(id);
   if (!found) throw new Error(`unknown person event: ${id}`);
   return found;
+}
+
+/** Whether a person may turn this channel off for this event. */
+export function channelIsOptional(
+  event: PersonEvent,
+  channel: PersonChannel,
+): boolean {
+  return !personEvent(event).required.includes(channel);
 }
 
 /** Events whose preferences migrate from the old `notify_by_email` flag. */

@@ -16,7 +16,7 @@ const CHANNELS: PersonChannel[] = [
 ];
 
 /**
- * Instance defaults for person notification preferences (ADR 0126).
+ * Instance defaults for person notification preferences (ADR 0123).
  */
 export function NotificationDefaultsSection() {
   const { t } = useLingui();

@@ -48,7 +48,7 @@ const OPEN: readonly string[] = [
   "share.unlock",
   "share.unlockBase",
   // A mail's unsubscribe link adjusts one preference without a session
-  // (ADR 0126); the token is signed and names the person.
+  // (ADR 0123); the token is signed and names the person.
   "notifications.unsubscribe",
 ];
 

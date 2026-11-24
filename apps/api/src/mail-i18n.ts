@@ -311,7 +311,7 @@ export type SecurityNotice =
   | { kind: "inactive_disabled"; days: number };
 
 /** A date and time in UTC, as the person reads it. */
-function moment(locale: MailLocale, date: Date): string {
+export function moment(locale: MailLocale, date: Date): string {
   const text = new Intl.DateTimeFormat(locale === "fr" ? "fr-FR" : "en-GB", {
     dateStyle: "long",
     timeStyle: "short",

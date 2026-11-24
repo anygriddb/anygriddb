@@ -297,7 +297,7 @@ const resetRoute = createRoute({
   },
 });
 
-/** A mail's unsubscribe link (ADR 0126): no session. */
+/** A mail's unsubscribe link (ADR 0123): no session. */
 const unsubscribeRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/notify/unsubscribe/$token",

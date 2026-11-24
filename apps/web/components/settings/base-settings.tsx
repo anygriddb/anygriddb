@@ -400,51 +400,7 @@ export function BaseSettings({ baseId }: { baseId: string }) {
           ))}
         </RuledSection>
       ) : null}
-      <RuledSection
-        title={t`Your notifications`}
-        description={t`Mute this base, or one of its tables, so mentions, replies and assignments from there stay quiet. Change channels on your account page.`}
-      >
-        <div className="flex flex-wrap gap-2">
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() =>
-              void (async () => {
-                try {
-                  await trpc.notifications.addMute.mutate({ baseId });
-                  toast.success(t`This base is muted for you`);
-                } catch (cause) {
-                  toast.error(errorText(cause));
-                }
-              })()
-            }
-          >
-            {t`Mute this base`}
-          </Button>
-          {base.tables.map((table) => (
-            <Button
-              key={table.id}
-              size="sm"
-              variant="outline"
-              onClick={() =>
-                void (async () => {
-                  try {
-                    await trpc.notifications.addMute.mutate({
-                      baseId,
-                      tableId: table.id,
-                    });
-                    toast.success(t`${{ name: table.name }} is muted for you`);
-                  } catch (cause) {
-                    toast.error(errorText(cause));
-                  }
-                })()
-              }
-            >
-              {t`Mute ${{ name: table.name }}`}
-            </Button>
-          ))}
-        </div>
-      </RuledSection>
+      <BaseMutes baseId={baseId} tables={base.tables} />
       {lowering ? (
         <ConfirmDialog
           open
@@ -481,6 +437,76 @@ export function BaseSettings({ baseId }: { baseId: string }) {
         />
       ) : null}
     </NotebookPage>
+  );
+}
+
+/**
+ * The signed-in person's mutes on this base and its tables: each button
+ * says what it does now, and does the other once pressed.
+ */
+function BaseMutes({
+  baseId,
+  tables,
+}: {
+  baseId: string;
+  tables: ReadonlyArray<{ id: string; name: string }>;
+}) {
+  const { t } = useLingui();
+  const errorText = useErrorText();
+  const api = useTRPC();
+  const queryClient = useQueryClient();
+  const preferences = useQuery(api.notifications.preferences.queryOptions());
+  const mutes = preferences.data?.mutes ?? [];
+  const muteOf = (tableId: string | null) =>
+    mutes.find((mute) => mute.baseId === baseId && mute.tableId === tableId);
+
+  async function toggle(tableId: string | null) {
+    const muted = muteOf(tableId);
+    const change = muted
+      ? () => trpc.notifications.removeMute.mutate({ id: muted.id })
+      : () =>
+          trpc.notifications.addMute.mutate(
+            tableId ? { baseId, tableId } : { baseId },
+          );
+    try {
+      await change();
+      await queryClient.invalidateQueries({
+        queryKey: api.notifications.preferences.queryKey(),
+      });
+    } catch (cause) {
+      toast.error(errorText(cause));
+    }
+  }
+
+  return (
+    <RuledSection
+      title={t`Your notifications`}
+      description={t`Mute this base, or one of its tables, so mentions, replies and assignments from there stay quiet. Change channels on your account page.`}
+    >
+      <div className="flex flex-wrap gap-2">
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={!preferences.data}
+          onClick={() => void toggle(null)}
+        >
+          {muteOf(null) ? t`Unmute this base` : t`Mute this base`}
+        </Button>
+        {tables.map((table) => (
+          <Button
+            key={table.id}
+            size="sm"
+            variant="outline"
+            disabled={!preferences.data}
+            onClick={() => void toggle(table.id)}
+          >
+            {muteOf(table.id)
+              ? t`Unmute ${{ name: table.name }}`
+              : t`Mute ${{ name: table.name }}`}
+          </Button>
+        ))}
+      </div>
+    </RuledSection>
   );
 }
 

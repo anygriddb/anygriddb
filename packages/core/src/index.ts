@@ -264,6 +264,7 @@ export {
   PERSON_EVENT_CATALOG,
   personChannelSchema,
   personChannelsSchema,
+  channelIsOptional,
   personEvent,
   personEventSchema,
   wantsEmail,
