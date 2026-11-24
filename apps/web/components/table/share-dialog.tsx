@@ -10,7 +10,6 @@ import {
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Copy, Link2, Lock } from "lucide-react";
 import { useState } from "react";
-import { toast } from "sonner";
 import { useCopy } from "../../lib/clipboard";
 import { trpc, useTRPC } from "../../lib/trpc";
 import type { ViewItem } from "../../lib/types";
@@ -54,6 +53,7 @@ export function ShareDialog({
   const [link, setLink] = useState("");
   const [embedded, setEmbedded] = useState(false);
   const [revoking, setRevoking] = useState<string | null>(null);
+  const [refusal, setRefusal] = useState("");
   const when = useWhen();
   const creating = useSubmitGuard();
   const refresh = () =>
@@ -84,6 +84,7 @@ export function ShareDialog({
           onSubmit={(event) => {
             event.preventDefault();
             void creating.guard(async () => {
+              setRefusal("");
               try {
                 const created = await trpc.catalog.createShare.mutate({
                   viewId: view.id,
@@ -98,7 +99,8 @@ export function ShareDialog({
                 setSites("");
                 await refresh();
               } catch (cause) {
-                toast.error(errorText(cause));
+                // Said above Create a link: a toast would cover it.
+                setRefusal(errorText(cause));
               }
             });
           }}
@@ -156,6 +158,11 @@ export function ShareDialog({
               {t`The addresses of the sites that may show this link in a frame, each starting with https://. Without one, no site can.`}
             </p>
           </div>
+          {refusal ? (
+            <p role="alert" className="text-sm text-danger">
+              {refusal}
+            </p>
+          ) : null}
           {/* Not `disabled`: a focused button that is takes no key, and
               Escape would no longer close the dialog. */}
           <Button
