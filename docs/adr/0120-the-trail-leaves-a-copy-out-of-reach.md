@@ -37,7 +37,8 @@ a collector.
   batch only goes up to an order noted together with the snapshot's horizon,
   once every transaction open at that moment has ended. A restored database
   is recognised by a horizon past its own, and notes it again.
-- **`anygriddb trail verify <file>`** compares what a collector kept with
+- **`anygriddb trail verify`** compares what a collector kept, given on its
+  standard input, with
   the database, and exits 1 when it finds: a batch changed, missing, out of
   its chain, or two batches of one number (a restore, or a forgery); an
   event changed, deleted though no purge could reach it, or given another

@@ -20,7 +20,6 @@
  * and `trash recover-links` also need DATABASE_URL; `keys status` and
  * `keys rotate` need DATABASE_URL and the encryption keys.
  */
-import { readFile } from "node:fs/promises";
 import { parseArgs } from "node:util";
 import { createDb, grantRuntimeRole, PostgresTooOld } from "@anygriddb/db";
 import type { RecoveryChange, RecoveryRefusal } from "./auth/admin-recovery.js";
@@ -75,9 +74,9 @@ const USAGE = `Usage:
   anygriddb database indexes
       With that same address: builds the indexes file fields and the change
       trail lack, beside the writes. A role of its own cannot.
-  anygriddb trail verify <file>
+  anygriddb trail verify < <file>
       Compares what a collector kept of the change trail, one batch a line,
-      with the database: a batch lost or changed, an event changed, deleted
+      read on the standard input, with the database: a batch lost or changed, an event changed, deleted
       outside a purge, given another author, or never sent. Exits 1 when
       it finds one.
   anygriddb tls services --out <dir> [--postgres <name[:uid:gid]>] [--service <name[:uid:gid]>] [--application <name:uid:gid>]
@@ -271,19 +270,24 @@ async function databasePrepare(args: string[]): Promise<number> {
   }
 }
 
+/** Everything given on the standard input, as text. */
+async function standardInput(): Promise<string> {
+  const chunks: Buffer[] = [];
+  for await (const chunk of process.stdin) {
+    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(String(chunk)));
+  }
+  return Buffer.concat(chunks).toString("utf8");
+}
+
 /** Compares what a collector kept of the change trail with the database. */
 async function trailVerify(args: string[]): Promise<number> {
-  const { positionals } = parseArgs({
-    args,
-    options: {},
-    allowPositionals: true,
-    strict: true,
-  });
-  const [file] = positionals;
-  if (!file || positionals.length > 1) {
-    throw new UsageError("trail verify takes the file a collector kept");
+  parseArgs({ args, options: {}, strict: true });
+  if (process.stdin.isTTY) {
+    throw new UsageError(
+      "trail verify reads what a collector kept on its input: anygriddb trail verify < trail.jsonl",
+    );
   }
-  const text = await readFile(file, "utf8");
+  const text = await standardInput();
   const ring = readEncryptionKey();
   const { db, close } = createDb(databaseUrl(), { max: 2 });
   try {

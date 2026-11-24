@@ -14,7 +14,7 @@ first.
   on in Administration, Security, Change trail, each change leaves for the
   instance's collectors as a fingerprint: its id, time, action and authors,
   and a keyed digest of what it holds, never a value, in numbered and
-  chained batches. `anygriddb trail verify <file>` compares what a
+  chained batches. `anygriddb trail verify < <file>` compares what a
   collector kept with the database and names what was rewritten there. Off
   by default: size the collector first. A long trail first needs its index:
   `docker compose run --rm indexes` under Compose.

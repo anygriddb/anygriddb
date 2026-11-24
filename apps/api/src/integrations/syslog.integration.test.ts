@@ -349,9 +349,7 @@ describe("sign-in events to a syslog collector", () => {
     // Once no transaction of the cluster open when it looked is still open.
     for (let tries = 0; tries < 100 && received.length === 0; tries += 1) {
       await ship();
-      if (received.length === 0) {
-        await new Promise((resolve) => setTimeout(resolve, 100));
-      }
+      await new Promise((resolve) => setTimeout(resolve, 50));
     }
     expect(received).toHaveLength(1);
     const [frame = ""] = received;

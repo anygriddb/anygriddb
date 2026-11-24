@@ -1245,7 +1245,7 @@ syslog line or the JSON alone), and give it to the instance's own command,
 which reads the database and the encryption keys of the running service:
 
 ```sh
-docker compose exec -T app anygriddb trail verify /dev/stdin < trail.jsonl
+docker compose exec -T app anygriddb trail verify < trail.jsonl
 ```
 
 It exits 0 when the trail holds each event as it was sent, and 1 when it

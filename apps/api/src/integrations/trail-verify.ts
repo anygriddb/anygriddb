@@ -1,6 +1,6 @@
 /**
  * What the collectors hold of the change trail, compared with the database
- * (ADR 0120): `anygriddb trail verify <file>`. The file is what a collector
+ * (ADR 0120): `anygriddb trail verify < <file>`. The file is what a collector
  * kept, one batch a line, as the HTTPS collector got it or as a syslog
  * line. A batch lost or changed, an event changed, deleted outside a
  * purge, given another author, or never sent, is said.
@@ -311,12 +311,15 @@ async function notSent(
   const orders = ordered.flatMap((batch) =>
     batch.events.map((entry) => entry.order),
   );
-  const numbers = orders
-    .filter((order) => /^\d{1,19}$/.test(order))
-    .map(BigInt);
-  if (numbers.length === 0) return;
-  const first = numbers.reduce((a, b) => (b < a ? b : a));
-  const last = numbers.reduce((a, b) => (b > a ? b : a));
+  let first: bigint | undefined;
+  let last: bigint | undefined;
+  for (const order of orders) {
+    if (!/^\d{1,19}$/.test(order)) continue;
+    const number = BigInt(order);
+    if (first === undefined || number < first) first = number;
+    if (last === undefined || number > last) last = number;
+  }
+  if (first === undefined || last === undefined) return;
   let after = first - 1n;
   for (;;) {
     const { rows } = await sql<{

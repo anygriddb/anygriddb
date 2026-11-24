@@ -94,7 +94,7 @@ Under Compose the application signs in to PostgreSQL as a role that owns no tabl
 
 ### A copy of the change trail out of the database's reach
 
-The role that owns the tables can still rewrite the change trail. Once an administrator turns it on (Administration > Security > Change trail), each event leaves for the instance's collectors as a fingerprint: its id, time, action and authors, and a keyed digest of what it holds, never a value. Batches are numbered and chained. `anygriddb trail verify <file>` compares what a collector kept with the database and names any event changed, deleted outside a purge, given another author, or never sent (ADR 0120). It detects and does not prevent; the events written before it was turned on are not covered.
+The role that owns the tables can still rewrite the change trail. Once an administrator turns it on (Administration > Security > Change trail), each event leaves for the instance's collectors as a fingerprint: its id, time, action and authors, and a keyed digest of what it holds, never a value. Batches are numbered and chained. `anygriddb trail verify` compares what a collector kept with the database and names any event changed, deleted outside a purge, given another author, or never sent (ADR 0120). It detects and does not prevent; the events written before it was turned on are not covered.
 
 ### An administrator's way into data
 
