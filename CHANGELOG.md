@@ -11,6 +11,15 @@ first.
 **One migration runs as the instance starts; nothing to do before or
 after.**
 
+### Security
+
+- **Support acts only on accounts that hold no role of Administration.**
+  It could clear an administrator's second factors and, on an instance
+  without mail, take the reset link of the administrator's account: the
+  helpdesk could become an administrator. The same held for another
+  support account and for an auditor. Support's "sign everyone out" now
+  leaves those accounts signed in; an administrator's reach is unchanged.
+
 ### Added
 
 - **Two parts of Administration an administrator gives apart.** An
@@ -22,15 +31,6 @@ after.**
   as someone, or changes a setting, and an account manager acts only on
   accounts that hold no role of Administration. Given and taken away on
   an account's page, with the proof, on the sign-in trail.
-
-### Security
-
-- **Support acts only on accounts that hold no role of Administration.**
-  It could clear an administrator's second factors and, on an instance
-  without mail, take the reset link of the administrator's account: the
-  helpdesk could become an administrator. The same held for another
-  support account and for an auditor. Support's "sign everyone out" now
-  leaves those accounts signed in; an administrator's reach is unchanged.
 
 ### Changed
 
