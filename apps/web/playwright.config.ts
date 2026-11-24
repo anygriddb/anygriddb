@@ -1,5 +1,4 @@
 import { defineConfig } from "@playwright/test";
-import { journeysDatabaseUrl } from "./e2e/database-url";
 
 // The API serves the built app on its own origin, as in production
 // (ADR 0011): the journey runs against that one server.
@@ -71,7 +70,6 @@ export default defineConfig({
       timeout: 180_000,
       env: {
         ...process.env,
-        DATABASE_URL: journeysDatabaseUrl(),
         AUTH_ENCRYPTION_KEY: process.env.AUTH_ENCRYPTION_KEY ?? "",
         // A folder of their own: the development server's certificates are
         // sealed under another key, and the start refuses what it cannot open.
