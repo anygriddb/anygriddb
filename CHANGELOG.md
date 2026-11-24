@@ -8,8 +8,18 @@ first.
 
 ## Unreleased
 
+**With files in an object store (`compose.s3.yml`), this is the first 0.7
+version that starts.** A stack that tried 0.7.0 to 0.7.4 that way and stayed
+stopped needs one step after the upgrade: `docker compose restart db`, then
+`docker compose up -d`, with the same Compose files as `up`.
+
 ### Fixed
 
+- **An instance with its files in an object store starts again.** From 0.7.0
+  the overlay `compose.s3.yml` replaced the certificates step's arguments
+  without the one that makes the application's database role, so `prepare`
+  stopped on `role "anygriddb_app" does not exist` and the instance never
+  started.
 - **Two texts in English that were written as French writes them.** The
   earlier values shown beside a setting (a base's, a table's, a view's, a
   field's, a widget's, a webhook's, an automation's) put a space before the

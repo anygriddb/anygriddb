@@ -738,6 +738,17 @@ Send the sign-in trail to a collector of your own
 backups out of the instance's reach, and guard `POSTGRES_PASSWORD` as you
 guard the data.
 
+If `prepare` stops on `role "anygriddb_app" does not exist`, PostgreSQL
+started before the role's password was made: it makes the role when it
+starts. A stack with its files in an object store was in that case from
+0.7.0 to 0.7.4. Restart it once, then start the stack again, with the same
+Compose files as `up`:
+
+```sh
+docker compose restart db
+docker compose up -d
+```
+
 An index on a file field is built when the field is added. One that is
 missing, on an instance from before 0.4.1 or after a build cut short, is
 named in the application's start log. Files are served correctly meanwhile,
