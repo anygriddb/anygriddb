@@ -755,6 +755,10 @@ msgstr "{failed, plural, one {# ligne ne correspondait pas à son champ et a ét
 msgid "{failures, plural, one {failure in the last 24 hours} other {failures in the last 24 hours}}"
 msgstr "{failures, plural, one {échec ces dernières 24 heures} other {échecs ces dernières 24 heures}}"
 
+#: components/history/earlier.tsx
+msgid "{field}:"
+msgstr "{field} :"
+
 #: components/fields/cell-editor.tsx
 msgid "{field}: “{date}” does not exist. Nothing was saved."
 msgstr "{field} : « {date} » n’existe pas. Rien n’a été enregistré."
@@ -10866,6 +10870,10 @@ msgstr "Lentes"
 #: components/admin/health-tab.tsx
 msgid "Slow means one second or more. Figures come from every process writing to the database, not from Prometheus."
 msgstr "Lente : une seconde ou plus. Les chiffres viennent de chaque processus qui écrit en base, pas de Prometheus."
+
+#: components/settings/api-docs.tsx
+msgid "Some text"
+msgstr "Du texte"
 
 #: components/table/import-dialog.tsx
 msgid "Some values are longer than their field holds (4,000 characters for a text, 20,000 for a long text): their rows will be refused and listed, nothing is cut."

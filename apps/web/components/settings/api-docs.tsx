@@ -15,7 +15,8 @@ import { ApiConsole } from "./api-console";
 
 type Tab = "guide" | "try" | "mcp";
 
-function example(column: CatalogColumn): unknown {
+/** A value a field takes, as the guide shows it; `text` in the reader's language. */
+function example(column: CatalogColumn, text: string): unknown {
   const options =
     (column.config as { options?: Array<{ name: string }> }).options ?? [];
   switch (column.fieldType) {
@@ -55,7 +56,7 @@ function example(column: CatalogColumn): unknown {
     case "relation_many_to_many":
       return ["<record id>"];
     default:
-      return "Texte";
+      return text;
   }
 }
 
@@ -118,6 +119,7 @@ export function ApiDocs({ baseId }: { baseId: string }) {
   >();
   if (!base) return null;
   const origin = window.location.origin;
+  const text = t`Some text`;
   const tabs: Array<{ value: Tab; label: string }> = [
     { value: "guide", label: t`Guide` },
     { value: "try", label: t`Try it` },
@@ -133,7 +135,7 @@ export function ApiDocs({ baseId }: { baseId: string }) {
       if (key === "label") return column.label;
       if (key === "type") return column.fieldType;
       if (key === "write") return WRITABLE.has(column.fieldType) ? 1 : 0;
-      const sample = example(column);
+      const sample = example(column, text);
       if (
         sample === null ||
         sample === undefined ||
@@ -150,7 +152,7 @@ export function ApiDocs({ baseId }: { baseId: string }) {
   const writable =
     table?.columns.filter((column) => WRITABLE.has(column.fieldType)) ?? [];
   const sample = Object.fromEntries(
-    writable.slice(0, 4).map((column) => [column.name, example(column)]),
+    writable.slice(0, 4).map((column) => [column.name, example(column, text)]),
   );
   return (
     <NotebookPage
@@ -237,7 +239,7 @@ export function ApiDocs({ baseId }: { baseId: string }) {
                     </td>
                     <td className="font-mono text-xs">
                       {WRITABLE.has(column.fieldType)
-                        ? JSON.stringify(example(column))
+                        ? JSON.stringify(example(column, text))
                         : "—"}
                     </td>
                   </tr>
