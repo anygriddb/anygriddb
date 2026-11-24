@@ -4452,7 +4452,7 @@ msgstr "Terminer"
 
 #: components/public/unsubscribe-page.tsx
 msgid "Done: these notices no longer come by email."
-msgstr "C’est fait : ces avis n’arrivent plus par e-mail."
+msgstr "C’est fait : ces avis n’arrivent plus par e-mail."
 
 #: components/fields/attachment-preview.tsx
 #: components/settings/base-settings.tsx
