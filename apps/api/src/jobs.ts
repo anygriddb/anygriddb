@@ -501,6 +501,16 @@ function shownResult(result: JobRow["result"]): JobRow["result"] {
   );
 }
 
+/** A finished job whose file is still kept. */
+function fileInDate(job: JobRow): boolean {
+  return Boolean(
+    job.status === "done" &&
+    job.fileKey &&
+    job.fileExpiresAt &&
+    job.fileExpiresAt.getTime() > Date.now(),
+  );
+}
+
 /**
  * A job as its author reads it. `fileReadable` is whether they may still
  * have the file today (the same check as `GET /api/jobs/:id/file`): a
@@ -511,12 +521,6 @@ export function publicJob(
   job: JobRow & { tableName?: string | null },
   options?: { fileReadable?: boolean },
 ) {
-  const fileInDate = Boolean(
-    job.status === "done" &&
-    job.fileKey &&
-    job.fileExpiresAt &&
-    job.fileExpiresAt.getTime() > Date.now(),
-  );
   return {
     id: job.id,
     kind: job.kind,
@@ -532,7 +536,7 @@ export function publicJob(
     baseId: job.baseId,
     tableId: job.tableId,
     tableName: job.tableName ?? null,
-    download: fileInDate && Boolean(options?.fileReadable),
+    download: fileInDate(job) && Boolean(options?.fileReadable),
     retryable: jobCanRetry(job),
     createdAt: job.createdAt.toISOString(),
     finishedAt: job.finishedAt?.toISOString() ?? null,
@@ -552,13 +556,7 @@ export async function presentJob(
   job: JobRow & { tableName?: string | null },
   reader: JobReader,
 ): Promise<PublicJob> {
-  const fileInDate = Boolean(
-    job.status === "done" &&
-    job.fileKey &&
-    job.fileExpiresAt &&
-    job.fileExpiresAt.getTime() > Date.now(),
-  );
-  if (!fileInDate) return publicJob(job);
+  if (!fileInDate(job)) return publicJob(job);
   return publicJob(job, {
     fileReadable: await jobFileReadableBy(db, job, reader),
   });
