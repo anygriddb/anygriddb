@@ -74,7 +74,7 @@ export function GridCell(props: {
   const error = row ? rowError(row, column.name) : null;
   const { t } = useLingui();
   return (
-    <div
+    <div // NOSONAR: the grid holds the focus and names the active cell (aria-activedescendant)
       id={cellId(props.grid, position, columnIndex)}
       role="gridcell"
       // The row header is column 1.

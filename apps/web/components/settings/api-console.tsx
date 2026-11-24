@@ -184,7 +184,7 @@ export function ApiConsole(props: {
           </p>
           <pre
             data-testid="api-answer"
-            tabIndex={0}
+            tabIndex={0} // NOSONAR: scrollable answer takes the keyboard
             className="max-h-96 overflow-auto rounded-sm bg-foreground/95 p-3 text-xs text-background focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
           >
             {answer.text}

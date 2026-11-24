@@ -56,7 +56,7 @@ export function Select({
 
 export function Label({ className, ...props }: ComponentProps<"label">) {
   return (
-    <label
+    <label // NOSONAR: association is the caller's (htmlFor or a wrapped control)
       className={cn("text-xs font-medium text-muted-foreground", className)}
       {...props}
     />

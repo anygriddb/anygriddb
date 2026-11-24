@@ -252,7 +252,7 @@ function Day({
       aria-label={name}
       aria-current={today ? "date" : undefined}
       data-day={day}
-      tabIndex={onPick ? (tabStop ? 0 : -1) : undefined}
+      tabIndex={onPick ? (tabStop ? 0 : -1) : undefined} // NOSONAR: arrows move between days; its events are buttons of their own
       onFocus={(event) => {
         if (event.target === event.currentTarget) onPick?.();
       }}

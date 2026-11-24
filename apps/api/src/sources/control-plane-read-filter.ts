@@ -88,16 +88,17 @@ export function stripControlPlaneFilter(
 export function clientFilter(
   engine: EngineCatalog,
   filter: FilterGroup | undefined,
-  options: { check: boolean } = { check: true },
+  options?: { check: boolean },
 ): FilterGroup | undefined {
+  const { check = true } = options ?? {};
   const byName = controlPlaneByName(engine);
   if (byName.size === 0 || !filter) return filter;
   const isCp = (name: string) => byName.has(name);
-  if (options.check && controlPlaneUnderOr(filter, isCp)) {
+  if (check && controlPlaneUnderOr(filter, isCp)) {
     throw new AppError("control_plane_filter");
   }
   const { filter: rest, removed } = stripControlPlaneFilter(filter, isCp);
-  if (options.check) {
+  if (check) {
     for (const condition of removed) {
       enrichmentMatchFromCondition(condition, condition.column);
     }

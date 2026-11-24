@@ -101,7 +101,7 @@ export function GridHeader(props: {
     const before = fieldBeside(props.columns, index, -1);
     const after = fieldBeside(props.columns, index, 1);
     return (
-      <div
+      <div // NOSONAR: the grid holds the focus and names the active cell (aria-activedescendant)
         key={column.name}
         role="columnheader"
         aria-colindex={index + 2}

@@ -224,9 +224,9 @@ export function authEventsCsv(events: readonly AuthEventRow[]): string {
 
 export async function listSessions(
   db: Database,
-  input: { limit: number; offset?: number } = { limit: 500 },
+  input?: { limit: number; offset?: number },
 ) {
-  const offset = input.offset ?? 0;
+  const { limit = 500, offset = 0 } = input ?? {};
   const now = new Date();
   const counted = await db
     .selectFrom("sessions as s")
@@ -249,7 +249,7 @@ export async function listSessions(
     .where("s.expiresAt", ">", now)
     .orderBy("s.createdAt", "desc")
     .offset(offset)
-    .limit(input.limit)
+    .limit(limit)
     .execute();
   return {
     total,

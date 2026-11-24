@@ -67,7 +67,7 @@ function Code({ text }: { text: string }) {
     <div className="relative">
       {/* Focusable: a line wider than the column scrolls by keyboard too. */}
       <pre
-        tabIndex={0}
+        tabIndex={0} // NOSONAR: scrollable sample takes the keyboard
         className="overflow-x-auto rounded-sm bg-foreground/95 p-3 text-xs text-background focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
       >
         {text}

@@ -110,7 +110,9 @@ function NewTableForm(props: {
       </div>
       <fieldset className="flex flex-col gap-1.5">
         <legend className="text-sm font-medium">{t`Fields`}</legend>
-        <label className="flex items-start gap-2 text-sm">
+        <label // NOSONAR: name is the radio's title in the span (Lingui)
+          className="flex items-start gap-2 text-sm"
+        >
           <input
             type="radio"
             name="table-style"
@@ -125,7 +127,9 @@ function NewTableForm(props: {
             </span>
           </span>
         </label>
-        <label className="flex items-start gap-2 text-sm">
+        <label // NOSONAR: name is the radio's title in the span (Lingui)
+          className="flex items-start gap-2 text-sm"
+        >
           <input
             type="radio"
             name="table-style"
