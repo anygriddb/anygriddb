@@ -12,7 +12,8 @@ import { raw } from "../../lib/known-text";
 import { distinctLimits, formulaEngine, useLimitText } from "../../lib/limits";
 import type { CatalogTable, Collaborator } from "../../lib/types";
 import { FilterBuilder } from "../table/filter-builder";
-import type { SettingsProps } from "./field-settings";
+import { DRAFT_SPOT_CONTROLS } from "./field-draft";
+import { Missing, missingProps, type SettingsProps } from "./field-settings";
 import { LimitNotice } from "./limit-notice";
 
 const NO_PEOPLE = new Map<string, Collaborator>();
@@ -122,6 +123,7 @@ function LinkedCondition({
 export function LookupSettings({
   draft,
   set,
+  problems,
   table,
   tables,
   isNew,
@@ -163,7 +165,11 @@ export function LookupSettings({
       <div className="flex flex-col gap-1">
         <Label htmlFor="lookup-relation">{t`Through link`}</Label>
         <Select
-          id="lookup-relation"
+          id={DRAFT_SPOT_CONTROLS.relation}
+          {...missingProps(
+            DRAFT_SPOT_CONTROLS.relation,
+            problems?.has("relation") === true,
+          )}
           value={draft.relation}
           onChange={(event) => set({ relation: event.target.value })}
         >
@@ -174,11 +180,25 @@ export function LookupSettings({
             </option>
           ))}
         </Select>
+        {problems?.has("relation") ? (
+          <Missing
+            control={DRAFT_SPOT_CONTROLS.relation}
+            text={
+              linkColumns.length > 0
+                ? t`Choose the link it reads through.`
+                : t`This table has no link yet: add a link to another table first.`
+            }
+          />
+        ) : null}
       </div>
       <div className="flex flex-col gap-1">
         <Label htmlFor="lookup-target">{t`Field to look up`}</Label>
         <Select
-          id="lookup-target"
+          id={DRAFT_SPOT_CONTROLS.target}
+          {...missingProps(
+            DRAFT_SPOT_CONTROLS.target,
+            problems?.has("target") === true,
+          )}
           value={draft.targetColumn}
           onChange={(event) => set({ targetColumn: event.target.value })}
         >
@@ -191,6 +211,12 @@ export function LookupSettings({
               </option>
             ))}
         </Select>
+        {problems?.has("target") ? (
+          <Missing
+            control={DRAFT_SPOT_CONTROLS.target}
+            text={t`Choose the field it reads.`}
+          />
+        ) : null}
       </div>
       {rollup ? (
         <div className="col-span-2 flex flex-col gap-1">

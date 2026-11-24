@@ -113,6 +113,8 @@ export function ViewToolbar(props: {
   onTrash: () => void;
   /** Shown to those who manage the table. */
   onAutomations?: () => void;
+  /** Opens the dialog that adds a field; unset when the person may not. */
+  onAddField?: (() => void) | undefined;
   /** Shown to those who may add rows. */
   onNewRow?: () => void;
   /**
@@ -239,6 +241,18 @@ export function ViewToolbar(props: {
             {t`Hide all`}
           </Button>
         </div>
+        {/* Where a phone, which draws no header to the grid, adds one. */}
+        {props.onAddField ? (
+          <Button
+            size="xs"
+            variant="ghost"
+            className="mt-2 w-full justify-start"
+            onClick={props.onAddField}
+          >
+            <Plus className="h-3.5 w-3.5" aria-hidden />
+            {t`Add a field`}
+          </Button>
+        ) : null}
       </PopoverContent>
     </Popover>
   );

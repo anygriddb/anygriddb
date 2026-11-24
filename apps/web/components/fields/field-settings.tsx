@@ -11,6 +11,8 @@ import { ArrowDown, ArrowUp, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
 import {
   codeAppearance,
+  DRAFT_SPOT_CONTROLS,
+  type DraftSpot,
   type FieldDraft,
   type FieldOption,
   moveOption,
@@ -21,7 +23,28 @@ import { OPTION_COLOR_NAMES, OptionColorButton } from "./option-color";
 export type SettingsProps = {
   draft: FieldDraft;
   set: (change: Partial<FieldDraft>) => void;
+  /** The parts still missing, once the dialog was sent (`draftProblems`). */
+  problems?: ReadonlySet<DraftSpot>;
 };
+
+/** What a part of the dialog still needs, under its control. */
+export function Missing({ control, text }: { control: string; text: string }) {
+  return (
+    <p id={`${control}-problem`} className="text-xs text-danger">
+      {text}
+    </p>
+  );
+}
+
+/** What marks a control whose part is missing, and points to why. */
+export function missingProps(control: string, missing: boolean) {
+  return missing
+    ? {
+        "aria-invalid": true as const,
+        "aria-describedby": `${control}-problem`,
+      }
+    : {};
+}
 
 /** A place up or down, for an option that has one. */
 const MOVE =
@@ -35,9 +58,12 @@ const MOVE =
 function OptionsEditor({
   options,
   onChange,
+  missing,
 }: {
   options: FieldOption[];
   onChange: (options: FieldOption[]) => void;
+  /** The list may not be empty, and is. */
+  missing: boolean;
 }) {
   const { t } = useLingui();
   const [draft, setDraft] = useState("");
@@ -128,9 +154,11 @@ function OptionsEditor({
         }}
       >
         <Input
+          id={DRAFT_SPOT_CONTROLS.options}
           className="h-8"
           placeholder={t`New option`}
           aria-label={t`New option`}
+          {...missingProps(DRAFT_SPOT_CONTROLS.options, missing)}
           value={draft}
           onChange={(event) => setDraft(event.target.value)}
         />
@@ -143,18 +171,25 @@ function OptionsEditor({
           <Plus className="h-4 w-4" aria-hidden />
         </Button>
       </form>
+      {missing ? (
+        <Missing
+          control={DRAFT_SPOT_CONTROLS.options}
+          text={t`Add at least one option.`}
+        />
+      ) : null}
     </div>
   );
 }
 
 /** A list of options, and how a cell draws the ones it holds. */
-export function OptionsSettings({ draft, set }: SettingsProps) {
+export function OptionsSettings({ draft, set, problems }: SettingsProps) {
   const { t } = useLingui();
   return (
     <>
       <OptionsEditor
         options={draft.options}
         onChange={(options) => set({ options })}
+        missing={problems?.has("options") === true}
       />
       <div className="flex flex-col gap-1">
         <Label htmlFor="field-appearance">{t`Display`}</Label>
@@ -440,7 +475,7 @@ export function PeopleSettings({ draft, set }: SettingsProps) {
 }
 
 /** A button: what it says, its colour, and what a press does. */
-export function ButtonSettings({ draft, set }: SettingsProps) {
+export function ButtonSettings({ draft, set, problems }: SettingsProps) {
   const { t } = useLingui();
   return (
     <div className="flex flex-col gap-2">
@@ -487,11 +522,21 @@ export function ButtonSettings({ draft, set }: SettingsProps) {
         <div className="flex flex-col gap-1">
           <Label htmlFor="button-url">{t`URL`}</Label>
           <Input
-            id="button-url"
+            id={DRAFT_SPOT_CONTROLS.buttonUrl}
             placeholder="https://example.com/client/{{record_id}}"
+            {...missingProps(
+              DRAFT_SPOT_CONTROLS.buttonUrl,
+              problems?.has("buttonUrl") === true,
+            )}
             value={draft.buttonUrl}
             onChange={(event) => set({ buttonUrl: event.target.value })}
           />
+          {problems?.has("buttonUrl") ? (
+            <Missing
+              control={DRAFT_SPOT_CONTROLS.buttonUrl}
+              text={t`Give the address the button opens.`}
+            />
+          ) : null}
           <p className="text-xs text-muted-foreground">
             {t`Insert a value with ${{ field: `{{${t`field_name`}}}` }} or ${{ id: "{{record_id}}" }}. Only http and https links open.`}
           </p>

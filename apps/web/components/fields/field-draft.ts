@@ -596,3 +596,42 @@ export function fieldRequest(
     makePrimary: draft.primary && !editing.isPrimary && isPrimaryType(type),
   };
 }
+
+/** A part of the field dialog that still lacks what the type needs. */
+export type DraftSpot = "options" | "relation" | "target" | "buttonUrl";
+
+/** The control each part is answered in, which takes the keyboard. */
+export const DRAFT_SPOT_CONTROLS: Record<DraftSpot, string> = {
+  options: "field-new-option",
+  relation: "lookup-relation",
+  target: "lookup-target",
+  buttonUrl: "button-url",
+};
+
+/**
+ * What the dialog still needs before the server can make the field, in
+ * the order the dialog shows it: a list without options, a lookup or a
+ * rollup without its link or the field it reads, a button that opens no
+ * address. The server would refuse each without saying which part.
+ */
+export function draftProblems(draft: FieldDraft, isNew: boolean): DraftSpot[] {
+  switch (draft.fieldType) {
+    case "single_select":
+    case "multi_select":
+      return draft.options.length === 0 ? ["options"] : [];
+    case "lookup":
+    case "rollup":
+      // Once made, a lookup's link and field are no longer the dialog's.
+      if (!isNew) return [];
+      return [
+        ...(draft.relation ? [] : (["relation"] as const)),
+        ...(draft.targetColumn ? [] : (["target"] as const)),
+      ];
+    case "button":
+      return draft.buttonAction === "open_url" && !draft.buttonUrl.trim()
+        ? ["buttonUrl"]
+        : [];
+    default:
+      return [];
+  }
+}

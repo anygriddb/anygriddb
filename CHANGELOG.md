@@ -21,6 +21,13 @@ first.
 
 ### Fixed
 
+- **The dialog that adds a field says what it still needs, where it is
+  given.** A list without options, a lookup or a rollup without its link or
+  the field it reads, and a button that opens no address were sent, and
+  the server's refusal came back as "Invalid field" or "Invalid input",
+  naming nothing. The dialog now says each one under its control, which
+  takes the keyboard, and sends nothing. On a phone, where a table's grid
+  draws no header, a field is added from the view's Fields list.
 - **A form says what is wrong beside each field, and takes the keyboard
   there.** Sent with answers missing or refused, a public form, the form
   view and the dialog of a new row showed one message at a time, at the foot

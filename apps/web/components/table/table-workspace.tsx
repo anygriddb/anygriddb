@@ -430,6 +430,11 @@ function OpenTable({ baseId, tableId, viewId, rowId }: TableWorkspaceProps) {
           onAutomations={
             canManage(role) ? () => setAutomationsOpen(true) : undefined
           }
+          onAddField={
+            canManage(role)
+              ? () => setFieldEditor({ mode: "create" })
+              : undefined
+          }
           // A form adds its own rows, and draws none.
           onNewRow={
             canAdd && viewType !== "form" ? newRow.addAndOpen : undefined
