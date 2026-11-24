@@ -30,11 +30,11 @@ if (wanted && wanted !== version) {
 function checkoutCommit() {
   try {
     return (
-      execFileSync("git", ["rev-parse", "HEAD"], {
-        // NOSONAR: a build step, run with the developer's own tools
-        encoding: "utf8",
-        stdio: ["ignore", "pipe", "ignore"],
-      }).trim() || null
+      execFileSync(
+        "git", // NOSONAR: a build step, run with the developer's own tools
+        ["rev-parse", "HEAD"],
+        { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] },
+      ).trim() || null
     );
   } catch {
     return null;
