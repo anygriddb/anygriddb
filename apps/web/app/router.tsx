@@ -213,6 +213,11 @@ const ConfirmSignupPage = page(() =>
     (module) => module.ConfirmSignupPage,
   ),
 );
+const UnsubscribePage = page(() =>
+  import("../components/public/unsubscribe-page").then(
+    (module) => module.UnsubscribePage,
+  ),
+);
 const PublicView = page(() =>
   import("../components/public/public-view").then(
     (module) => module.PublicView,
@@ -289,6 +294,16 @@ const resetRoute = createRoute({
   component: function Reset() {
     const { token } = resetRoute.useParams();
     return <ResetPasswordPage token={token} />;
+  },
+});
+
+/** A mail's unsubscribe link (ADR 0123): no session. */
+const unsubscribeRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/notify/unsubscribe/$token",
+  component: function Unsubscribe() {
+    const { token } = unsubscribeRoute.useParams();
+    return <UnsubscribePage token={token} />;
   },
 });
 
@@ -713,6 +728,7 @@ const routeTree = rootRoute.addChildren([
   invitationRoute,
   confirmSignupRoute,
   resetRoute,
+  unsubscribeRoute,
   shareRoute,
   baseShareRoute,
   appRoute.addChildren([

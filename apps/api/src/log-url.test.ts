@@ -13,6 +13,9 @@ describe("logUrl", () => {
     );
     expect(logUrl("/invite/abc?next=%2F")).toBe("/invite/…?…");
     expect(logUrl(`/reset/${"c".repeat(43)}`)).toBe("/reset/…");
+    expect(logUrl(`/notify/unsubscribe/${"d".repeat(40)}`)).toBe(
+      "/notify/unsubscribe/…",
+    );
     expect(logUrl(`/signup/${"d".repeat(43)}`)).toBe("/signup/…");
     // The sign-up page itself carries no secret.
     expect(logUrl("/signup?next=%2F")).toBe("/signup?…");

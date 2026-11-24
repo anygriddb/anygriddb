@@ -1087,3 +1087,44 @@ describe("a catalog that holds a SQLite source", () => {
     }
   });
 });
+
+describe("notification preferences on a catalog that had one email switch", () => {
+  it("keeps notices in the app for whoever had email off, and only them", async () => {
+    const { db, pool, close } = await catalogBefore(
+      "0135_person_notification_preferences",
+    );
+    try {
+      const { rows } = await pool.query<{ id: string; name: string }>(
+        `insert into users (email, display_name, notify_by_email)
+         values ($1, 'quiet', false), ($2, 'mailed', true)
+         returning id, display_name as name`,
+        [`quiet-${suffix}@example.com`, `mailed-${suffix}@example.com`],
+      );
+      const id = (name: string) =>
+        rows.find((row) => row.name === name)?.id ?? "";
+
+      const ran = await migrateDb(pool);
+      expect(ran[0]).toBe("0135_person_notification_preferences");
+      const kept = await db
+        .selectFrom("notificationPreferences")
+        .select(["userId", "event", "channels"])
+        .where("userId", "in", [id("quiet"), id("mailed")])
+        .execute();
+      expect(kept.every((row) => row.userId === id("quiet"))).toBe(true);
+      expect(kept.map((row) => row.event)).toContain("mention");
+      expect(
+        kept.every((row) => JSON.stringify(row.channels) === '["in_app"]'),
+      ).toBe(true);
+      // The switch is gone, and a list that is not one is refused.
+      await expect(
+        pool.query(
+          `insert into notification_preferences (user_id, event, channels)
+           values ($1, 'reply', '["fax"]')`,
+          [id("mailed")],
+        ),
+      ).rejects.toThrow(/notification_preferences_channels/);
+    } finally {
+      await close();
+    }
+  });
+});

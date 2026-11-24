@@ -56,6 +56,7 @@ async function accessNoticeDeps(ctx: Context): Promise<AccessNoticeDeps> {
     smtp,
     publicUrl: ctx.env.PUBLIC_URL,
     log: (error, message) => ctx.req.log.error({ err: error }, message),
+    keys: ctx.env.AUTH_ENCRYPTION_KEY,
   };
 }
 
@@ -116,7 +117,7 @@ export const adminBaseProcedures = {
         ) {
           // The owners already there learn who was given which role, and
           // by whom (ROADMAP #15, #91): once, not when it is set again.
-          await tellOwnersOfRole(roleNoticeDeps(ctx), {
+          await tellOwnersOfRole(await roleNoticeDeps(ctx), {
             baseId: input.baseId,
             actorId: admin.id,
             gift: { to: "person", userId: input.userId, role: input.role },

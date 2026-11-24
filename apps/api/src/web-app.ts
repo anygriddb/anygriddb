@@ -29,7 +29,7 @@ const APP_PAGE = /^\/oauth\/consent\/?$/;
 /** A missing file, such as a chunk of an older build: a 404, not a page. */
 const FILE_PATH = /\/[^/]*\.[A-Za-z0-9]+$/;
 /** Pages reached by a secret link: search engines must not keep them. */
-const TOKEN_PAGE = /^\/(?:s|invite|reset|signup)\//;
+const TOKEN_PAGE = /^\/(?:s|invite|reset|signup|notify\/unsubscribe)\//;
 /** A public share page: may soften frame-ancestors when the share opts in. */
 const SHARE_PAGE = /^\/s\/([A-Za-z0-9_-]{32,64})\/?$/;
 

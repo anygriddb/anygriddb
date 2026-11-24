@@ -27,6 +27,7 @@ import {
   welcomeMailBody,
   welcomeMailSubject,
 } from "../mail-i18n.js";
+import { channelsFor } from "../notify/person-preferences.js";
 import { readMailVoice, readSettings } from "../settings.js";
 import { signupLinkUrl } from "./signup-requests.js";
 
@@ -58,6 +59,19 @@ async function recipient(
   };
 }
 
+/** Maps a security notice to the person-event catalogue (ADR 0123). */
+function securityEvent(
+  notice: SecurityNotice,
+):
+  | "locked"
+  | "password_changed"
+  | "factors_removed"
+  | "sso_linked"
+  | "inactive_soon"
+  | "inactive_disabled" {
+  return notice.kind;
+}
+
 /** Tells the person what happened to their account. */
 export async function sendSecurityNotice(
   deps: SecurityMailDeps,
@@ -65,6 +79,8 @@ export async function sendSecurityNotice(
   notice: SecurityNotice,
 ): Promise<boolean> {
   try {
+    const channels = await channelsFor(deps.db, userId, securityEvent(notice));
+    if (!channels.includes("email_immediate")) return false;
     const to = await recipient(deps, userId);
     if (!to) return false;
     await sendMail(to.smtp, to.voice, {

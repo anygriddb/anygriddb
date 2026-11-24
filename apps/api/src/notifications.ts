@@ -1,20 +1,17 @@
 import { effectiveTableRole, roleAllows, type RowEvent } from "@anygriddb/core";
 import type { Database } from "@anygriddb/db";
 import { sql as sqlTag } from "kysely";
+import type { KeyRing } from "./auth/key-ring.js";
+import {
+  deliverPersonNotices,
+  type BellKind,
+  type DeliverDeps,
+} from "./notify/deliver-person.js";
 import type { Publisher } from "./realtime/bus.js";
-import { gridChannel } from "./realtime/channels.js";
-import { readMailVoice } from "./settings.js";
 import { liveColumn, liveTable } from "./data/live.js";
-import { notificationMailBody, notificationMailSubject } from "./mail-i18n.js";
-import { sendMail, smtpReady, type SmtpConfig } from "./mail.js";
+import type { SmtpConfig } from "./mail.js";
 
-export type NotificationKind =
-  | "mention"
-  | "reply"
-  | "assigned"
-  | "automation"
-  | "webhook_disabled"
-  | "row_changed";
+export type NotificationKind = BellKind;
 
 export type NotificationInput = {
   userId: string;
@@ -32,6 +29,7 @@ export type NotifyDeps = {
   smtp: SmtpConfig;
   webOrigin: string;
   log: (error: unknown, message: string) => void;
+  keys?: KeyRing;
 };
 
 const READ_RETENTION_DAYS = 90;
@@ -63,7 +61,8 @@ async function readersOf(
 /**
  * Stores notifications, tells each recipient's open tabs, and emails those
  * who asked for it. Nobody is notified of their own action, and a row
- * notification only reaches people who can read the table.
+ * notification only reaches people who can read the table. Preferences
+ * and mutes are applied in deliverPersonNotices (ADR 0123).
  */
 export async function notify(
   deps: NotifyDeps,
@@ -91,6 +90,8 @@ export async function notify(
     : [];
   const byId = new Map(tableRows.map((table) => [table.id, table]));
   const allowed: NotificationInput[] = [];
+  const withoutTable = wanted.filter((item) => !item.tableId);
+  allowed.push(...withoutTable);
   for (const table of tableRows) {
     const forTable = wanted.filter((item) => item.tableId === table.id);
     const readers = await readersOf(
@@ -101,51 +102,32 @@ export async function notify(
     allowed.push(...forTable.filter((item) => readers.has(item.userId)));
   }
   if (allowed.length === 0) return 0;
-  await deps.db
-    .insertInto("notifications")
-    .values(
-      allowed.map((item) => ({
+
+  const deliverDeps: DeliverDeps = deps;
+  return deliverPersonNotices(
+    deliverDeps,
+    allowed.map((item) => {
+      const table = item.tableId ? byId.get(item.tableId) : undefined;
+      const link =
+        table &&
+        `${deps.webOrigin}/b/${table.baseId}/t/${table.id}${item.rowId ? `?row=${encodeURIComponent(item.rowId)}` : ""}`;
+      return {
         userId: item.userId,
-        kind: item.kind,
-        actorId: item.actorId ?? null,
-        tableId: item.tableId ?? null,
-        rowId: item.rowId ?? null,
-        commentId: item.commentId ?? null,
-        data: item.data ?? null,
-      })),
-    )
-    .execute();
-  const recipients = [...new Set(allowed.map((item) => item.userId))];
-  for (const userId of recipients) {
-    try {
-      await deps.bus.publish(
-        gridChannel(userId),
-        JSON.stringify({ type: "notification", channel: userId }),
-      );
-    } catch (error) {
-      deps.log(error, "notification publish failed");
-    }
-  }
-  if (!smtpReady(deps.smtp)) return allowed.length;
-  const voice = await readMailVoice(deps.db);
-  const emails = await deps.db
-    .selectFrom("users")
-    .select(["id", "email"])
-    .where("id", "in", recipients)
-    .where("notifyByEmail", "=", true)
-    .execute();
-  for (const recipient of emails) {
-    const first = allowed.find((item) => item.userId === recipient.id);
-    const table = first?.tableId ? byId.get(first.tableId) : undefined;
-    if (!first || !table) continue;
-    const link = `${deps.webOrigin}/b/${table.baseId}/t/${table.id}${first.rowId ? `?row=${encodeURIComponent(first.rowId)}` : ""}`;
-    await sendMail(deps.smtp, voice, {
-      to: recipient.email,
-      subject: notificationMailSubject(voice, first.kind, table.name),
-      text: notificationMailBody(voice, first.kind, table.name, link),
-    }).catch((error: unknown) => deps.log(error, "notification email failed"));
-  }
-  return allowed.length;
+        event: item.kind,
+        bellKind: item.kind,
+        actorId: item.actorId,
+        tableId: item.tableId,
+        baseId: table?.baseId ?? null,
+        rowId: item.rowId,
+        commentId: item.commentId,
+        data: {
+          ...(item.data ?? {}),
+          ...(table ? { table: table.name } : {}),
+        },
+        link: link || undefined,
+      };
+    }),
+  );
 }
 
 /** Recent notifications, without those about tables the user can no longer read. */
@@ -243,6 +225,10 @@ export async function purgeNotifications(db: Database): Promise<void> {
         ),
       ]),
     )
+    .execute();
+  await db
+    .deleteFrom("notificationDigestItems")
+    .where("createdAt", "<", new Date(Date.now() - UNREAD_RETENTION_DAYS * day))
     .execute();
 }
 

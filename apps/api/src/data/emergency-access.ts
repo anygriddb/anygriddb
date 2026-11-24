@@ -8,14 +8,15 @@
 import { AppError, type Binding, trimEndRun } from "@anygriddb/core";
 import type { Database } from "@anygriddb/db";
 import { sql } from "kysely";
+import type { KeyRing } from "../auth/key-ring.js";
 import {
   adminAccessMailBody,
   adminAccessMailSubject,
   type AdminAccessNotice,
 } from "../mail-i18n.js";
-import { sendMail, smtpReady, type SmtpConfig } from "../mail.js";
+import type { SmtpConfig } from "../mail.js";
+import { deliverPersonNotices } from "../notify/deliver-person.js";
 import type { Publisher } from "../realtime/bus.js";
-import { gridChannel } from "../realtime/channels.js";
 import { readMailVoice } from "../settings.js";
 import { liveBase } from "./live.js";
 
@@ -56,6 +57,7 @@ export type AccessNoticeDeps = {
   smtp: SmtpConfig;
   publicUrl: string;
   log: (error: unknown, message: string) => void;
+  keys?: KeyRing;
 };
 
 /**
@@ -331,43 +333,37 @@ export async function tellOwners(
     .execute();
   if (owners.length === 0) return 0;
   const { notice } = input;
-  await deps.db
-    .insertInto("notifications")
-    .values(
-      owners.map((owner) => ({
-        userId: owner.id,
-        kind: "admin_access" as const,
-        actorId: input.actorId,
-        data: {
-          baseId: input.baseId,
-          base: notice.baseName,
-          reason: notice.reason,
-          ...(notice.mode === "emergency"
-            ? { until: notice.until.toISOString() }
-            : { role: notice.role }),
-        },
-      })),
-    )
-    .execute();
-  for (const owner of owners) {
-    try {
-      await deps.bus.publish(
-        gridChannel(owner.id),
-        JSON.stringify({ type: "notification", channel: owner.id }),
-      );
-    } catch (error) {
-      deps.log(error, "notification publish failed");
-    }
-  }
-  if (!smtpReady(deps.smtp)) return owners.length;
   const voice = await readMailVoice(deps.db);
   const link = `${trimEndRun(deps.publicUrl, "/")}/b/${input.baseId}/settings`;
-  for (const owner of owners) {
-    await sendMail(deps.smtp, voice, {
-      to: owner.email,
-      subject: adminAccessMailSubject(voice, notice),
-      text: adminAccessMailBody(voice, notice, link),
-    }).catch((error: unknown) => deps.log(error, "access notice mail failed"));
-  }
-  return owners.length;
+  const data: Record<string, string> = {
+    baseId: input.baseId,
+    base: notice.baseName,
+    reason: notice.reason,
+    ...(notice.mode === "emergency"
+      ? { until: notice.until.toISOString() }
+      : { role: notice.role }),
+  };
+  return deliverPersonNotices(
+    {
+      db: deps.db,
+      bus: deps.bus,
+      smtp: deps.smtp,
+      webOrigin: deps.publicUrl,
+      log: deps.log,
+      keys: deps.keys,
+    },
+    owners.map((owner) => ({
+      userId: owner.id,
+      event: "admin_access" as const,
+      bellKind: "admin_access" as const,
+      actorId: input.actorId,
+      baseId: input.baseId,
+      data,
+      link,
+      mail: {
+        subject: adminAccessMailSubject(voice, notice),
+        text: adminAccessMailBody(voice, notice, link),
+      },
+    })),
+  );
 }

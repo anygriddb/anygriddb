@@ -83,6 +83,7 @@ import {
   purgeIntegrationDeliveries,
   runIntegrationDelivery,
 } from "../notify/dispatch.js";
+import { sendDigests } from "../notify/digest.js";
 import {
   deliverOperatorMail,
   operatorMailPayloadSchema,
@@ -274,6 +275,7 @@ export function taskGroups(deps: TaskDeps): WorkerGroup[] {
       smtp: await mailSmtp(),
       webOrigin: deps.env.PUBLIC_URL,
       log: deps.log,
+      keys: deps.env.AUTH_ENCRYPTION_KEY,
     };
   }
   async function hookDeps(): Promise<HookDeps> {
@@ -388,6 +390,26 @@ export function taskGroups(deps: TaskDeps): WorkerGroup[] {
         log: deps.log,
         certificateExpires: deps.certificateExpires ?? (() => null),
       });
+    },
+    [TASKS.notificationDigestDaily]: async () => {
+      await sendDigests(
+        {
+          db: deps.db,
+          env: deps.env,
+          log: deps.log,
+        },
+        "daily",
+      );
+    },
+    [TASKS.notificationDigestWeekly]: async () => {
+      await sendDigests(
+        {
+          db: deps.db,
+          env: deps.env,
+          log: deps.log,
+        },
+        "weekly",
+      );
     },
     [TASKS.trailShip]: async () => {
       await shipTrail({
@@ -639,6 +661,19 @@ export function taskGroups(deps: TaskDeps): WorkerGroup[] {
           match: "5 4 * * *",
           options: { maxAttempts: 1, backfillPeriod: 86_400_000 },
           identifier: "usage_snapshot",
+        },
+        {
+          // Person notification digests (ADR 0123).
+          task: TASKS.notificationDigestDaily,
+          match: "10 8 * * *",
+          options: once,
+          identifier: "notification_digest_daily",
+        },
+        {
+          task: TASKS.notificationDigestWeekly,
+          match: "15 8 * * 1",
+          options: once,
+          identifier: "notification_digest_weekly",
         },
       ],
     },

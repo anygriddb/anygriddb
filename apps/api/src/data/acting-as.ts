@@ -4,12 +4,13 @@
  */
 import { AppError } from "@anygriddb/core";
 import type { Database } from "@anygriddb/db";
+import type { KeyRing } from "../auth/key-ring.js";
 import { recordAuthEvent } from "../auth/auth-events.js";
 import { actingAsMailBody, actingAsMailSubject } from "../mail-i18n.js";
-import { sendMail, smtpReady, type SmtpConfig } from "../mail.js";
+import { smtpReady, type SmtpConfig } from "../mail.js";
+import { deliverPersonNotices } from "../notify/deliver-person.js";
 import { actingAsCounted } from "../observability.js";
 import type { Publisher } from "../realtime/bus.js";
-import { gridChannel } from "../realtime/channels.js";
 import { readMailVoice } from "../settings.js";
 import { ERASED_USER_ID } from "./erasure.js";
 
@@ -56,6 +57,7 @@ type NoticeDeps = {
   smtp: SmtpConfig | null;
   publicUrl: string;
   log: (error: unknown, message: string) => void;
+  keys?: KeyRing;
 };
 
 export async function startActing(
@@ -176,35 +178,37 @@ async function tellPerson(
     until: Date;
   },
 ): Promise<void> {
-  await db
-    .insertInto("notifications")
-    .values({
-      userId: input.person.id,
-      kind: "acting_as",
-      actorId: input.actorId,
-      data: {
-        reason: input.reason,
-        until: input.until.toISOString(),
-      },
-    })
-    .execute();
-  try {
-    await deps.bus.publish(
-      gridChannel(input.person.id),
-      JSON.stringify({ type: "notification", channel: input.person.id }),
-    );
-  } catch (error) {
-    deps.log(error, "acting notice publish failed");
-  }
-  if (!deps.smtp || !smtpReady(deps.smtp)) return;
   const voice = await readMailVoice(db);
-  await sendMail(deps.smtp, voice, {
-    to: input.person.email,
-    subject: actingAsMailSubject(voice),
-    text: actingAsMailBody(voice, {
-      adminName: input.actorName,
-      reason: input.reason,
-      until: input.until,
-    }),
-  }).catch((error: unknown) => deps.log(error, "acting notice mail failed"));
+  // Empty config fails smtpReady: the bell and digests still run.
+  const smtp = deps.smtp && smtpReady(deps.smtp) ? deps.smtp : {};
+  await deliverPersonNotices(
+    {
+      db,
+      bus: deps.bus,
+      smtp,
+      webOrigin: deps.publicUrl,
+      log: deps.log,
+      keys: deps.keys,
+    },
+    [
+      {
+        userId: input.person.id,
+        event: "acting_as",
+        bellKind: "acting_as",
+        actorId: input.actorId,
+        data: {
+          reason: input.reason,
+          until: input.until.toISOString(),
+        },
+        mail: {
+          subject: actingAsMailSubject(voice),
+          text: actingAsMailBody(voice, {
+            adminName: input.actorName,
+            reason: input.reason,
+            until: input.until,
+          }),
+        },
+      },
+    ],
+  );
 }

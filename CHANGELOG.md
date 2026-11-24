@@ -8,6 +8,27 @@ first.
 
 ## Unreleased
 
+### Changed
+
+- **Each person chooses how each kind of notice reaches them.** The one
+  "email me" switch becomes a choice per kind of notice (a mention, a reply,
+  an assignment, an automation, a changed role, …): in the app, by email at
+  once, in a daily or a weekly digest. An administrator sets the defaults
+  for the instance; a person can also silence a noisy base or table. Notices
+  about the account's safety and an administrator's emergency access always
+  come by email and cannot be turned off. Accounts that had email off (the
+  default until now) keep those notices in the app only; accounts that had
+  it on, and accounts made from now on, also get them by email, until the
+  person or an administrator changes it.
+- **Owners of a base are told by email, too, when a role on it is given or
+  an owner is named**, unless they turn that kind of notice off.
+
+### Added
+
+- **Every notice mail carries a link that stops that kind of notice by
+  email, and every digest one that stops the digest,** with no sign-in
+  needed. The link is signed by the instance's keys.
+
 ## 0.7.5 - 2026-11-24
 
 **Upgrade with this release's Compose files and its pin, as usual. No

@@ -9,6 +9,9 @@ import {
   instanceLogoInputSchema,
   instanceSettingsPatchSchema,
   JOB_STATUSES,
+  PERSON_EVENT_CATALOG,
+  personChannelsSchema,
+  personEventSchema,
 } from "@anygriddb/core";
 import { z } from "zod";
 import { instanceRuntime, listFailedDeliveries } from "../admin-control.js";
@@ -51,6 +54,10 @@ import {
   listOpenAlerts,
   setAlertChoice,
 } from "../alerts.js";
+import {
+  readDefaultChannels,
+  saveDefault,
+} from "../notify/person-preferences.js";
 import type { Context } from "./context.js";
 import { handle } from "./guard.js";
 import { t } from "./init.js";
@@ -312,6 +319,45 @@ export const adminInstanceProcedures = {
           const admin = await requireAdmin(ctx);
           await setAlertChoice(ctx.db, admin.id, input.kind, input.receive);
           return { ok: true as const };
+        }),
+      ),
+  }),
+  /**
+   * Instance defaults for person notification preferences (ADR 0123).
+   * Each person inherits these until they save their own.
+   */
+  notificationDefaults: t.router({
+    get: procedure.query(({ ctx }) =>
+      handle(ctx, async () => {
+        await requireAdmin(ctx);
+        const defaults = await readDefaultChannels(ctx.db);
+        return {
+          events: PERSON_EVENT_CATALOG.map((event) => ({
+            id: event.id,
+            required: [...event.required],
+            scoped: event.scoped,
+            channels: defaults.get(event.id) ?? [...event.defaults],
+          })),
+        };
+      }),
+    ),
+    set: procedure
+      .input(
+        z.object({
+          event: personEventSchema,
+          channels: personChannelsSchema,
+        }),
+      )
+      .mutation(({ ctx, input }) =>
+        handle(ctx, async () => {
+          const admin = await requireAdmin(ctx);
+          const channels = await saveDefault(
+            ctx.db,
+            input.event,
+            input.channels,
+            admin.id,
+          );
+          return { ok: true as const, channels };
         }),
       ),
   }),

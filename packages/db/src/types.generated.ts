@@ -758,6 +758,39 @@ export interface LoginChallenges {
   userId: string;
 }
 
+export interface NotificationDefaults {
+  channels: Json;
+  event: string;
+  updatedAt: Generated<Timestamp>;
+  updatedBy: string | null;
+}
+
+export interface NotificationDigestItems {
+  createdAt: Generated<Timestamp>;
+  event: string;
+  id: Generated<string>;
+  payload: Json | null;
+  period: string;
+  rowId: string | null;
+  tableId: string | null;
+  userId: string;
+}
+
+export interface NotificationMutes {
+  baseId: string | null;
+  createdAt: Generated<Timestamp>;
+  id: Generated<string>;
+  tableId: string | null;
+  userId: string;
+}
+
+export interface NotificationPreferences {
+  channels: Json;
+  event: string;
+  updatedAt: Generated<Timestamp>;
+  userId: string;
+}
+
 export interface Notifications {
   actorId: string | null;
   commentId: string | null;
@@ -1081,7 +1114,6 @@ export interface Users {
   isSupport: Generated<boolean>;
   lastSignInAt: Timestamp | null;
   lockedAt: Timestamp | null;
-  notifyByEmail: Generated<boolean>;
   scimExternalId: string | null;
   scimFamilyName: string | null;
   scimGivenName: string | null;
@@ -1205,6 +1237,10 @@ export interface DB {
   invitations: Invitations;
   jobs: Jobs;
   loginChallenges: LoginChallenges;
+  notificationDefaults: NotificationDefaults;
+  notificationDigestItems: NotificationDigestItems;
+  notificationMutes: NotificationMutes;
+  notificationPreferences: NotificationPreferences;
   notifications: Notifications;
   oauthAuthorizationCodes: OauthAuthorizationCodes;
   oauthClients: OauthClients;

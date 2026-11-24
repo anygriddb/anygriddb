@@ -265,6 +265,22 @@ export {
   type InstanceEventType,
 } from "./notify/events";
 export {
+  EMAIL_MIGRATION_EVENTS,
+  PERSON_CHANNELS,
+  PERSON_EVENTS,
+  PERSON_EVENT_CATALOG,
+  personChannelSchema,
+  personChannelsSchema,
+  channelIsOptional,
+  personEvent,
+  personEventSchema,
+  wantsEmail,
+  withRequiredChannels,
+  type PersonChannel,
+  type PersonEvent,
+  type PersonEventDefinition,
+} from "./notify/person-events";
+export {
   MAX_INTEGRATIONS,
   NOTIFY_DEDUPE_MS,
   NOTIFY_FAILURE_LIMIT,

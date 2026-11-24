@@ -156,7 +156,10 @@ describe("what a token reaches", () => {
       reader.catalog.updateView({ viewId: viewA, name: "renamed" }),
       reader.catalog.duplicateView({ viewId: viewA }),
       reader.catalog.deleteView({ viewId: viewA }),
-      reader.notifications.setPreferences({ notifyByEmail: true }),
+      reader.notifications.setPreference({
+        event: "mention",
+        channels: ["in_app", "email_immediate"],
+      }),
       reader.notifications.markRead({}),
       reader.shortcuts.touchTable({ tableId: tableA }),
       reader.jobs.cancel({ jobId: jobA }),

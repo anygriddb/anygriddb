@@ -2141,9 +2141,17 @@ msgstr "Administration token"
 msgid "Administrator"
 msgstr "Administrator"
 
+#: components/settings/person-event-labels.ts
+msgid "Administrator acting as you"
+msgstr "Administrator acting as you"
+
 #: components/admin/accounts-tab.tsx
 msgid "Administrator of the instance"
 msgstr "Administrator of the instance"
+
+#: components/settings/person-event-labels.ts
+msgid "Administrator opened a base you own"
+msgstr "Administrator opened a base you own"
 
 #: components/admin/accounts-tab.tsx
 msgid "Administrators"
@@ -2309,10 +2317,6 @@ msgstr "Already running"
 msgid "Also create the inverse field in the other table"
 msgstr "Also create the inverse field in the other table"
 
-#: components/settings/account-settings.tsx
-msgid "Also send my notifications by email"
-msgstr "Also send my notifications by email"
-
 #: lib/key-names.ts
 msgctxt "keyboard key"
 msgid "Alt"
@@ -2416,6 +2420,10 @@ msgstr "and"
 #: components/admin/sign-in-trail.tsx
 msgid "Announcement"
 msgstr "Announcement"
+
+#: components/settings/person-event-labels.ts
+msgid "Another account locked (administrators)"
+msgstr "Another account locked (administrators)"
 
 #: lib/errors.ts
 msgid "Another application is changing this row: try again in a moment"
@@ -2582,6 +2590,10 @@ msgstr "Ask for AnyGridDB's own second factor too"
 msgid "Asked by the person"
 msgstr "Asked by the person"
 
+#: components/settings/person-event-labels.ts
+msgid "Assigned to a row"
+msgstr "Assigned to a row"
+
 #: components/auth/auth-page.tsx
 #: components/auth/reset-page.tsx
 msgid "At least {minLength} characters."
@@ -2655,6 +2667,10 @@ msgstr "Automation"
 #: components/shell/notification-items.ts
 msgid "Automation in {table}"
 msgstr "Automation in {table}"
+
+#: components/settings/person-event-labels.ts
+msgid "Automation you authored failed"
+msgstr "Automation you authored failed"
 
 #: components/admin/access-tab.tsx
 #: components/admin/account-handoff.tsx
@@ -3266,6 +3282,10 @@ msgstr "Choose the fields that hold the latitude and the longitude."
 msgid "Choose the link it reads through."
 msgstr "Choose the link it reads through."
 
+#: components/settings/notification-preferences.tsx
+msgid "Choose, for each kind of notice, where you want to hear it. Some security notices cannot leave email."
+msgstr "Choose, for each kind of notice, where you want to hear it. Some security notices cannot leave email."
+
 #: components/admin/sign-in-trail.tsx
 msgid "Chosen accounts"
 msgstr "Chosen accounts"
@@ -3539,6 +3559,7 @@ msgid "Configured in this page"
 msgstr "Configured in this page"
 
 #: components/admin/step-up.tsx
+#: components/public/unsubscribe-page.tsx
 #: components/table/reason-dialog.tsx
 msgid "Confirm"
 msgstr "Confirm"
@@ -3933,6 +3954,10 @@ msgstr "Cursor, Claude Desktop, and other clients"
 #: components/settings/webhooks-panel.tsx
 msgid "custom headers"
 msgstr "custom headers"
+
+#: components/settings/person-event-labels.ts
+msgid "Daily digest"
+msgstr "Daily digest"
 
 #: components/admin/health-tab.tsx
 msgid "Daily snapshot, last {days} days"
@@ -4401,6 +4426,10 @@ msgstr "Done"
 msgid "Done editing"
 msgstr "Done editing"
 
+#: components/public/unsubscribe-page.tsx
+msgid "Done: these notices no longer come by email."
+msgstr "Done: these notices no longer come by email."
+
 #: components/fields/attachment-preview.tsx
 #: components/settings/base-settings.tsx
 #: components/settings/second-factor.tsx
@@ -4638,6 +4667,14 @@ msgstr "Email is not set up: only an administrator can send a link, which they p
 msgid "Email is not set up: you get the link to choose their password, valid a week, to pass on to them."
 msgstr "Email is not set up: you get the link to choose their password, valid a week, to pass on to them."
 
+#: components/public/unsubscribe-page.tsx
+msgid "Email notices"
+msgstr "Email notices"
+
+#: components/settings/person-event-labels.ts
+msgid "Email now"
+msgstr "Email now"
+
 #: components/admin/integrations-tab.tsx
 msgid "Email settings saved"
 msgstr "Email settings saved"
@@ -4821,9 +4858,11 @@ msgstr "Esc"
 msgid "European (31/12/2026)"
 msgstr "European (31/12/2026)"
 
+#: components/admin/notification-defaults-section.tsx
 #: components/admin/notifications-tab.tsx
 #: components/admin/sign-in-trail.tsx
 #: components/admin/support-tab.tsx
+#: components/settings/notification-preferences.tsx
 #: components/settings/webhooks-panel.tsx
 msgid "Event"
 msgstr "Event"
@@ -6006,6 +6045,10 @@ msgstr "In progress"
 msgid "In progress ({percent}%)"
 msgstr "In progress ({percent}%)"
 
+#: components/settings/person-event-labels.ts
+msgid "In the app"
+msgstr "In the app"
+
 #: components/views/form-view.tsx
 msgid "Include {field}"
 msgstr "Include {field}"
@@ -6868,7 +6911,9 @@ msgstr "Loading"
 msgid "Loading preview…"
 msgstr "Loading preview…"
 
+#: components/admin/notification-defaults-section.tsx
 #: components/history/earlier.tsx
+#: components/settings/notification-preferences.tsx
 msgid "Loading…"
 msgstr "Loading…"
 
@@ -6914,6 +6959,10 @@ msgstr "Locked"
 #: components/shell/notification-items.ts
 msgid "Locked row {row} of {table} changed outside AnyGridDB"
 msgstr "Locked row {row} of {table} changed outside AnyGridDB"
+
+#: components/settings/person-event-labels.ts
+msgid "Locked row changed outside"
+msgstr "Locked row changed outside"
 
 #: components/admin/account-page.tsx
 #: components/admin/accounts-tab.tsx
@@ -7160,9 +7209,9 @@ msgstr "Members and access of {name}"
 msgid "Memory used"
 msgstr "Memory used"
 
-#: components/settings/account-settings.tsx
-msgid "Mentions, replies, assignments, and alerts. The email only holds the table name and a link."
-msgstr "Mentions, replies, assignments, and alerts. The email only holds the table name and a link."
+#: components/settings/person-event-labels.ts
+msgid "Mention in a comment"
+msgstr "Mention in a comment"
 
 #: components/admin/logs-tab.tsx
 #: components/admin/support-tab.tsx
@@ -7364,6 +7413,22 @@ msgstr "Moved to the trash"
 #: components/fields/field-meta.tsx
 msgid "Multiple select"
 msgstr "Multiple select"
+
+#: components/settings/base-settings.tsx
+msgid "Mute {name}"
+msgstr "Mute {name}"
+
+#: components/settings/base-settings.tsx
+msgid "Mute this base"
+msgstr "Mute this base"
+
+#: components/settings/base-settings.tsx
+msgid "Mute this base, or one of its tables, so mentions, replies and assignments from there stay quiet. Change channels on your account page."
+msgstr "Mute this base, or one of its tables, so mentions, replies and assignments from there stay quiet. Change channels on your account page."
+
+#: components/settings/notification-preferences.tsx
+msgid "Muted places"
+msgstr "Muted places"
 
 #: components/table/filter-builder.tsx
 msgid "N days ago"
@@ -7838,6 +7903,10 @@ msgstr "No member in this group."
 msgid "No member yet. Add one below."
 msgstr "No member yet. Add one below."
 
+#: components/settings/notification-preferences.tsx
+msgid "No mention, reply, assignment, or similar notice from these bases or tables. Account security notices still arrive."
+msgstr "No mention, reply, assignment, or similar notice from these bases or tables. Account security notices still arrive."
+
 #: components/shell/notification-bell.tsx
 msgid "No notifications"
 msgstr "No notifications"
@@ -8103,6 +8172,10 @@ msgstr "Nothing is waiting for you."
 msgid "Nothing matches. Every write to a base, its fields, and its roles shows here, and every export, with who made it."
 msgstr "Nothing matches. Every write to a base, its fields, and its roles shows here, and every export, with who made it."
 
+#: components/settings/notification-preferences.tsx
+msgid "Nothing muted. A base's settings mute it, or one of its tables."
+msgstr "Nothing muted. A base's settings mute it, or one of its tables."
+
 #: components/admin/admin-overview.tsx
 msgid "Nothing needs your attention."
 msgstr "Nothing needs your attention."
@@ -8130,7 +8203,7 @@ msgstr "Notice queued for {0, plural, one {# account} other {# accounts}}"
 
 #: components/admin/admin-sections.ts
 #: components/admin/notifications-tab.tsx
-#: components/settings/account-settings.tsx
+#: components/settings/notification-preferences.tsx
 #: components/shell/notification-bell.tsx
 msgid "Notifications"
 msgstr "Notifications"
@@ -8729,6 +8802,10 @@ msgstr "Permissions saved"
 msgid "Person"
 msgstr "Person"
 
+#: components/admin/notification-defaults-section.tsx
+msgid "Person notification defaults"
+msgstr "Person notification defaults"
+
 #: components/shell/new-base-dialog.tsx
 msgid "Personal access token"
 msgstr "Personal access token"
@@ -9289,6 +9366,7 @@ msgstr "Reload the page"
 #: components/admin/settings-tab.tsx
 #: components/fields/cell-editor.tsx
 #: components/settings/base-settings.tsx
+#: components/settings/notification-preferences.tsx
 #: components/table/automations-dialog.tsx
 #: components/table/view-toolbar.tsx
 msgid "Remove"
@@ -9510,6 +9588,10 @@ msgstr "Replica username"
 msgid "Reply"
 msgstr "Reply"
 
+#: components/settings/person-event-labels.ts
+msgid "Reply to your comment"
+msgstr "Reply to your comment"
+
 #: components/admin/logs-tab.tsx
 msgid "Request"
 msgstr "Request"
@@ -9542,6 +9624,10 @@ msgstr "required"
 #: components/views/form-files.tsx
 msgid "Required"
 msgstr "Required"
+
+#: components/settings/notification-preferences.tsx
+msgid "Required on email"
+msgstr "Required on email"
 
 #: components/admin/invitations-panel.tsx
 msgid "Resend"
@@ -9742,6 +9828,10 @@ msgstr "Role for {name}"
 #: components/admin/group-page.tsx
 msgid "Role given on {base}"
 msgstr "Role given on {base}"
+
+#: components/settings/person-event-labels.ts
+msgid "Role given on a base you own"
+msgstr "Role given on a base you own"
 
 #: components/admin/base-admin-members.tsx
 msgid "Role given to {name}"
@@ -10029,6 +10119,7 @@ msgstr "Save the name and the note"
 
 #: components/admin/account-actions.tsx
 #: components/admin/alerts-section.tsx
+#: components/admin/notification-defaults-section.tsx
 #: components/settings/base-settings.tsx
 msgid "Saved"
 msgstr "Saved"
@@ -10648,6 +10739,7 @@ msgstr "Sign everyone else out?"
 #: components/auth/auth-page.tsx
 #: components/auth/reset-page.tsx
 #: components/public/invitation-page.tsx
+#: components/public/unsubscribe-page.tsx
 msgid "Sign in"
 msgstr "Sign in"
 
@@ -10887,6 +10979,10 @@ msgstr "Someone"
 msgid "Someone changed this value while you were changing it: the current value now shows, make your change again if needed"
 msgstr "Someone changed this value while you were changing it: the current value now shows, make your change again if needed"
 
+#: components/settings/person-event-labels.ts
+msgid "Someone made an owner"
+msgstr "Someone made an owner"
+
 #: components/admin/account-handoff.tsx
 msgid "Someone who stays becomes an owner of the bases {name} alone owns, and the author of the automations and webhooks {name} made, where they may manage them. {name}'s account and roles are left as they are."
 msgstr "Someone who stays becomes an owner of the bases {name} alone owns, and the author of the automations and webhooks {name} made, where they may manage them. {name}'s account and roles are left as they are."
@@ -11069,6 +11165,10 @@ msgstr "Stop acting as this person before using Administration"
 #: components/settings/base-settings.tsx
 msgid "Stop being an owner of {base}?"
 msgstr "Stop being an owner of {base}?"
+
+#: components/public/unsubscribe-page.tsx
+msgid "Stop these notices by email. Every other choice stays as it is, and you can change them all again from your account."
+msgstr "Stop these notices by email. Every other choice stays as it is, and you can change them all again from your account."
 
 #: components/admin/auth-labels.ts
 msgid "Stopped acting as this person"
@@ -12652,6 +12752,10 @@ msgstr "This link is incomplete. Open it again from the application."
 msgid "This link is locked after too many wrong passwords. Try again later."
 msgstr "This link is locked after too many wrong passwords. Try again later."
 
+#: components/public/unsubscribe-page.tsx
+msgid "This link is not valid."
+msgstr "This link is not valid."
+
 #: components/oauth/consent-page.tsx
 msgid "This link names an address the application did not register. Open it again from the application."
 msgstr "This link names an address the application did not register. Open it again from the application."
@@ -12683,6 +12787,10 @@ msgstr "This list leaves out the address you are saving it from, and would refus
 #: components/table/filter-builder.tsx
 msgid "this month"
 msgstr "this month"
+
+#: components/public/unsubscribe-page.tsx
+msgid "This notice cannot be turned off: it warns you about your account or an administrator using emergency powers."
+msgstr "This notice cannot be turned off: it warns you about your account or an administrator using emergency powers."
 
 #: lib/errors.ts
 msgid "This number has more than 60 digits"
@@ -13397,6 +13505,14 @@ msgstr "unlocked"
 msgid "Unlocked"
 msgstr "Unlocked"
 
+#: components/settings/base-settings.tsx
+msgid "Unmute {name}"
+msgstr "Unmute {name}"
+
+#: components/settings/base-settings.tsx
+msgid "Unmute this base"
+msgstr "Unmute this base"
+
 #: components/shell/sidebar.tsx
 msgid "Unpin {name}"
 msgstr "Unpin {name}"
@@ -13659,6 +13775,10 @@ msgstr "Webhook deliveries that failed"
 msgid "Webhook disabled after too many failures"
 msgstr "Webhook disabled after too many failures"
 
+#: components/settings/person-event-labels.ts
+msgid "Webhook you created was disabled"
+msgstr "Webhook you created was disabled"
+
 #: components/admin/access-tab.tsx
 #: components/admin/account-handoff.tsx
 #: components/settings/base-settings.tsx
@@ -13672,6 +13792,10 @@ msgstr "Wednesday"
 #: components/dashboards/dashboard-board.tsx
 msgid "Week"
 msgstr "Week"
+
+#: components/settings/person-event-labels.ts
+msgid "Weekly digest"
+msgstr "Weekly digest"
 
 #: components/admin/outbound-tab.tsx
 msgid "What"
@@ -13700,6 +13824,10 @@ msgstr "What comes before the first delimiter; blank when it is not there."
 #: components/table/import-dialog.tsx
 msgid "What comes first in this file's dates?"
 msgstr "What comes first in this file's dates?"
+
+#: components/admin/notification-defaults-section.tsx
+msgid "What each account inherits until they change their own preferences. Security notices keep immediate email."
+msgstr "What each account inherits until they change their own preferences. Security notices keep immediate email."
 
 #: components/shell/home-page.tsx
 msgid "What is waiting for you, and what changed in your tables."
@@ -14087,9 +14215,29 @@ msgstr "You read Administration as an auditor: every page is open to you, and no
 msgid "You register an application with the provider, and type its client ID and secret below."
 msgstr "You register an application with the provider, and type its client ID and secret below."
 
+#: components/settings/person-event-labels.ts
+msgid "Your account linked to an identity provider"
+msgstr "Your account linked to an identity provider"
+
+#: components/settings/person-event-labels.ts
+msgid "Your account locked"
+msgstr "Your account locked"
+
+#: components/settings/person-event-labels.ts
+msgid "Your account was disabled for inactivity"
+msgstr "Your account was disabled for inactivity"
+
+#: components/settings/person-event-labels.ts
+msgid "Your account will soon be disabled"
+msgstr "Your account will soon be disabled"
+
 #: components/admin/scim-tab.tsx
 msgid "Your identity provider (Okta, Microsoft Entra ID, …) creates, changes, and deactivates accounts, and keeps groups. Existing accounts are taken over by their email. Local groups are made under People → Groups. Then give groups a role in each base's settings or in Administration."
 msgstr "Your identity provider (Okta, Microsoft Entra ID, …) creates, changes, and deactivates accounts, and keeps groups. Existing accounts are taken over by their email. Local groups are made under People → Groups. Then give groups a role in each base's settings or in Administration."
+
+#: components/settings/base-settings.tsx
+msgid "Your notifications"
+msgstr "Your notifications"
 
 #: components/settings/account-settings.tsx
 msgid "Your organization asks for a second factor on this account: set one up below to go on."
@@ -14115,6 +14263,10 @@ msgstr "Your own choice, by email and in your notifications: the other administr
 msgid "Your passkeys"
 msgstr "Your passkeys"
 
+#: components/settings/person-event-labels.ts
+msgid "Your password changed"
+msgstr "Your password changed"
+
 #: components/auth/reset-page.tsx
 msgid "Your password is changed, and every session of the account ended. Sign in with the new one."
 msgstr "Your password is changed, and every session of the account ended. Sign in with the new one."
@@ -14126,6 +14278,10 @@ msgstr "Your password, to confirm a change of second factor"
 #: components/settings/base-settings.tsx
 msgid "Your role: {role}"
 msgstr "Your role: {role}"
+
+#: components/settings/person-event-labels.ts
+msgid "Your second factors removed"
+msgstr "Your second factors removed"
 
 #: components/settings/account-settings.tsx
 msgid "Your sign-in is the proof here: sign out, sign in again, and delete within ten minutes."

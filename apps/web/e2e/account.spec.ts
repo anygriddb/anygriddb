@@ -139,3 +139,51 @@ test("an API token is made, listed with the day it ends, and revoked once confir
   await expect(token).toHaveCount(0);
   expect(blocked).toEqual([]);
 });
+
+// Each kind of notice goes where the person says (ADR 0123); a base or a
+// table can be muted from the base's settings, and unmuted from either
+// page; a security notice keeps its email; a link from no mail does nothing.
+test("a person chooses where each notice goes, and mutes a base", async ({
+  page,
+}) => {
+  const blocked = watchPolicy(page);
+  await signUpWithTable(page, "Notice Chooser");
+  const baseId = /\/b\/([^/]+)/.exec(page.url())?.[1] ?? "";
+
+  await page.goto("/settings");
+  const digest = page.getByLabel("Mention in a comment — Daily digest");
+  await expect(digest).not.toBeChecked();
+  // Shown once the server has kept it.
+  await digest.click();
+  await expect(digest).toBeChecked();
+  const required = page.getByLabel("Your password changed — Email now");
+  await expect(required).toBeChecked();
+  await expect(required).toBeDisabled();
+  expect(await accessibilityViolations(page)).toEqual([]);
+  await page.reload();
+  await expect(
+    page.getByLabel("Mention in a comment — Daily digest"),
+  ).toBeChecked();
+
+  await page.goto(`/b/${baseId}/settings`);
+  await page.getByRole("button", { name: "Mute this base" }).click();
+  await expect(
+    page.getByRole("button", { name: "Unmute this base" }),
+  ).toBeVisible();
+  await page.goto("/settings");
+  const muted = page.getByRole("listitem").filter({
+    has: page.getByRole("button", { name: "Remove" }),
+  });
+  await expect(muted).toHaveCount(1);
+  await muted.getByRole("button", { name: "Remove" }).click();
+  await expect(
+    page.getByText(
+      "Nothing muted. A base's settings mute it, or one of its tables.",
+    ),
+  ).toBeVisible();
+
+  await page.goto(`/notify/unsubscribe/${"a".repeat(30)}~${"b".repeat(43)}`);
+  await page.getByRole("button", { name: "Confirm" }).click();
+  await expect(page.getByRole("alert")).toHaveText("This link is not valid.");
+  expect(blocked).toEqual([]);
+});
