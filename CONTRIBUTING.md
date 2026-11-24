@@ -152,6 +152,10 @@ so they are not checked.
   semicolons, two spaces. `pnpm format` fixes the tree.
 - **ESLint** (`eslint.config.js`): TypeScript strict type-checked, the naming
   rules above, and the React Compiler's rules in `apps/web` and `packages/ui`.
+  Outside tests it refuses what runs what a value says: `eval`,
+  `new Function`, `dangerouslySetInnerHTML`, and a command handed to a
+  shell (`exec`, `execSync`, `shell: true`);
+  `scripts/eslint-security.test.mjs` holds it to that.
 - **React Compiler**: it leaves a component or a hook it cannot compile as
   written, and the build does not say so. `apps/web/lib/react-compiler.test.ts`
   compiles the app as the build does and fails, with the compiler's reason,

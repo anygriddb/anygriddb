@@ -3,12 +3,50 @@ import reactHooks from "eslint-plugin-react-hooks";
 import regexp from "eslint-plugin-regexp";
 import tseslint from "typescript-eslint";
 
+/**
+ * What runs what a value says: code read from text, HTML set from a value, a
+ * command line handed to a shell. A test builds its own inputs and may.
+ */
+export const SECURITY_RULES = {
+  "no-eval": "error",
+  "no-new-func": "error",
+  "no-restricted-imports": [
+    "error",
+    ...["child_process", "node:child_process"].map((name) => ({
+      name,
+      importNames: ["exec", "execSync"],
+      message: "A shell reads the string: use execFile with an argument array.",
+    })),
+  ],
+  "no-restricted-syntax": [
+    "error",
+    {
+      selector: "JSXAttribute[name.name='dangerouslySetInnerHTML']",
+      message: "Render text or a trusted component, never HTML from a value.",
+    },
+    {
+      selector:
+        "CallExpression[callee.name=/^(spawn|spawnSync|execFile|execFileSync)$/] Property[key.name='shell'][value.value=true]",
+      message: "A shell reads the string: pass the program and its arguments.",
+    },
+  ],
+};
+
 export default tseslint.config(
   {
     ignores: ["**/node_modules/**", "**/dist/**", "**/.turbo/**"],
   },
   eslint.configs.recommended,
   ...tseslint.configs.strictTypeChecked,
+  {
+    ignores: [
+      "**/*.test.ts",
+      "**/*.test.tsx",
+      "**/*.test-helpers.ts",
+      "**/e2e/**",
+    ],
+    rules: SECURITY_RULES,
+  },
   {
     // A pattern that retries from every position takes seconds on a long
     // value built for it, and holds the whole process meanwhile. A test
