@@ -5,8 +5,7 @@ import type { KeyRing } from "../auth/key-ring.js";
 import { decryptSecret } from "../auth/crypto.js";
 import { startTracing } from "../observability.js";
 import { readSettings } from "../settings.js";
-import { notifyLookup } from "./outbound.js";
-import { isNotifyBlocked } from "./target.js";
+import { isOutboundBlocked, outboundLookup } from "../outbound/index.js";
 
 let stop = async () => {
   await Promise.resolve();
@@ -43,7 +42,11 @@ function collectorLookup(db: Database): LookupFunction {
   return (hostname, options, callback) => {
     readSettings(db).then(
       (settings) => {
-        notifyLookup(settings.notifyAllowPrivate)(hostname, options, callback);
+        outboundLookup(settings.notifyAllowPrivate)(
+          hostname,
+          options,
+          callback,
+        );
       },
       (error: unknown) => {
         callback(
@@ -60,7 +63,7 @@ function collectorLookup(db: Database): LookupFunction {
 function blockedAddress(endpoint: string, allowPrivate: boolean): boolean {
   const host = new URL(endpoint).hostname.replace(/^\[|\]$/g, "");
   const family = isIP(host);
-  return family !== 0 && isNotifyBlocked(host, family, allowPrivate);
+  return family !== 0 && isOutboundBlocked(host, family, allowPrivate);
 }
 
 /** The saved collector, when the environment did not name one. */

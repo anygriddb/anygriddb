@@ -248,6 +248,8 @@ export const ERRORS = {
   integration_limit: [BAD, "Too many integrations"],
   /** An https address the notification rules refuse (ADR 0092). */
   invalid_notify_target: [BAD, "Invalid notification target"],
+  /** An https address the outbound service refuses (ADR 0125). */
+  invalid_outbound_target: [BAD, "Invalid outbound target"],
   notify_secret_again: [BAD, "Enter the channel's secret again"],
   notify_needs_mail: [BAD, "Mail is not configured"],
   invalid_delivery: [BAD, "Invalid delivery"],

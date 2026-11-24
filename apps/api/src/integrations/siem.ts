@@ -9,7 +9,8 @@ import { z } from "zod";
 import { decryptSecret, encryptSecret } from "../auth/crypto.js";
 import { recordAuthEvent } from "../auth/auth-events.js";
 import { addJob, TASKS } from "../queue/jobs.js";
-import { assertPublicHttps, postPinned, signBody } from "../webhooks.js";
+import { postOutbound } from "../outbound/index.js";
+import { assertPublicHttps, signBody } from "../webhooks.js";
 
 const SIEM_ACTIONS = new Set<AuthAction>([
   "login_failure",
@@ -231,7 +232,7 @@ export async function postToSiem(
     key,
     "siem",
   );
-  const status = await postPinned(row.url, body, {
+  const status = await postOutbound(row.url, body, {
     "content-type": "application/json",
     "x-anygriddb-signature": signBody(secret, body),
   });

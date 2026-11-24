@@ -1,9 +1,5 @@
 import type { KeyRing } from "./auth/key-ring.js";
 import { createHmac, randomBytes, randomUUID } from "node:crypto";
-import { lookup as dnsLookup } from "node:dns";
-import { lookup } from "node:dns/promises";
-import { request } from "node:https";
-import { isIP, type LookupFunction } from "node:net";
 import {
   AppError,
   effectiveTableRole,
@@ -30,7 +26,11 @@ import {
   webhookDisabledMailSubject,
 } from "./mail-i18n.js";
 import { sendMail, smtpReady, type SmtpConfig } from "./mail.js";
-import { isPrivateAddress, isReservedAddress } from "./special-addresses.js";
+import {
+  assertOutboundTarget,
+  outboundFailureText,
+  postOutbound,
+} from "./outbound/index.js";
 import type { NotificationInput } from "./notifications.js";
 import { addJob, TASKS, type SqlExecutor } from "./queue/jobs.js";
 
@@ -59,7 +59,6 @@ function queueAttempt(
   );
 }
 
-const REQUEST_TIMEOUT_MS = 10_000;
 const DELIVERY_RETENTION_DAYS = 30;
 /** A pending delivery whose attempt is this late lost its job: queue it again. */
 const STALE_ATTEMPT_MS = 15 * 60_000;
@@ -77,228 +76,34 @@ export type HookDeps = {
 /* Public targets                                                      */
 /* ------------------------------------------------------------------ */
 
-export function isBlockedAddress(address: string, family: number): boolean {
-  return (
-    isReservedAddress(address, family) || isPrivateAddress(address, family)
-  );
-}
-
-/** Checks scheme, credentials, and names that never point outside. */
-function assertPublicUrl(target: string | URL): URL {
-  // An address that is no address ("https://" alone) is the caller's
-  // mistake, said as such, and not a failure of the server.
-  if (typeof target === "string" && !URL.canParse(target)) {
-    throw new AppError("invalid_webhook");
-  }
-  const url = new URL(target);
-  if (url.protocol !== "https:" || url.username || url.password) {
-    throw new AppError("invalid_webhook");
-  }
-  const host = url.hostname.replace(/^\[|\]$/g, "").toLowerCase();
-  if (
-    host === "localhost" ||
-    host.endsWith(".localhost") ||
-    host.endsWith(".local") ||
-    host.endsWith(".internal")
-  ) {
-    throw new AppError("invalid_webhook");
-  }
-  const family = isIP(host);
-  if (family !== 0 && isBlockedAddress(host, family)) {
-    throw new AppError("invalid_webhook");
-  }
-  return url;
-}
-
-/** Resolves the host once to refuse private targets when a webhook is saved. */
+/**
+ * The address a webhook, an automation's call or a collector of the
+ * sign-in trail is saved with: public HTTPS, as the outbound service
+ * holds every call to (ADR 0125), refused as the form's own mistake. A
+ * private network never: who saves one is not an administrator.
+ */
 export async function assertPublicHttps(target: string): Promise<URL> {
-  const url = assertPublicUrl(target);
-  const host = url.hostname.replace(/^\[|\]$/g, "");
-  if (isIP(host) !== 0) return url;
-  // A name that does not resolve is refused like a private one: the
-  // person mistyped it, the server did not fail.
-  const addresses = await lookup(host, { all: true, order: "verbatim" }).catch(
-    (error: unknown) => {
-      throw new AppError("invalid_webhook", { cause: error });
-    },
-  );
-  if (
-    addresses.length === 0 ||
-    addresses.some((entry) => isBlockedAddress(entry.address, entry.family))
-  ) {
-    throw new AppError("invalid_webhook");
+  try {
+    return await assertOutboundTarget(target, { allowPrivate: false });
+  } catch (error) {
+    throw new AppError("invalid_webhook", { cause: error });
   }
-  return url;
-}
-
-/**
- * DNS lookup for outgoing webhook connections. The addresses it checks are
- * the ones the socket connects to, so a name cannot resolve to a public
- * address at save time and a private one at delivery time.
- */
-export const guardedLookup: LookupFunction = (hostname, options, callback) => {
-  dnsLookup(hostname, { all: true, order: "verbatim" }, (error, addresses) => {
-    if (error) {
-      callback(error, "", 0);
-      return;
-    }
-    const list = addresses;
-    if (
-      list.length === 0 ||
-      list.some((entry) => isBlockedAddress(entry.address, entry.family))
-    ) {
-      callback(
-        Object.assign(new AppError("invalid_webhook"), { code: "EBLOCKED" }),
-        "",
-        0,
-      );
-      return;
-    }
-    if (options.all) {
-      callback(null, list);
-      return;
-    }
-    const first = list[0];
-    callback(null, first?.address ?? "", first?.family ?? 4);
-  });
-};
-
-/** POSTs a body to a public HTTPS URL; resolves with the status code. */
-export async function postPinned(
-  target: string,
-  body: string,
-  headers: Record<string, string>,
-): Promise<number> {
-  const url = assertPublicUrl(target);
-  return new Promise((resolve, reject) => {
-    const outgoing = request(
-      url,
-      {
-        method: "POST",
-        lookup: guardedLookup,
-        timeout: REQUEST_TIMEOUT_MS,
-        headers: {
-          ...headers,
-          "content-length": String(Buffer.byteLength(body)),
-        },
-      },
-      (response) => {
-        response.resume();
-        response.on("end", () => resolve(response.statusCode ?? 0));
-        response.on("error", reject);
-      },
-    );
-    const timer = setTimeout(
-      () => outgoing.destroy(new Error("Timeout")),
-      REQUEST_TIMEOUT_MS,
-    );
-    outgoing.on("close", () => clearTimeout(timer));
-    outgoing.on("timeout", () => outgoing.destroy(new Error("Timeout")));
-    outgoing.on("error", reject);
-    outgoing.end(body);
-  });
-}
-
-/** What a public address answered: its status, its headers, its body as text. */
-export type PinnedAnswer = {
-  status: number;
-  headers: Record<string, string>;
-  body: string;
-};
-
-/**
- * Sends one request to a public HTTPS address, pinned as `postPinned`
- * is, and reads the answer up to `maxBytes`: a longer one is refused. A
- * redirect is answered as it is, never followed.
- */
-export async function requestPinned(
-  target: string,
-  options: {
-    method: string;
-    headers: Record<string, string>;
-    body?: string;
-    maxBytes: number;
-  },
-): Promise<PinnedAnswer> {
-  const url = assertPublicUrl(target);
-  const body = options.body;
-  return new Promise((resolve, reject) => {
-    const outgoing = request(
-      url,
-      {
-        method: options.method,
-        lookup: guardedLookup,
-        timeout: REQUEST_TIMEOUT_MS,
-        headers: {
-          ...options.headers,
-          ...(body === undefined
-            ? {}
-            : { "content-length": String(Buffer.byteLength(body)) }),
-        },
-      },
-      (response) => {
-        const chunks: Buffer[] = [];
-        let size = 0;
-        response.on("data", (chunk: Buffer) => {
-          size += chunk.length;
-          if (size > options.maxBytes) {
-            outgoing.destroy(new Error("Answer too large"));
-            return;
-          }
-          chunks.push(chunk);
-        });
-        response.on("end", () => {
-          const headers: Record<string, string> = {};
-          for (const [name, value] of Object.entries(response.headers)) {
-            if (value === undefined || Object.keys(headers).length >= 50) {
-              continue;
-            }
-            headers[name] = (
-              Array.isArray(value) ? value.join(", ") : value
-            ).slice(0, 2_000);
-          }
-          resolve({
-            status: response.statusCode ?? 0,
-            headers,
-            body: Buffer.concat(chunks).toString("utf8"),
-          });
-        });
-        response.on("error", reject);
-      },
-    );
-    const timer = setTimeout(
-      () => outgoing.destroy(new Error("Timeout")),
-      REQUEST_TIMEOUT_MS,
-    );
-    outgoing.on("close", () => clearTimeout(timer));
-    outgoing.on("timeout", () => outgoing.destroy(new Error("Timeout")));
-    outgoing.on("error", reject);
-    outgoing.end(body);
-  });
 }
 
 export function signBody(secret: string, body: string): string {
   return createHmac("sha256", secret).update(body).digest("hex");
 }
 
-/** A short, stable description of a failed attempt, safe to show. */
+/**
+ * A short, stable description of a failed delivery, safe to show. A
+ * webhook that writes to an address fails as `invalid_webhook` only when
+ * the instance has no mail server.
+ */
 export function failureText(error: unknown): string {
-  if (error instanceof Error) {
-    if (error.message === "Timeout") return "Timeout";
-    if (error.message === "Answer too large") return "Answer too large";
-    if (error.message === "Invalid webhook") return "Blocked target";
-    if (/^HTTP \d{3}$/.test(error.message)) return error.message;
-    const code = (error as { code?: unknown }).code;
-    if (code === "EBLOCKED") return "Blocked target";
-    if (code === "ENOTFOUND" || code === "EAI_AGAIN") return "Unknown host";
-    if (code === "ECONNREFUSED") return "Connection refused";
-    if (typeof code === "string" && code.startsWith("ERR_TLS"))
-      return "TLS error";
-    if (code === "CERT_HAS_EXPIRED" || code === "DEPTH_ZERO_SELF_SIGNED_CERT") {
-      return "TLS error";
-    }
+  if (error instanceof AppError && error.code === "invalid_webhook") {
+    return "Invalid email settings";
   }
-  return "Network error";
+  return outboundFailureText(error);
 }
 
 /* ------------------------------------------------------------------ */
@@ -686,7 +491,7 @@ async function send(
     "webhook",
   );
   const deliveryId = (payload as { id?: unknown }).id;
-  const status = await postPinned(hook.target, body, {
+  const status = await postOutbound(hook.target, body, {
     ...openHeaders(hook, deps.key),
     "content-type": "application/json",
     "user-agent": "AnyGridDB-Webhook/2",

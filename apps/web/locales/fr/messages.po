@@ -12555,6 +12555,10 @@ msgid "This address is not allowed for a collector. One of a private network sta
 msgstr "Cette adresse n’est pas autorisée pour un collecteur. Celle d’un réseau privé reste bloquée, sauf si les réseaux privés sont autorisés, sous Notifications."
 
 #: lib/errors.ts
+msgid "This address is not allowed. Use HTTPS. A private network stays blocked unless an administrator allows it."
+msgstr "Cette adresse n’est pas autorisée. Utilisez HTTPS. Un réseau privé reste bloqué tant qu’un administrateur ne l’autorise pas."
+
+#: lib/errors.ts
 msgid "This address is not allowed. Use HTTPS. A private network stays blocked unless you allow it on this page."
 msgstr "Cette adresse n’est pas autorisée. Utilisez HTTPS. Un réseau privé reste bloqué tant que vous ne l’autorisez pas sur cette page."
 

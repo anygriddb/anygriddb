@@ -11,8 +11,11 @@ const METADATA_NAMES = new Set([
 
 export type ResolvedAddress = { address: string; family: number };
 
-/** True when this address must not be contacted, even on a private network. */
-export function isNotifyBlocked(
+/**
+ * True when this address must not be contacted. A reserved address is
+ * never reached; a private one only when an administrator has said so.
+ */
+export function isOutboundBlocked(
   address: string,
   family: number,
   allowPrivate: boolean,
@@ -42,14 +45,14 @@ function assertAddresses(
   if (
     addresses.length === 0 ||
     addresses.some((entry) =>
-      isNotifyBlocked(entry.address, entry.family, allowPrivate),
+      isOutboundBlocked(entry.address, entry.family, allowPrivate),
     )
   ) {
-    throw new AppError("invalid_notify_target");
+    throw new AppError("invalid_outbound_target");
   }
 }
 
-export type NotifyResolve = (
+export type OutboundResolve = (
   host: string,
 ) => Promise<readonly ResolvedAddress[]>;
 
@@ -64,28 +67,28 @@ async function resolvePublic(
 }
 
 /**
- * The URL a notification may use (ADR 0092, 0030). HTTPS only, and the
- * certificate is verified by the caller. A private address is allowed
- * only when an administrator has said so; a reserved one never is,
- * including after DNS. `resolve` is the DNS lookup: the default one, or a
- * stand-in in tests. A name that does not resolve is refused, the same as
- * a private one.
+ * The URL an outgoing call may use (ADR 0125). HTTPS only, certificate
+ * verified by the caller. A private address is allowed only when an
+ * administrator has said so; a reserved one never is, including after
+ * DNS. `resolve` is the DNS lookup: the default one, or a stand-in in
+ * tests. A name that does not resolve is refused, the same as a private
+ * one.
  */
-export async function assertNotifyTarget(
+export async function assertOutboundTarget(
   target: string,
-  options: { allowPrivate: boolean; resolve?: NotifyResolve },
+  options: { allowPrivate: boolean; resolve?: OutboundResolve },
 ): Promise<URL> {
   let url: URL;
   try {
     url = new URL(target);
   } catch (error) {
-    throw new AppError("invalid_notify_target", { cause: error });
+    throw new AppError("invalid_outbound_target", { cause: error });
   }
   if (url.protocol !== "https:" || url.username || url.password) {
-    throw new AppError("invalid_notify_target");
+    throw new AppError("invalid_outbound_target");
   }
   const host = hostName(url);
-  if (refusedName(host)) throw new AppError("invalid_notify_target");
+  if (refusedName(host)) throw new AppError("invalid_outbound_target");
   const family = isIP(host);
   if (family !== 0) {
     assertAddresses([{ address: host, family }], options.allowPrivate);
@@ -93,7 +96,7 @@ export async function assertNotifyTarget(
   }
   const resolve = options.resolve ?? resolvePublic;
   const addresses = await resolve(host).catch((error: unknown) => {
-    throw new AppError("invalid_notify_target", { cause: error });
+    throw new AppError("invalid_outbound_target", { cause: error });
   });
   assertAddresses(addresses, options.allowPrivate);
   return url;
@@ -106,8 +109,8 @@ export function redirectTarget(current: URL, location: string): string {
 
 /**
  * The address a redirect may be followed to with this request's headers
- * and body, which can hold a channel's credentials: on the same origin
- * only. Null for any other, or for a location that is no address.
+ * and body, which can hold credentials: on the same origin only. Null
+ * for any other, or for a location that is no address.
  */
 export function redirectWithinOrigin(
   current: URL,

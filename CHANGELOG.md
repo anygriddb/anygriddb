@@ -17,6 +17,18 @@ first.
   support account and for an auditor. Support's "sign everyone out" now
   leaves those accounts signed in; an administrator's reach is unchanged.
 
+### Changed
+
+- **Every call that leaves the instance over HTTPS is held to one set of
+  rules:** webhooks, automations' calls and scripts, notification channels,
+  the sign-in trail's collectors and traces. Webhooks and automations now
+  also refuse a cloud's metadata names, as channels did. A script's call
+  follows one redirect on the same address, as a channel's does.
+- **A notification channel that answers a POST with a 301, 302 or 303 has
+  failed**, and its delivery says so: it was sent again as a GET before,
+  which delivered nothing and was counted as sent. A 307 or 308 on the same
+  address is followed with the message.
+
 ## 0.8.0 - 2026-11-24
 
 **Upgrade with this release's Compose files and its pin, as usual. Two

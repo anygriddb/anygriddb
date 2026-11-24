@@ -18,8 +18,11 @@ import type { Database } from "@anygriddb/db";
 import { z } from "zod";
 import { recordAuthEvent } from "../auth/auth-events.js";
 import type { SyslogCollector } from "../env.js";
-import { notifyLookup } from "../notify/outbound.js";
-import { assertNotifyTarget, type NotifyResolve } from "../notify/target.js";
+import {
+  assertOutboundTarget,
+  outboundLookup,
+  type OutboundResolve,
+} from "../outbound/index.js";
 import { addJob, TASKS } from "../queue/jobs.js";
 import { readSettings } from "../settings.js";
 import {
@@ -209,12 +212,12 @@ export async function publicSyslog(
 export async function assertCollectorAllowed(
   collector: SyslogCollector,
   allowPrivate: boolean,
-  resolve?: NotifyResolve,
+  resolve?: OutboundResolve,
 ): Promise<void> {
   const host =
     isIP(collector.host) === 6 ? `[${collector.host}]` : collector.host;
   try {
-    await assertNotifyTarget(`https://${host}:${String(collector.port)}/`, {
+    await assertOutboundTarget(`https://${host}:${String(collector.port)}/`, {
       allowPrivate,
       ...(resolve ? { resolve } : {}),
     });
@@ -229,7 +232,7 @@ export async function assertCollectorAllowed(
  * name.
  */
 export type SyslogReach = {
-  resolve?: NotifyResolve;
+  resolve?: OutboundResolve;
   send?: typeof sendSyslogLine;
 };
 
@@ -255,7 +258,7 @@ async function sendToCollector(
     named.collector,
     line,
     SEND_TIMEOUT_MS,
-    notifyLookup(allowPrivate),
+    outboundLookup(allowPrivate),
   );
 }
 

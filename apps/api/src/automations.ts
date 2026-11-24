@@ -49,12 +49,8 @@ import {
 } from "./data/rows.js";
 import { sendMail, type SmtpConfig } from "./mail.js";
 import { notify, type NotifyDeps } from "./notifications.js";
-import {
-  assertPublicHttps,
-  failureText,
-  postPinned,
-  type requestPinned,
-} from "./webhooks.js";
+import { postOutbound, type requestOutbound } from "./outbound/index.js";
+import { assertPublicHttps, failureText } from "./webhooks.js";
 import { type Actor, presentRecord } from "./public-api/index.js";
 import { madeNamesFor, readGateSettings, readMailVoice } from "./settings.js";
 import { liveBase, liveTable } from "./data/live.js";
@@ -94,7 +90,7 @@ export type AutomationDeps = {
    */
   key?: KeyRing;
   /** How a script's call leaves the instance, when a test says otherwise. */
-  request?: typeof requestPinned;
+  request?: typeof requestOutbound;
   /** The time the limit of runs is held on, when a test says otherwise. */
   clock?: () => Date;
 };
@@ -824,7 +820,7 @@ export function stepError(error: unknown): string {
 }
 
 /**
- * Posts what an action sends, to a public address only (`postPinned`),
+ * Posts what an action sends, to a public address only (`postOutbound`),
  * and fails the action on any answer that is not a success.
  */
 async function postFromAutomation(
@@ -833,7 +829,7 @@ async function postFromAutomation(
   body: string,
   json: boolean,
 ): Promise<void> {
-  const status = await postPinned(url, body, {
+  const status = await postOutbound(url, body, {
     "content-type": json ? "application/json" : "text/plain; charset=utf-8",
     "user-agent": "AnyGridDB-Automation/1",
     "x-anygrid-automation": automationId,

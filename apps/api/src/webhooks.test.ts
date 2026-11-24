@@ -1,13 +1,10 @@
+import { AppError } from "@anygriddb/core";
 import { describe, expect, it } from "vitest";
 import {
   assertPublicHttps,
   failureText,
-  guardedLookup,
-  isBlockedAddress,
   payloadRow,
   planAttempt,
-  postPinned,
-  requestPinned,
   signBody,
 } from "./webhooks.js";
 
@@ -25,6 +22,18 @@ describe("webhooks", () => {
     );
   });
 
+  it("refuses a private network, which only an administrator may allow", async () => {
+    for (const target of [
+      "https://10.0.0.1/hook",
+      "https://192.168.1.1/hook",
+      "https://[fd00::1]/hook",
+    ]) {
+      await expect(assertPublicHttps(target), target).rejects.toMatchObject({
+        code: "invalid_webhook",
+      });
+    }
+  });
+
   it("refuses an address it cannot read, as an invalid webhook", async () => {
     for (const target of ["https://", "https:// hooks.example.org", "hooks"]) {
       await expect(assertPublicHttps(target), target).rejects.toMatchObject({
@@ -38,79 +47,6 @@ describe("webhooks", () => {
     await expect(
       assertPublicHttps("https://hooks.invalid/hook"),
     ).rejects.toMatchObject({ code: "invalid_webhook" });
-  });
-});
-
-describe("isBlockedAddress", () => {
-  it("blocks private, loopback, link-local, reserved, and mapped addresses", () => {
-    for (const [address, family] of [
-      ["10.1.2.3", 4],
-      ["100.64.0.1", 4],
-      ["169.254.169.254", 4],
-      ["192.168.1.1", 4],
-      ["240.1.2.3", 4],
-      ["::1", 6],
-      ["fd00::1", 6],
-      ["fec0::1", 6],
-      ["2002:c000:201::1", 6],
-      ["2001:0:4136:e378::1", 6],
-      ["64:ff9b:1::1", 6],
-      ["::ffff:127.0.0.1", 6],
-      ["::ffff:7f00:1", 6],
-      ["::ffff:a9fe:a9fe", 6],
-      ["192.0.0.1", 4],
-      ["192.88.99.1", 4],
-      ["198.18.0.1", 4],
-      ["198.19.255.255", 4],
-      ["ff02::1", 6],
-      ["::ffff:198.18.0.1", 6],
-      ["::ffff:c612:1", 6],
-      ["::ffff:192.0.0.1", 6],
-      ["::ffff:192.88.99.1", 6],
-    ] as const) {
-      expect(isBlockedAddress(address, family), address).toBe(true);
-    }
-  });
-
-  it("allows public addresses", () => {
-    expect(isBlockedAddress("93.184.216.34", 4)).toBe(false);
-    expect(isBlockedAddress("2606:4700::1111", 6)).toBe(false);
-    expect(isBlockedAddress("::ffff:93.184.216.34", 6)).toBe(false);
-    expect(isBlockedAddress("203.0.113.10", 4)).toBe(false);
-    expect(isBlockedAddress("198.17.255.255", 4)).toBe(false);
-    expect(isBlockedAddress("198.20.0.0", 4)).toBe(false);
-  });
-});
-
-describe("guardedLookup", () => {
-  it("refuses a name that resolves to a private address", async () => {
-    const error = await new Promise<unknown>((resolve) => {
-      guardedLookup("localhost", { all: true }, (failure) => resolve(failure));
-    });
-    expect(error).toBeInstanceOf(Error);
-    expect(failureText(error)).toBe("Blocked target");
-  });
-
-  it("refuses private literals before connecting", async () => {
-    await expect(postPinned("https://10.0.0.1/hook", "{}", {})).rejects.toThrow(
-      "Invalid webhook",
-    );
-  });
-
-  it("refuses a request that is not to a public https address, whatever its method", async () => {
-    for (const target of [
-      "https://10.0.0.1/",
-      "https://localhost/",
-      "https://[::1]/",
-      "https://169.254.169.254/latest/meta-data/",
-      "http://example.org/",
-      "https://user:pass@example.org/",
-      "https://service.internal/",
-    ]) {
-      await expect(
-        requestPinned(target, { method: "GET", headers: {}, maxBytes: 1_000 }),
-      ).rejects.toThrow("Invalid webhook");
-    }
   });
 });
 
@@ -136,6 +72,15 @@ describe("planAttempt", () => {
 });
 
 describe("failureText", () => {
+  it("says a delivery by mail failed for want of a mail server", () => {
+    expect(failureText(new AppError("invalid_webhook"))).toBe(
+      "Invalid email settings",
+    );
+    expect(failureText(new AppError("invalid_outbound_target"))).toBe(
+      "Blocked target",
+    );
+  });
+
   it("names failures without internal details", () => {
     expect(failureText(new Error("HTTP 503"))).toBe("HTTP 503");
     expect(
