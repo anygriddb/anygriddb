@@ -10,12 +10,13 @@
  * dependencies of the API and of the web app, not the tools that build or
  * test them.
  *
- * Usage: node scripts/third-party-licenses.mjs <folder>
+ * Usage: node scripts/third-party-licenses.mjs
+ * It writes into `apps/web/public`, which the web build serves.
  */
 import { execFileSync } from "node:child_process";
 import { copyFileSync, mkdirSync, readdirSync, readFileSync } from "node:fs";
 import { writeFileSync } from "node:fs";
-import { isAbsolute, join, relative, resolve, sep } from "node:path";
+import { join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 /** The files of a package that state its license or its notices. */
@@ -92,28 +93,9 @@ export function notices(byLicense, read = licenseTexts) {
   return `${parts.join("\n")}\n`;
 }
 
-/** The folder to write in, or null when it is not inside the repository. */
-export function outputFolder(root, given) {
-  const inside = relative(root, resolve(given));
-  const outside =
-    inside === ".." || inside.startsWith(`..${sep}`) || isAbsolute(inside);
-  return inside === "" || outside ? null : join(root, inside);
-}
-
 function main() {
-  const given = process.argv[2];
-  if (!given) {
-    console.error("Usage: third-party-licenses.mjs <folder>");
-    return 1;
-  }
   const root = fileURLToPath(new URL("../", import.meta.url));
-  const folder = outputFolder(root, given);
-  if (!folder) {
-    console.error(
-      "third-party-licenses: the folder must be inside the repository.",
-    );
-    return 1;
-  }
+  const folder = join(root, "apps/web/public");
   const printed = execFileSync(
     "pnpm", // NOSONAR: a check run with the developer's own tools
     ["licenses", "list", "--recursive", "--prod", "--long", "--json"],

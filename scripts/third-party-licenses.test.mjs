@@ -3,33 +3,7 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, it } from "node:test";
-import {
-  licenseTexts,
-  notices,
-  outputFolder,
-} from "./third-party-licenses.mjs";
-
-describe("outputFolder", () => {
-  const root = join(tmpdir(), "repository");
-
-  it("takes a folder inside the repository", () => {
-    assert.equal(
-      outputFolder(root, join(root, "apps/web/public")),
-      join(root, "apps/web/public"),
-    );
-    assert.equal(
-      outputFolder(root, join(root, "..notes")),
-      join(root, "..notes"),
-    );
-  });
-
-  it("refuses the repository itself and anything outside it", () => {
-    assert.equal(outputFolder(root, root), null);
-    assert.equal(outputFolder(root, join(root, "..")), null);
-    assert.equal(outputFolder(root, join(root, "../elsewhere")), null);
-    assert.equal(outputFolder(root, "/etc"), null);
-  });
-});
+import { licenseTexts, notices } from "./third-party-licenses.mjs";
 
 describe("licenseTexts", () => {
   it("reads a package's license and notice files, and nothing else", () => {
