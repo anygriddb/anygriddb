@@ -102,7 +102,7 @@ Being an administrator gives no role on a base. Three gestures give an administr
 
 - **Opening a base** they are not a member of, for an hour, with a reason: they read every table and change nothing, it is written to the change trail, and the base's owners are told at once, in the app and by email (ADR 0074).
 - **Giving themselves a role** on a base, which asks a reason too: its owners are told the same way.
-- **Acting with another person's rights**, for thirty minutes, after the proof and with a reason (ADR 0091). The session stays the administrator's: every change is signed by the administrator and names the person, the sign-in trail records the start and the end, and the person is told, in the app and by email. Administration is closed while it lasts. Another administrator, a support account, an auditor, and a disabled account cannot be acted as, and an API token never acts as anyone.
+- **Acting with another person's rights**, for thirty minutes, after the proof and with a reason (ADR 0091). The session stays the administrator's: every change is signed by the administrator and names the person, the sign-in trail records the start and the end, and the person is told, in the app and by email. Administration is closed while it lasts. Another administrator, a support account, an auditor, an account or source manager (ADR 0126), and a disabled account cannot be acted as, and an API token never acts as anyone.
 
 Every change made in Administration asks for the password or the second factor again, unless one was given in the last five minutes (ADR 0073).
 

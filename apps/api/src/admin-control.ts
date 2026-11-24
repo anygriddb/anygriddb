@@ -11,6 +11,7 @@ import { AppError } from "@anygriddb/core";
 import { sql as sqlTag } from "kysely";
 import { z } from "zod";
 import { recordAuthEvent } from "./auth/auth-events.js";
+import { holdsInstanceRole } from "./auth/instance-roles.js";
 import { withAudit } from "./data/audit-context.js";
 import { eraseAccount, ERASED_USER_ID } from "./data/erasure.js";
 import { soleOwnerBases } from "./data/members.js";
@@ -337,7 +338,8 @@ export async function endOtherSessions(
             .select("id")
             .where("isAdmin", "=", false)
             .where("isSupport", "=", false)
-            .where("isAuditor", "=", false),
+            .where("isAuditor", "=", false)
+            .where(sqlTag<boolean>`not ${holdsInstanceRole("users.id")}`),
         ),
       )
       .returning("userId")
@@ -380,8 +382,8 @@ export async function otherAccount(
 
 /**
  * Whether the account acting may do a helpdesk's act to this one (ADR
- * 0054). An administrator may, to anyone. Support may only to an account
- * that holds no role of Administration: clearing an administrator's
+ * 0054). An administrator may, to anyone. Support, or an account manager
+ * (ADR 0126), may only to an account that holds no role of Administration: clearing an administrator's
  * factors and taking their reset link, where no mail is set up, would
  * hand support the administrator's account, and the same with another
  * support or an auditor, whose exports support is kept from.
@@ -394,10 +396,21 @@ export async function helpdeskReach(
   if (actor.isAdmin) return;
   const target = await db
     .selectFrom("users")
-    .select(["isAdmin", "isSupport", "isAuditor"])
+    .select([
+      "isAdmin",
+      "isSupport",
+      "isAuditor",
+      holdsInstanceRole("users.id").as("hasInstanceRole"),
+    ])
     .where("id", "=", userId)
     .executeTakeFirst();
-  if (target && (target.isAdmin || target.isSupport || target.isAuditor)) {
+  if (
+    target &&
+    (target.isAdmin ||
+      target.isSupport ||
+      target.isAuditor ||
+      target.hasInstanceRole)
+  ) {
     throw new AppError("account_out_of_reach");
   }
 }

@@ -8,6 +8,21 @@ first.
 
 ## Unreleased
 
+**One migration runs as the instance starts; nothing to do before or
+after.**
+
+### Added
+
+- **Two parts of Administration an administrator gives apart.** An
+  account manager adds people, changes their name and address, disables
+  them, helps them sign in again, and manages the groups and who is in
+  them. A source manager connects client databases and brings their
+  tables into the bases it owns. Each opens only its part: neither gives
+  a role of Administration or a role on a base, deletes an account, acts
+  as someone, or changes a setting, and an account manager acts only on
+  accounts that hold no role of Administration. Given and taken away on
+  an account's page, with the proof, on the sign-in trail.
+
 ### Security
 
 - **Support acts only on accounts that hold no role of Administration.**

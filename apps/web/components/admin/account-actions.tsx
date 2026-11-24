@@ -1,3 +1,4 @@
+import type { InstanceRole } from "@anygriddb/core";
 import {
   Button,
   Dialog,
@@ -27,6 +28,8 @@ export type AccountTarget = {
   isAdmin: boolean;
   isSupport: boolean;
   isAuditor: boolean;
+  /** The parts of Administration given to the account apart (ADR 0126). */
+  instanceRoles: readonly InstanceRole[];
   disabled: boolean;
   locked: boolean;
   hasPassword: boolean;
@@ -44,6 +47,8 @@ export const ACCOUNT_ACTIONS = [
   "admin",
   "support",
   "auditor",
+  "accountManager",
+  "sourceManager",
   "sessions",
   "factors",
   "signOn",
@@ -62,6 +67,29 @@ const SUPPORT_ACTIONS = new Set<AccountAction>([
   "signOn",
   "tokens",
 ]);
+
+/** Actions an account manager may take as well (ADR 0126). */
+const MANAGER_ACTIONS = new Set<AccountAction>([
+  ...SUPPORT_ACTIONS,
+  "edit",
+  "disable",
+]);
+
+/** The part of Administration each of these actions gives or takes. */
+const PART_OF: Partial<Record<AccountAction, InstanceRole>> = {
+  accountManager: "account_manager",
+  sourceManager: "source_manager",
+};
+
+/** Whether an account holds a role of Administration, of any kind. */
+function holdsRole(target: AccountTarget): boolean {
+  return (
+    target.isAdmin ||
+    target.isSupport ||
+    target.isAuditor ||
+    target.instanceRoles.length > 0
+  );
+}
 
 type Availability = { ok: true } | { ok: false; reason: string };
 
@@ -89,6 +117,8 @@ export function useAccountActions({
   const stepUp = useStepUp();
   const viewerIsAdmin = session.data?.isAdmin === true;
   const viewerIsSupport = session.data?.isSupport === true;
+  const viewerManagesAccounts =
+    session.data?.instanceRoles.includes("account_manager") === true;
   const [open, setOpen] = useState<{
     target: AccountTarget;
     action: AccountAction;
@@ -119,6 +149,12 @@ export function useAccountActions({
       auditor: target.isAuditor
         ? t`Remove the auditor role`
         : t`Give the auditor role`,
+      accountManager: target.instanceRoles.includes("account_manager")
+        ? t`Remove the account manager role`
+        : t`Give the account manager role`,
+      sourceManager: target.instanceRoles.includes("source_manager")
+        ? t`Remove the source manager role`
+        : t`Give the source manager role`,
       sessions: t`Sign out everywhere`,
       factors: t`Remove their second factors`,
       signOn: t`Unlink single sign-on`,
@@ -132,8 +168,13 @@ export function useAccountActions({
     target: AccountTarget,
   ): Availability => {
     const self = target.id === session.data?.id;
-    // Support has its own actions; an auditor has none (ADR 0071).
-    if (!viewerIsAdmin && !(viewerIsSupport && SUPPORT_ACTIONS.has(action))) {
+    // Support and an account manager have their own actions; an auditor
+    // has none (ADR 0054, 0071, 0126).
+    if (
+      !viewerIsAdmin &&
+      !(viewerIsSupport && SUPPORT_ACTIONS.has(action)) &&
+      !(viewerManagesAccounts && MANAGER_ACTIONS.has(action))
+    ) {
       return { ok: false, reason: t`Administrators only` };
     }
     if (self && action !== "edit") {
@@ -141,10 +182,7 @@ export function useAccountActions({
     }
     // Support helps people sign in, never someone who holds a role of
     // Administration: that would hand it their access.
-    if (
-      !viewerIsAdmin &&
-      (target.isAdmin || target.isSupport || target.isAuditor)
-    ) {
+    if (!viewerIsAdmin && holdsRole(target)) {
       return {
         ok: false,
         reason: t`Holds a role of Administration: administrators only`,
@@ -174,6 +212,15 @@ export function useAccountActions({
         return target.isAdmin && !target.isAuditor
           ? { ok: false, reason: t`An administrator already can` }
           : { ok: true };
+      case "accountManager":
+      case "sourceManager": {
+        const role = PART_OF[action];
+        return target.isAdmin &&
+          role !== undefined &&
+          !target.instanceRoles.includes(role)
+          ? { ok: false, reason: t`An administrator already can` }
+          : { ok: true };
+      }
       case "signOn":
         return target.signOn
           ? { ok: true }
@@ -356,6 +403,19 @@ export function useAccountActions({
         });
         toast.success(t`Saved`);
         break;
+      case "accountManager":
+      case "sourceManager": {
+        const role = PART_OF[action];
+        if (!role) return;
+        if (!(await proved())) return false;
+        await trpc.admin.setInstanceRole.mutate({
+          userId,
+          role,
+          granted: !target.instanceRoles.includes(role),
+        });
+        toast.success(t`Saved`);
+        break;
+      }
       case "sessions":
         await trpc.admin.endUserSessions.mutate({ userId });
         toast.success(t`Done`);
@@ -477,6 +537,30 @@ export function useAccountActions({
           : {
               title: t`Give ${{ name }} the auditor role?`,
               description: t`They read every page of Administration: the accounts and their sign-ins, the groups, the bases and who reaches them, the sources, the settings, the trails. They change nothing there, and open no base they are not a member of. They may export the trails and the access report: each export is on the change trail under their name.`,
+              confirm: t`Give the role`,
+            };
+      case "accountManager":
+        return target.instanceRoles.includes("account_manager")
+          ? {
+              title: t`Remove ${{ name }}'s account manager role?`,
+              description: t`They keep their account and their bases, and no longer manage accounts and groups.`,
+              confirm: t`Remove`,
+            }
+          : {
+              title: t`Give ${{ name }} the account manager role?`,
+              description: t`They add people, change their name and address, disable them, send them a link, and manage the groups and who is in them. Only on accounts that hold no role of Administration: they can then sign in as any of those, so give it as you would give their passwords. They make no administrator, give no role on a base, delete no account, and change no setting.`,
+              confirm: t`Give the role`,
+            };
+      case "sourceManager":
+        return target.instanceRoles.includes("source_manager")
+          ? {
+              title: t`Remove ${{ name }}'s source manager role?`,
+              description: t`They keep their account and their bases, and no longer manage the client databases.`,
+              confirm: t`Remove`,
+            }
+          : {
+              title: t`Give ${{ name }} the source manager role?`,
+              description: t`They connect client databases, and bring their tables into the bases they own. They open no account, no setting, and no base they are not a member of.`,
               confirm: t`Give the role`,
             };
       case "sessions":

@@ -9,6 +9,14 @@ export type Action = "read" | "comment" | "write" | "manage";
 export const ROLES = ["owner", "editor", "commenter", "viewer"] as const;
 export type Role = (typeof ROLES)[number];
 
+/**
+ * Roles of Administration an administrator gives beside administration,
+ * support and the auditor (ROADMAP #34, ADR 0126): each opens one part of
+ * Administration, and nothing outside it.
+ */
+export const INSTANCE_ROLES = ["account_manager", "source_manager"] as const;
+export type InstanceRole = (typeof INSTANCE_ROLES)[number];
+
 export type Binding = {
   role: Role;
   scope: Scope;

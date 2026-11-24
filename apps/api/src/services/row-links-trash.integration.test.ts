@@ -704,6 +704,7 @@ describe("a row's links through the trash", () => {
           isAdmin: false,
           isSupport: false,
           isAuditor: false,
+          instanceRoles: [],
         },
         bindings: await loadBindings(db, owner),
       });

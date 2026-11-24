@@ -8,6 +8,7 @@ const person = {
   isAdmin: false,
   isSupport: false,
   isAuditor: false,
+  hasInstanceRole: false,
   disabledAt: null,
 };
 
@@ -29,6 +30,9 @@ describe("who an administrator may act as", () => {
       "privileged",
     );
     expect(actingRefusal(actor, { ...person, isAuditor: true })).toBe(
+      "privileged",
+    );
+    expect(actingRefusal(actor, { ...person, hasInstanceRole: true })).toBe(
       "privileged",
     );
     expect(actingRefusal(actor, { ...person, disabledAt: new Date() })).toBe(

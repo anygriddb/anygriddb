@@ -41,6 +41,7 @@ describe("a base's tables, as the public API describes them", () => {
         isAdmin: false,
         isSupport: false,
         isAuditor: false,
+        instanceRoles: [],
       },
       bindings: await loadBindings(db, userId),
     };

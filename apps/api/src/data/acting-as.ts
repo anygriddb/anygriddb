@@ -12,6 +12,7 @@ import { deliverPersonNotices } from "../notify/deliver-person.js";
 import { actingAsCounted } from "../observability.js";
 import type { Publisher } from "../realtime/bus.js";
 import { readMailVoice } from "../settings.js";
+import { holdsInstanceRole } from "../auth/instance-roles.js";
 import { ERASED_USER_ID } from "./erasure.js";
 
 const ACTING_MS = 30 * 60 * 1000;
@@ -35,6 +36,8 @@ type Target = {
   isAdmin: boolean;
   isSupport: boolean;
   isAuditor: boolean;
+  /** Holds a part of Administration given apart (ADR 0126). */
+  hasInstanceRole: boolean;
   disabledAt: Date | null;
 };
 
@@ -46,7 +49,12 @@ export function actingRefusal(
   if (!target) return "missing";
   if (target.id === ERASED_USER_ID) return "tombstone";
   if (target.id === actorId) return "self";
-  if (target.isAdmin || target.isSupport || target.isAuditor)
+  if (
+    target.isAdmin ||
+    target.isSupport ||
+    target.isAuditor ||
+    target.hasInstanceRole
+  )
     return "privileged";
   if (target.disabledAt) return "disabled";
   return null;
@@ -100,6 +108,7 @@ export async function startActing(
       "isAdmin",
       "isSupport",
       "isAuditor",
+      holdsInstanceRole("users.id").as("hasInstanceRole"),
       "disabledAt",
     ])
     .where("id", "=", input.targetId)

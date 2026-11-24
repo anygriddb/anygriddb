@@ -1,6 +1,6 @@
 import { cn, ReadOnly } from "@anygriddb/ui";
 import { useLingui } from "@lingui/react/macro";
-import { Link, Outlet, useRouterState } from "@tanstack/react-router";
+import { Link, Navigate, Outlet, useRouterState } from "@tanstack/react-router";
 import { useSession } from "../../lib/session";
 import { NotebookPage } from "../shell/notebook-page";
 import { locate, useAdminSections } from "./admin-sections";
@@ -13,6 +13,13 @@ const SUPPORT_PAGES = [
   "/admin/people/accounts",
   "/admin/people/sessions",
   "/admin/trails",
+];
+
+/** Where an account manager acts (ADR 0126). */
+const ACCOUNT_MANAGER_PAGES = [
+  "/admin/people/accounts",
+  "/admin/people/groups",
+  "/admin/people/sessions",
 ];
 
 /**
@@ -44,14 +51,26 @@ export function AdminShell() {
       </p>
     );
   }
+  // A source manager has no first page: its part is the sources.
+  const [first] = sections;
+  if (
+    pathname === "/admin" &&
+    first &&
+    !sections.some((section) => section.id === "overview")
+  ) {
+    return <Navigate to={first.pages[0]?.to ?? "/admin"} replace />;
+  }
   // An auditor reads every page and changes none (ADR 0071): each
   // control of a page is off unless it only reads. One who is support
   // too keeps what support does, on the pages where support does it.
   const auditor = session.data.isAuditor && !session.data.isAdmin;
+  const roles = session.data.instanceRoles;
+  const within = (pages: readonly string[]) =>
+    pathname === "/admin" || pages.some((page) => pathname.startsWith(page));
   const helping =
-    session.data.isSupport &&
-    (pathname === "/admin" ||
-      SUPPORT_PAGES.some((page) => pathname.startsWith(page)));
+    (session.data.isSupport && within(SUPPORT_PAGES)) ||
+    (roles.includes("account_manager") && within(ACCOUNT_MANAGER_PAGES)) ||
+    (roles.includes("source_manager") && pathname.startsWith("/admin/sources"));
   const reading = auditor && !helping;
   const here = locate(sections, pathname);
   // "page" for the page shown, "true" for the section or list it is in.

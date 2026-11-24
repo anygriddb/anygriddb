@@ -1776,6 +1776,14 @@ msgstr "Événements de compte"
 msgid "Account locked"
 msgstr "Compte verrouillé"
 
+#: components/admin/account-page.tsx
+msgid "Account manager"
+msgstr "Gestionnaire des comptes"
+
+#: components/admin/sign-in-trail.tsx
+msgid "Account manager role taken away"
+msgstr "Rôle de gestionnaire des comptes retiré"
+
 #: components/settings/account-settings.tsx
 #: components/shell/command-palette.tsx
 #: components/shell/user-menu.tsx
@@ -5598,8 +5606,16 @@ msgid "Getting around the grid"
 msgstr "Se repérer dans la grille"
 
 #: components/admin/account-actions.tsx
+msgid "Give {name} the account manager role?"
+msgstr "Donner le rôle de gestionnaire des comptes à {name} ?"
+
+#: components/admin/account-actions.tsx
 msgid "Give {name} the auditor role?"
 msgstr "Donner le rôle d’auditeur à {name} ?"
+
+#: components/admin/account-actions.tsx
+msgid "Give {name} the source manager role?"
+msgstr "Donner le rôle de gestionnaire des sources à {name} ?"
 
 #: components/admin/account-actions.tsx
 msgid "Give {name} the support role?"
@@ -5634,6 +5650,10 @@ msgstr "Indiquez au moins un destinataire."
 msgid "Give myself the role"
 msgstr "Me donner le rôle"
 
+#: components/admin/account-actions.tsx
+msgid "Give the account manager role"
+msgstr "Donner le rôle de gestionnaire des comptes"
+
 #: components/fields/field-settings.tsx
 msgid "Give the address the button opens."
 msgstr "Indiquez l’adresse que le bouton ouvre."
@@ -5661,6 +5681,10 @@ msgid "Give the secret's value."
 msgstr "Indiquez la valeur du secret."
 
 #: components/admin/account-actions.tsx
+msgid "Give the source manager role"
+msgstr "Donner le rôle de gestionnaire des sources"
+
+#: components/admin/account-actions.tsx
 msgid "Give the support role"
 msgstr "Donner le rôle de support"
 
@@ -5669,8 +5693,16 @@ msgid "Give yourself this role?"
 msgstr "Vous donner ce rôle ?"
 
 #: components/admin/sign-in-trail.tsx
+msgid "Given the account manager role"
+msgstr "Rôle de gestionnaire des comptes donné"
+
+#: components/admin/sign-in-trail.tsx
 msgid "Given the auditor role"
 msgstr "Rôle d’auditeur donné"
+
+#: components/admin/sign-in-trail.tsx
+msgid "Given the source manager role"
+msgstr "Rôle de gestionnaire des sources donné"
 
 #: components/admin/sign-in-trail.tsx
 msgid "Given the support role"
@@ -9453,6 +9485,10 @@ msgid "Remove {name} from {base}?"
 msgstr "Retirer {name} de {base} ?"
 
 #: components/admin/account-actions.tsx
+msgid "Remove {name}'s account manager role?"
+msgstr "Retirer le rôle de gestionnaire des comptes de {name} ?"
+
+#: components/admin/account-actions.tsx
 msgid "Remove {name}'s administration?"
 msgstr "Retirer l’administration à {name} ?"
 
@@ -9463,6 +9499,10 @@ msgstr "Retirer le rôle d’auditeur de {name} ?"
 #: components/admin/account-actions.tsx
 msgid "Remove {name}'s second factors?"
 msgstr "Retirer les seconds facteurs de {name} ?"
+
+#: components/admin/account-actions.tsx
+msgid "Remove {name}'s source manager role?"
+msgstr "Retirer le rôle de gestionnaire des sources de {name} ?"
 
 #: components/admin/account-actions.tsx
 msgid "Remove {name}'s support role?"
@@ -9498,6 +9538,10 @@ msgid "Remove secret"
 msgstr "Retirer le secret"
 
 #: components/admin/account-actions.tsx
+msgid "Remove the account manager role"
+msgstr "Retirer le rôle de gestionnaire des comptes"
+
+#: components/admin/account-actions.tsx
 msgid "Remove the auditor role"
 msgstr "Retirer le rôle d’auditeur"
 
@@ -9520,6 +9564,10 @@ msgstr "Retirer le collecteur enregistré"
 #: components/admin/integrations-tab.tsx
 msgid "Remove the saved collector?"
 msgstr "Retirer le collecteur enregistré ?"
+
+#: components/admin/account-actions.tsx
+msgid "Remove the source manager role"
+msgstr "Retirer le rôle de gestionnaire des sources"
 
 #: components/admin/account-actions.tsx
 msgid "Remove the support role"
@@ -11086,6 +11134,14 @@ msgstr "Source"
 msgid "Source code"
 msgstr "Code source"
 
+#: components/admin/account-page.tsx
+msgid "Source manager"
+msgstr "Gestionnaire des sources"
+
+#: components/admin/sign-in-trail.tsx
+msgid "Source manager role taken away"
+msgstr "Rôle de gestionnaire des sources retiré"
+
 #: lib/errors.ts
 msgid "Source not found"
 msgstr "Source introuvable"
@@ -12472,9 +12528,17 @@ msgstr "Ces champs cesseront d’être calculés : {fields}."
 msgid "These stay with {name}: {successor} has no role to manage their tables. They stop working when {name}'s account is disabled. Give {successor} a role on those bases, then hand over again."
 msgstr "Ceux-ci restent à {name} : {successor} n’a pas de rôle pour gérer leurs tables. Ils cesseront de fonctionner quand le compte de {name} sera désactivé. Donnez à {successor} un rôle sur ces bases, puis transmettez de nouveau."
 
+#: components/admin/account-actions.tsx
+msgid "They add people, change their name and address, disable them, send them a link, and manage the groups and who is in them. Only on accounts that hold no role of Administration: they can then sign in as any of those, so give it as you would give their passwords. They make no administrator, give no role on a base, delete no account, and change no setting."
+msgstr "La personne ajoute des comptes, change leur nom et leur adresse, les désactive, leur envoie un lien, et gère les groupes et leurs membres. Seulement sur les comptes qui n’ont aucun rôle dans l’Administration : elle peut alors se connecter comme n’importe lequel d’entre eux, donnez ce rôle comme vous donneriez leurs mots de passe. Elle ne fait aucun administrateur, ne donne aucun rôle sur une base, ne supprime aucun compte et ne change aucun réglage."
+
 #: components/admin/accounts-tab.tsx
 msgid "They are signed out at once and their API tokens stop working, until each is enabled again from its row. Nothing they made is deleted."
 msgstr "Ils sont déconnectés aussitôt et leurs jetons d’API ne fonctionnent plus, jusqu’à ce que chacun soit réactivé depuis sa ligne. Rien de ce qu’ils ont fait n’est supprimé."
+
+#: components/admin/account-actions.tsx
+msgid "They connect client databases, and bring their tables into the bases they own. They open no account, no setting, and no base they are not a member of."
+msgstr "La personne connecte des bases de données de clients et en amène les tables dans les bases dont elle est propriétaire. Elle n’ouvre aucun compte, aucun réglage, et aucune base dont elle n’est pas membre."
 
 #: components/admin/accounts-tab.tsx
 msgid "They get a link by email to choose their password, valid a week."
@@ -12483,6 +12547,14 @@ msgstr "La personne reçoit par email un lien pour choisir son mot de passe, val
 #: components/admin/account-actions.tsx
 msgid "They keep their account and their bases, and lose Administration. The instance always keeps one active administrator."
 msgstr "La personne garde son compte et ses bases, et perd l’Administration. L’instance garde toujours un administrateur actif."
+
+#: components/admin/account-actions.tsx
+msgid "They keep their account and their bases, and no longer manage accounts and groups."
+msgstr "La personne garde son compte et ses bases, et ne gère plus les comptes ni les groupes."
+
+#: components/admin/account-actions.tsx
+msgid "They keep their account and their bases, and no longer manage the client databases."
+msgstr "La personne garde son compte et ses bases, et ne gère plus les bases de données des clients."
 
 #: components/admin/account-actions.tsx
 msgid "They keep their account and their bases, and no longer open Administration."

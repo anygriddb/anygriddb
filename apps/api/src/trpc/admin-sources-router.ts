@@ -3,6 +3,8 @@
  */
 import {
   AppError,
+  roleAllows,
+  roleFor,
   sourceInputSchema,
   sourceUpdateSchema,
 } from "@anygriddb/core";
@@ -27,6 +29,7 @@ import {
   type SourceDeps,
 } from "../sources/sources.js";
 import { publishCatalog } from "../realtime/channels.js";
+import { loadBindings } from "../auth/access.js";
 import type { Context } from "./context.js";
 import { handle } from "./guard.js";
 import { requestNames, t } from "./init.js";
@@ -144,6 +147,16 @@ export const sourcesRouter = t.router({
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
         const admin = await requireAdmin(ctx);
+        // A source manager brings tables into the bases it owns; an
+        // administrator into any (ADR 0126).
+        if (!admin.isAdmin) {
+          const role = roleFor(
+            await loadBindings(ctx.db, admin.id),
+            "base",
+            input.baseId,
+          );
+          if (!roleAllows(role, "manage")) throw new AppError("access_denied");
+        }
         const result = await exposeTables(
           sourceDeps(ctx),
           admin.id,

@@ -96,6 +96,7 @@ export function AccountAdminPage({ userId }: { userId: string }) {
     isAdmin: account.isAdmin,
     isSupport: account.isSupport,
     isAuditor: account.isAuditor,
+    instanceRoles: account.instanceRoles,
     disabled: account.disabledAt !== null,
     locked: account.lock !== null,
     hasPassword: account.hasPassword,
@@ -130,6 +131,12 @@ export function AccountAdminPage({ userId }: { userId: string }) {
             {account.isAdmin ? <Badge>{t`Administrator`}</Badge> : null}
             {account.isSupport ? <Badge>{t`Support`}</Badge> : null}
             {account.isAuditor ? <Badge>{t`Auditor`}</Badge> : null}
+            {account.instanceRoles.includes("account_manager") ? (
+              <Badge>{t`Account manager`}</Badge>
+            ) : null}
+            {account.instanceRoles.includes("source_manager") ? (
+              <Badge>{t`Source manager`}</Badge>
+            ) : null}
             {self ? <Badge>{t`You`}</Badge> : null}
           </p>
         </div>
@@ -139,6 +146,7 @@ export function AccountAdminPage({ userId }: { userId: string }) {
           !account.isAdmin &&
           !account.isSupport &&
           !account.isAuditor &&
+          account.instanceRoles.length === 0 &&
           !account.disabledAt ? (
             <Button
               size="sm"
