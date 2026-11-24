@@ -456,6 +456,16 @@ test("a public form takes a file, and the row it writes holds it", async ({
   // In the app's own form, the field is named by its label.
   await expect(page.getByRole("group", { name: "Pièces" })).toBeVisible();
   expect(await accessibilityViolations(page)).toEqual([]);
+  // The form asks for a file.
+  const formViewId =
+    /\/t\/[0-9a-f-]{36}\/([0-9a-f-]{36})/.exec(page.url())?.[1] ?? "";
+  const asked = await page.request.post("/trpc/catalog.updateView", {
+    data: {
+      viewId: formViewId,
+      patch: { form: { fields: [{ column: "files", required: true }] } },
+    },
+  });
+  expect(asked.ok(), await asked.text()).toBe(true);
 
   await page.getByRole("button", { name: "View actions" }).click();
   await page.getByRole("menuitem", { name: "Share view" }).click();
@@ -470,6 +480,15 @@ test("a public form takes a file, and the row it writes holds it", async ({
   await visitor.goto(link);
   const files = visitor.getByRole("group", { name: "Pièces" });
   await expect(files).toBeVisible();
+  expect(await accessibilityViolations(visitor)).toEqual([]);
+  // Sent without its file: the form says so under the field, and takes
+  // the keyboard there; nothing is sent.
+  await visitor.getByRole("button", { name: "Submit" }).click();
+  await expect(files.getByRole("button", { name: "Add a file" })).toBeFocused();
+  await expect(visitor.getByText("“Pièces” is required")).toBeVisible();
+  await expect(visitor.getByRole("alert")).toHaveText(
+    "One field needs correcting, marked above.",
+  );
   expect(await accessibilityViolations(visitor)).toEqual([]);
   const chooser = visitor.waitForEvent("filechooser");
   await files.getByRole("button", { name: "Add a file" }).click();

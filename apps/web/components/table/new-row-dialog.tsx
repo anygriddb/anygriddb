@@ -1,9 +1,4 @@
-import { readCellValue } from "@anygriddb/core";
-import {
-  readingGiven,
-  readingIn,
-  useRefusedText,
-} from "../../lib/cell-reading";
+import { readingIn } from "../../lib/cell-reading";
 import {
   Button,
   Dialog,
@@ -15,13 +10,17 @@ import { useLingui } from "@lingui/react/macro";
 import { useQuery } from "@tanstack/react-query";
 import { Check } from "lucide-react";
 import { useEffect, useState, type SubmitEvent } from "react";
-import { toast } from "sonner";
 import { useTRPC } from "../../lib/trpc";
 import type { CatalogColumn } from "../../lib/types";
 import { isComputedField, isLinkField } from "../fields/field-meta";
-import { FormField } from "../views/form-field";
+import { readFormAnswers } from "../views/form-answers";
+import {
+  FormField,
+  FormProblems,
+  focusFormField,
+  useAnswerProblemText,
+} from "../views/form-field";
 import { FieldInput } from "../views/form-view";
-import { dateFormatOf, editZone, formInstant } from "../../lib/dates";
 import { useTable } from "./table-context";
 
 type Draft = string | string[] | boolean;
@@ -179,55 +178,47 @@ export function NewRowDialog(props: {
 }) {
   const { t } = useLingui();
   const { people, locale } = useTable();
-  const refusedText = useRefusedText();
   const fields = newRowFields(props.columns, props.external);
   const [values, setValues] = useState<Record<string, Draft>>(() =>
     draftsOf(props.initial ?? {}),
   );
   const [busy, setBusy] = useState(false);
 
+  // What is wrong with each answer, by its field, once the form was sent.
+  const [problems, setProblems] = useState<Record<string, string>>({});
+  const problemText = useAnswerProblemText();
+  const answer = (name: string, value: Draft) => {
+    setValues((current) => ({ ...current, [name]: value }));
+    setProblems(({ [name]: _gone, ...rest }) => rest);
+  };
+
   async function submit(event: SubmitEvent) {
     event.preventDefault();
-    const out: Record<string, unknown> = {};
-    for (const column of fields) {
-      const raw = values[column.name];
-      if (
-        raw === undefined ||
-        raw === "" ||
-        (Array.isArray(raw) && raw.length === 0)
-      ) {
-        if (column.required) {
-          toast.error(t`“${{ field: column.label }}” is required`);
-          return;
-        }
-        continue;
-      }
-      if (isForwardLink(column)) {
-        out[column.name] = [raw as string];
-        continue;
-      }
-      const reading =
-        column.fieldType === "datetime" && typeof raw === "string"
-          ? { value: formInstant(raw, editZone(dateFormatOf(column))) }
-          : readCellValue(
-              { fieldType: column.fieldType, config: column.config },
-              raw,
-              // What the page gave the row is not in the reader's language.
-              raw === props.initial?.[column.name]
-                ? readingGiven()
-                : readingIn(locale),
-            );
-      if ("refused" in reading || reading.value === undefined) {
-        toast.error(
-          refusedText(
-            column.label,
-            "refused" in reading ? reading.refused : undefined,
-          ),
-        );
-        return;
-      }
-      out[column.name] = reading.value;
+    const read = readFormAnswers(
+      fields.map((column) => ({
+        column,
+        label: column.label,
+        required: column.required,
+      })),
+      values,
+      {
+        reading: readingIn(locale),
+        // What the page gave the row is not in the reader's language.
+        given: props.initial ?? {},
+        oneRow: isForwardLink,
+      },
+    );
+    setProblems(
+      Object.fromEntries(
+        read.problems.map((problem) => [problem.column, problemText(problem)]),
+      ),
+    );
+    const first = read.problems[0];
+    if (first) {
+      focusFormField(first.column);
+      return;
     }
+    const out = read.values;
     setBusy(true);
     try {
       const id = await props.onCreate(out);
@@ -257,26 +248,26 @@ export function NewRowDialog(props: {
             : t`Fields marked with an asterisk need a value before the row is added.`
         }
       >
-        <form className="flex flex-col gap-4" onSubmit={submit}>
+        <form className="flex flex-col gap-4" noValidate onSubmit={submit}>
           {fields.map((column) => (
             <FormField
               key={column.name}
               name={column.name}
               label={column.label}
               required={column.required}
+              error={problems[column.name]}
             >
               {isForwardLink(column) ? (
                 <LinkInput
                   column={column}
                   value={String(values[column.name] ?? "")}
-                  onChange={(id) =>
-                    setValues((current) => ({ ...current, [column.name]: id }))
-                  }
+                  onChange={(id) => answer(column.name, id)}
                 />
               ) : (
                 <FieldInput
                   column={column}
                   required={column.required}
+                  invalid={Boolean(problems[column.name])}
                   value={
                     values[column.name] ??
                     (column.fieldType === "multi_select"
@@ -285,17 +276,13 @@ export function NewRowDialog(props: {
                         ? false
                         : "")
                   }
-                  onChange={(value) =>
-                    setValues((current) => ({
-                      ...current,
-                      [column.name]: value,
-                    }))
-                  }
+                  onChange={(value) => answer(column.name, value)}
                   people={people}
                 />
               )}
             </FormField>
           ))}
+          <FormProblems count={Object.keys(problems).length} />
           <DialogFooter>
             <Button type="button" variant="outline" onClick={props.onClose}>
               {t`Cancel`}

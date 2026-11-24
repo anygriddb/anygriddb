@@ -1,5 +1,4 @@
 import {
-  readCellValue,
   type FilterGroup,
   formWindowNeverOpens,
   rowError,
@@ -9,7 +8,6 @@ import { Button, cn, Input, Label, Spinner } from "@anygriddb/ui";
 import { useQuery } from "@tanstack/react-query";
 import { CheckCircle2, Lock, Search } from "lucide-react";
 import { useEffect, useState, type SubmitEvent } from "react";
-import { dateFormatOf, editZone, formInstant } from "../../lib/dates";
 import { trpc, useTRPC } from "../../lib/trpc";
 import type { CatalogColumn, Collaborator } from "../../lib/types";
 import { CellValueView } from "../fields/cell-value";
@@ -18,7 +16,15 @@ import { formPrefill } from "../views/form-prefill";
 import { formRedirectAfterSubmit } from "../views/form-redirect";
 import { FormFiles } from "../views/form-files";
 import { formFileUrl, sendFile, type SentFile } from "../../lib/send-file";
-import { FormField, formFieldIds } from "../views/form-field";
+import { readFormAnswers } from "../views/form-answers";
+import {
+  describedBy,
+  FormField,
+  formFieldIds,
+  FormProblems,
+  focusFormField,
+  useAnswerProblemText,
+} from "../views/form-field";
 import { FieldInput, FORM_TIME_ZONE, formKinds } from "../views/form-view";
 import { plural } from "@lingui/core/macro";
 import { useLingui } from "@lingui/react/macro";
@@ -27,11 +33,7 @@ import { InstanceMark } from "../brand/instance-mark";
 import { AboutButton } from "../shell/about-dialog";
 import { LoadFailed } from "../shell/load-failed";
 import { SortHeader } from "../sort-header";
-import {
-  readingGiven,
-  readingIn,
-  useRefusedText,
-} from "../../lib/cell-reading";
+import { readingIn } from "../../lib/cell-reading";
 import { useLocale } from "../../lib/i18n";
 import { intlLocale } from "../../lib/format";
 
@@ -111,7 +113,6 @@ function PublicForm({
 }) {
   const { t } = useLingui();
   const { locale } = useLocale();
-  const refusedText = useRefusedText();
   const errorText = useErrorText();
   // A link may fill fields of the form, and hide the ones it fills; the
   // server checks the answer as if it had been typed.
@@ -137,9 +138,13 @@ function PublicForm({
   const fieldOf = (name: string) =>
     form.fields?.find((field) => field.column === name);
   // A changed answer clears what the last submit said about the answers.
+  // What is wrong with each answer, by its field, once the form was sent.
+  const [problems, setProblems] = useState<Record<string, string>>({});
+  const problemText = useAnswerProblemText();
   const answer = (name: string, value: string | string[] | boolean) => {
     setError("");
     setValues((current) => ({ ...current, [name]: value }));
+    setProblems(({ [name]: _gone, ...rest }) => rest);
   };
   // Fields hidden by their condition are not shown, required, or sent;
   // the server decides the same way.
@@ -158,47 +163,32 @@ function PublicForm({
   async function submit(event: SubmitEvent) {
     event.preventDefault();
     setError("");
-    const out: Record<string, unknown> = {};
-    for (const column of usable) {
-      const raw = values[column.name];
-      const empty =
-        raw === undefined ||
-        raw === "" ||
-        (Array.isArray(raw) && raw.length === 0);
-      if (empty) {
-        if (fieldOf(column.name)?.required) {
-          setError(
-            t`“${{ field: fieldOf(column.name)?.label || column.label }}” is required`,
-          );
-          return;
-        }
-        continue;
-      }
-      const reading =
-        column.fieldType === "datetime" && typeof raw === "string"
-          ? { value: formInstant(raw, editZone(dateFormatOf(column))) }
-          : readCellValue(
-              {
-                fieldType: column.fieldType,
-                config: column.config,
-              },
-              raw,
-              // What a link filled is not in the reader's language.
-              raw === prefill.values[column.name]
-                ? readingGiven()
-                : readingIn(locale),
-            );
-      if ("refused" in reading || reading.value === undefined) {
-        setError(
-          refusedText(
-            column.label,
-            "refused" in reading ? reading.refused : undefined,
-          ),
-        );
-        return;
-      }
-      out[column.name] = reading.value;
-    }
+    const read = readFormAnswers(
+      usable.map((column) => ({
+        column,
+        label: fieldOf(column.name)?.label || column.label,
+        required: fieldOf(column.name)?.required === true,
+      })),
+      values,
+      // What a link filled is not in the reader's language.
+      { reading: readingIn(locale), given: prefill.values },
+    );
+    // A field the link fills and hides is not drawn: it is said at the foot.
+    const drawn = read.problems.filter(
+      (problem) => !prefill.hidden.has(problem.column),
+    );
+    const hidden = read.problems.find((problem) =>
+      prefill.hidden.has(problem.column),
+    );
+    setProblems(
+      Object.fromEntries(
+        drawn.map((problem) => [problem.column, problemText(problem)]),
+      ),
+    );
+    if (hidden) setError(problemText(hidden));
+    if (drawn[0]) focusFormField(drawn[0].column);
+    if (read.problems.length > 0) return;
+    const out = read.values;
     setBusy(true);
     try {
       await trpc.share.submit.mutate({
@@ -231,7 +221,7 @@ function PublicForm({
     );
   }
   return (
-    <form className="mt-6 flex flex-col gap-4" onSubmit={submit}>
+    <form className="mt-6 flex flex-col gap-4" noValidate onSubmit={submit}>
       {usable
         .filter((column) => !prefill.hidden.has(column.name))
         .map((column) => {
@@ -244,16 +234,17 @@ function PublicForm({
               description={field?.description || column.description}
               required={Boolean(field?.required)}
               labelClassName="text-sm text-foreground"
+              error={problems[column.name]}
             >
               {column.fieldType === "attachment" ? (
                 <FormFiles
                   id={formFieldIds(column.name).id}
                   labelId={formFieldIds(column.name).label}
-                  descriptionId={
-                    field?.description || column.description
-                      ? formFieldIds(column.name).description
-                      : undefined
-                  }
+                  descriptionId={describedBy(
+                    column.name,
+                    Boolean(field?.description || column.description),
+                    Boolean(problems[column.name]),
+                  )}
                   required={field?.required === true}
                   files={sent[column.name] ?? []}
                   onChange={(files) => {
@@ -279,6 +270,7 @@ function PublicForm({
                   column={column}
                   required={field?.required === true}
                   described={Boolean(field?.description || column.description)}
+                  invalid={Boolean(problems[column.name])}
                   people={NO_PEOPLE}
                   value={
                     values[column.name] ??
@@ -294,6 +286,7 @@ function PublicForm({
             </FormField>
           );
         })}
+      <FormProblems count={Object.keys(problems).length} />
       {error ? (
         <p role="alert" className="text-sm text-danger">
           {error}

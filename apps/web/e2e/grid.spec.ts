@@ -413,10 +413,19 @@ test.describe("a number field that refuses negatives, then empties", () => {
     await page.getByRole("button", { name: "Add a row", exact: true }).click();
     const newRow = page.getByRole("dialog", { name: "New row" });
     await newRow.getByRole("button", { name: "Add the row" }).click();
-    await expect(page.getByText("“Stock” is required")).toBeVisible();
+    // Said under the field it is about, which takes the keyboard.
+    await expect(newRow.getByText("“Stock” is required")).toBeVisible();
+    await expect(newRow.getByLabel("Stock")).toBeFocused();
     await expect(newRow.getByLabel("Stock")).toHaveAttribute(
       "aria-required",
       "true",
+    );
+    await expect(newRow.getByLabel("Stock")).toHaveAttribute(
+      "aria-invalid",
+      "true",
+    );
+    await expect(newRow.getByRole("alert")).toHaveText(
+      "One field needs correcting, marked above.",
     );
     expect(await accessibilityViolations(page)).toEqual([]);
     await newRow.getByLabel("Stock").fill("3");
