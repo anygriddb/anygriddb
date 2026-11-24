@@ -1,7 +1,6 @@
 import {
   AppError,
   assertCircuitEdit,
-  findAllowedTransition,
   type StatusCircuit,
   type StatusState,
   type StatusTransition,
@@ -136,21 +135,6 @@ export async function listCircuitTemplates(db: Db): Promise<StatusCircuit[]> {
   return out;
 }
 
-/** Attach a compliance copy to a new table (same transaction as create). */
-export async function attachComplianceCircuit(
-  tx: Tx,
-  tableId: string,
-): Promise<string> {
-  const result = await sql<{ id: string }>`
-    select ag_attach_compliance_circuit(${tableId}::uuid) as id
-  `.execute(tx);
-  const id = result.rows[0]?.id;
-  if (!id) {
-    throw new AppError("no_row");
-  }
-  return id;
-}
-
 /**
  * Replace the table's circuit with a duplicate of a shipped template.
  * Rows whose status key is missing from the new circuit need `remap`. The
@@ -250,13 +234,4 @@ async function statusCounts(
   }
   // Draft is the absence of a row; always covered by the initial key.
   return counts;
-}
-
-export function assertTransitionForRole(
-  circuit: StatusCircuit,
-  fromKey: string,
-  transitionKey: string,
-  roleKey: string,
-) {
-  return findAllowedTransition(circuit, fromKey, transitionKey, roleKey);
 }
