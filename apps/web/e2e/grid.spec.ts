@@ -1653,3 +1653,37 @@ async function pasteAndSettle(page: Page) {
   await page.keyboard.press("ControlOrMeta+v");
   await saved;
 }
+
+// A table takes another validation circuit (ADR 0124), chosen in its
+// base's settings, and its row moves along it from the row's panel, in
+// the words of the circuit.
+test("a table takes another status circuit, and a row moves along it", async ({
+  page,
+}) => {
+  const blocked = watchPolicy(page);
+  await signUpWithTable(page, "Circuit Keeper");
+  const [, base = "", tableId = ""] =
+    /^(.*\/b\/[^/]+)\/t\/([^/?]+)/.exec(page.url()) ?? [];
+
+  await page.goto(`${base}/settings`);
+  await page.getByLabel("Shipped template").selectOption("simple_review");
+  await page.getByRole("button", { name: "Apply template" }).click();
+  await expect(
+    page.getByText("In review", { exact: true }).first(),
+  ).toBeVisible();
+  expect(await accessibilityViolations(page)).toEqual([]);
+
+  await page.goto(`${base}/t/${tableId}`);
+  await page.getByRole("button", { name: "Add a row and open it" }).click();
+  const panel = page.getByRole("complementary", { name: "Row details" });
+  await panel.getByRole("button", { name: "More actions" }).click();
+  await page
+    .getByRole("menuitem", { name: "Submit the row for review" })
+    .click();
+  const status = panel.getByRole("region", { name: "Row status" });
+  await expect(status).toContainText("In review");
+  await status.getByRole("button", { name: "Approve" }).click();
+  await expect(status).toContainText("Approved");
+  await expect(status.getByRole("button", { name: "Approve" })).toHaveCount(0);
+  expect(blocked).toEqual([]);
+});

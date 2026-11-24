@@ -15,6 +15,14 @@ msgstr " The oldest still kept is {time}."
 msgid "-1, 0, or 1, by its sign."
 msgstr "-1, 0, or 1, by its sign."
 
+#: components/settings/status-circuit-panel.tsx
+msgid "· initial"
+msgstr "· initial"
+
+#: components/settings/status-circuit-panel.tsx
+msgid "· sealed"
+msgstr "· sealed"
+
 #: components/views/form-date.tsx
 msgid "“{date}” does not exist."
 msgstr "“{date}” does not exist."
@@ -2433,6 +2441,10 @@ msgstr "Another application is changing this row: try again in a moment"
 msgid "Another row already holds this value, in a field of unique values"
 msgstr "Another row already holds this value, in a field of unique values"
 
+#: components/settings/status-circuit-panel.tsx
+msgid "Another template replaces this table's circuit. It is refused while a row is in a state the template does not have, and always while a row is sealed in one."
+msgstr "Another template replaces this table's circuit. It is refused while a row is in a state the template does not have, and always while a row is sealed in one."
+
 #: components/admin/security-tab.tsx
 msgid "Any address"
 msgstr "Any address"
@@ -2561,6 +2573,22 @@ msgstr "Applications"
 #: components/table/view-toolbar.tsx
 msgid "Apply"
 msgstr "Apply"
+
+#: components/settings/status-circuit-panel.tsx
+msgid "Apply template"
+msgstr "Apply template"
+
+#: components/record/circuit-labels.ts
+msgid "Approve"
+msgstr "Approve"
+
+#: components/record/circuit-labels.ts
+msgid "Approved"
+msgstr "Approved"
+
+#: components/record/circuit-labels.ts
+msgid "Approved once"
+msgstr "Approved once"
 
 #: components/dashboards/dashboard-board.tsx
 msgid "Area"
@@ -3249,6 +3277,10 @@ msgstr "Choose a file"
 msgid "Choose a new password"
 msgstr "Choose a new password"
 
+#: components/settings/status-circuit-panel.tsx
+msgid "Choose a template…"
+msgstr "Choose a template…"
+
 #: components/admin/identity-tab.tsx
 msgid "Choose an image"
 msgstr "Choose an image"
@@ -3530,6 +3562,10 @@ msgstr "Companies"
 msgid "Companies, contacts, and deals, with a kanban pipeline."
 msgstr "Companies, contacts, and deals, with a kanban pipeline."
 
+#: components/record/circuit-labels.ts
+msgid "Compliance"
+msgstr "Compliance"
+
 #: components/settings/api-docs.tsx
 msgid "computed"
 msgstr "computed"
@@ -3560,6 +3596,7 @@ msgstr "Configured in this page"
 
 #: components/admin/step-up.tsx
 #: components/public/unsubscribe-page.tsx
+#: components/record/row-status.tsx
 #: components/table/reason-dialog.tsx
 msgid "Confirm"
 msgstr "Confirm"
@@ -3782,6 +3819,10 @@ msgstr "Could not load the rows to fill"
 #: components/grid/grid-view.tsx
 msgid "Could not load the rows to paste into"
 msgstr "Could not load the rows to paste into"
+
+#: components/settings/status-circuit-panel.tsx
+msgid "Could not load the status circuit."
+msgstr "Could not load the status circuit."
 
 #: lib/errors.ts
 msgid "Could not reach the release feed"
@@ -4449,6 +4490,7 @@ msgstr "Download the authority"
 msgid "Download the support bundle"
 msgstr "Download the support bundle"
 
+#: components/record/circuit-labels.ts
 #: components/record/row-status.tsx
 #: lib/known-text.ts
 msgid "Draft"
@@ -4477,6 +4519,10 @@ msgstr "Dropped: it waited more than a day for its turn"
 #: components/admin/notifications-tab.tsx
 msgid "DSN"
 msgstr "DSN"
+
+#: components/record/circuit-labels.ts
+msgid "Dual approval"
+msgstr "Dual approval"
 
 #: components/grid/grid-checked-bar.tsx
 #: components/grid/grid-menu.tsx
@@ -5360,6 +5406,10 @@ msgstr "Find an account"
 msgid "Fire"
 msgstr "Fire"
 
+#: components/record/circuit-labels.ts
+msgid "First approval"
+msgstr "First approval"
+
 #: components/admin/sources-tab.tsx
 msgid "First check under way"
 msgstr "First check under way"
@@ -6044,6 +6094,10 @@ msgstr "In progress"
 #: components/shell/jobs-menu.tsx
 msgid "In progress ({percent}%)"
 msgstr "In progress ({percent}%)"
+
+#: components/record/circuit-labels.ts
+msgid "In review"
+msgstr "In review"
 
 #: components/settings/person-event-labels.ts
 msgid "In the app"
@@ -6930,7 +6984,7 @@ msgid "Local group"
 msgstr "Local group"
 
 #: components/admin/change-labels.ts
-#: components/record/row-status.tsx
+#: components/record/circuit-labels.ts
 msgid "Lock"
 msgstr "Lock"
 
@@ -6951,6 +7005,7 @@ msgid "locked"
 msgstr "locked"
 
 #: components/admin/accounts-tab.tsx
+#: components/record/circuit-labels.ts
 #: components/record/row-status.tsx
 #: lib/known-text.ts
 msgid "Locked"
@@ -9338,6 +9393,10 @@ msgstr "Register a passkey"
 msgid "Register the passkey"
 msgstr "Register the passkey"
 
+#: components/record/circuit-labels.ts
+msgid "Reject"
+msgstr "Reject"
+
 #: components/fields/field-meta.tsx
 msgid "Relations"
 msgstr "Relations"
@@ -10272,6 +10331,10 @@ msgstr "Search the lines"
 msgid "Search this view"
 msgstr "Search this view"
 
+#: components/record/circuit-labels.ts
+msgid "Second approval"
+msgstr "Second approval"
+
 #: components/admin/account-page.tsx
 #: components/admin/accounts-tab.tsx
 #: components/admin/security-tab.tsx
@@ -10640,6 +10703,10 @@ msgctxt "keyboard key"
 msgid "Shift"
 msgstr "Shift"
 
+#: components/settings/status-circuit-panel.tsx
+msgid "Shipped template"
+msgstr "Shipped template"
+
 #: components/table/view-toolbar.tsx
 msgid "Short"
 msgstr "Short"
@@ -10718,6 +10785,7 @@ msgstr "SIEM webhook cleared"
 msgid "SIEM webhook saved"
 msgstr "SIEM webhook saved"
 
+#: components/record/circuit-labels.ts
 #: components/record/row-status.tsx
 msgid "Sign"
 msgstr "Sign"
@@ -10773,10 +10841,6 @@ msgstr "Sign out, sign in again, and do this within five minutes: your sign-in i
 #: lib/errors.ts
 msgid "Sign out, sign in again, and do this within ten minutes: your sign-in is the proof it asks for."
 msgstr "Sign out, sign in again, and do this within ten minutes: your sign-in is the proof it asks for."
-
-#: components/record/row-status.tsx
-msgid "Sign the row"
-msgstr "Sign the row"
 
 #: components/admin/security-tab.tsx
 #: components/admin/sign-in-trail.tsx
@@ -10868,6 +10932,7 @@ msgid "signed"
 msgstr "signed"
 
 #: components/auth/auth-frame.tsx
+#: components/record/circuit-labels.ts
 #: components/record/row-status.tsx
 #: lib/known-text.ts
 msgid "Signed"
@@ -10909,6 +10974,10 @@ msgstr "Signs in"
 #: components/admin/account-actions.tsx
 msgid "Signs in through its identity provider"
 msgstr "Signs in through its identity provider"
+
+#: components/record/circuit-labels.ts
+msgid "Simple review"
+msgstr "Simple review"
 
 #: components/fields/field-meta.tsx
 msgid "Single select"
@@ -11126,6 +11195,10 @@ msgstr "starts with"
 msgid "State"
 msgstr "State"
 
+#: components/settings/status-circuit-panel.tsx
+msgid "States"
+msgstr "States"
+
 #: components/admin/account-page.tsx
 #: components/admin/accounts-tab.tsx
 #: components/admin/people-file-dialog.tsx
@@ -11141,6 +11214,14 @@ msgstr "Status change"
 #: lib/errors.ts
 msgid "Status change refused"
 msgstr "Status change refused"
+
+#: components/settings/status-circuit-panel.tsx
+msgid "Status circuit"
+msgstr "Status circuit"
+
+#: components/settings/status-circuit-panel.tsx
+msgid "Status circuit updated"
+msgstr "Status circuit updated"
 
 #: components/shell/welcome-page.tsx
 msgid "Steps"
@@ -11205,6 +11286,7 @@ msgid "Submission"
 msgstr "Submission"
 
 #: components/public/public-view.tsx
+#: components/record/circuit-labels.ts
 #: components/settings/api-console.tsx
 #: components/views/form-view.tsx
 msgid "Submit"
@@ -11219,7 +11301,7 @@ msgstr "Submit another response"
 msgid "Submit button label"
 msgstr "Submit button label"
 
-#: components/record/record-panel.tsx
+#: components/record/row-status.tsx
 msgid "Submit the row for review"
 msgstr "Submit the row for review"
 
@@ -11227,6 +11309,7 @@ msgstr "Submit the row for review"
 msgid "submitted"
 msgstr "submitted"
 
+#: components/record/circuit-labels.ts
 #: components/record/row-status.tsx
 #: lib/known-text.ts
 msgid "Submitted"
@@ -12073,12 +12156,12 @@ msgid "The row can still be restored from the deleted rows; the history keeps th
 msgstr "The row can still be restored from the deleted rows; the history keeps the automation's name."
 
 #: components/record/row-status.tsx
-msgid "The row goes back to draft and can be changed again."
-msgstr "The row goes back to draft and can be changed again."
+msgid "The row goes back to a writable state and can be changed again."
+msgstr "The row goes back to a writable state and can be changed again."
 
 #: components/record/row-status.tsx
-msgid "The row goes back to draft and can be changed again. Its signature stays in the history."
-msgstr "The row goes back to draft and can be changed again. Its signature stays in the history."
+msgid "The row goes back to a writable state and can be changed again. Its signature stays in the history."
+msgstr "The row goes back to a writable state and can be changed again. Its signature stays in the history."
 
 #: components/record/record-panel.tsx
 msgid "The row has disappeared from the client's database."
@@ -12960,6 +13043,10 @@ msgstr "This time zone is not one"
 msgid "This token does not have the scope the request asks for"
 msgstr "This token does not have the scope the request asks for"
 
+#: components/record/row-status.tsx
+msgid "This transition needs a reason, kept in the audit trail."
+msgstr "This transition needs a reason, kept in the audit trail."
+
 #: lib/errors.ts
 msgid "This value already exists in the client's database"
 msgstr "This value already exists in the client's database"
@@ -13066,6 +13153,10 @@ msgstr "Title (optional)"
 #: lib/known-text.ts
 msgid "TLS error"
 msgstr "TLS error"
+
+#: components/settings/status-circuit-panel.tsx
+msgid "to"
+msgstr "to"
 
 #: components/admin/instant-range.tsx
 #: components/table/filter-builder.tsx
@@ -13199,6 +13290,10 @@ msgstr "Traces are being sent."
 #: components/admin/admin-sections.ts
 msgid "Trails"
 msgstr "Trails"
+
+#: components/settings/status-circuit-panel.tsx
+msgid "Transitions"
+msgstr "Transitions"
 
 #: components/admin/security-tab.tsx
 #: components/shell/sidebar.tsx
@@ -13481,17 +13576,13 @@ msgstr "Unlink single sign-on"
 
 #: components/admin/account-actions.tsx
 #: components/admin/change-labels.ts
-#: components/record/row-status.tsx
+#: components/record/circuit-labels.ts
 msgid "Unlock"
 msgstr "Unlock"
 
 #: components/admin/account-actions.tsx
 msgid "Unlock {name}'s account?"
 msgstr "Unlock {name}'s account?"
-
-#: components/record/row-status.tsx
-msgid "Unlock the row?"
-msgstr "Unlock the row?"
 
 #: components/table/view-tabs.tsx
 msgid "Unlock view"

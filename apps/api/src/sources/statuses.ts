@@ -17,7 +17,8 @@
 import { createHash } from "node:crypto";
 import {
   AppError,
-  assertStatusTransition,
+  findAllowedTransition,
+  transitionKeyForStatus,
   type AuditRole,
   type EngineCatalog,
   isCopySourceEngine,
@@ -31,7 +32,7 @@ import {
   sealText,
   shownSealValue,
 } from "@anygriddb/core";
-import type { Database, ExternalStatus } from "@anygriddb/db";
+import type { Database } from "@anygriddb/db";
 import { sql } from "kysely";
 import { loadEngine, type TableRow } from "../data/engine.js";
 import { liveBase, liveTable } from "../data/live.js";
@@ -39,6 +40,9 @@ import { readByIds, type RowRecord } from "../data/rows.js";
 import { rowsWithin, type ReadBudget } from "../read-budget.js";
 import { addJob, TASKS, type SqlExecutor } from "../queue/jobs.js";
 import type { NotificationInput } from "../notifications.js";
+
+/** A client row's status: a state of its table's circuit (ADR 0124). */
+type ExternalStatus = string;
 
 /** Statuses AnyGridDB refuses its own writes on. */
 const SEALED: readonly ExternalStatus[] = ["locked", "signed"];
@@ -426,7 +430,14 @@ export async function setExternalStatus(
   assertKeyed(input.table);
   const { table, rowId } = input;
   const state = await readState(db, table.id, rowId);
-  assertStatusTransition(state?.status ?? "draft", input.status, input.role);
+  const { loadTableCircuit } = await import("../data/status-circuits.js");
+  const circuit = await loadTableCircuit(db, table.id);
+  findAllowedTransition(
+    circuit,
+    state?.status ?? "draft",
+    transitionKeyForStatus(input.status),
+    input.role,
+  );
   if (input.status === "submitted") {
     if (!(await readSealed(db, table.id, rowId))) {
       throw new AppError("source_row_missing");

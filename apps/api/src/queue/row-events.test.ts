@@ -53,6 +53,17 @@ describe("row events from audit entries", () => {
       auditId: entry.id,
       at: "2026-11-07T10:00:00.000Z",
     });
+    expect(
+      eventOf(
+        {
+          ...entry,
+          action: "transition",
+          old_value: { ag_status: "draft" },
+          new_value: { ag_status: "in_review" },
+        },
+        0,
+      ).event,
+    ).toBe("status");
   });
 
   it("gives inserts and deletes no column list", () => {

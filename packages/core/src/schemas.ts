@@ -402,6 +402,32 @@ export const signRowInputSchema = z.object({
   password: z.string().min(12).max(128),
 });
 
+/** Take a named transition on the table's status circuit (ADR 0124). */
+export const transitionRowInputSchema = z.object({
+  tableId: z.uuid(),
+  rowId: rowIdSchema,
+  transitionKey: z
+    .string()
+    .trim()
+    .regex(/^[a-z][a-z0-9_]{0,63}$/),
+  reason: z.string().trim().min(1).max(500).optional(),
+  meaning: z.string().trim().min(1).max(500).optional(),
+  password: z.string().min(12).max(128).optional(),
+});
+
+export const getTableCircuitInputSchema = z.object({
+  tableId: z.uuid(),
+});
+
+export const listCircuitTemplatesInputSchema = z.object({});
+
+export const applyCircuitTemplateInputSchema = z.object({
+  tableId: z.uuid(),
+  templateKey: z.enum(["compliance", "simple_review", "dual_approval"]),
+  /** When the new circuit lacks a key a row holds, map that key to one it has. */
+  remap: z.record(z.string(), z.string()).optional(),
+});
+
 export const auditReadInputSchema = z.object({
   tableId: z.uuid(),
   recordId: rowIdSchema,

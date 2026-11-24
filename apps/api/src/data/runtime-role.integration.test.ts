@@ -6,6 +6,7 @@
 import { randomBytes, randomUUID } from "node:crypto";
 import { buildCreateTable, buildInsert } from "@anygriddb/core";
 import { grantRuntimeRole, type Database } from "@anygriddb/db";
+import { sql } from "kysely";
 import type pg from "pg";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createTestDatabase, RUNTIME_ROLE } from "../test-database.js";
@@ -155,6 +156,95 @@ describe("the role the application signs in as", () => {
         "insert into bases (name) values ('Hidden')",
       ),
     ).rejects.toThrow(/Audit context required/);
+  });
+
+  // The trigger takes its rules from the table's status circuit (ADR
+  // 0124): rules the role could rewrite would let it unseal a signed row.
+  describe("its table's status circuit", () => {
+    const context = (action = "") =>
+      `select set_config('anygrid.user_id', '${userId}', true),
+              set_config('anygrid.table_id', '${tableId}', true),
+              set_config('anygrid.action', '${action}', true)`;
+    const replace = (template: string, remap: Record<string, string>) =>
+      withAudit(db, { userId, tableId }, (tx) =>
+        sql`select ag_replace_status_circuit(
+              ${tableId}::uuid, ${template}, ${JSON.stringify(remap)}::jsonb
+            )`.execute(tx),
+      );
+    const circuitEvents = async () =>
+      (
+        await ownerPool.query<{ n: number }>(
+          `select count(*)::int as n from audit_events
+            where catalog_table = 'status_circuits' and table_id = $1`,
+          [tableId],
+        )
+      ).rows[0]?.n;
+
+    beforeAll(async () => {
+      await withAudit(db, { userId }, async (tx) => {
+        const base = await tx
+          .insertInto("bases")
+          .values({ name: "Circuits" })
+          .returning("id")
+          .executeTakeFirstOrThrow();
+        await tx
+          .insertInto("dataTables")
+          .values({
+            id: tableId,
+            baseId: base.id,
+            name: "Ledger",
+            physicalName: table,
+          })
+          .execute();
+      });
+    });
+
+    it.each([
+      "update status_states set row_writable = true, seal = false",
+      "delete from status_transitions",
+      "delete from status_circuits",
+      `insert into status_transition_grants (transition_id, role_key)
+         select id, 'viewer' from status_transitions`,
+      "truncate status_states cascade",
+    ])("cannot rewrite them: %s", async (statement) => {
+      await expect(pool.query(statement)).rejects.toThrow(/permission denied/);
+      expect(await held()).toEqual({ amount: "10", status: "signed" });
+    });
+
+    it("cannot move a signed row by calling it a circuit's remap", async () => {
+      await expect(
+        inTransaction(
+          context("remap"),
+          `update "${table}" set ag_status = 'draft' where id = '${rowId}'`,
+        ),
+      ).rejects.toThrow(/Invalid status|Row locked/);
+      expect(await held()).toEqual({ amount: "10", status: "signed" });
+    });
+
+    it.each([
+      ["a circuit with no sealed state of that name", "simple_review", {}],
+      ["a remap away from it", "compliance", { signed: "draft" }],
+      [
+        "a remap to a sealed state elsewhere",
+        "simple_review",
+        { signed: "approved" },
+      ],
+    ])(
+      "cannot free a signed row with %s",
+      async (_what, template, remap: Record<string, string>) => {
+        const before = await circuitEvents();
+        await expect(replace(template, remap)).rejects.toThrow(/Row locked/);
+        expect(await held()).toEqual({ amount: "10", status: "signed" });
+        expect(await circuitEvents()).toBe(before);
+      },
+    );
+
+    it("changes it through the owner only, and the change is on the trail", async () => {
+      const before = await circuitEvents();
+      await replace("compliance", {});
+      expect(await circuitEvents()).toBe((before ?? 0) + 1);
+      expect(await held()).toEqual({ amount: "10", status: "signed" });
+    });
   });
 
   it.each([

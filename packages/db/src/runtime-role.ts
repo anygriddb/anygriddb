@@ -9,6 +9,18 @@ const TRAILS = [
   "external_status_events",
 ] as const;
 
+/**
+ * What the row trigger takes its rules from (a table's status circuit, ADR
+ * 0124): the application reads it, and changes it only through the owner's
+ * `ag_replace_status_circuit`, which keeps a sealed row sealed.
+ */
+const RULES = [
+  "status_circuits",
+  "status_states",
+  "status_transitions",
+  "status_transition_grants",
+] as const;
+
 const ROLE_NAME = /^[a-z_][a-z0-9_]{0,62}$/;
 
 /**
@@ -41,6 +53,10 @@ export async function grantRuntimeRole(
     `alter default privileges in schema public grant usage, select on sequences to ${who}`,
     ...TRAILS.map(
       (table) => `revoke update, delete, truncate on "${table}" from ${who}`,
+    ),
+    ...RULES.map(
+      (table) =>
+        `revoke insert, update, delete, truncate on "${table}" from ${who}`,
     ),
     `revoke update, truncate on "auth_events" from ${who}`,
     `revoke insert, update, delete, truncate on "schema_migrations" from ${who}`,

@@ -23,7 +23,11 @@ type Cell = string | number | boolean | null | readonly string[];
 
 const ROW_ID =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const ROW_STATUS = new Set(["draft", "submitted", "locked", "signed"]);
+/**
+ * A state's key, as a status circuit names it (ADR 0124). Which keys a
+ * table has, and which moves between them, the database's trigger decides.
+ */
+const STATUS_KEY = /^[a-z][a-z0-9_]{0,63}$/;
 
 export const MAX_BATCH_ROWS = 500;
 
@@ -459,7 +463,7 @@ export function buildSetStatus(input: {
 }): ParameterizedSql {
   assertIdentifier(input.table, "table name");
   assertRowId(input.id);
-  if (!ROW_STATUS.has(input.status)) {
+  if (!STATUS_KEY.test(input.status)) {
     throw new AppError("invalid_status");
   }
   return {

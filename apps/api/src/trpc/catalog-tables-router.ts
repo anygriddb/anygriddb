@@ -3,12 +3,20 @@
  */
 import {
   AppError,
+  applyCircuitTemplateInputSchema,
   createTableInputSchema,
   deleteTableInputSchema,
   duplicateTableInputSchema,
+  getTableCircuitInputSchema,
+  listCircuitTemplatesInputSchema,
   reorderTablesInputSchema,
   updateTableInputSchema,
 } from "@anygriddb/core";
+import {
+  applyCircuitTemplate,
+  listCircuitTemplates,
+  loadTableCircuit,
+} from "../data/status-circuits.js";
 import { enqueueJob } from "../jobs.js";
 import {
   createFolder,
@@ -185,6 +193,40 @@ export const catalogTableProcedures = {
         await trashTable(ctx.db, user.id, table);
         await publishCatalog(ctx.bus, table.baseId, logPublish(ctx));
         return { ok: true as const };
+      }),
+    ),
+  /** The table's status circuit (ADR 0124). */
+  getCircuit: procedure
+    .input(getTableCircuitInputSchema)
+    .query(({ ctx, input }) =>
+      handle(ctx, async () => {
+        await guardTable(ctx, input.tableId, "read");
+        return loadTableCircuit(ctx.db, input.tableId);
+      }),
+    ),
+  listCircuitTemplates: procedure
+    .input(listCircuitTemplatesInputSchema)
+    .query(({ ctx }) =>
+      handle(ctx, async () => {
+        await authorize(ctx);
+        return listCircuitTemplates(ctx.db);
+      }),
+    ),
+  applyCircuitTemplate: procedure
+    .input(applyCircuitTemplateInputSchema)
+    .mutation(({ ctx, input }) =>
+      handle(ctx, async () => {
+        const { table, user } = await guardTable(ctx, input.tableId, "manage");
+        const circuit = await applyCircuitTemplate(ctx.db, {
+          userId: user.id,
+          tableId: table.id,
+          templateKey: input.templateKey,
+          remap: input.remap,
+          physicalName: table.physicalName,
+          storage: table.storage === "external" ? "external" : "native",
+        });
+        await publishCatalog(ctx.bus, table.baseId, logPublish(ctx));
+        return circuit;
       }),
     ),
 };

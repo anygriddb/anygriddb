@@ -7,6 +7,7 @@ import {
   buildReadStatuses,
   buildNonNullValues,
   buildRestoreRow,
+  buildSetStatus,
   buildUpdate,
 } from "./write";
 
@@ -358,5 +359,25 @@ describe("write builders", () => {
         event: "1 or 1",
       }),
     ).toThrow("Invalid row id");
+  });
+});
+
+describe("a row's status", () => {
+  const table = "t_0123456789abcdef0123456789abcdef";
+  const id = "01a20f78-5b12-7fb3-8b21-57bf427eb4cc";
+
+  it("is any state a circuit may name, bound as a value", () => {
+    expect(buildSetStatus({ table, id, status: "in_review" })).toEqual({
+      text: `update "${table}" set "ag_status" = $1 where "id" = $2 returning "id"`,
+      values: ["in_review", id],
+    });
+  });
+
+  it("is refused when it is not a state's key", () => {
+    for (const status of ["", "In review", "draft; drop", "1st"]) {
+      expect(() => buildSetStatus({ table, id, status })).toThrow(
+        "Invalid status",
+      );
+    }
   });
 });

@@ -25,6 +25,15 @@ first.
 
 ### Added
 
+- **A table can follow another validation circuit than draft, submitted,
+  locked, signed.** In a base's settings, each table takes one of three
+  shipped templates: compliance (as before, and every table's default),
+  simple review (in review, approved) and dual approval (two approvals by
+  different people). The row's panel offers the moves the circuit allows to
+  the reader's role. A template is refused while a row is in a state it
+  does not have, and always while a row is sealed in one. The database
+  holds these rules, as it held the four statuses: the application's own
+  account may read a circuit, never change it.
 - **Every notice mail carries a link that stops that kind of notice by
   email, and every digest one that stops the digest,** with no sign-in
   needed. The link is signed by the instance's keys.

@@ -53,8 +53,6 @@ components/public/public-view.tsx PublicForm
 components/public/public-view.tsx PublicView
 components/record/record-panel.tsx FieldRow
 components/record/record-panel.tsx History
-components/record/row-status.tsx RowStatus
-components/record/row-status.tsx SignForm
 components/settings/api-console.tsx ApiConsole
 components/settings/base-links.tsx BaseLinks
 components/settings/base-settings.tsx BaseSettings
