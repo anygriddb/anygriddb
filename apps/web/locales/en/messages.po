@@ -1565,6 +1565,10 @@ msgstr "A secret is kept sealed and never shown again. A script writes {0} in a 
 msgid "A secret is sent only to the host it is kept for"
 msgstr "A secret is sent only to the host it is kept for"
 
+#: components/table/automations-dialog.tsx
+msgid "A secret's name starts with a letter, holds only letters, digits and _, and is given once."
+msgstr "A secret's name starts with a letter, holds only letters, digits and _, and is given once."
+
 #: components/admin/sessions-tab.tsx
 msgid "A session ends after {idle} minutes without activity, and after {max} hours in any case (set under Security). Ending one signs the person out at once."
 msgstr "A session ends after {idle} minutes without activity, and after {max} hours in any case (set under Security). Ending one signs the person out at once."
@@ -3212,6 +3216,10 @@ msgstr "Choices and people"
 msgid "Choose a column"
 msgstr "Choose a column"
 
+#: components/table/automations-dialog.tsx
+msgid "Choose a field to fill."
+msgstr "Choose a field to fill."
+
 #: components/admin/people-file-dialog.tsx
 #: components/shell/new-base-dialog.tsx
 msgid "Choose a file"
@@ -3233,6 +3241,10 @@ msgstr "Choose another file"
 #: components/admin/identity-tab.tsx
 msgid "Choose another image"
 msgstr "Choose another image"
+
+#: components/table/automations-dialog.tsx
+msgid "Choose at least one person to notify."
+msgstr "Choose at least one person to notify."
 
 #: components/admin/notifications-tab.tsx
 msgid "Choose at least one schedule, or the monitor will never be pinged by a job."
@@ -5513,6 +5525,18 @@ msgstr "Give a role on a base"
 msgid "Give a role to someone"
 msgstr "Give a role to someone"
 
+#: components/table/automations-dialog.tsx
+msgid "Give a subject."
+msgstr "Give a subject."
+
+#: components/table/automations-dialog.tsx
+msgid "Give an address that starts with https://."
+msgstr "Give an address that starts with https://."
+
+#: components/table/automations-dialog.tsx
+msgid "Give at least one recipient."
+msgstr "Give at least one recipient."
+
 #: components/admin/give-base-role.tsx
 msgid "Give myself the role"
 msgstr "Give myself the role"
@@ -5525,11 +5549,23 @@ msgstr "Give the address the button opens."
 msgid "Give the auditor role"
 msgstr "Give the auditor role"
 
+#: components/table/automations-dialog.tsx
+msgid "Give the automation a name."
+msgstr "Give the automation a name."
+
+#: components/table/automations-dialog.tsx
+msgid "Give the host alone, such as api.example.com."
+msgstr "Give the host alone, such as api.example.com."
+
 #: components/admin/account-actions.tsx
 #: components/admin/account-bases.tsx
 #: components/admin/base-admin-members.tsx
 msgid "Give the role"
 msgstr "Give the role"
+
+#: components/table/automations-dialog.tsx
+msgid "Give the secret's value."
+msgstr "Give the secret's value."
 
 #: components/admin/account-actions.tsx
 msgid "Give the support role"
@@ -8639,6 +8675,10 @@ msgstr "People of the base"
 msgid "People to mention"
 msgstr "People to mention"
 
+#: components/table/automations-dialog.tsx
+msgid "People to notify"
+msgstr "People to notify"
+
 #: components/admin/admin-shell.tsx
 msgid "People, security, connections, sources, trails, and the instance itself."
 msgstr "People, security, connections, sources, trails, and the instance itself."
@@ -10073,6 +10113,10 @@ msgstr "Scripts and tools using these tokens stop working at once."
 #: components/table/automations-dialog.tsx
 msgid "Scripts are turned off on this instance: an administrator turns them on in Administration, under Security."
 msgstr "Scripts are turned off on this instance: an administrator turns them on in Administration, under Security."
+
+#: components/table/automations-dialog.tsx
+msgid "Scripts are turned off on this instance: choose another action."
+msgstr "Scripts are turned off on this instance: choose another action."
 
 #: components/admin/security-tab.tsx
 #: components/admin/sign-in-trail.tsx
@@ -13894,6 +13938,10 @@ msgstr "Write"
 #: components/record/record-panel.tsx
 msgid "Write a comment… (@ to mention)"
 msgstr "Write a comment… (@ to mention)"
+
+#: components/table/automations-dialog.tsx
+msgid "Write the message."
+msgstr "Write the message."
 
 #: components/table/automations-dialog.tsx
 msgid "Writes a line to the run's log."

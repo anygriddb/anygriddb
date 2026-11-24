@@ -25,6 +25,14 @@ describe("webhooks", () => {
     );
   });
 
+  it("refuses an address it cannot read, as an invalid webhook", async () => {
+    for (const target of ["https://", "https:// hooks.example.org", "hooks"]) {
+      await expect(assertPublicHttps(target), target).rejects.toMatchObject({
+        code: "invalid_webhook",
+      });
+    }
+  });
+
   it("refuses a name that does not resolve, as an invalid webhook", async () => {
     // `.invalid` never resolves (RFC 6761), with or without a network.
     await expect(
