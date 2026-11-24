@@ -355,6 +355,21 @@ export {
 } from "./rbac";
 
 export {
+  SHIPPED_CIRCUIT_KEYS,
+  assertCircuitEdit,
+  findAllowedTransition,
+  initialState,
+  stateByKey,
+  transitionKeyForStatus,
+  transitionsFrom,
+  type ShippedCircuitKey,
+  type StatusCircuit,
+  type StatusState,
+  type StatusTransition,
+  type TransitionSignature,
+} from "./status-circuit";
+
+export {
   CREATABLE_TYPES,
   addColumnInputSchema,
   addCommentInputSchema,
@@ -362,7 +377,11 @@ export {
   addRelationInputSchema,
   addRollupInputSchema,
   assertStatusTransition,
+  applyCircuitTemplateInputSchema,
   auditReadInputSchema,
+  getTableCircuitInputSchema,
+  listCircuitTemplatesInputSchema,
+  transitionRowInputSchema,
   tableActivityInputSchema,
   columnFromAddInput,
   createApiTokenInputSchema,

@@ -1,8 +1,10 @@
 import {
   type AggregateItem,
   AppError,
-  assertStatusTransition,
   type AuditRole,
+  findAllowedTransition,
+  isBlankCell,
+  transitionKeyForStatus,
   buildAggregates,
   buildCountRows,
   buildDelete,
@@ -58,6 +60,7 @@ import {
   type AuditContext,
   type AuditTx,
 } from "./audit-context.js";
+import { loadTableCircuit } from "./status-circuits.js";
 import { sourcePools } from "../sources/pools.js";
 import {
   assertWritable,
@@ -1617,37 +1620,128 @@ export async function setRowStatus(
     depth?: number;
   },
 ): Promise<void> {
-  const action =
-    input.status === "draft"
-      ? "unlock"
-      : input.status === "locked"
-        ? "lock"
-        : "submit";
+  await transitionRow(db, {
+    userId: input.userId,
+    role: input.role,
+    table: input.table,
+    rowId: input.rowId,
+    transitionKey: transitionKeyForStatus(input.status),
+    source: input.source,
+    depth: input.depth,
+  });
+}
+
+export async function transitionRow(
+  db: Database,
+  input: {
+    userId: string;
+    role: AuditRole;
+    table: { id: string; physicalName: string };
+    rowId: string;
+    transitionKey: string;
+    reason?: string;
+    meaning?: string;
+    source?: string;
+    depth?: number;
+    values?: Readonly<Record<string, unknown>>;
+  },
+): Promise<{ from: string; to: string; transitionKey: string }> {
+  const circuit = await loadTableCircuit(db, input.table.id);
+  let outcome = { from: "", to: "", transitionKey: input.transitionKey };
+
   await withAudit(
     db,
     {
       userId: input.userId,
       tableId: input.table.id,
-      action,
-      unlock: input.status === "draft",
+      action: input.transitionKey,
+      unlock: input.transitionKey === "unlock",
+      reason: input.reason ?? null,
       source: input.source ?? "web",
       events: { depth: input.depth ?? 0 },
     },
     async (tx) => {
       const current = await lockRow(tx, input.table.physicalName, input.rowId);
-      assertStatusTransition(current, input.status, input.role);
+      const transition = findAllowedTransition(
+        circuit,
+        current,
+        input.transitionKey,
+        input.role,
+      );
+      if (transition.requireReason) {
+        if (!input.reason || input.reason.trim() === "") {
+          throw new AppError("reason_required");
+        }
+      }
+      if (transition.requireFields.length > 0) {
+        const values = input.values ?? {};
+        for (const field of transition.requireFields) {
+          if (isBlankCell(values[field])) {
+            throw new AppError("value_required", field);
+          }
+        }
+      }
+      if (transition.fourEyes) {
+        const previous = await tx
+          .selectFrom("auditEvents")
+          .select("userId")
+          .where("tableId", "=", input.table.id)
+          .where("recordId", "=", input.rowId)
+          .where("action", "in", [
+            "submit",
+            "lock",
+            "unlock",
+            "sign",
+            "transition",
+          ])
+          .orderBy("id", "desc")
+          .executeTakeFirst();
+        if (previous && previous.userId === input.userId) {
+          throw new AppError("invalid_status");
+        }
+      }
+      if (transition.signature !== "none") {
+        if (!input.meaning || input.meaning.trim() === "") {
+          throw new AppError("invalid_status");
+        }
+        const named = await tx
+          .selectFrom("users")
+          .select("displayName")
+          .where("id", "=", input.userId)
+          .executeTakeFirst();
+        const displayName = named?.displayName;
+        if (!displayName) {
+          throw new AppError("no_row");
+        }
+        await tx
+          .insertInto("rowSignatures")
+          .values({
+            userId: input.userId,
+            tableId: input.table.id,
+            recordId: input.rowId,
+            displayName,
+            meaning: input.meaning.trim(),
+          })
+          .execute();
+      }
       readId(
         await runRows(
           tx,
           buildSetStatus({
             table: input.table.physicalName,
             id: input.rowId,
-            status: input.status,
+            status: transition.toStateKey,
           }),
         ),
       );
+      outcome = {
+        from: current,
+        to: transition.toStateKey,
+        transitionKey: transition.key,
+      };
     },
   );
+  return outcome;
 }
 
 export async function signRow(
@@ -1659,53 +1753,19 @@ export async function signRow(
     meaning: string;
     source?: string;
     depth?: number;
+    role?: AuditRole;
   },
 ): Promise<void> {
-  await withAudit(
-    db,
-    {
-      userId: input.userId,
-      tableId: input.table.id,
-      action: "sign",
-      source: input.source ?? "web",
-      events: { depth: input.depth ?? 0 },
-    },
-    async (tx) => {
-      const current = await lockRow(tx, input.table.physicalName, input.rowId);
-      if (current !== "locked") {
-        throw new AppError("invalid_status");
-      }
-      const named = await tx
-        .selectFrom("users")
-        .select("displayName")
-        .where("id", "=", input.userId)
-        .executeTakeFirst();
-      const displayName = named?.displayName;
-      if (!displayName) {
-        throw new AppError("no_row");
-      }
-      readId(
-        await runRows(
-          tx,
-          buildSetStatus({
-            table: input.table.physicalName,
-            id: input.rowId,
-            status: "signed",
-          }),
-        ),
-      );
-      await tx
-        .insertInto("rowSignatures")
-        .values({
-          userId: input.userId,
-          tableId: input.table.id,
-          recordId: input.rowId,
-          displayName,
-          meaning: input.meaning,
-        })
-        .execute();
-    },
-  );
+  await transitionRow(db, {
+    userId: input.userId,
+    role: input.role ?? "owner",
+    table: input.table,
+    rowId: input.rowId,
+    transitionKey: "sign",
+    meaning: input.meaning,
+    source: input.source,
+    depth: input.depth,
+  });
 }
 
 /** The numbers of a trail payload, each as the text the database writes. */

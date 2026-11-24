@@ -30,6 +30,7 @@ import {
   setLinksInputSchema,
   setStatusInputSchema,
   signRowInputSchema,
+  transitionRowInputSchema,
   trashInputSchema,
   updateCommentInputSchema,
   updateRowsInputSchema,
@@ -94,6 +95,7 @@ import {
   replaceLinks,
   restoreRows,
   signRowAs,
+  transitionRowAs,
   updateRows,
   type RowScope,
   type RowServiceDeps,
@@ -527,12 +529,29 @@ export const rowsRouter = t.router({
       return { ok: true as const };
     }),
   ),
+  transition: procedure
+    .input(transitionRowInputSchema)
+    .mutation(({ ctx, input }) =>
+      handle(ctx, async () => {
+        const access = await guardTable(ctx, input.tableId, "write");
+        const scope = await scopeOf(ctx, access);
+        return transitionRowAs(
+          serviceDeps(ctx),
+          { ...scope, role: access.role },
+          input,
+          { source: "web" },
+        );
+      }),
+    ),
   sign: procedure.input(signRowInputSchema).mutation(({ ctx, input }) =>
     handle(ctx, async () => {
       const access = await guardTable(ctx, input.tableId, "manage");
-      await signRowAs(serviceDeps(ctx), await scopeOf(ctx, access), input, {
-        source: "web",
-      });
+      await signRowAs(
+        serviceDeps(ctx),
+        { ...(await scopeOf(ctx, access)), role: access.role },
+        input,
+        { source: "web" },
+      );
       return { ok: true as const };
     }),
   ),

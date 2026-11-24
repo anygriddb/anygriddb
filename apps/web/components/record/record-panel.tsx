@@ -60,8 +60,9 @@ import { CommentBody, MentionTextarea } from "./mention-input";
 import { usePanelFocus } from "./panel-focus";
 import { panelDrawing } from "./panel-value";
 import { printRecord } from "./print-record";
-import { RowStatus, useSubmitRow } from "./row-status";
+import { RowStatus, useSubmitRow, useSubmitRowLabel } from "./row-status";
 import { canSubmitRow } from "./row-status-model";
+import { useTableCircuit } from "./use-table-circuit";
 import { useLingui } from "@lingui/react/macro";
 import { useErrorText } from "../../lib/errors";
 import type { MessageDescriptor } from "@lingui/core";
@@ -757,6 +758,8 @@ export function RecordPanel({
   const table = useTable();
   const copy = useCopy();
   const submitRow = useSubmitRow();
+  const submitLabel = useSubmitRowLabel();
+  const circuit = useTableCircuit(table.table.id);
   // While the print dialog is open, the record is rendered under <body>
   // for the print style to show alone.
   const [printing, setPrinting] = useState(false);
@@ -873,10 +876,10 @@ export function RecordPanel({
                 {t`Duplicate row`}
               </DropdownMenuItem>
             ) : null}
-            {canSubmitRow(row, table.role) ? (
+            {canSubmitRow(row, table.role, circuit.data) && submitLabel ? (
               <DropdownMenuItem onSelect={() => void submitRow(row.id)}>
                 <Send className="h-4 w-4" aria-hidden />
-                {t`Submit the row for review`}
+                {submitLabel}
               </DropdownMenuItem>
             ) : null}
             {onDelete ? (

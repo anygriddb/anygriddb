@@ -16,6 +16,7 @@ export type AuditAction =
   | "purge"
   | "sign"
   | "submit"
+  | "transition"
   | "unlock"
   | "update";
 
@@ -54,8 +55,6 @@ export type DashboardWidgetKind = "chart" | "metric" | "view_embed";
 export type DeliveryStatus = "failed" | "pending" | "success";
 
 export type EmailOtpPurpose = "enroll" | "login";
-
-export type ExternalStatus = "locked" | "signed" | "submitted";
 
 export type ExternalWatchMethod = "change_tracking" | "column";
 
@@ -480,7 +479,7 @@ export interface ExternalStatuses {
   sealed: Record<string, unknown> | null;
   sealedAt: Timestamp | null;
   sealFormat: Generated<number>;
-  status: ExternalStatus;
+  status: string;
   tableId: string;
   updatedAt: Generated<Timestamp>;
   updatedBy: string | null;
@@ -1048,6 +1047,49 @@ export interface StagedUploads {
   userId: string;
 }
 
+export interface StatusCircuits {
+  createdAt: Generated<Timestamp>;
+  duplicatedFromId: string | null;
+  id: Generated<string>;
+  key: string;
+  name: string;
+  system: Generated<boolean>;
+  tableId: string | null;
+  updatedAt: Generated<Timestamp>;
+}
+
+export interface StatusStates {
+  allowDelete: Generated<boolean>;
+  circuitId: string;
+  id: Generated<string>;
+  isInitial: Generated<boolean>;
+  key: string;
+  label: string;
+  position: Generated<number>;
+  rowWritable: Generated<boolean>;
+  seal: Generated<boolean>;
+  writableFields: string[] | null;
+}
+
+export interface StatusTransitionGrants {
+  roleKey: string;
+  transitionId: string;
+}
+
+export interface StatusTransitions {
+  circuitId: string;
+  fourEyes: Generated<boolean>;
+  fromStateId: string;
+  id: Generated<string>;
+  key: string;
+  label: string;
+  position: Generated<number>;
+  requireFields: Generated<string[]>;
+  requireReason: Generated<boolean>;
+  signature: Generated<string>;
+  toStateId: string;
+}
+
 export interface TableAcls {
   id: Generated<string>;
   rowFilter: Record<string, unknown> | null;
@@ -1263,6 +1305,10 @@ export interface DB {
   sources: Sources;
   ssoIdentities: SsoIdentities;
   stagedUploads: StagedUploads;
+  statusCircuits: StatusCircuits;
+  statusStates: StatusStates;
+  statusTransitionGrants: StatusTransitionGrants;
+  statusTransitions: StatusTransitions;
   tableAcls: TableAcls;
   tableFolders: TableFolders;
   totpSecrets: TotpSecrets;

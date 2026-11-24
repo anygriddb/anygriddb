@@ -48,7 +48,9 @@ import {
   type KeptOrder,
   type WriteContext,
   type RowRecord,
+  transitionRow,
 } from "../data/rows.js";
+import { loadTableCircuit } from "../data/status-circuits.js";
 import {
   assertUnsealed,
   setExternalStatus,
@@ -1038,7 +1040,100 @@ export async function replaceLinks(
   await announceRows(deps, scope.table.id, "update", [rowId], extra);
 }
 
+/**
+ * Takes a named transition on the table's status circuit (ADR 0124).
+ * Password / step-up proof is checked here when the transition asks for it.
+ */
+export async function transitionRowAs(
+  deps: RowServiceDeps,
+  scope: RowScope & { role: AuditRole },
+  input: {
+    rowId: string;
+    transitionKey: string;
+    reason?: string;
+    meaning?: string;
+    password?: string;
+  },
+  meta: WriteMeta,
+): Promise<{ from: string; to: string; transitionKey: string }> {
+  await assertRowsInScope(deps.db, scope.engine, [input.rowId]);
+  if (isExternal(scope)) return clientTransition(deps, scope, input, meta);
+  if (!UUID.test(input.rowId)) throw new AppError("invalid_row_id");
+  const circuit = await loadTableCircuit(deps.db, scope.table.id);
+  const needsProof = circuit.transitions.some(
+    (item) =>
+      item.key === input.transitionKey &&
+      item.roleKeys.includes(scope.role) &&
+      item.signature !== "none",
+  );
+  if (needsProof) {
+    if (!input.password) throw new AppError("invalid_credentials");
+    const stored = await deps.db
+      .selectFrom("passwordHashes")
+      .select("hash")
+      .where("userId", "=", scope.actorId)
+      .executeTakeFirst();
+    const verified = await verifyPassword(
+      stored?.hash ?? DUMMY_PASSWORD_HASH,
+      input.password,
+    );
+    if (!stored || !verified) throw new AppError("invalid_credentials");
+  }
+  const outcome = await transitionRow(deps.db, {
+    userId: scope.actorId,
+    role: scope.role,
+    table: scope.table,
+    rowId: input.rowId,
+    transitionKey: input.transitionKey,
+    reason: input.reason,
+    meaning: input.meaning,
+    source: meta.source,
+    depth: meta.depth ?? 0,
+  });
+  await announceRows(deps, scope.table.id, "update", [input.rowId], []);
+  return outcome;
+}
+
 /** Submits, locks, or unlocks a row; `role` decides which moves are allowed. */
+/** What a compliance transition sets on a client's row (ADR 0033). */
+const CLIENT_STATUS: Readonly<
+  Record<string, "submitted" | "locked" | "draft">
+> = { submit: "submitted", lock: "locked", unlock: "draft" };
+
+/**
+ * A client's table keeps the compliance circuit and its own path: its
+ * statuses live beside the client's rows, sealed by a fingerprint.
+ */
+async function clientTransition(
+  deps: RowServiceDeps,
+  scope: RowScope & { role: AuditRole },
+  input: {
+    rowId: string;
+    transitionKey: string;
+    meaning?: string;
+    password?: string;
+  },
+  meta: WriteMeta,
+): Promise<{ from: string; to: string; transitionKey: string }> {
+  if (input.transitionKey === "sign") {
+    await signRowAs(
+      deps,
+      scope,
+      {
+        rowId: input.rowId,
+        password: input.password ?? "",
+        meaning: input.meaning ?? "",
+      },
+      meta,
+    );
+    return { from: "locked", to: "signed", transitionKey: "sign" };
+  }
+  const status = CLIENT_STATUS[input.transitionKey];
+  if (!status) throw new AppError("invalid_status");
+  await changeStatus(deps, scope, input.rowId, status, meta);
+  return { from: "", to: status, transitionKey: input.transitionKey };
+}
+
 export async function changeStatus(
   deps: RowServiceDeps,
   scope: RowScope & { role: AuditRole },
@@ -1080,7 +1175,7 @@ export async function changeStatus(
  */
 export async function signRowAs(
   deps: RowServiceDeps,
-  scope: RowScope,
+  scope: RowScope & { role?: AuditRole },
   input: { rowId: string; password: string; meaning: string },
   meta: WriteMeta,
 ): Promise<void> {
@@ -1117,6 +1212,7 @@ export async function signRowAs(
     meaning: input.meaning,
     source: meta.source,
     depth: meta.depth ?? 0,
+    role: scope.role ?? "owner",
   });
   await announceRows(deps, scope.table.id, "update", [input.rowId], []);
 }

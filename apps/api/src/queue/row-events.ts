@@ -12,6 +12,7 @@ const EVENT_OF = {
   lock: "status",
   unlock: "status",
   sign: "status",
+  transition: "status",
 } as const satisfies Record<string, RowEvent["event"]>;
 
 type AuditAction = keyof typeof EVENT_OF;

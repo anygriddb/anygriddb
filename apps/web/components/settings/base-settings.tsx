@@ -20,6 +20,7 @@ import { GroupRoles } from "./group-roles";
 import { BaseLinks } from "./base-links";
 import { RestorePoints } from "./restore-points";
 import { useRoleLabel } from "./role-label";
+import { StatusCircuitPanel } from "./status-circuit-panel";
 import { TableRulesPanel } from "./table-rules-panel";
 import { WebhooksPanel } from "./webhooks-panel";
 import { useLingui } from "@lingui/react/macro";
@@ -623,6 +624,7 @@ function TableAccess({
         members={access.data?.people ?? []}
         people={people}
       />
+      <StatusCircuitPanel tableId={tableId} />
     </div>
   );
 }
