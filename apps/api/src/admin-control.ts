@@ -244,6 +244,10 @@ export async function listSessions(
       "u.email",
       "u.displayName",
       "u.isAdmin",
+      // Whom support and an account manager leave alone (`helpdeskReach`).
+      sqlTag<boolean>`(u.is_admin or u.is_support or u.is_auditor or ${holdsInstanceRole("u.id")})`.as(
+        "holdsRole",
+      ),
       "s.createdAt",
       "s.expiresAt",
     ])

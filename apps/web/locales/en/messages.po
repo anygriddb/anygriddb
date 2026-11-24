@@ -2183,6 +2183,7 @@ msgstr "Administrators and base owners"
 
 #: components/admin/account-actions.tsx
 #: components/admin/security-tab.tsx
+#: components/admin/sessions-tab.tsx
 msgid "Administrators only"
 msgstr "Administrators only"
 
@@ -4977,6 +4978,10 @@ msgstr "Every other session ends now, administrators' too. Your own stays open. 
 #: components/admin/emergency-section.tsx
 msgid "Every other session ends now, administrators' too. Yours stays open."
 msgstr "Every other session ends now, administrators' too. Yours stays open."
+
+#: components/admin/sessions-tab.tsx
+msgid "Every other session ends now, but those of accounts that hold a role of Administration. Your own stays open. API tokens keep working."
+msgstr "Every other session ends now, but those of accounts that hold a role of Administration. Your own stays open. API tokens keep working."
 
 #: components/settings/table-rules-panel.tsx
 msgid "Every row"
