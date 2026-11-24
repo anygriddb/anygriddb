@@ -160,6 +160,7 @@ async function notifyDeps(ctx: Context): Promise<NotifyDeps> {
     smtp,
     webOrigin: ctx.env.PUBLIC_URL,
     log: (error, message) => ctx.req.log.error({ err: error }, message),
+    keys: ctx.env.AUTH_ENCRYPTION_KEY,
   };
 }
 

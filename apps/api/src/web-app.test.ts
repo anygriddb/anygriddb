@@ -63,7 +63,13 @@ describe("the web app", () => {
 
   it("asks search engines to skip the pages of a secret link", async () => {
     const app = await server(await build());
-    for (const url of ["/s/abc", "/invite/xyz", "/reset/abc", "/signup/xyz"]) {
+    for (const url of [
+      "/s/abc",
+      "/invite/xyz",
+      "/reset/abc",
+      "/signup/xyz",
+      "/notify/unsubscribe/abc",
+    ]) {
       const response = await app.inject({ url });
       expect(response.body).toContain(
         '<meta name="robots" content="noindex, nofollow" />',

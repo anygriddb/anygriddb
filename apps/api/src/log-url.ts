@@ -9,6 +9,7 @@ const SECRET_PREFIXES = [
   "/invite/",
   "/reset/",
   "/signup/",
+  "/notify/unsubscribe/",
   "/ical/",
   "/hooks/automations/",
 ];

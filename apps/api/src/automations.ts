@@ -1143,7 +1143,14 @@ export async function runAutomation(
         break;
       }
       case "notify": {
-        const notifyDeps: NotifyDeps = deps;
+        const notifyDeps: NotifyDeps = {
+          db: deps.db,
+          bus: deps.bus,
+          smtp: deps.smtp,
+          webOrigin: deps.webOrigin,
+          log: deps.log,
+          keys: deps.key,
+        };
         await notify(
           notifyDeps,
           action.users.map((userId) => ({
@@ -1537,19 +1544,29 @@ async function dropRun(
   deps.log(null, "automation runs dropped after waiting a day");
   if (!automation.createdBy) return;
   try {
-    await notify(deps, [
+    await notify(
       {
-        userId: automation.createdBy,
-        kind: "automation",
-        actorId: null,
-        tableId: automation.tableId,
-        data: {
-          automationId: automation.id,
-          name: automation.name,
-          code: "runs_dropped",
-        },
+        db: deps.db,
+        bus: deps.bus,
+        smtp: deps.smtp,
+        webOrigin: deps.webOrigin,
+        log: deps.log,
+        keys: deps.key,
       },
-    ]);
+      [
+        {
+          userId: automation.createdBy,
+          kind: "automation",
+          actorId: null,
+          tableId: automation.tableId,
+          data: {
+            automationId: automation.id,
+            name: automation.name,
+            code: "runs_dropped",
+          },
+        },
+      ],
+    );
   } catch (error) {
     deps.log(error, "dropped automation runs notice failed");
   }

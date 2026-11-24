@@ -16,6 +16,7 @@ import { useFormatBytes } from "../../lib/format-bytes";
 import { trpc, useTRPC, type RouterOutputs } from "../../lib/trpc";
 import { LoadFailed } from "../shell/load-failed";
 import { RuledSection } from "../shell/notebook-page";
+import { NotificationDefaultsSection } from "./notification-defaults-section";
 import { useStepUp } from "./step-up";
 import { intlLocale } from "../../lib/format";
 
@@ -268,6 +269,8 @@ export function AlertsSection() {
           </fieldset>
         ) : null}
       </RuledSection>
+
+      <NotificationDefaultsSection />
 
       <RuledSection
         title={t`Backups`}

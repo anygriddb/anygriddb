@@ -75,7 +75,7 @@ function tableQuoted(locale: MailLocale, tableName: string): string {
 
 const NOTIFICATION_SUBJECTS: Record<
   MailLocale,
-  Record<NotificationKind, (tableName: string, name: string) => string>
+  Partial<Record<NotificationKind, (tableName: string, name: string) => string>>
 > = {
   en: {
     mention: (table) => `You were mentioned in ${tableQuoted("en", table)}`,
@@ -87,6 +87,12 @@ const NOTIFICATION_SUBJECTS: Record<
       `Webhook disabled on ${tableQuoted("en", table)}`,
     row_changed: (table, name) =>
       `A locked row in ${tableQuoted("en", table)} changed outside ${name}`,
+    role_given: (table) => `A role changed on ${tableQuoted("en", table)}`,
+    owner_named: (table) => `A new owner on ${tableQuoted("en", table)}`,
+    account_locked: () => `An account was locked`,
+    admin_access: (table) =>
+      `An administrator opened ${tableQuoted("en", table)}`,
+    acting_as: () => `An administrator is acting as you`,
   },
   fr: {
     mention: (table) =>
@@ -99,12 +105,19 @@ const NOTIFICATION_SUBJECTS: Record<
       `Webhook désactivé sur ${tableQuoted("fr", table)}`,
     row_changed: (table, name) =>
       `Une ligne verrouillée de ${tableQuoted("fr", table)} a changé sans passer par ${name}`,
+    role_given: (table) => `Un rôle a changé sur ${tableQuoted("fr", table)}`,
+    owner_named: (table) =>
+      `Nouveau propriétaire sur ${tableQuoted("fr", table)}`,
+    account_locked: () => `Un compte a été verrouillé`,
+    admin_access: (table) =>
+      `Un administrateur a ouvert ${tableQuoted("fr", table)}`,
+    acting_as: () => `Un administrateur agit à votre place`,
   },
 };
 
 const NOTIFICATION_FOOTER: Record<MailLocale, string> = {
-  en: "You receive this email because email notifications are enabled in your settings.",
-  fr: "Vous recevez cet email car les notifications par email sont activées dans vos réglages.",
+  en: "You receive this email because of your notification preferences.",
+  fr: "Vous recevez cet email selon vos préférences de notification.",
 };
 
 export function notificationSubject(
@@ -112,7 +125,8 @@ export function notificationSubject(
   kind: NotificationKind,
   tableName: string,
 ): string {
-  return NOTIFICATION_SUBJECTS[voice.locale][kind](tableName, voice.name);
+  const write = NOTIFICATION_SUBJECTS[voice.locale][kind];
+  return write ? write(tableName, voice.name) : tableName;
 }
 
 export function notificationMailSubject(
@@ -129,9 +143,15 @@ export function notificationMailBody(
   kind: NotificationKind,
   tableName: string,
   link: string,
+  unsubscribe?: string,
 ): string {
   const subject = notificationSubject(voice, kind, tableName);
-  return `${subject}.\n\n${link}\n\n${NOTIFICATION_FOOTER[voice.locale]}`;
+  const footer = unsubscribe
+    ? voice.locale === "fr"
+      ? `${NOTIFICATION_FOOTER.fr}\nPour ne plus recevoir ce type de message par e-mail immédiat : ${unsubscribe}`
+      : `${NOTIFICATION_FOOTER.en}\nStop immediate email for this kind of notice: ${unsubscribe}`
+    : NOTIFICATION_FOOTER[voice.locale];
+  return `${subject}.\n\n${link}\n\n${footer}`;
 }
 
 export function invitationMailSubject(

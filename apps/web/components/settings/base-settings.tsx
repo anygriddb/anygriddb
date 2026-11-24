@@ -400,6 +400,51 @@ export function BaseSettings({ baseId }: { baseId: string }) {
           ))}
         </RuledSection>
       ) : null}
+      <RuledSection
+        title={t`Your notifications`}
+        description={t`Mute this base, or one of its tables, so mentions, replies and assignments from there stay quiet. Change channels on your account page.`}
+      >
+        <div className="flex flex-wrap gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() =>
+              void (async () => {
+                try {
+                  await trpc.notifications.addMute.mutate({ baseId });
+                  toast.success(t`This base is muted for you`);
+                } catch (cause) {
+                  toast.error(errorText(cause));
+                }
+              })()
+            }
+          >
+            {t`Mute this base`}
+          </Button>
+          {base.tables.map((table) => (
+            <Button
+              key={table.id}
+              size="sm"
+              variant="outline"
+              onClick={() =>
+                void (async () => {
+                  try {
+                    await trpc.notifications.addMute.mutate({
+                      baseId,
+                      tableId: table.id,
+                    });
+                    toast.success(t`${{ name: table.name }} is muted for you`);
+                  } catch (cause) {
+                    toast.error(errorText(cause));
+                  }
+                })()
+              }
+            >
+              {t`Mute ${{ name: table.name }}`}
+            </Button>
+          ))}
+        </div>
+      </RuledSection>
       {lowering ? (
         <ConfirmDialog
           open

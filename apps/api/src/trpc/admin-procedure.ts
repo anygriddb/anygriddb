@@ -64,12 +64,17 @@ export async function requireAdmin(ctx: Context) {
   return user;
 }
 
-/** What telling a base's owners of a role given needs: the app. */
-export function roleNoticeDeps(ctx: Context): RoleNoticeDeps {
+/** What telling a base's owners of a role given needs: the app and mail. */
+export async function roleNoticeDeps(ctx: Context): Promise<RoleNoticeDeps> {
+  const { resolveSmtp } = await import("../integrations/smtp.js");
+  const { config: smtp } = await resolveSmtp(ctx.db, ctx.env);
   return {
     db: ctx.db,
     bus: ctx.bus,
     log: (error, message) => ctx.req.log.error({ err: error }, message),
+    smtp,
+    publicUrl: ctx.env.PUBLIC_URL,
+    keys: ctx.env.AUTH_ENCRYPTION_KEY,
   };
 }
 

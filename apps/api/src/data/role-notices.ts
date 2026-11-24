@@ -4,10 +4,12 @@
  * and those who answer for the base learn of it in the app, whoever the
  * role went to and by whichever way. One notice for one gesture.
  */
-import type { Role } from "@anygriddb/core";
+import { trimEndRun, type Role } from "@anygriddb/core";
 import type { Database } from "@anygriddb/db";
+import type { KeyRing } from "../auth/key-ring.js";
+import type { SmtpConfig } from "../mail.js";
+import { deliverPersonNotices } from "../notify/deliver-person.js";
 import type { Publisher } from "../realtime/bus.js";
-import { gridChannel } from "../realtime/channels.js";
 
 /** What was given: to a person, to several at once, to a group, or to a group's new member. */
 type RoleGift =
@@ -20,6 +22,9 @@ export type RoleNoticeDeps = {
   db: Database;
   bus: Publisher;
   log: (error: unknown, message: string) => void;
+  smtp?: SmtpConfig;
+  publicUrl?: string;
+  keys?: KeyRing;
 };
 
 /**
@@ -97,26 +102,27 @@ async function tell(
     if ("role" in gift) data.role = gift.role;
     if (gift.to === "people") data.count = String(gift.count);
   }
-  await deps.db
-    .insertInto("notifications")
-    .values(
-      owners.map((owner) => ({
-        userId: owner.id,
-        kind: named ? ("owner_named" as const) : ("role_given" as const),
-        actorId: input.actorId,
-        data,
-      })),
-    )
-    .execute();
-  for (const owner of owners) {
-    try {
-      await deps.bus.publish(
-        gridChannel(owner.id),
-        JSON.stringify({ type: "notification", channel: owner.id }),
-      );
-    } catch (error) {
-      deps.log(error, "notification publish failed");
-    }
-  }
-  return owners.length;
+  const kind = named ? ("owner_named" as const) : ("role_given" as const);
+  const link = deps.publicUrl
+    ? `${trimEndRun(deps.publicUrl, "/")}/b/${input.baseId}/settings`
+    : undefined;
+  return deliverPersonNotices(
+    {
+      db: deps.db,
+      bus: deps.bus,
+      smtp: deps.smtp ?? {},
+      webOrigin: deps.publicUrl ?? "",
+      log: deps.log,
+      keys: deps.keys,
+    },
+    owners.map((owner) => ({
+      userId: owner.id,
+      event: kind,
+      bellKind: kind,
+      actorId: input.actorId,
+      baseId: input.baseId,
+      data,
+      link,
+    })),
+  );
 }

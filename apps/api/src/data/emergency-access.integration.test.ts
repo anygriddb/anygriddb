@@ -93,12 +93,8 @@ describe("emergency access to a base", () => {
       password: PASSWORD,
     });
     await enrollTotp(coOwner);
-    // The second owner wants no notification by mail: this one is not one.
-    await db
-      .updateTable("users")
-      .set({ notifyByEmail: false })
-      .where("id", "=", coOwnerId)
-      .execute();
+    // The second owner keeps email on admin_access (required); preferences
+    // cannot silence that channel (ADR 0126).
     baseId = (await owner.call().catalog.createBase({ name: "Ventes" })).id;
     await setMemberRole(db, ownerId, {
       baseId,

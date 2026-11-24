@@ -27,6 +27,8 @@ export type KeyUse =
   | "email-otp"
   | "share-access"
   | "notify"
+  /** Unsubscribe links on person notification emails (ADR 0126). */
+  | "notify-prefs"
   | "automation"
   /** The change trail's fingerprints, sent to the collectors (ADR 0120). */
   | "trail";

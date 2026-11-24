@@ -176,7 +176,7 @@ export const adminAccountProcedures = {
         }
         for (const [baseId, gifts] of byBase) {
           const [only] = gifts;
-          await tellOwnersOfRole(roleNoticeDeps(ctx), {
+          await tellOwnersOfRole(await roleNoticeDeps(ctx), {
             baseId,
             actorId: admin.id,
             gift:
@@ -324,7 +324,7 @@ export const adminAccountProcedures = {
         const admin = await requireAdmin(ctx);
         const created = await createAccount(ctx.db, admin.id, input);
         for (const { baseId, role } of input.memberships) {
-          await tellOwnersOfRole(roleNoticeDeps(ctx), {
+          await tellOwnersOfRole(await roleNoticeDeps(ctx), {
             baseId,
             actorId: admin.id,
             gift: { to: "person", userId: created.id, role },
@@ -563,6 +563,7 @@ export const adminAccountProcedures = {
             smtp,
             publicUrl: ctx.env.PUBLIC_URL,
             log: (error, message) => ctx.req.log.error({ err: error }, message),
+            keys: ctx.env.AUTH_ENCRYPTION_KEY,
           },
         );
       }),

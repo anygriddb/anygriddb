@@ -88,7 +88,7 @@ export const groupsRouter = t.router({
         // The member now holds the group's roles: each base's owners
         // learn of it (ROADMAP #91).
         for (const { baseId, role } of roles) {
-          await tellOwnersOfRole(roleNoticeDeps(ctx), {
+          await tellOwnersOfRole(await roleNoticeDeps(ctx), {
             baseId,
             actorId: admin.id,
             gift: { to: "member", ...input, role },
@@ -128,7 +128,7 @@ export const groupsRouter = t.router({
         const admin = await requireAdmin(ctx);
         const { previous } = await setGroupRole(ctx.db, admin.id, input);
         if (input.role && input.role !== previous) {
-          await tellOwnersOfRole(roleNoticeDeps(ctx), {
+          await tellOwnersOfRole(await roleNoticeDeps(ctx), {
             baseId: input.baseId,
             actorId: admin.id,
             gift: { to: "group", groupId: input.groupId, role: input.role },
