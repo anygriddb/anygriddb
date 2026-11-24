@@ -8,6 +8,15 @@ first.
 
 ## Unreleased
 
+### Added
+
+- **A timeline's bars move under the pointer.** Dragged by its middle, a bar
+  moves both its dates; by an edge, that date alone, never past the other.
+  The days show while it is carried, a date that keeps a time keeps it, and
+  the change is undone like any other. A press that does not move still
+  opens the row; from the keyboard, a row's dates are changed in its panel.
+  A bar moves only when its dates are fields the row holds.
+
 ### Fixed
 
 - **`anygriddb trail verify` reads a collector's file of any length.** It

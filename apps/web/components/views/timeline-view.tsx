@@ -2,11 +2,12 @@ import { Button, cn, Select } from "@anygriddb/ui";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { useLocale } from "../../lib/i18n";
+import { useLocale, useWhen } from "../../lib/i18n";
 import { useNarrowScreen } from "../../lib/narrow-screen";
-import type { RowItem } from "../../lib/types";
+import type { CatalogColumn, RowItem } from "../../lib/types";
+
 import { canDateBy, endField, startField } from "../table/field-roles";
-import { useTable } from "../table/table-context";
+import { useTable, type CellValue } from "../table/table-context";
 import { thisMonth } from "./calendar-view";
 import {
   barHoldsName,
@@ -18,6 +19,13 @@ import {
   timelineScale,
   type TimelineScale,
 } from "./timeline-period";
+import {
+  barDragValues,
+  dayShown,
+  DRAG_THRESHOLD,
+  draggedDays,
+  type BarGrip,
+} from "./timeline-drag";
 import {
   ColumnPicker,
   useRowTitle,
@@ -31,6 +39,8 @@ const DAY = 86_400_000;
 const SCALE: Record<TimelineScale, number> = { day: 40, week: 12, month: 4 };
 const ROW = 36;
 const HEADER = 32;
+/** The width of a bar's edge that takes one of its dates, in pixels. */
+const GRIP = 6;
 
 function toTime(value: unknown): number | null {
   if (typeof value !== "string") return null;
@@ -40,6 +50,17 @@ function toTime(value: unknown): number | null {
 
 function utcDay(date: Date): number {
   return Date.UTC(date.getFullYear(), date.getMonth(), date.getDate());
+}
+
+/** A date field a bar is drawn from, as a drag writes it. */
+type BarField = { name: string; withTime: boolean };
+
+/** A field a drag may write: a date the row holds, not one worked out. */
+function barField(column: CatalogColumn | undefined): BarField | undefined {
+  if (column?.fieldType !== "date" && column?.fieldType !== "datetime") {
+    return undefined;
+  }
+  return { name: column.name, withTime: column.kind === "datetime" };
 }
 
 export function TimelineView(
@@ -64,8 +85,16 @@ export function TimelineView(
   const scrollRef = useRef<HTMLDivElement>(null);
   const namesScrollRef = useRef<HTMLDivElement>(null);
   const dated = props.allColumns.filter(canDateBy);
-  const startName = startField(props.config, props.allColumns)?.name;
-  const endName = endField(props.config, props.allColumns)?.name;
+  const startColumn = startField(props.config, props.allColumns);
+  const endColumn = endField(props.config, props.allColumns);
+  const startName = startColumn?.name;
+  const endName = endColumn?.name;
+  // A bar moves when its start is a date the row holds; its edges move
+  // when its end is one too, another field than the start.
+  const startMoves = props.canEdit ? barField(startColumn) : undefined;
+  const endMoves =
+    startMoves && endName !== startName ? barField(endColumn) : undefined;
+  const drag = startMoves ? { start: startMoves, end: endMoves } : undefined;
   const scale = timelineScale(props.config.timelineScale);
   const perDay = SCALE[scale];
   const period = timelinePeriod(props.focus, scale);
@@ -327,6 +356,10 @@ export function TimelineView(
                         perDay={perDay}
                         tint={props.tintOf?.(row)}
                         onOpen={() => table.openRecord(row.id)}
+                        drag={drag}
+                        onMove={(values, seen) =>
+                          table.updateCells([{ rowId: row.id, values, seen }])
+                        }
                       />
                     ) : null}
                   </div>
@@ -340,6 +373,18 @@ export function TimelineView(
   );
 }
 
+/** Where a pointer took a bar, and how far it went. */
+type Held = {
+  grip: BarGrip;
+  /** Where the pointer was pressed, in the page's pixels. */
+  from: number;
+  days: number;
+  /** Past the threshold: a drag, not a click. */
+  moved: boolean;
+  /** What the row held when it was taken (ADR 0103). */
+  seen: Record<string, CellValue>;
+};
+
 function Bar(props: {
   row: RowItem;
   label: string;
@@ -350,12 +395,42 @@ function Bar(props: {
   perDay: number;
   tint: string | undefined;
   onOpen: () => void;
+  /** The fields a drag writes; unset when the bar cannot move. */
+  drag: { start: BarField; end: BarField | undefined } | undefined;
+  onMove: (
+    values: Record<string, string>,
+    seen: Record<string, CellValue>,
+  ) => Promise<void>;
 }) {
-  const from = toTime(props.row[props.startName as keyof RowItem]);
+  const when = useWhen();
+  const [held, setHeld] = useState<Held | null>(null);
+  // Drawn where it was dropped until the write is taken or refused.
+  const [saving, setSaving] = useState<Record<string, string> | null>(null);
+  // A press that became a drag does not open the row when it ends.
+  const dragged = useRef(false);
+  const valueOf = (name: string): string | null => {
+    const value = props.row[name as keyof RowItem];
+    return typeof value === "string" ? value : null;
+  };
+  const dateOf = (field: BarField) => ({
+    ...field,
+    value: valueOf(field.name),
+  });
+  const moving =
+    held?.moved && props.drag
+      ? barDragValues({
+          grip: held.grip,
+          days: held.days,
+          start: dateOf(props.drag.start),
+          end: props.drag.end ? dateOf(props.drag.end) : undefined,
+        })
+      : null;
+  const shown = { ...props.row, ...(saving ?? moving ?? {}) };
+  const from = toTime(shown[props.startName as keyof RowItem]);
   if (from === null) return null;
   const to = Math.max(
     props.endName
-      ? (toTime(props.row[props.endName as keyof RowItem]) ?? from)
+      ? (toTime(shown[props.endName as keyof RowItem]) ?? from)
       : from,
     from,
   );
@@ -365,13 +440,98 @@ function Bar(props: {
   if (right <= left) return null;
   const width = Math.max(props.perDay, ((right - left) / DAY) * props.perDay);
   const named = barHoldsName(width);
+  const cutBefore = from < props.min;
+  const cutAfter = to + DAY > props.max;
+  // Its edges are taken by a grip of their own, when both dates move and
+  // the bar leaves room to take its middle.
+  const grips = props.drag?.end !== undefined && width >= 3 * GRIP;
+  const range = () => {
+    const first = shown[props.startName as keyof RowItem];
+    const last = props.endName
+      ? (shown[props.endName as keyof RowItem] ?? first)
+      : first;
+    const day = (value: unknown, name: string | undefined) =>
+      typeof value === "string"
+        ? when.day(
+            dayShown(
+              value,
+              name === props.drag?.end?.name
+                ? (props.drag?.end?.withTime ?? false)
+                : (props.drag?.start.withTime ?? false),
+            ),
+          )
+        : "";
+    const a = day(first, props.startName);
+    const b = day(last, props.endName);
+    return a === b ? a : `${a} – ${b}`;
+  };
+  function release() {
+    if (!held) return;
+    dragged.current = held.moved;
+    setHeld(null);
+    if (!moving) return;
+    const seen = Object.fromEntries(
+      Object.keys(moving).map((name) => [name, held.seen[name] ?? null]),
+    );
+    setSaving(moving);
+    void props.onMove(moving, seen).finally(() => setSaving(null));
+  }
   // The button is what opens the row, never narrower than a pointer's
-  // target; the bar inside it is as wide as its days.
+  // target; the bar inside it is as wide as its days. A mouse or a pen
+  // drags it; a finger scrolls the timeline, and the row's panel edits
+  // its dates from the keyboard.
   return (
     <button
       type="button"
-      onClick={props.onOpen}
-      className="absolute top-1.5 h-6 text-left text-xs"
+      onClick={() => {
+        if (dragged.current) {
+          dragged.current = false;
+          return;
+        }
+        props.onOpen();
+      }}
+      onPointerDown={(event) => {
+        // A drag the browser ended without a click leaves nothing to skip.
+        dragged.current = false;
+        if (!props.drag || event.button !== 0) return;
+        if (event.pointerType === "touch") return;
+        const grip = (event.target as HTMLElement).closest<HTMLElement>(
+          "[data-grip]",
+        )?.dataset.grip;
+        event.currentTarget.setPointerCapture(event.pointerId);
+        const names = [props.drag.start.name, props.drag.end?.name];
+        setHeld({
+          grip: grip === "start" || grip === "end" ? grip : "move",
+          from: event.clientX,
+          days: 0,
+          moved: false,
+          seen: Object.fromEntries(
+            names.flatMap((name) => (name ? [[name, valueOf(name)]] : [])),
+          ),
+        });
+      }}
+      onPointerMove={(event) => {
+        if (!held) return;
+        const pixels = event.clientX - held.from;
+        const moved = held.moved || Math.abs(pixels) >= DRAG_THRESHOLD;
+        const days = moved ? draggedDays(pixels, props.perDay) : 0;
+        if (moved !== held.moved || days !== held.days) {
+          setHeld({ ...held, moved, days });
+        }
+      }}
+      onPointerUp={release}
+      onPointerCancel={() => setHeld(null)}
+      onKeyDown={(event) => {
+        // Escape puts a bar being dragged back, and the release opens nothing.
+        if (held && event.key === "Escape") {
+          dragged.current = true;
+          setHeld(null);
+        }
+      }}
+      className={cn(
+        "absolute top-1.5 h-6 text-left text-xs select-none",
+        props.drag && (held?.moved ? "cursor-grabbing" : "cursor-grab"),
+      )}
       style={{
         left: ((left - props.min) / DAY) * props.perDay,
         width: barTarget(width),
@@ -381,8 +541,8 @@ function Bar(props: {
         className={cn(
           "block h-full truncate rounded-md bg-primary leading-6 text-primary-foreground",
           named && "px-2",
-          from < props.min && "rounded-l-none",
-          to + DAY > props.max && "rounded-r-none",
+          cutBefore && "rounded-l-none",
+          cutAfter && "rounded-r-none",
           props.tint && `row-tint-${props.tint}`,
         )}
         style={{ width }}
@@ -390,6 +550,30 @@ function Bar(props: {
         {/* Too short for the name, a bar keeps it for a screen reader. */}
         <span className={named ? undefined : "sr-only"}>{props.label}</span>
       </span>
+      {grips && !cutBefore ? (
+        <span
+          data-grip="start"
+          aria-hidden
+          className="absolute inset-y-0 left-0 cursor-ew-resize"
+          style={{ width: GRIP }}
+        />
+      ) : null}
+      {grips && !cutAfter ? (
+        <span
+          data-grip="end"
+          aria-hidden
+          className="absolute inset-y-0 cursor-ew-resize"
+          style={{ left: width - GRIP, width: GRIP }}
+        />
+      ) : null}
+      {held?.moved ? (
+        <span
+          aria-hidden
+          className="pointer-events-none absolute bottom-full left-0 z-10 mb-0.5 rounded-sm border border-border bg-card px-1.5 py-0.5 whitespace-nowrap text-foreground shadow-sm"
+        >
+          {range()}
+        </span>
+      ) : null}
     </button>
   );
 }
