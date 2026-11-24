@@ -276,10 +276,6 @@ export const PRIMARY_TYPES: ReadonlySet<FieldType> = new Set(
   FIELD_TYPES.filter((type) => FIELD_DEFINITIONS[type].primaryEligible),
 );
 
-export function fieldDefinition(fieldType: FieldType): FieldTypeDefinition {
-  return FIELD_DEFINITIONS[fieldType];
-}
-
 function definitionOf(fieldType: string): FieldTypeDefinition | undefined {
   return Object.hasOwn(FIELD_DEFINITIONS, fieldType)
     ? FIELD_DEFINITIONS[fieldType as FieldType]

@@ -127,7 +127,6 @@ export {
   FIELD_DEFINITIONS,
   FIELD_TYPES,
   PRIMARY_TYPES,
-  fieldDefinition,
   physicalSqlType,
   WRITABLE_TYPES,
   hasPhysicalColumn,
