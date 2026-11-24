@@ -8,11 +8,6 @@ first.
 
 ## Unreleased
 
-## 0.7.3 - 2026-11-24
-
-**Upgrade with this release's Compose files and its pin, as usual: nothing else
-to do.** No migration.
-
 ### Added
 
 - **A restore point, a copy of a base, and a copy of a table with its rows
@@ -23,6 +18,11 @@ to do.** No migration.
   base with comments. A file downloaded or brought from elsewhere still
   carries no comments: their authors are believed only in the instance's own
   copies.
+
+## 0.7.3 - 2026-11-24
+
+**Upgrade with this release's Compose files and its pin, as usual: nothing else
+to do.** No migration.
 
 ### Added
 
