@@ -1,10 +1,9 @@
 import { AppError } from "./errors";
 
 /**
- * Field type registry: each type is one definition that owns its storage
- * role, value kind, and eligibility flags. Call sites still use the
- * predicates below; behaviour hooks (cell, SQL, OpenAPI, UI) move here
- * next, without changing values or queries.
+ * Field type registry: one definition per type owns its storage role, its
+ * value kind, and what it may be (primary, required, kept beside a
+ * client's table). The predicates below read it.
  */
 
 export const FIELD_TYPES = [
