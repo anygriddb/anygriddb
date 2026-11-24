@@ -5,7 +5,7 @@
  * line. A batch lost or changed, an event changed, deleted outside a
  * purge, given another author, or never sent, is said.
  */
-import { POLICY_BOUNDS } from "@anygriddb/core";
+import { compareCodeUnits, POLICY_BOUNDS } from "@anygriddb/core";
 import type { Database } from "@anygriddb/db";
 import { sql } from "kysely";
 import { keyOf, type KeyRing } from "../auth/key-ring.js";
@@ -293,6 +293,7 @@ export async function verifyTrail(
     }
   }
   await notSent(db, ordered, sent, findings);
+  await earlyNotSent(db, ordered, sent, findings);
   report.more = Math.max(0, findings.length - LISTED);
   report.findings = findings.slice(0, LISTED);
   return { ...report, unreadable };
@@ -314,7 +315,7 @@ async function notSent(
   let first: bigint | undefined;
   let last: bigint | undefined;
   for (const order of orders) {
-    if (!/^\d{1,19}$/.test(order)) continue;
+    if (order === null || !/^\d{1,19}$/.test(order)) continue;
     const number = BigInt(order);
     if (first === undefined || number < first) first = number;
     if (last === undefined || number > last) last = number;
@@ -337,6 +338,55 @@ async function notSent(
     const end = rows.at(-1);
     if (!end || rows.length < CHUNK) return;
     after = BigInt(end.order);
+  }
+}
+
+/** The time and id of an event, as the copy orders the early ones. */
+const EARLY_AT = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}Z$/;
+
+/**
+ * The events from before the write order the database holds between the
+ * first and the last of them sent, by date then id, that no batch carried.
+ */
+async function earlyNotSent(
+  db: Database,
+  ordered: readonly TrailBatch[],
+  sent: ReadonlySet<string>,
+  findings: Finding[],
+): Promise<void> {
+  const keys = ordered
+    .flatMap((batch) => batch.events)
+    .filter((entry) => entry.order === null)
+    .filter((entry) => EARLY_AT.test(entry.at) && UUID.test(entry.id))
+    .map((entry) => `${entry.at} ${entry.id}`)
+    .sort(compareCodeUnits);
+  const first = keys.at(0)?.split(" ");
+  const last = keys.at(-1)?.split(" ");
+  if (!first || !last) return;
+  let after: string[] = first;
+  let inclusive = true;
+  for (;;) {
+    const { rows } = await sql<{
+      id: string;
+      at: string;
+    }>`select id::text as "id",
+        to_char(occurred_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') as "at"
+      from audit_events
+      where write_order is null
+        and ((occurred_at, id) > (${after[0]}::timestamptz, ${after[1]}::uuid)
+          or (${inclusive}::boolean
+            and (occurred_at, id) = (${after[0]}::timestamptz, ${after[1]}::uuid)))
+        and (occurred_at, id) <= (${last[0]}::timestamptz, ${last[1]}::uuid)
+      order by occurred_at, id limit ${CHUNK}`.execute(db);
+    for (const row of rows) {
+      if (!sent.has(row.id)) {
+        findings.push({ kind: "event_not_sent", id: row.id });
+      }
+    }
+    const end = rows.at(-1);
+    if (!end || rows.length < CHUNK) return;
+    after = [end.at, end.id];
+    inclusive = false;
   }
 }
 

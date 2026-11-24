@@ -18,6 +18,7 @@ describe("the order of a row's history", () => {
   const tableId = randomUUID();
   let database: Database;
   let pool: pg.Pool;
+  let ownerPool: pg.Pool;
   let close: (() => Promise<void>) | undefined;
   let userId = "";
 
@@ -49,6 +50,7 @@ describe("the order of a row's history", () => {
     const created = await createTestDatabase("audit_order");
     database = created.db;
     pool = created.pool;
+    ownerPool = created.owner.pool;
     close = created.close;
     for (const statement of buildCreateTable({ table, columns })) {
       await pool.query(statement.text, [...statement.values]);
@@ -95,7 +97,9 @@ describe("the order of a row's history", () => {
 
   it("keeps events older than the order behind the new ones, by their date", async () => {
     const rowId = await newRow("kept");
-    await pool.query(
+    // Only the trail's owner can still write an event with no order: the
+    // events from before it, as a restore brings them back (ADR 0121).
+    await ownerPool.query(
       `insert into audit_events
          (user_id, action, table_id, record_id, new_value, occurred_at, write_order)
        values
