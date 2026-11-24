@@ -238,22 +238,23 @@ deletion, and these checks from GitHub Actions (job names as GitHub reports
 them): `ci-ok`, `commits`, `codeql`, `dependency-review`. `ci-ok` passes
 only when every job of CI passed: `unit`, `integration`, `engines` (the
 integration suites that start a client's engine, in a job of their own),
-`e2e`, and `image`, which builds the image of every pull request and
-starts it as an operator does (`scripts/smoke-image.sh`). A job added to CI joins `ci-ok`,
-not the ruleset. Only maintainers create, move, or delete `v*` tags.
+`e2e`, `image`, which builds the image of every pull request and starts it
+as an operator does (`scripts/smoke-image.sh`), `guards` (ShellCheck,
+Hadolint, Gitleaks), and `workflows` (actionlint and zizmor on every run,
+`scripts/lint-workflows.sh`). A job added to CI joins `ci-ok`, not the
+ruleset. Only maintainers create, move, or delete `v*` tags.
 Workflows pin each action to a commit SHA and may use actions from GitHub and
 an allowlist; a new third-party action needs a maintainer to add it. Their
 jobs get the permissions they use and no more, and a checkout keeps no
-token. `Workflows` checks them with actionlint and zizmor whenever one
-changes (`scripts/lint-workflows.sh`). Every pull request runs ShellCheck on
-the scripts, Hadolint on the image's recipe, and Gitleaks over the whole
-history (`scripts/lint-security.sh`); a value known to be made up is listed
-by its fingerprint in `.gitleaksignore`. A pull request runs the tests of
-the packages it changes, and every test, none replayed from the cache,
-once it changes a file outside the packages: the workflows, `scripts/`,
-`docker/`, or the root's configuration (`scripts/ci-turbo.sh`). Trivy scans the image's system
-and Node.js packages on `main` and weekly. Secrets belong in GitHub Actions secrets or
-`docker/.env`, never in the tree.
+token. Every pull request runs ShellCheck on the scripts, Hadolint on the
+image's recipe, and Gitleaks over the whole history
+(`scripts/lint-security.sh`); a value known to be made up is listed by its
+fingerprint in `.gitleaksignore`. A pull request runs the tests of the
+packages it changes, and every test, none replayed from the cache, once it
+changes a file outside the packages: the workflows, `scripts/`, `docker/`,
+or the root's configuration (`scripts/ci-turbo.sh`). Trivy scans the image's
+system and Node.js packages on `main` and weekly. Secrets belong in GitHub
+Actions secrets or `docker/.env`, never in the tree.
 
 ## Releases
 
