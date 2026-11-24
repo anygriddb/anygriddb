@@ -8,8 +8,11 @@ first.
 
 ## Unreleased
 
-**With files in an object store (`compose.s3.yml`), this is the first 0.7
-version that starts.** A stack that tried 0.7.0 to 0.7.4 that way and stayed
+## 0.7.5 - 2026-11-24
+
+**Upgrade with this release's Compose files and its pin, as usual. No
+migration. With files in an object store (`compose.s3.yml`), this is the
+first 0.7 version that starts.** A stack that tried 0.7.0 to 0.7.4 that way and stayed
 stopped needs one step after the upgrade: `docker compose restart db`, then
 `docker compose up -d`, with the same Compose files as `up`.
 
