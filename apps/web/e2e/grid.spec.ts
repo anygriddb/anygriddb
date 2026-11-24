@@ -1191,7 +1191,9 @@ test.describe("putting a value back", () => {
       .getByRole("button", { name: "Put this value back" })
       .first()
       .click();
-    await expect(again.getByText("Lab 2 → Lab")).toBeVisible();
+    // The field, then what it was and what it became, written as English
+    // writes them.
+    await expect(again.getByText("Name: Lab 2 → Lab")).toBeVisible();
     await again.getByRole("button", { name: "Close" }).click();
     await expect(
       page.getByRole("link", { name: "Lab", exact: true }),
