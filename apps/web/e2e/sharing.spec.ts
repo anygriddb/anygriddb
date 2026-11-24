@@ -560,16 +560,16 @@ test("a public form is embedded in the site its link names, and in no other", as
   const sites = sharing.getByLabel("Sites that may embed it (optional)");
   await sites.fill("http://portal.example.org");
   await sharing.getByRole("button", { name: "Create a link" }).click();
-  await expect(
-    page.getByText(
-      "A site that embeds a link is an address starting with https://",
-    ),
-  ).toBeVisible();
+  // Said in the dialog, above the button, not in a toast that covers it.
+  await expect(sharing.getByRole("alert")).toContainText(
+    "A site that embeds a link is an address starting with https://",
+  );
   await sites.fill("https://portal.example.org");
   await sharing.getByRole("button", { name: "Create a link" }).click();
   await expect(
     sharing.getByRole("button", { name: "Copy the embed code" }),
   ).toBeVisible();
+  await expect(sharing.getByRole("alert")).toHaveCount(0);
   const link = (await sharing.locator("code").first().textContent()) ?? "";
   expect(link).toMatch(/\/s\/[A-Za-z0-9_-]{32,64}$/);
   await expect(
