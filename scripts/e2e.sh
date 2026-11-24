@@ -7,7 +7,11 @@ root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$root"
 
 export POSTGRES_USER=anygriddb
-export POSTGRES_PASSWORD=anygriddb
+# The database lasts one run, so its password does too.
+POSTGRES_PASSWORD="$(
+  node -e "process.stdout.write(require('node:crypto').randomBytes(24).toString('hex'))"
+)"
+export POSTGRES_PASSWORD
 export POSTGRES_DB=anygriddb
 AUTH_ENCRYPTION_KEY="$(
   node -e "process.stdout.write(Buffer.from('0123456789abcdef0123456789abcdef').toString('base64'))"

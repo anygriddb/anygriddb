@@ -24,6 +24,13 @@ describe("argon2id", () => {
     );
   });
 
+  it("costs an unknown account what a stored password costs", () => {
+    const { memoryCost, timeCost, parallelism } = ARGON2_OPTIONS;
+    expect(DUMMY_PASSWORD_HASH).toContain(
+      `$m=${memoryCost},t=${timeCost},p=${parallelism}$`,
+    );
+  });
+
   it("still verifies hashes stored before the library change", async () => {
     expect(
       await verifyPassword(LEGACY_HASH, "legacy password from node-argon2"),

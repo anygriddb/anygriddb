@@ -1,3 +1,4 @@
+import { journeysDatabaseUrl } from "./database-url";
 import { expect, test, type Page } from "./journey";
 import pg from "pg";
 import {
@@ -7,9 +8,7 @@ import {
 } from "./setup.ts";
 
 // Where the journeys' own PostgreSQL listens (`scripts/e2e.sh`).
-const controlUrl =
-  process.env.DATABASE_URL ??
-  "postgres://anygriddb:anygriddb@127.0.0.1:5433/anygriddb";
+const controlUrl = journeysDatabaseUrl();
 
 /** Sends a change to the API with the page's session, as the app does. */
 async function send(page: Page, path: string, data: unknown): Promise<void> {

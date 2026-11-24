@@ -161,6 +161,7 @@ export default async function setup(
 
   try {
     execFileSync("bash", [join(repoRoot, "scripts/lab/seed.sh")], {
+      // NOSONAR: the lab's seed, run with the developer's own tools
       env: {
         ...process.env,
         LAB_PASSWORD,

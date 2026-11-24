@@ -20,7 +20,7 @@ const CA = readFileSync(
 const ORDERS = Number(process.env.LAB_STORE_ROWS ?? 50_000);
 /** The lab OpenSearch's own administrator (docker/lab/compose.yml). */
 const SEARCH_ADMIN_PASSWORD =
-  process.env.LAB_OPENSEARCH_ADMIN_PASSWORD ?? "Harbor-Ledger-Kiwi-58!";
+  process.env.LAB_OPENSEARCH_ADMIN_PASSWORD ?? "Harbor-Ledger-Kiwi-58!"; // NOSONAR: the throwaway lab's made-up default (docker/lab/compose.yml)
 const BATCH = 5_000;
 
 /** The same numbers at every run. */

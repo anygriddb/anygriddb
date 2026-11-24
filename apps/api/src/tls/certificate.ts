@@ -168,7 +168,7 @@ function keyId(key: KeyObject): Buffer {
   const der = spki(key);
   // The last element of SubjectPublicKeyInfo is the key's BIT STRING; for
   // P-256 the point is its last 65 bytes.
-  return createHash("sha1")
+  return createHash("sha1") // NOSONAR: an identifier, not a signature (RFC 5280, 4.2.1.2)
     .update(der.subarray(der.length - 65))
     .digest();
 }

@@ -23,6 +23,7 @@ import {
   collectDefaultMetrics,
   Counter,
   Gauge,
+  type GaugeConfiguration,
   Histogram,
   Registry,
 } from "@prometheus-io/client";
@@ -30,6 +31,13 @@ import { recordSourceLoad } from "./source-load.js";
 
 export const registry = new Registry();
 collectDefaultMetrics({ register: registry, prefix: "anygriddb_" });
+
+/** A gauge its `collect` fills at each scrape: only the registry holds it. */
+function registerScrapedGauge<T extends string>(
+  configuration: Omit<GaugeConfiguration<T>, "registers">,
+): void {
+  registry.registerMetric(new Gauge({ ...configuration, registers: [] }));
+}
 
 /** Always 1: the running version and commit ride on its labels (ADR 0048). */
 new Gauge({
@@ -185,10 +193,9 @@ export function scrapeReader<T>(withinMs: number = SCRAPE_READ_MS) {
 export function registerDatabaseReachableGauge(db: Database): void {
   const readAnswer = scrapeReader<true>();
   let reachable = true;
-  new Gauge({
+  registerScrapedGauge({
     name: "anygriddb_database_reachable",
     help: "1 while AnyGridDB's own database answers the scrapes' reads, even slowly, 0 when it does not.",
-    registers: [registry],
     async collect() {
       const answer = await readAnswer(async () => {
         await sql`select 1`.execute(db);
@@ -208,11 +215,10 @@ export function registerDatabaseReachableGauge(db: Database): void {
  */
 export function registerQueueGauge(db: Database): void {
   const readJobs = scrapeReader<{ state: string; count: string }[]>();
-  new Gauge({
+  registerScrapedGauge({
     name: "anygriddb_queue_jobs",
     help: "Background jobs by state: ready, scheduled, running, failed.",
     labelNames: ["state"] as const,
-    registers: [registry],
     async collect() {
       const rows = await readJobs(async () => {
         const result = await sql<{ state: string; count: string }>`
@@ -266,11 +272,10 @@ export function registerPoolGauge(
     waited = Math.max(waited, pool.waitingCount);
   }, everyMs);
   sampler.unref();
-  new Gauge({
+  registerScrapedGauge({
     name: "anygriddb_db_pool_connections",
     help: "AnyGridDB's own database pool: connections open, connections idle, the most requests seen waiting for one since the last scrape, and the most it opens.",
     labelNames: ["state"] as const,
-    registers: [registry],
     collect() {
       this.set({ state: "open" }, pool.totalCount);
       this.set({ state: "idle" }, pool.idleCount);
@@ -332,10 +337,9 @@ export function watchQueries(pool: pg.Pool): void {
  */
 export function registerDatabaseSizeGauge(db: Database): void {
   const readSize = scrapeReader<string | undefined>();
-  new Gauge({
+  registerScrapedGauge({
     name: "anygriddb_database_size_bytes",
     help: "Size of AnyGridDB's own database, in bytes.",
-    registers: [registry],
     async collect() {
       const bytes = await readSize(async () => {
         const result = await sql<{ bytes: string }>`
@@ -364,10 +368,9 @@ export function websocketRefused(
 
 /** Open browser sockets on this process. */
 export function registerWebsocketGauge(count: () => number): void {
-  new Gauge({
+  registerScrapedGauge({
     name: "anygriddb_websocket_connections",
     help: "Browser sockets open on this process.",
-    registers: [registry],
     collect() {
       this.set(count());
     },

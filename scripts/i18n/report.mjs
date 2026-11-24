@@ -20,7 +20,7 @@ function extractPlaceholders(text) {
   while ((m = re.exec(text))) {
     if (!names.includes(m[1])) names.push(m[1]);
   }
-  return names.sort();
+  return names.sort((a, b) => a.localeCompare(b, "en"));
 }
 
 const frEntries = parsePoFile(frPo);

@@ -1,5 +1,7 @@
 // Explicit re-exports: bundlers resolve these reliably across the workspace.
 
+export { compareCodeUnits } from "./text-order";
+
 export {
   AppError,
   ERROR_CODES,

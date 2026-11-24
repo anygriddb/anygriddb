@@ -3,7 +3,7 @@
  * of its fields a copy can keep, and what a field's values make it.
  */
 import { createHash } from "node:crypto";
-import type { MappedField } from "@anygriddb/core";
+import { compareCodeUnits, type MappedField } from "@anygriddb/core";
 
 /** A row id is a text of this many characters at most. */
 const ID_MAX = 500;
@@ -24,7 +24,7 @@ export function rowId(key: ReadonlyArray<string | number | boolean>): string {
 
 /** The id of a row that has no key: its content, so the same row keeps it. */
 export function contentId(row: Readonly<Record<string, unknown>>): string {
-  const names = Object.keys(row).sort();
+  const names = Object.keys(row).sort(compareCodeUnits);
   return digestId(JSON.stringify(names.map((name) => [name, row[name]])));
 }
 

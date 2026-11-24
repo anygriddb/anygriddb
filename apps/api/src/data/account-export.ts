@@ -14,7 +14,7 @@
 import { once } from "node:events";
 import { createWriteStream, type WriteStream } from "node:fs";
 import { stat } from "node:fs/promises";
-import { AppError } from "@anygriddb/core";
+import { AppError, compareCodeUnits } from "@anygriddb/core";
 import type { Database } from "@anygriddb/db";
 import { z } from "zod";
 import { listApiTokens } from "../auth/tokens.js";
@@ -55,7 +55,7 @@ export function changedFields(oldValue: unknown, newValue: unknown): string[] {
         (name) => JSON.stringify(before[name]) !== JSON.stringify(after[name]),
       )
     : names.filter((name) => after[name] !== null && after[name] !== "");
-  return changed.sort();
+  return changed.sort(compareCodeUnits);
 }
 
 async function writeText(stream: WriteStream, text: string): Promise<void> {

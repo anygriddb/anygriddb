@@ -220,7 +220,7 @@ const nodeSchema: z.ZodType<FormulaExpr> = z.lazy(() =>
       .object({
         op: z.literal("if"),
         cond: nodeSchema,
-        then: nodeSchema,
+        then: nodeSchema, // NOSONAR: a formula node's key, never a function
         else: nodeSchema,
       })
       .strict(),
@@ -717,7 +717,7 @@ export function parseFormula(
             return {
               op: "if",
               cond,
-              then,
+              then, // NOSONAR: a formula node's key, never a function
               else: otherwise ?? { op: "call", fn: "blank", args: [] },
             };
           }

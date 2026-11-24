@@ -169,7 +169,7 @@ async function bootstrap(base) {
   const jar = new Map();
   const stamp = `${Date.now().toString(36)}${randomBytes(3).toString("hex")}`;
   const email = `vps-${stamp}@example.com`;
-  const password = "correct-horse-battery";
+  const password = randomBytes(18).toString("base64url");
 
   // The harness's account is its instance's first: it takes the token
   // run.sh asked the instance for (`anygriddb install-token`).

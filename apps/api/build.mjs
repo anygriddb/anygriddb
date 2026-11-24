@@ -31,6 +31,7 @@ function checkoutCommit() {
   try {
     return (
       execFileSync("git", ["rev-parse", "HEAD"], {
+        // NOSONAR: a build step, run with the developer's own tools
         encoding: "utf8",
         stdio: ["ignore", "pipe", "ignore"],
       }).trim() || null

@@ -163,7 +163,7 @@ export const automationActionSchema = z.union([
     .object({
       type: z.literal("branch"),
       when: filterGroupSchema,
-      then: stepsSchema(1),
+      then: stepsSchema(1), // NOSONAR: a stored JSON key holding steps, never a function
       otherwise: stepsSchema(0).optional(),
     })
     .strict(),
@@ -528,7 +528,7 @@ export function writeTeamsMessage(message: string, title?: string): string {
         contentType: "application/vnd.microsoft.card.adaptive",
         contentUrl: null,
         content: {
-          $schema: "http://adaptivecards.io/schemas/adaptive-card.json",
+          $schema: "http://adaptivecards.io/schemas/adaptive-card.json", // NOSONAR: the card format's identifier, never fetched
           type: "AdaptiveCard",
           version: "1.4",
           body: [

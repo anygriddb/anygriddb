@@ -76,12 +76,12 @@ export function refusals(byLicense) {
       );
     }
   }
-  return problems.sort();
+  return problems.sort((a, b) => a.localeCompare(b, "en"));
 }
 
 function main() {
   const printed = execFileSync(
-    "pnpm",
+    "pnpm", // NOSONAR: a check run with the developer's own tools
     ["licenses", "list", "--recursive", "--json"],
     { encoding: "utf8", maxBuffer: 64 * 1024 * 1024 },
   );

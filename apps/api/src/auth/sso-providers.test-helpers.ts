@@ -112,7 +112,7 @@ export async function oidcProvider(issuer: string, clientId: string) {
     const key = options.key ?? state.keys[0] ?? published;
     const now = Math.floor(Date.now() / 1000);
     return new SignJWT({
-      events: { "http://schemas.openid.net/event/backchannel-logout": {} },
+      events: { "http://schemas.openid.net/event/backchannel-logout": {} }, // NOSONAR: the name the specification gives this event, never fetched
       jti: randomUUID(),
       ...claims,
     })
