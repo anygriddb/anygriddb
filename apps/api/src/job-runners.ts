@@ -38,6 +38,7 @@ import { announceRows } from "./data/announce.js";
 import { runConversion } from "./data/conversion-job.js";
 import {
   importBaseSnapshot,
+  readSnapshotComments,
   readSnapshotLines,
   writeBaseSnapshot,
 } from "./data/base-snapshot.js";
@@ -838,7 +839,8 @@ const runDuplicateBase =
       const archive =
         written.packed.kind === "zip"
           ? await ZipReader.open(written.packed.path, {
-              maxEntries: MAX_SNAPSHOT_TABLES + 1,
+              // Each table's rows, and its comments.
+              maxEntries: 2 * MAX_SNAPSHOT_TABLES + 1,
             })
           : undefined;
       const created = await importBaseSnapshot(
@@ -856,6 +858,8 @@ const runDuplicateBase =
             ? {
                 readLines: (key: string) =>
                   readSnapshotLines(archive, key, { own: true }),
+                readComments: (key: string) =>
+                  readSnapshotComments(archive, key),
               }
             : {}),
           keepRowState: true,

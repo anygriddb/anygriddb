@@ -679,6 +679,19 @@ test.describe("a base kept for later", () => {
     const base = /\/b\/[^/]+/.exec(table)?.[0] ?? "";
     await page.getByRole("button", { name: "Add a row", exact: true }).click();
     await typeName(page, "Before");
+    // A comment on the row, which the point keeps with it.
+    const panel = page.getByRole("complementary", { name: "Row details" });
+    const expandRow = async () => {
+      await nameCell(page).click({ button: "right" });
+      await page.getByRole("menuitem", { name: "Expand row" }).click();
+    };
+    await expandRow();
+    await panel
+      .getByLabel("Comment", { exact: true })
+      .fill("Kept with the row");
+    await panel.getByRole("button", { name: "Comment", exact: true }).click();
+    await expect(panel.getByText("Kept with the row")).toBeVisible();
+    await panel.getByRole("button", { name: "Close" }).click();
     // The table goes into a folder, which the point keeps too.
     await page.getByRole("button", { name: "Add a folder" }).click();
     await page.getByLabel("Folder name").fill("Field work");
@@ -728,13 +741,18 @@ test.describe("a base kept for later", () => {
     ).toBeVisible();
     // Each base has the folder now: the first, and the one restored.
     await expect(folders).toHaveCount(2);
+    const restored = page.url();
     await page
       .getByRole("region", { name: "Tables" })
       .getByRole("link", { name: /Samples/ })
       .click();
     await expect(nameCell(page)).toContainText("Before");
+    // The row's comment came back on it.
+    await expandRow();
+    await expect(panel.getByText("Kept with the row")).toBeVisible();
+    await panel.getByRole("button", { name: "Close" }).click();
     // Its dashboard came back too, and counts the restored base's row.
-    await page.goBack();
+    await page.goto(restored);
     await expectDashboardCounts(page, "Follow-up", "1");
     expect(await accessibilityViolations(page)).toEqual([]);
 

@@ -615,7 +615,10 @@ and ends with the instance, and a file to keep elsewhere is still the
 base's export.
 
 A restore point, a copy of a base, and a copy of a table with its rows keep
-each row's dates, authors, and status. A locked row stays locked; a signed
+each row's dates, authors, and status, and its comments with their replies,
+authors and dates (ADR 0122); a comment by an account erased since is the
+erased account's. A file downloaded or brought from elsewhere carries no
+comments. A locked row stays locked; a signed
 row comes back locked, without its signature, and the job says how many did. Each status is put back
 through the usual steps, which the new base's history records. A point
 made before version 0.5.0 holds none of this: its rows come back as

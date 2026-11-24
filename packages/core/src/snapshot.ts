@@ -45,6 +45,8 @@ export const MAX_SNAPSHOT_BYTES = 40 * 1024 * 1024;
 /** An archive with files: under ZIP's 4 GiB without ZIP64. */
 export const MAX_SNAPSHOT_ARCHIVE_BYTES = 2 * 1024 * 1024 * 1024;
 export const MAX_SNAPSHOT_FILES = 50_000;
+/** The most comments one table brings in an instance's own copy. */
+export const MAX_SNAPSHOT_COMMENTS = 1_000_000;
 export const MAX_SNAPSHOT_DASHBOARDS = 500;
 /** The widgets of one dashboard. */
 export const MAX_SNAPSHOT_WIDGETS = 500;
@@ -135,6 +137,11 @@ const snapshotTableSchema = z
     access: z.array(snapshotTableAccessSchema).max(5_000).optional(),
     /** The folder the table is kept in, by its name; none: the base's root. */
     folder: labelSchema.optional(),
+    /**
+     * Version 4: how many lines the table's comments' entry holds, written
+     * only for a table whose rows have some.
+     */
+    comments: z.int().min(1).max(MAX_SNAPSHOT_COMMENTS).optional(),
   })
   .strict();
 
@@ -311,11 +318,28 @@ export const baseSnapshotSchema = z
     if (lines && snapshot.links.some((link) => link.links !== undefined)) {
       context.addIssue({ code: "custom", message: "links" });
     }
+    // Comments come only in an instance's own copy, beside rows.
+    for (const table of snapshot.tables) {
+      if (
+        table.comments !== undefined &&
+        (snapshot.version !== SNAPSHOT_KEPT_VERSION || !table.rowCount)
+      ) {
+        context.addIssue({ code: "custom", message: "comments" });
+      }
+    }
   });
 
 /** The entry of a version 3 archive that holds a table's rows. */
 export function snapshotRowsEntry(key: string): string {
   return `rows/${key}.ndjson`;
+}
+
+/**
+ * Version 4: a table's comments, a line each, in the order they were
+ * written. Only an instance's own copy carries them (ADR 0122).
+ */
+export function snapshotCommentsEntry(key: string): string {
+  return `comments/${key}.ndjson`;
 }
 
 /**
@@ -376,6 +400,30 @@ export const snapshotRowStateSchema = z
   .strict();
 
 export type SnapshotRowState = z.infer<typeof snapshotRowStateSchema>;
+
+const commentIdSchema = rowAuthorSchema.unwrap();
+
+/**
+ * A comment as an instance copies it for itself (version 4): on the row of
+ * that number, by those accounts, with its replies, its edit, its removal
+ * and its resolution as they were.
+ */
+export const snapshotCommentSchema = z
+  .object({
+    id: commentIdSchema,
+    row: ownLineSeqSchema,
+    parent: commentIdSchema.nullable(),
+    author: commentIdSchema,
+    body: z.string().max(4_000),
+    createdAt: rowInstantSchema,
+    updatedAt: rowInstantSchema.nullable(),
+    deletedAt: rowInstantSchema.nullable(),
+    resolvedAt: rowInstantSchema.nullable(),
+    resolvedBy: rowAuthorSchema,
+  })
+  .strict();
+
+export type SnapshotComment = z.infer<typeof snapshotCommentSchema>;
 
 /**
  * Where a line keeps the values of fields named like its own keys: a field

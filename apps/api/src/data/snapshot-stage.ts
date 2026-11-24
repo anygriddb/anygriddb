@@ -20,12 +20,18 @@ import {
   SNAPSHOT_VERSION,
   type SnapshotLine,
   snapshotRowCount,
+  snapshotCommentsEntry,
   snapshotRowsEntry,
+  type SnapshotComment,
 } from "@anygriddb/core";
 import type { Database } from "@anygriddb/db";
 import type { FileStore } from "../files/index.js";
 import { localFolder } from "../files/local-folder.js";
-import { parseSnapshotBytes, readSnapshotLines } from "./base-snapshot.js";
+import {
+  parseSnapshotBytes,
+  readSnapshotComments,
+  readSnapshotLines,
+} from "./base-snapshot.js";
 import {
   copyStagedUpload,
   dropStagedUpload,
@@ -76,7 +82,8 @@ async function readSnapshotFile(
   }
   try {
     const archive = await ZipReader.open(path, {
-      maxEntries: MAX_SNAPSHOT_FILES + MAX_SNAPSHOT_TABLES + 1,
+      // Each table's rows and, in the instance's own copy, its comments.
+      maxEntries: MAX_SNAPSHOT_FILES + 2 * MAX_SNAPSHOT_TABLES + 1,
     });
     const bytes = await archive.read(SNAPSHOT_ENTRY, MAX_SNAPSHOT_BYTES);
     if (!bytes) throw new AppError("invalid_snapshot");
@@ -89,6 +96,9 @@ async function readSnapshotFile(
     // Every table's rows are there and whole, read through once.
     for (const table of snapshot.tables) {
       if (table.rowCount) await archive.check(snapshotRowsEntry(table.key));
+      if (table.comments) {
+        await archive.check(snapshotCommentsEntry(table.key));
+      }
     }
     return { snapshot, archive };
   } catch (error) {
@@ -193,6 +203,8 @@ type OpenedSnapshot = {
   readFile: (id: string, maxBytes: number) => Promise<Buffer | undefined>;
   /** Version 3: a table's lines, read from its entry; none otherwise. */
   readLines: (key: string) => AsyncIterable<SnapshotLine>;
+  /** Version 4: a table's comments, read from their entry; none otherwise. */
+  readComments: (key: string) => AsyncIterable<SnapshotComment>;
   /**
    * Reads the whole file, and refuses it if any of it is broken or claims
    * a row's state. `onWork` runs now and then, and may stop it.
@@ -213,7 +225,10 @@ export async function openLocalSnapshot(
   size: number,
   options: { own?: boolean } = {},
 ): Promise<
-  Pick<OpenedSnapshot, "snapshot" | "readFile" | "readLines" | "verify">
+  Pick<
+    OpenedSnapshot,
+    "snapshot" | "readFile" | "readLines" | "readComments" | "verify"
+  >
 > {
   const { snapshot, archive } = await readSnapshotFile(path, size);
   const listed = new Map((snapshot.files ?? []).map((file) => [file.id, file]));
@@ -233,6 +248,11 @@ export async function openLocalSnapshot(
     },
     readLines: (key) =>
       archive ? readSnapshotLines(archive, key, options) : noLines(),
+    // Only a copy this instance made carries comments.
+    readComments: (key) =>
+      archive && options.own
+        ? readSnapshotComments(archive, key)
+        : noComments(),
     verify: (onWork) => verifySnapshot(snapshot, archive, onWork),
   };
 }
@@ -270,6 +290,10 @@ export async function openStagedSnapshot(
 
 async function* noLines(): AsyncGenerator<SnapshotLine> {
   // A JSON snapshot carries its rows inside it.
+}
+
+async function* noComments(): AsyncGenerator<SnapshotComment> {
+  // A file from elsewhere brings none (ADR 0122).
 }
 
 export async function keepStagedSnapshot(
