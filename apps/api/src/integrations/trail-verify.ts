@@ -19,7 +19,7 @@ import {
   type TrailRow,
 } from "./trail-shipping.js";
 
-export type FindingKind =
+type FindingKind =
   /** A batch whose digest is not what its fields give. */
   | "batch_altered"
   /** A number between two the file holds, and absent from it. */

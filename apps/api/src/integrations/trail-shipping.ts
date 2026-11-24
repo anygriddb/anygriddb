@@ -109,7 +109,7 @@ export function buildBatch(
   };
 }
 
-export type ShippingState = {
+type ShippingState = {
   shippedOrder: string;
   batch: string;
   digest: string | null;
@@ -143,7 +143,7 @@ async function startingState(db: Database): Promise<ShippingState> {
  * appear, and batches may reach it. The transaction's id is taken first,
  * by the trail's column default, before its write order.
  */
-export async function safeOrder(
+async function safeOrder(
   db: Database,
   state: ShippingState,
 ): Promise<{ safe: string; state: ShippingState }> {
