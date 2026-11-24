@@ -1193,17 +1193,55 @@ test("an administrator allows scripts, and an automation runs one", async ({
         );
     };
 
-    // Off by default: the dialog says so, and the server refuses.
+    // What an automation still needs is said under the part that needs
+    // it, which takes the keyboard, and nothing is sent: a name, then an
+    // address the server could not have read ("https://" alone once
+    // failed it).
+    const refused: string[] = [];
+    page.on("response", (response) => {
+      if (response.status() >= 400) refused.push(response.url());
+    });
     await openAutomations();
+    await dialog.getByRole("button", { name: "New automation" }).click();
+    await dialog
+      .getByLabel("Action", { exact: true })
+      .selectOption({ label: "Call a URL" });
+    await dialog.getByRole("button", { name: "Save" }).click();
+    await expect(dialog.getByLabel("Name")).toBeFocused();
+    await expect(dialog.getByLabel("Name")).toHaveAccessibleDescription(
+      "Give the automation a name.",
+    );
+    await expect(
+      dialog.getByText("Give an address that starts with https://."),
+    ).toBeVisible();
+    expect(await accessibilityViolations(page)).toEqual([]);
+    await dialog.getByLabel("Name").fill("Tell the hub");
+    await dialog.getByRole("button", { name: "Save" }).click();
+    await expect(dialog.getByLabel("URL")).toBeFocused();
+    await expect(dialog.getByLabel("URL")).toHaveAttribute(
+      "aria-invalid",
+      "true",
+    );
+    await expect(dialog.getByText("Give the automation a name.")).toHaveCount(
+      0,
+    );
+    await dialog.getByRole("button", { name: "Cancel" }).click();
+
+    // Scripts are off by default: the dialog says so, and a save says
+    // under the action that another must be chosen.
     await writeScript("Too early");
     await expect(
       dialog.getByText(/Scripts are turned off on this instance/),
     ).toBeVisible();
     expect(await accessibilityViolations(page)).toEqual([]);
     await dialog.getByRole("button", { name: "Save" }).click();
+    await expect(dialog.getByLabel("Action", { exact: true })).toBeFocused();
     await expect(
-      page.getByText("Scripts in automations are turned off on this instance"),
-    ).toBeVisible();
+      dialog.getByLabel("Action", { exact: true }),
+    ).toHaveAccessibleDescription(
+      "Scripts are turned off on this instance: choose another action.",
+    );
+    expect(refused).toEqual([]);
 
     // The administrator allows them, with the proof.
     await page.goto("/admin");

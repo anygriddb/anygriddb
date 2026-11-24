@@ -8,6 +8,22 @@ first.
 
 ## Unreleased
 
+### Fixed
+
+- **The automation editor says what an automation still needs, where it is
+  given.** Saved with a part missing, an email without recipient or subject,
+  a call, a Slack or a Teams message without its address or its text, a
+  notification to nobody, or a secret whose name or host the server refuses
+  came back as a passing "Invalid input" that named nothing; an update that
+  filled no field was kept, and did nothing. Each part now says why under its
+  control, nested actions and secrets included, the first takes the
+  keyboard, and nothing is sent. Save no longer stays greyed out, unexplained,
+  until the automation has a name, and a script on an instance that runs none
+  says to choose another action.
+- **An address that is no address is refused as one.** A call saved with
+  `https://` alone ended in an internal error: it is now refused as an
+  address the instance will not call, as a private one is.
+
 ## 0.7.4 - 2026-11-24
 
 **Upgrade with this release's Compose files and its pin, as usual: nothing else

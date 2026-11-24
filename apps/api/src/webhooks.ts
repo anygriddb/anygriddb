@@ -85,6 +85,11 @@ export function isBlockedAddress(address: string, family: number): boolean {
 
 /** Checks scheme, credentials, and names that never point outside. */
 function assertPublicUrl(target: string | URL): URL {
+  // An address that is no address ("https://" alone) is the caller's
+  // mistake, said as such, and not a failure of the server.
+  if (typeof target === "string" && !URL.canParse(target)) {
+    throw new AppError("invalid_webhook");
+  }
   const url = new URL(target);
   if (url.protocol !== "https:" || url.username || url.password) {
     throw new AppError("invalid_webhook");

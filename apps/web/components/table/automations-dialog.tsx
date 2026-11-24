@@ -29,7 +29,7 @@ import {
 } from "@anygriddb/ui";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Copy, History, Pencil, Play, Plus, Trash2, X } from "lucide-react";
-import { lazy, Suspense, useId, useState } from "react";
+import { createContext, lazy, Suspense, use, useId, useState } from "react";
 import { toast } from "sonner";
 import { trpc, useTRPC, type RouterOutputs } from "../../lib/trpc";
 import type { CatalogColumn } from "../../lib/types";
@@ -40,6 +40,13 @@ import { Earlier } from "../history/earlier";
 import { ConfirmDialog } from "../shell/dialogs";
 import { useErrorText } from "../../lib/errors";
 import { useWhen } from "../../lib/i18n";
+import {
+  automationProblems,
+  partControl,
+  problemKey,
+  type AutomationPart,
+  type SecretDraft,
+} from "./automation-problems";
 
 // CodeMirror and the JavaScript grammar load with the first script.
 const ScriptCodeEditor = lazy(() => import("./script-code-editor"));
@@ -87,6 +94,61 @@ console.log("Run for", row ? row.id : "no row");
 return { id: row ? row.id : "" };
 `;
 const EMPTY_FILTER: FilterGroup = { conjunction: "and", conditions: [] };
+
+/** The parts still missing, by `problemKey`, once a save was refused here. */
+const Problems = createContext<ReadonlySet<string>>(new Set());
+
+/**
+ * What a control of part `part` at `at` carries: its id, and, while the
+ * part is missing, that it is invalid and why.
+ */
+function usePart(at: string, part: AutomationPart) {
+  const missing = use(Problems).has(problemKey(at, part));
+  const id = partControl(at, part);
+  return {
+    id,
+    missing,
+    props: missing
+      ? {
+          id,
+          "aria-invalid": true as const,
+          "aria-describedby": `${id}-problem`,
+        }
+      : { id },
+  };
+}
+
+/** What a part still needs, under its control. */
+function PartMissing(props: { at: string; part: AutomationPart }) {
+  const { t } = useLingui();
+  const { id, missing } = usePart(props.at, props.part);
+  if (!missing) return null;
+  const text: Record<AutomationPart, string> = {
+    name: t`Give the automation a name.`,
+    values: t`Choose a field to fill.`,
+    to: t`Give at least one recipient.`,
+    subject: t`Give a subject.`,
+    url: t`Give an address that starts with https://.`,
+    message: t`Write the message.`,
+    users: t`Choose at least one person to notify.`,
+    code: t`Scripts are turned off on this instance: choose another action.`,
+    secretName: t`A secret's name starts with a letter, holds only letters, digits and _, and is given once.`,
+    secretHost: t`Give the host alone, such as api.example.com.`,
+    secretValue: t`Give the secret's value.`,
+  };
+  return (
+    <p id={`${id}-problem`} className="text-xs text-danger">
+      {text[props.part]}
+    </p>
+  );
+}
+
+/** Whether this instance runs scripts (ADR 0099); unknown is taken as yes. */
+function useScriptsOn(): boolean {
+  const api = useTRPC();
+  const instance = useQuery(api.auth.instance.queryOptions());
+  return instance.data ? instance.data.automationScripts : true;
+}
 
 function useLabels() {
   const { t } = useLingui();
@@ -207,11 +269,14 @@ function defaultStep(type: StepType, tableId: string): AutomationStep {
 
 /** Column → template rows, used by the update and create actions. */
 function ValuesEditor(props: {
+  /** The action's place, when it must fill a field (an update). */
+  at?: string;
   columns: readonly CatalogColumn[];
   values: Record<string, string>;
   onChange: (values: Record<string, string>) => void;
 }) {
   const { t } = useLingui();
+  const field = usePart(props.at ?? "", "values");
   const unused = props.columns.filter(
     (column) => !(column.name in props.values),
   );
@@ -248,6 +313,7 @@ function ValuesEditor(props: {
       {unused.length > 0 ? (
         <Select
           aria-label={t`Field to fill`}
+          {...(props.at ? field.props : {})}
           className="h-8 w-56 text-xs"
           value=""
           onChange={(event) => {
@@ -263,71 +329,101 @@ function ValuesEditor(props: {
           ))}
         </Select>
       ) : null}
+      {props.at ? <PartMissing at={props.at} part="values" /> : null}
     </div>
+  );
+}
+
+/**
+ * The picker of one action: while it holds a script the instance will not
+ * run, it is what must change, and takes the keyboard for it.
+ */
+function ActionPicker<Type extends ActionType>(props: {
+  at: string;
+  types: readonly Type[];
+  value: ActionType;
+  className: string;
+  onChange: (type: Type) => void;
+}) {
+  const { t } = useLingui();
+  const labels = useLabels();
+  const script = usePart(props.at, "code");
+  return (
+    <Select
+      aria-label={t`Action`}
+      {...script.props}
+      className={props.className}
+      value={props.value}
+      onChange={(event) => props.onChange(event.target.value as Type)}
+    >
+      {props.types.map((type) => (
+        <option key={type} value={type}>
+          {labels.action(type)}
+        </option>
+      ))}
+    </Select>
   );
 }
 
 /** A list of actions inside a branch or a loop, about `columns`' rows. */
 function StepsEditor(props: {
+  /** Where the list is: its action's place and its name (`then`, `each`…). */
+  at: string;
   steps: AutomationStep[];
   columns: readonly CatalogColumn[];
   tableId: string;
   onChange: (steps: AutomationStep[]) => void;
 }) {
   const { t } = useLingui();
-  const labels = useLabels();
   return (
     <div className="flex flex-col gap-2 border-l-2 border-border pl-3">
-      {props.steps.map((step, index) => (
-        <div key={index} className="flex flex-col gap-1">
-          <div className="flex items-center gap-2">
-            <Select
-              aria-label={t`Action`}
-              className="h-8 w-56 text-xs"
-              value={step.type}
-              onChange={(event) =>
+      {props.steps.map((step, index) => {
+        const at = `${props.at}${String(index)}`;
+        return (
+          <div key={index} className="flex flex-col gap-1">
+            <div className="flex items-center gap-2">
+              <ActionPicker
+                at={at}
+                types={STEPS}
+                value={step.type}
+                className="h-8 w-56 text-xs"
+                onChange={(type) =>
+                  props.onChange(
+                    props.steps.map((item, place) =>
+                      place === index ? defaultStep(type, props.tableId) : item,
+                    ),
+                  )
+                }
+              />
+              <Button
+                size="icon"
+                variant="ghost"
+                aria-label={t`Remove action`}
+                onClick={() =>
+                  props.onChange(
+                    props.steps.filter((_, place) => place !== index),
+                  )
+                }
+              >
+                <X className="h-3.5 w-3.5" aria-hidden />
+              </Button>
+            </div>
+            <PartMissing at={at} part="code" />
+            <ActionEditor
+              at={at}
+              action={step}
+              columns={props.columns}
+              onChange={(next) =>
                 props.onChange(
-                  props.steps.map((item, at) =>
-                    at === index
-                      ? defaultStep(
-                          event.target.value as StepType,
-                          props.tableId,
-                        )
-                      : item,
+                  props.steps.map((item, place) =>
+                    place === index ? (next as AutomationStep) : item,
                   ),
                 )
               }
-            >
-              {STEPS.map((type) => (
-                <option key={type} value={type}>
-                  {labels.action(type)}
-                </option>
-              ))}
-            </Select>
-            <Button
-              size="icon"
-              variant="ghost"
-              aria-label={t`Remove action`}
-              onClick={() =>
-                props.onChange(props.steps.filter((_, at) => at !== index))
-              }
-            >
-              <X className="h-3.5 w-3.5" aria-hidden />
-            </Button>
+            />
           </div>
-          <ActionEditor
-            action={step}
-            columns={props.columns}
-            onChange={(next) =>
-              props.onChange(
-                props.steps.map((item, at) =>
-                  at === index ? (next as AutomationStep) : item,
-                ),
-              )
-            }
-          />
-        </div>
-      ))}
+        );
+      })}
       {props.steps.length < MAX_NESTED_ACTIONS ? (
         <Button
           size="xs"
@@ -349,6 +445,8 @@ function StepsEditor(props: {
 }
 
 function ActionEditor(props: {
+  /** The action's place, as its problems name it (`a0`, `a1.then0`…). */
+  at: string;
   action: AutomationAction;
   /** The fields of the rows the action is about: a loop's, or the table's. */
   columns?: readonly CatalogColumn[];
@@ -356,12 +454,18 @@ function ActionEditor(props: {
 }) {
   const { t } = useLingui();
   const table = useTable();
-  const { action } = props;
+  const { action, at } = props;
   const columns = props.columns ?? table.columns;
+  const to = usePart(at, "to");
+  const subject = usePart(at, "subject");
+  const url = usePart(at, "url");
+  const message = usePart(at, "message");
+  const users = usePart(at, "users");
   switch (action.type) {
     case "update_record":
       return (
         <ValuesEditor
+          at={at}
           columns={writable(columns)}
           values={action.values}
           onChange={(values) => props.onChange({ ...action, values })}
@@ -387,6 +491,7 @@ function ActionEditor(props: {
           />
           <span className="text-xs text-muted-foreground">{t`Then:`}</span>
           <StepsEditor
+            at={`${at}.then`}
             steps={action.then}
             columns={table.columns}
             tableId={table.table.id}
@@ -394,6 +499,7 @@ function ActionEditor(props: {
           />
           <span className="text-xs text-muted-foreground">{t`Otherwise:`}</span>
           <StepsEditor
+            at={`${at}.otherwise`}
             steps={action.otherwise ?? []}
             columns={table.columns}
             tableId={table.table.id}
@@ -461,6 +567,7 @@ function ActionEditor(props: {
           />
           <span className="text-xs text-muted-foreground">{t`For each one:`}</span>
           <StepsEditor
+            at={`${at}.each`}
             steps={action.actions}
             columns={target?.columns ?? []}
             tableId={action.tableId}
@@ -504,6 +611,7 @@ function ActionEditor(props: {
         <div className="flex flex-col gap-1">
           <Input
             aria-label={t`Recipients`}
+            {...to.props}
             placeholder={t`Recipients, separated by commas`}
             className="h-8 text-xs"
             value={action.to}
@@ -511,8 +619,10 @@ function ActionEditor(props: {
               props.onChange({ ...action, to: event.target.value })
             }
           />
+          <PartMissing at={at} part="to" />
           <Input
             aria-label={t`Subject`}
+            {...subject.props}
             placeholder={t`Subject`}
             className="h-8 text-xs"
             value={action.subject}
@@ -520,6 +630,7 @@ function ActionEditor(props: {
               props.onChange({ ...action, subject: event.target.value })
             }
           />
+          <PartMissing at={at} part="subject" />
           <Textarea
             aria-label={t`Message`}
             className="min-h-20 text-xs"
@@ -535,12 +646,14 @@ function ActionEditor(props: {
         <div className="flex flex-col gap-1">
           <Input
             aria-label={t`URL`}
+            {...url.props}
             className="h-8 text-xs"
             value={action.url}
             onChange={(event) =>
               props.onChange({ ...action, url: event.target.value })
             }
           />
+          <PartMissing at={at} part="url" />
           <Textarea
             aria-label={t`Request body`}
             placeholder={t`Empty: the row as JSON`}
@@ -561,6 +674,7 @@ function ActionEditor(props: {
         <div className="flex flex-col gap-1">
           <Input
             aria-label={t`Webhook address`}
+            {...url.props}
             className="h-8 text-xs"
             placeholder={
               action.type === "send_slack"
@@ -572,6 +686,7 @@ function ActionEditor(props: {
               props.onChange({ ...action, url: event.target.value })
             }
           />
+          <PartMissing at={at} part="url" />
           {action.type === "send_teams" ? (
             <Input
               aria-label={t`Title`}
@@ -588,12 +703,14 @@ function ActionEditor(props: {
           ) : null}
           <Textarea
             aria-label={t`Message`}
+            {...message.props}
             className="min-h-16 text-xs"
             value={action.message}
             onChange={(event) =>
               props.onChange({ ...action, message: event.target.value })
             }
           />
+          <PartMissing at={at} part="message" />
           <p className="text-xs text-muted-foreground">
             {action.type === "send_slack"
               ? t`The address of an incoming webhook made in your Slack workspace.`
@@ -604,10 +721,19 @@ function ActionEditor(props: {
     case "notify":
       return (
         <div className="flex flex-col gap-1">
-          <div className="flex flex-wrap gap-3 text-xs">
-            {[...table.people.values()].map((person) => (
+          <fieldset
+            className="flex flex-wrap gap-3 text-xs"
+            {...(users.missing
+              ? { "aria-describedby": `${users.id}-problem` }
+              : {})}
+          >
+            <legend className="mb-1 text-xs text-muted-foreground">
+              {t`People to notify`}
+            </legend>
+            {[...table.people.values()].map((person, index) => (
               <label key={person.id} className="flex items-center gap-1">
                 <Checkbox
+                  {...(index === 0 ? { id: users.id } : {})}
                   checked={action.users.includes(person.id)}
                   onChange={(event) =>
                     props.onChange({
@@ -621,9 +747,11 @@ function ActionEditor(props: {
                 {person.displayName}
               </label>
             ))}
-          </div>
+          </fieldset>
+          <PartMissing at={at} part="users" />
           <Input
             aria-label={t`Message`}
+            {...message.props}
             placeholder={t`Message`}
             className="h-8 text-xs"
             maxLength={300}
@@ -632,6 +760,7 @@ function ActionEditor(props: {
               props.onChange({ ...action, message: event.target.value })
             }
           />
+          <PartMissing at={at} part="message" />
         </div>
       );
     case "run_script":
@@ -650,11 +779,8 @@ function ScriptEditor(props: {
   onChange: (code: string) => void;
 }) {
   const { t } = useLingui();
-  const api = useTRPC();
   const helpId = useId();
-  // Whether this instance runs scripts at all (ADR 0099).
-  const instance = useQuery(api.auth.instance.queryOptions());
-  const off = instance.data ? !instance.data.automationScripts : false;
+  const off = !useScriptsOn();
   return (
     <div className="flex flex-col gap-1">
       {off ? (
@@ -726,14 +852,65 @@ function ScriptEditor(props: {
   );
 }
 
-/** A secret as the editor holds it: its value typed, or kept as it is. */
-type SecretDraft = {
-  name: string;
-  host: string;
-  value: string;
-  /** Already kept by the automation: an empty value leaves it. */
-  kept: boolean;
-};
+/** One secret: its name, the host it goes to, its value. */
+function SecretRow(props: {
+  at: string;
+  secret: SecretDraft;
+  onChange: (patch: Partial<SecretDraft>) => void;
+  onRemove: () => void;
+}) {
+  const { t } = useLingui();
+  const { at, secret } = props;
+  const name = usePart(at, "secretName");
+  const host = usePart(at, "secretHost");
+  const value = usePart(at, "secretValue");
+  return (
+    <div className="flex flex-col gap-1">
+      <div className="flex flex-wrap items-center gap-1">
+        <Input
+          aria-label={t`Secret name`}
+          {...name.props}
+          placeholder="API_TOKEN"
+          className="h-8 w-40 font-mono text-xs"
+          maxLength={40}
+          value={secret.name}
+          onChange={(event) => props.onChange({ name: event.target.value })}
+        />
+        <Input
+          aria-label={t`Host the secret is sent to`}
+          {...host.props}
+          placeholder="api.example.com"
+          className="h-8 w-56 text-xs"
+          maxLength={253}
+          value={secret.host}
+          onChange={(event) => props.onChange({ host: event.target.value })}
+        />
+        <Input
+          type="password"
+          autoComplete="new-password"
+          aria-label={t`Secret value`}
+          {...value.props}
+          placeholder={secret.kept ? t`Kept: type to replace it` : t`Value`}
+          className="h-8 w-56 text-xs"
+          maxLength={4000}
+          value={secret.value}
+          onChange={(event) => props.onChange({ value: event.target.value })}
+        />
+        <Button
+          size="icon"
+          variant="ghost"
+          aria-label={t`Remove secret`}
+          onClick={props.onRemove}
+        >
+          <X className="h-3.5 w-3.5" aria-hidden />
+        </Button>
+      </div>
+      <PartMissing at={at} part="secretName" />
+      <PartMissing at={at} part="secretHost" />
+      <PartMissing at={at} part="secretValue" />
+    </div>
+  );
+}
 
 /** The secrets an automation keeps for its scripts' calls. */
 function SecretsEditor(props: {
@@ -760,44 +937,15 @@ function SecretsEditor(props: {
         {t`A secret is kept sealed and never shown again. A script writes ${"{{secret.NAME}}"} in a call's address, headers, or body: the instance puts the secret there, and only in a call to its own host.`}
       </p>
       {props.secrets.map((secret, index) => (
-        <div key={index} className="flex flex-wrap items-center gap-1">
-          <Input
-            aria-label={t`Secret name`}
-            placeholder="API_TOKEN"
-            className="h-8 w-40 font-mono text-xs"
-            maxLength={40}
-            value={secret.name}
-            onChange={(event) => set(index, { name: event.target.value })}
-          />
-          <Input
-            aria-label={t`Host the secret is sent to`}
-            placeholder="api.example.com"
-            className="h-8 w-56 text-xs"
-            maxLength={253}
-            value={secret.host}
-            onChange={(event) => set(index, { host: event.target.value })}
-          />
-          <Input
-            type="password"
-            autoComplete="new-password"
-            aria-label={t`Secret value`}
-            placeholder={secret.kept ? t`Kept: type to replace it` : t`Value`}
-            className="h-8 w-56 text-xs"
-            maxLength={4000}
-            value={secret.value}
-            onChange={(event) => set(index, { value: event.target.value })}
-          />
-          <Button
-            size="icon"
-            variant="ghost"
-            aria-label={t`Remove secret`}
-            onClick={() =>
-              props.onChange(props.secrets.filter((_, at) => at !== index))
-            }
-          >
-            <X className="h-3.5 w-3.5" aria-hidden />
-          </Button>
-        </div>
+        <SecretRow
+          key={index}
+          at={`s${String(index)}`}
+          secret={secret}
+          onChange={(patch) => set(index, patch)}
+          onRemove={() =>
+            props.onChange(props.secrets.filter((_, at) => at !== index))
+          }
+        />
       ))}
       {props.secrets.length < MAX_AUTOMATION_SECRETS ? (
         <Button
@@ -1019,6 +1167,25 @@ function AutomationEditor(props: {
     (column) => column.fieldType === "button",
   );
   const rowless = ROWLESS.has(trigger.type);
+  const scripts = useScriptsOn();
+  // Once a save was refused here, each part still missing says so.
+  const [tried, setTried] = useState(false);
+  const found = automationProblems({ name, actions, secrets }, scripts);
+  const problems = new Set(
+    tried ? found.map((problem) => problemKey(problem.at, problem.part)) : [],
+  );
+
+  function trySave() {
+    // What the server would refuse without saying which part: said here,
+    // under that part, which takes the keyboard.
+    const first = found[0];
+    if (first) {
+      setTried(true);
+      document.getElementById(partControl(first.at, first.part))?.focus();
+      return;
+    }
+    void save();
+  }
 
   async function save() {
     setBusy(true);
@@ -1099,180 +1266,186 @@ function AutomationEditor(props: {
   }
 
   return (
-    <div className="flex min-h-0 flex-col gap-3 overflow-y-auto pr-1 text-sm">
-      <div className="flex flex-col gap-1">
-        <Label htmlFor="automation-name">{t`Name`}</Label>
-        <Input
-          id="automation-name"
-          maxLength={100}
-          value={name}
-          onChange={(event) => setName(event.target.value)}
-        />
-      </div>
-      {props.initial ? (
-        <Earlier
-          kind="automation"
-          id={props.initial.id}
-          seen={() => ({
-            name: props.initial?.name,
-            enabled: props.initial?.enabled,
-            trigger: props.initial?.trigger,
-            actions: props.initial?.actions,
-          })}
-          onReverted={props.onDone}
-        />
-      ) : null}
-      <section className="flex flex-col gap-2 rounded-sm border border-border p-3">
-        <Label htmlFor="automation-trigger">{t`When`}</Label>
-        <Select
-          id="automation-trigger"
-          className="w-full max-w-sm"
-          value={trigger.type}
-          onChange={(event) => {
-            const next = defaultTrigger(
-              event.target.value as TriggerType,
-              table.columns,
-            );
-            setTrigger(next);
-            // A trigger without a row cannot keep actions about one.
-            if (ROWLESS.has(next.type)) {
-              setActions((current) =>
-                current.map((action) =>
-                  ROW_ACTIONS.has(action.type)
-                    ? defaultAction("send_email", table.table.id)
-                    : action,
-                ),
-              );
-            }
-          }}
-        >
-          {TRIGGERS.filter((type) => type !== "button" || hasButton).map(
-            (type) => (
-              <option key={type} value={type}>
-                {labels.trigger(type)}
-              </option>
-            ),
-          )}
-        </Select>
-        <TriggerEditor trigger={trigger} onChange={setTrigger} />
-        {trigger.type === "webhook" &&
-        props.initial?.trigger.type === "webhook" ? (
-          <Button
-            size="xs"
-            variant="outline"
-            className="self-start"
-            onClick={() => void renew()}
-          >
-            {t`New address (the old one stops working)`}
-          </Button>
+    <Problems value={problems}>
+      <div className="flex min-h-0 flex-col gap-3 overflow-y-auto pr-1 text-sm">
+        <NameField name={name} onChange={setName} />
+        {props.initial ? (
+          <Earlier
+            kind="automation"
+            id={props.initial.id}
+            seen={() => ({
+              name: props.initial?.name,
+              enabled: props.initial?.enabled,
+              trigger: props.initial?.trigger,
+              actions: props.initial?.actions,
+            })}
+            onReverted={props.onDone}
+          />
         ) : null}
-      </section>
-      {actions.map((action, index) => (
-        <section
-          key={index}
-          className="flex flex-col gap-2 rounded-sm border border-border p-3"
-        >
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-medium text-muted-foreground">
-              {t`Then (${{ index: index + 1 }})`}
-            </span>
-            <Select
-              aria-label={t`Action`}
-              className="h-8 w-60 text-xs"
-              value={action.type}
-              onChange={(event) =>
+        <section className="flex flex-col gap-2 rounded-sm border border-border p-3">
+          <Label htmlFor="automation-trigger">{t`When`}</Label>
+          <Select
+            id="automation-trigger"
+            className="w-full max-w-sm"
+            value={trigger.type}
+            onChange={(event) => {
+              const next = defaultTrigger(
+                event.target.value as TriggerType,
+                table.columns,
+              );
+              setTrigger(next);
+              // A trigger without a row cannot keep actions about one.
+              if (ROWLESS.has(next.type)) {
                 setActions((current) =>
-                  current.map((item, at) =>
-                    at === index
-                      ? defaultAction(
-                          event.target.value as ActionType,
-                          table.table.id,
-                        )
-                      : item,
+                  current.map((action) =>
+                    ROW_ACTIONS.has(action.type)
+                      ? defaultAction("send_email", table.table.id)
+                      : action,
                   ),
+                );
+              }
+            }}
+          >
+            {TRIGGERS.filter((type) => type !== "button" || hasButton).map(
+              (type) => (
+                <option key={type} value={type}>
+                  {labels.trigger(type)}
+                </option>
+              ),
+            )}
+          </Select>
+          <TriggerEditor trigger={trigger} onChange={setTrigger} />
+          {trigger.type === "webhook" &&
+          props.initial?.trigger.type === "webhook" ? (
+            <Button
+              size="xs"
+              variant="outline"
+              className="self-start"
+              onClick={() => void renew()}
+            >
+              {t`New address (the old one stops working)`}
+            </Button>
+          ) : null}
+        </section>
+        {actions.map((action, index) => (
+          <section
+            key={index}
+            className="flex flex-col gap-2 rounded-sm border border-border p-3"
+          >
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-medium text-muted-foreground">
+                {t`Then (${{ index: index + 1 }})`}
+              </span>
+              <ActionPicker
+                at={`a${String(index)}`}
+                types={ACTIONS.filter(
+                  (type) => !rowless || !ROW_ACTIONS.has(type),
+                )}
+                value={action.type}
+                className="h-8 w-60 text-xs"
+                onChange={(type) =>
+                  setActions((current) =>
+                    current.map((item, at) =>
+                      at === index ? defaultAction(type, table.table.id) : item,
+                    ),
+                  )
+                }
+              />
+              <Button
+                size="icon"
+                variant="ghost"
+                className="ml-auto"
+                aria-label={t`Remove action`}
+                disabled={actions.length === 1}
+                onClick={() =>
+                  setActions((current) =>
+                    current.filter((_, at) => at !== index),
+                  )
+                }
+              >
+                <Trash2 className="h-4 w-4" aria-hidden />
+              </Button>
+            </div>
+            <PartMissing at={`a${String(index)}`} part="code" />
+            <ActionEditor
+              at={`a${String(index)}`}
+              action={action}
+              onChange={(next) =>
+                setActions((current) =>
+                  current.map((item, at) => (at === index ? next : item)),
                 )
               }
-            >
-              {ACTIONS.filter((type) => !rowless || !ROW_ACTIONS.has(type)).map(
-                (type) => (
-                  <option key={type} value={type}>
-                    {labels.action(type)}
-                  </option>
-                ),
-              )}
-            </Select>
+            />
+          </section>
+        ))}
+        {hasScript(actions) || secrets.length > 0 ? (
+          <SecretsEditor secrets={secrets} onChange={setSecrets} />
+        ) : null}
+        {actions.length < MAX_AUTOMATION_ACTIONS ? (
+          <div>
             <Button
-              size="icon"
+              size="sm"
               variant="ghost"
-              className="ml-auto"
-              aria-label={t`Remove action`}
-              disabled={actions.length === 1}
               onClick={() =>
-                setActions((current) => current.filter((_, at) => at !== index))
+                setActions((current) => [
+                  ...current,
+                  defaultAction(
+                    rowless ? "send_email" : "update_record",
+                    table.table.id,
+                  ),
+                ])
               }
             >
-              <Trash2 className="h-4 w-4" aria-hidden />
+              <Plus className="h-4 w-4" aria-hidden />
+              {t`Add an action`}
             </Button>
           </div>
-          <ActionEditor
-            action={action}
-            onChange={(next) =>
-              setActions((current) =>
-                current.map((item, at) => (at === index ? next : item)),
-              )
-            }
-          />
-        </section>
-      ))}
-      {hasScript(actions) || secrets.length > 0 ? (
-        <SecretsEditor secrets={secrets} onChange={setSecrets} />
-      ) : null}
-      {actions.length < MAX_AUTOMATION_ACTIONS ? (
-        <div>
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={() =>
-              setActions((current) => [
-                ...current,
-                defaultAction(
-                  rowless ? "send_email" : "update_record",
-                  table.table.id,
-                ),
-              ])
-            }
-          >
-            <Plus className="h-4 w-4" aria-hidden />
-            {t`Add an action`}
+        ) : null}
+        <p className="text-xs text-muted-foreground">
+          {t`Values you can use in texts:`}{" "}
+          <code>
+            {[
+              ...TEMPLATE_KEYS,
+              ...table.columns.map((column) => column.name),
+              ...(trigger.type === "webhook"
+                ? ["body", `body_<${t`field`}>`]
+                : []),
+              ...(hasScript(actions) ? [`script_<${t`key`}>`] : []),
+            ]
+              .map((key) => `{{${key}}}`)
+              .join(" ")}
+          </code>
+          .{" "}
+          {t`The automation acts with your access; every write is recorded in the audit trail.`}
+        </p>
+        <DialogFooter>
+          <Button variant="ghost" onClick={props.onDone}>
+            {t`Cancel`}
           </Button>
-        </div>
-      ) : null}
-      <p className="text-xs text-muted-foreground">
-        {t`Values you can use in texts:`}{" "}
-        <code>
-          {[
-            ...TEMPLATE_KEYS,
-            ...table.columns.map((column) => column.name),
-            ...(trigger.type === "webhook"
-              ? ["body", `body_<${t`field`}>`]
-              : []),
-            ...(hasScript(actions) ? [`script_<${t`key`}>`] : []),
-          ]
-            .map((key) => `{{${key}}}`)
-            .join(" ")}
-        </code>
-        .{" "}
-        {t`The automation acts with your access; every write is recorded in the audit trail.`}
-      </p>
-      <DialogFooter>
-        <Button variant="ghost" onClick={props.onDone}>
-          {t`Cancel`}
-        </Button>
-        <Button onClick={() => void save()} disabled={busy || !name.trim()}>
-          {busy ? <Spinner /> : null}
-          {t`Save`}
-        </Button>
-      </DialogFooter>
+          <Button onClick={trySave} disabled={busy}>
+            {busy ? <Spinner /> : null}
+            {t`Save`}
+          </Button>
+        </DialogFooter>
+      </div>
+    </Problems>
+  );
+}
+
+/** The automation's name, and what it says while it has none. */
+function NameField(props: { name: string; onChange: (name: string) => void }) {
+  const { t } = useLingui();
+  const part = usePart("", "name");
+  return (
+    <div className="flex flex-col gap-1">
+      <Label htmlFor={part.id}>{t`Name`}</Label>
+      <Input
+        {...part.props}
+        maxLength={100}
+        value={props.name}
+        onChange={(event) => props.onChange(event.target.value)}
+      />
+      <PartMissing at="" part="name" />
     </div>
   );
 }
