@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
+import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, it } from "node:test";
 import { fileURLToPath } from "node:url";
@@ -21,6 +21,28 @@ function appVariables(text) {
     if (name) names.push(name);
   }
   return names.sort();
+}
+
+/**
+ * The arguments a Compose file gives `certs`, read from its flow list, or
+ * null when its `certs` gives none.
+ */
+function certsCommand(text) {
+  const lines = text.split("\n");
+  const start = lines.indexOf("  certs:");
+  if (start === -1) return null;
+  const end = lines.findIndex(
+    (line, at) => at > start && /^ {2}[a-z_-]+:/.test(line),
+  );
+  const service = lines.slice(start + 1, end === -1 ? undefined : end);
+  const at = service.findIndex((line) => line.startsWith("    command:"));
+  if (at === -1) return null;
+  const list = service
+    .slice(at)
+    .join("\n")
+    .replace(/^ {4}command:/, "");
+  const close = list.indexOf("]");
+  return JSON.parse(list.slice(0, close + 1).replace(/,\s*\]$/, "]"));
 }
 
 describe("the two ways to run AnyGridDB under Compose", () => {
@@ -54,19 +76,36 @@ describe("the two ways to run AnyGridDB under Compose", () => {
     assert.notDeepEqual(appVariables(one), appVariables(other));
   });
 
-  it("keeps the application's role when files run in an object store", async () => {
-    // compose.s3.yml replaces certs' whole command; without --application
-    // the merged stack never makes anygriddb_app (ADR 0119).
-    const s3 = await readFile(join(root, "docker", "compose.s3.yml"), "utf8");
-    const start = s3.indexOf("  certs:");
-    assert.notEqual(start, -1, "compose.s3.yml has no certs service");
-    const rest = s3.slice(start);
-    const end = rest.search(/\n  [a-z]/);
-    const certs = end === -1 ? rest : rest.slice(0, end);
-    assert.match(certs, /"--application"/);
-    assert.match(certs, /"app:1000:1000"/);
-    assert.match(certs, /"--postgres"/);
-    assert.match(certs, /"--service"/);
-    assert.match(certs, /"rustfs:10001:10001"/);
+  it("keep every argument of certs where an overlay replaces its command", async () => {
+    // Compose replaces a list whole: an overlay that gives certs a command
+    // repeats the base file's, or loses what it adds. compose.s3.yml lost
+    // --application, and 0.7.0 to 0.7.4 never started with it (ADR 0119).
+    const base = certsCommand(
+      await readFile(join(root, "docker", "compose.yml"), "utf8"),
+    );
+    assert.ok(base?.includes("--application"), "compose.yml's certs");
+    const files = (await readdir(join(root, "docker"))).filter((file) =>
+      /^compose\..+\.yml$/.test(file),
+    );
+    const checked = [];
+    for (const file of files) {
+      const own = certsCommand(
+        await readFile(join(root, "docker", file), "utf8"),
+      );
+      if (!own) continue;
+      assert.deepEqual(own.slice(0, base.length), base, file);
+      checked.push(file);
+    }
+    assert.ok(checked.includes("compose.s3.yml"), "compose.s3.yml is read");
+  });
+
+  it("would see an argument an overlay lost", () => {
+    const base =
+      '  certs:\n    command:\n      [\n        "tls",\n        "--application",\n      ]\n  db:\n    command: ["x"]\n';
+    const lost = '  certs:\n    command: ["tls"]\n';
+    const none = '  certs:\n    image: x\n  db:\n    command: ["x"]\n';
+    assert.deepEqual(certsCommand(base), ["tls", "--application"]);
+    assert.notDeepEqual(certsCommand(lost), certsCommand(base));
+    assert.equal(certsCommand(none), null);
   });
 });

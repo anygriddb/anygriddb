@@ -8,8 +8,18 @@ first.
 
 ## Unreleased
 
+**With files in an object store (`compose.s3.yml`), this is the first 0.7
+version that starts.** A stack that tried 0.7.0 to 0.7.4 that way and stayed
+stopped needs one step after the upgrade: `docker compose restart db`, then
+`docker compose up -d`, with the same Compose files as `up`.
+
 ### Fixed
 
+- **An instance with its files in an object store starts again.** From 0.7.0
+  the overlay `compose.s3.yml` replaced the certificates step's arguments
+  without the one that makes the application's database role, so `prepare`
+  stopped on `role "anygriddb_app" does not exist` and the instance never
+  started.
 - **The automation editor says what an automation still needs, where it is
   given.** Saved with a part missing, an email without recipient or subject,
   a call, a Slack or a Teams message without its address or its text, a
