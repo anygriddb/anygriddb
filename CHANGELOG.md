@@ -8,8 +8,15 @@ first.
 
 ## Unreleased
 
-**One migration runs as the instance starts; nothing to do before or
-after.**
+## 0.9.0 - 2026-11-25
+
+**Upgrade with this release's Compose files and its pin, as usual. One
+migration runs as the instance starts; nothing to do before or after. Read
+two changes first:** support no longer acts on an account that holds a role
+of Administration (an administrator does that now), and a notification
+channel whose address answers a message with a 301, 302 or 303 now shows a
+failure: those messages were never delivered. Point such a channel at the
+address that takes them.
 
 ### Security
 
