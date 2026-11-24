@@ -1,4 +1,8 @@
-import type { StatusCircuit } from "@anygriddb/core";
+import type {
+  StatusCircuit,
+  StatusState,
+  StatusTransition,
+} from "@anygriddb/core";
 import { describe, expect, it } from "vitest";
 import {
   allowedTransitions,
@@ -7,6 +11,42 @@ import {
   statusShown,
 } from "./row-status-model";
 
+/** A state as the circuit's tests need it: sealed or not. */
+function state(key: string, position: number, sealed = false): StatusState {
+  return {
+    id: key,
+    key,
+    label: key,
+    isInitial: position === 0,
+    rowWritable: !sealed,
+    writableFields: null,
+    allowDelete: !sealed,
+    seal: sealed,
+    position,
+  };
+}
+
+/** A move between two states, open to the roles named. */
+function move(
+  key: string,
+  [fromStateKey, toStateKey]: [string, string],
+  roleKeys: string[],
+): StatusTransition {
+  return {
+    id: key,
+    key,
+    label: key,
+    fromStateKey,
+    toStateKey,
+    requireReason: false,
+    requireFields: [],
+    signature: "none",
+    fourEyes: false,
+    position: 0,
+    roleKeys,
+  };
+}
+
 const compliance: StatusCircuit = {
   id: "c1",
   key: "compliance",
@@ -14,78 +54,14 @@ const compliance: StatusCircuit = {
   system: false,
   tableId: "t1",
   states: [
-    {
-      id: "s1",
-      key: "draft",
-      label: "Draft",
-      isInitial: true,
-      rowWritable: true,
-      writableFields: null,
-      allowDelete: true,
-      seal: false,
-      position: 0,
-    },
-    {
-      id: "s2",
-      key: "submitted",
-      label: "Submitted",
-      isInitial: false,
-      rowWritable: true,
-      writableFields: null,
-      allowDelete: true,
-      seal: false,
-      position: 1,
-    },
-    {
-      id: "s3",
-      key: "locked",
-      label: "Locked",
-      isInitial: false,
-      rowWritable: false,
-      writableFields: null,
-      allowDelete: false,
-      seal: true,
-      position: 2,
-    },
-    {
-      id: "s4",
-      key: "signed",
-      label: "Signed",
-      isInitial: false,
-      rowWritable: false,
-      writableFields: null,
-      allowDelete: false,
-      seal: true,
-      position: 3,
-    },
+    state("draft", 0),
+    state("submitted", 1),
+    state("locked", 2, true),
+    state("signed", 3, true),
   ],
   transitions: [
-    {
-      id: "tr1",
-      key: "submit",
-      label: "Submit",
-      fromStateKey: "draft",
-      toStateKey: "submitted",
-      requireReason: false,
-      requireFields: [],
-      signature: "none",
-      fourEyes: false,
-      position: 0,
-      roleKeys: ["editor", "owner"],
-    },
-    {
-      id: "tr2",
-      key: "lock",
-      label: "Lock",
-      fromStateKey: "submitted",
-      toStateKey: "locked",
-      requireReason: false,
-      requireFields: [],
-      signature: "none",
-      fourEyes: false,
-      position: 1,
-      roleKeys: ["owner"],
-    },
+    move("submit", ["draft", "submitted"], ["editor", "owner"]),
+    move("lock", ["submitted", "locked"], ["owner"]),
   ],
 };
 
