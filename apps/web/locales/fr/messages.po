@@ -23,9 +23,7 @@ msgstr "« {date} » n’existe pas."
 msgid "“{field}” holds at most {limit} characters"
 msgstr "« {field} » contient au plus {limit} caractères"
 
-#: components/public/public-view.tsx
-#: components/table/new-row-dialog.tsx
-#: components/views/form-view.tsx
+#: components/views/form-field.tsx
 msgid "“{field}” is required"
 msgstr "« {field} » est obligatoire"
 
@@ -708,6 +706,10 @@ msgstr "{count, plural, one {Une intégration échoue et ne reçoit plus d’év
 #: components/admin/sources-tab.tsx
 msgid "{count, plural, one {Expose # table} other {Expose # tables}}"
 msgstr "{count, plural, one {Exposer # table} other {Exposer # tables}}"
+
+#: components/views/form-field.tsx
+msgid "{count, plural, one {One field needs correcting, marked above.} other {# fields need correcting, marked above.}}"
+msgstr "{count, plural, one {Un champ est à corriger, signalé plus haut.} other {# champs sont à corriger, signalés plus haut.}}"
 
 #: components/shell/new-base-dialog.tsx
 msgid "{dashboards, plural, one {# dashboard} other {# dashboards}}"

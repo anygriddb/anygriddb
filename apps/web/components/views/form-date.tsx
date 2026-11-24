@@ -25,6 +25,7 @@ export function FormDate({
   labelId,
   describedBy,
   required,
+  invalid,
   column,
   value,
   onChange,
@@ -33,6 +34,8 @@ export function FormDate({
   labelId: string;
   describedBy: string | undefined;
   required: boolean;
+  /** Its answer is missing or refused, as the form says under it. */
+  invalid?: boolean;
   column: CatalogColumn;
   value: string;
   onChange: (value: string) => void;
@@ -99,6 +102,9 @@ export function FormDate({
         aria-labelledby={labelId}
         aria-describedby={describedBy}
         isRequired={required}
+        isInvalid={
+          invalid === true || (value === UNREADABLE_DATE && problem !== "")
+        }
         value={date}
         onChange={(next) => {
           setProblem("");

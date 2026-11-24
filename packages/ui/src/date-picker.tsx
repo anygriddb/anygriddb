@@ -59,6 +59,8 @@ type DatePickerProps = {
   "aria-labelledby"?: string;
   "aria-describedby"?: string;
   isRequired?: boolean;
+  /** Its value is refused: drawn so, and said so to assistive technology. */
+  isInvalid?: boolean;
   /** `cell` covers a grid cell; `field` sits in a form. */
   variant?: "cell" | "field";
   className?: string;
@@ -93,6 +95,7 @@ export function DatePicker(props: DatePickerProps) {
       aria-labelledby={props["aria-labelledby"]}
       aria-describedby={props["aria-describedby"]}
       isRequired={props.isRequired}
+      isInvalid={props.isInvalid}
       shouldForceLeadingZeros
       // In a cell, the field grows past a narrow column to show it all.
       className={cn(cell && "h-full min-w-full w-max", props.className)}
@@ -102,7 +105,7 @@ export function DatePicker(props: DatePickerProps) {
           "flex items-center gap-1 bg-card text-sm text-foreground",
           cell
             ? "h-full w-full gap-2 border-2 border-primary px-2 shadow-lg"
-            : "h-9 w-full rounded-md border border-border px-2.5 data-[focus-within]:outline-2 data-[focus-within]:outline-ring",
+            : "h-9 w-full rounded-md border border-border px-2.5 data-[focus-within]:outline-2 data-[focus-within]:outline-ring data-[invalid]:border-danger",
         )}
       >
         <DateInput

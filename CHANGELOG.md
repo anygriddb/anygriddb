@@ -19,6 +19,16 @@ first.
   carries no comments: their authors are believed only in the instance's own
   copies.
 
+### Fixed
+
+- **A form says what is wrong beside each field, and takes the keyboard
+  there.** Sent with answers missing or refused, a public form, the form
+  view and the dialog of a new row showed one message at a time, at the foot
+  of the form or in a passing notice, and a required date let the browser
+  stop the form without a word. Each field to correct now says why under
+  itself, is marked for assistive technology, and the first one takes the
+  keyboard; the foot of the form says how many there are.
+
 ## 0.7.3 - 2026-11-24
 
 **Upgrade with this release's Compose files and its pin, as usual: nothing else

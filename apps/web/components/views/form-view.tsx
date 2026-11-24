@@ -1,5 +1,4 @@
 import {
-  readCellValue,
   type FilterGroup,
   type FilterKind,
   formWindowNeverOpens,
@@ -33,24 +32,26 @@ import {
 import { useMemo, useState, type ReactNode, type SubmitEvent } from "react";
 import { useNarrowScreen } from "../../lib/narrow-screen";
 import { formRedirectAfterSubmit } from "./form-redirect";
-import { FormField, formFieldIds } from "./form-field";
+import { readFormAnswers } from "./form-answers";
+import {
+  describedBy,
+  FormField,
+  formFieldIds,
+  FormProblems,
+  focusFormField,
+  useAnswerProblemText,
+} from "./form-field";
 import { FormDate } from "./form-date";
 import { FormFiles } from "./form-files";
 import { sendFile, tableFileUrl, type SentFile } from "../../lib/send-file";
 import {
   dateFieldLocale,
-  dateFormatOf,
   editZone,
-  formInstant,
   fromDateValue,
   startingPoint,
   toDateValue,
 } from "../../lib/dates";
-import {
-  readingGiven,
-  readingIn,
-  useRefusedText,
-} from "../../lib/cell-reading";
+import { readingIn } from "../../lib/cell-reading";
 import { useLocale } from "../../lib/i18n";
 import { useSession } from "../../lib/session";
 import { countConditions, FilterBuilder } from "../table/filter-builder";
@@ -131,6 +132,7 @@ export function FieldInput({
   people,
   required = false,
   described = false,
+  invalid = false,
 }: {
   column: CatalogColumn;
   value: string | string[] | boolean;
@@ -139,13 +141,16 @@ export function FieldInput({
   required?: boolean;
   /** Whether a description is shown under the label. */
   described?: boolean;
+  /** Whether what it holds is missing or refused, said under it. */
+  invalid?: boolean;
 }) {
   const { t } = useLingui();
   const ids = formFieldIds(column.name);
   const id = ids.id;
   const aria = {
     "aria-required": required || undefined,
-    "aria-describedby": described ? ids.description : undefined,
+    "aria-invalid": invalid || undefined,
+    "aria-describedby": describedBy(column.name, described, invalid),
   };
   switch (column.fieldType) {
     case "long_text":
@@ -212,6 +217,7 @@ export function FieldInput({
         <Checkbox
           id={id}
           aria-describedby={aria["aria-describedby"]}
+          aria-invalid={aria["aria-invalid"]}
           checked={value === true}
           onChange={(event) => onChange(event.target.checked)}
         />
@@ -373,6 +379,7 @@ export function FieldInput({
           labelId={ids.label}
           describedBy={aria["aria-describedby"]}
           required={required}
+          invalid={invalid}
           column={column}
           value={typeof value === "string" ? value : ""}
           onChange={onChange}
@@ -394,7 +401,6 @@ export function FieldInput({
 
 export function FormView(props: ViewProps) {
   const { t } = useLingui();
-  const refusedText = useRefusedText();
   const table = useTable();
   const form = (props.config.form ?? {}) as FormConfig;
   const candidates = props.allColumns.filter(
@@ -449,49 +455,41 @@ export function FormView(props: ViewProps) {
   const narrow = useNarrowScreen();
   const [fieldsOpen, setFieldsOpen] = useState(false);
 
+  // What is wrong with each answer, by its field, once the form was sent.
+  const [problems, setProblems] = useState<Record<string, string>>({});
+  const problemText = useAnswerProblemText();
+  const answer = (name: string, value: string | string[] | boolean) => {
+    setValues((current) => ({ ...current, [name]: value }));
+    setProblems(({ [name]: _gone, ...rest }) => rest);
+  };
+
   async function submit(event: SubmitEvent) {
     event.preventDefault();
-    const out: Record<string, unknown> = {};
-    for (const { field, column } of shown) {
-      const raw = values[column.name];
-      const empty =
-        raw === undefined ||
-        raw === "" ||
-        (Array.isArray(raw) && raw.length === 0);
-      if (empty) {
-        if (field.required) {
-          toast.error(
-            t`“${{ field: field.label || column.label }}” is required`,
-          );
-          return;
-        }
-        continue;
-      }
-      const reading =
-        column.fieldType === "datetime" && typeof raw === "string"
-          ? { value: formInstant(raw, editZone(dateFormatOf(column))) }
-          : readCellValue(
-              {
-                fieldType: column.fieldType,
-                config: column.config,
-              },
-              raw,
-              // What a link filled is not in the reader's language.
-              raw === prefill.values[column.name]
-                ? readingGiven()
-                : readingIn(table.locale),
-            );
-      if ("refused" in reading || reading.value === undefined) {
-        toast.error(
-          refusedText(
-            field.label || column.label,
-            "refused" in reading ? reading.refused : undefined,
-          ),
-        );
-        return;
-      }
-      out[column.name] = reading.value;
-    }
+    const read = readFormAnswers(
+      shown.map(({ field, column }) => ({
+        column,
+        label: field.label || column.label,
+        required: field.required === true,
+      })),
+      values,
+      { reading: readingIn(table.locale), given: prefill.values },
+    );
+    // A field the link fills and hides is not drawn: it is said apart.
+    const drawn = read.problems.filter(
+      (problem) => !prefill.hidden.has(problem.column),
+    );
+    const hidden = read.problems.find((problem) =>
+      prefill.hidden.has(problem.column),
+    );
+    setProblems(
+      Object.fromEntries(
+        drawn.map((problem) => [problem.column, problemText(problem)]),
+      ),
+    );
+    if (hidden) toast.error(problemText(hidden));
+    if (drawn[0]) focusFormField(drawn[0].column);
+    if (read.problems.length > 0) return;
+    const out = read.values;
     setBusy(true);
     try {
       const id = await props.onCreate(out);
@@ -566,7 +564,11 @@ export function FormView(props: ViewProps) {
               ) : null}
             </div>
           ) : (
-            <form className="mt-6 flex flex-col gap-4" onSubmit={submit}>
+            <form
+              className="mt-6 flex flex-col gap-4"
+              noValidate
+              onSubmit={submit}
+            >
               {shown
                 .filter(({ column }) => !prefill.hidden.has(column.name))
                 .map(({ field, column }) => (
@@ -577,16 +579,17 @@ export function FormView(props: ViewProps) {
                     description={field.description || column.description}
                     required={Boolean(field.required)}
                     labelClassName="text-sm text-foreground"
+                    error={problems[column.name]}
                   >
                     {column.fieldType === "attachment" ? (
                       <FormFiles
                         id={formFieldIds(column.name).id}
                         labelId={formFieldIds(column.name).label}
-                        descriptionId={
-                          field.description || column.description
-                            ? formFieldIds(column.name).description
-                            : undefined
-                        }
+                        descriptionId={describedBy(
+                          column.name,
+                          Boolean(field.description || column.description),
+                          Boolean(problems[column.name]),
+                        )}
                         required={field.required === true}
                         files={sent[column.name] ?? []}
                         onChange={(files) => {
@@ -594,10 +597,10 @@ export function FormView(props: ViewProps) {
                             ...current,
                             [column.name]: files,
                           }));
-                          setValues((current) => ({
-                            ...current,
-                            [column.name]: files.map((file) => file.key),
-                          }));
+                          answer(
+                            column.name,
+                            files.map((file) => file.key),
+                          );
                         }}
                         send={(file) =>
                           sendFile(tableFileUrl(table.table.id), file)
@@ -610,6 +613,7 @@ export function FormView(props: ViewProps) {
                         described={Boolean(
                           field.description || column.description,
                         )}
+                        invalid={Boolean(problems[column.name])}
                         value={
                           values[column.name] ??
                           (column.fieldType === "multi_select"
@@ -618,17 +622,13 @@ export function FormView(props: ViewProps) {
                               ? false
                               : "")
                         }
-                        onChange={(value) =>
-                          setValues((current) => ({
-                            ...current,
-                            [column.name]: value,
-                          }))
-                        }
+                        onChange={(value) => answer(column.name, value)}
                         people={table.people}
                       />
                     )}
                   </FormField>
                 ))}
+              <FormProblems count={Object.keys(problems).length} />
               <Button
                 type="submit"
                 disabled={busy || !props.canEdit}
