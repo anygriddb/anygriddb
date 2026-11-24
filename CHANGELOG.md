@@ -10,6 +10,11 @@ first.
 
 ### Fixed
 
+- **Two texts in English that were written as French writes them.** The
+  earlier values shown beside a setting (a base's, a table's, a view's, a
+  field's, a widget's, a webhook's, an automation's) put a space before the
+  colon after the setting's name, and the API page gave "Texte" as the
+  example of a text field. Both now follow the reader's language.
 - **The automation editor says what an automation still needs, where it is
   given.** Saved with a part missing, an email without recipient or subject,
   a call, a Slack or a Teams message without its address or its text, a

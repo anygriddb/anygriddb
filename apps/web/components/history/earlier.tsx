@@ -78,8 +78,9 @@ function EarlierList(props: {
                   key={change.field}
                   className="rounded bg-muted px-2 py-1 text-xs"
                 >
-                  <span className="font-medium">{label(change.field)}</span>
-                  {" : "}
+                  <span className="font-medium">
+                    {t`${{ field: label(change.field) }}:`}
+                  </span>{" "}
                   <span className="text-danger line-through">
                     {shown(change.before)}
                   </span>

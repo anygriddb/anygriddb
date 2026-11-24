@@ -15,6 +15,10 @@ test("the API page lists and creates rows with the reader's session", async ({
   const baseId = /\/b\/([^/]+)/.exec(page.url())?.[1] ?? "";
   await page.goto(`/b/${baseId}/api`);
   await page.getByRole("heading", { name: "Read rows" }).waitFor();
+  // A text field's example is in the reader's language.
+  await expect(
+    page.getByRole("cell", { name: '"Some text"', exact: true }).first(),
+  ).toBeVisible();
   // The examples wider than the page scroll by keyboard too.
   expect(await accessibilityViolations(page)).toEqual([]);
 
