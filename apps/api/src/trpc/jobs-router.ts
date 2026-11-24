@@ -11,6 +11,7 @@ import {
   jobMakesBase,
   listJobs,
   loadOwnJob,
+  presentJob,
   publicJob,
   retryJob,
   type QueueDeps,
@@ -31,9 +32,9 @@ export const jobsRouter = t.router({
   /** The caller's recent jobs, newest first. */
   list: procedure.input(listJobsInputSchema).query(({ ctx, input }) =>
     handle(ctx, async () => {
-      const { user } = await authorize(ctx);
+      const actor = await authorize(ctx);
       return {
-        jobs: await listJobs(ctx.db, user.id, input.limit, ctx.tokenScope),
+        jobs: await listJobs(ctx.db, actor, input.limit, ctx.tokenScope),
         /**
          * Whether an export can run as a job, its file kept until fetched:
          * always, since there is always a file store. A view of up to
@@ -45,9 +46,11 @@ export const jobsRouter = t.router({
   ),
   get: procedure.input(jobIdInputSchema).query(({ ctx, input }) =>
     handle(ctx, async () => {
-      const { user } = await authorize(ctx);
-      return publicJob(
-        await loadOwnJob(ctx.db, user.id, input.jobId, ctx.tokenScope),
+      const actor = await authorize(ctx);
+      return presentJob(
+        ctx.db,
+        await loadOwnJob(ctx.db, actor.user.id, input.jobId, ctx.tokenScope),
+        actor,
       );
     }),
   ),
@@ -71,6 +74,7 @@ export const jobsRouter = t.router({
       );
       // Started again, it makes a base: it asks what making one asks.
       if (jobMakesBase(job)) await authorize(ctx, true);
+      // A retry has no file yet; the flag stays off until the run finishes.
       return publicJob(await retryJob(queueDeps(ctx), user.id, input.jobId));
     }),
   ),

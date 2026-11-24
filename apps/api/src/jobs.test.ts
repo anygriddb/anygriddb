@@ -42,14 +42,26 @@ describe("job helpers", () => {
     expect(published).toHaveLength(0);
   });
 
-  it("offers a download only for a finished export still in date", () => {
+  it("offers a download only for a finished export still in date and still readable", () => {
     const later = new Date(Date.now() + 60_000);
     const earlier = new Date(Date.now() - 60_000);
     const done = { ...job, status: "done" as const, fileKey: "exports/x" };
-    expect(publicJob({ ...done, fileExpiresAt: later }).download).toBe(true);
+    expect(
+      publicJob({ ...done, fileExpiresAt: later }, { fileReadable: true })
+        .download,
+    ).toBe(true);
+    // Still in date, but the author's rights no longer match the file.
+    expect(
+      publicJob({ ...done, fileExpiresAt: later }, { fileReadable: false })
+        .download,
+    ).toBe(false);
+    expect(publicJob({ ...done, fileExpiresAt: later }).download).toBe(false);
     expect(publicJob({ ...done, fileExpiresAt: earlier }).download).toBe(false);
     expect(
-      publicJob({ ...done, status: "running", fileExpiresAt: later }).download,
+      publicJob(
+        { ...done, status: "running", fileExpiresAt: later },
+        { fileReadable: true },
+      ).download,
     ).toBe(false);
   });
 
