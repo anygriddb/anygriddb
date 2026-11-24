@@ -8,6 +8,14 @@ first.
 
 ## Unreleased
 
+## 0.7.1 - 2026-11-24
+
+**Upgrade with this release's Compose files and its pin, as usual: nothing else
+to do.** The change trail's new index is built by the upgrade on a trail of up
+to 100,000 events. A longer trail gets it beside the writes: at the start when
+the application owns its tables, and under Compose with `docker compose run
+--rm indexes`, needed only to turn the copy below on.
+
 ### Added
 
 - A copy of the change trail out of the database's reach (ADR 0120). Turned
