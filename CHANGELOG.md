@@ -8,20 +8,15 @@ first.
 
 ## Unreleased
 
-### Changed
+## 0.8.0 - 2026-11-24
 
-- **Each person chooses how each kind of notice reaches them.** The one
-  "email me" switch becomes a choice per kind of notice (a mention, a reply,
-  an assignment, an automation, a changed role, …): in the app, by email at
-  once, in a daily or a weekly digest. An administrator sets the defaults
-  for the instance; a person can also silence a noisy base or table. Notices
-  about the account's safety and an administrator's emergency access always
-  come by email and cannot be turned off. Accounts that had email off (the
-  default until now) keep those notices in the app only; accounts that had
-  it on, and accounts made from now on, also get them by email, until the
-  person or an administrator changes it.
-- **Owners of a base are told by email, too, when a role on it is given or
-  an owner is named**, unless they turn that kind of notice off.
+**Upgrade with this release's Compose files and its pin, as usual. Two
+migrations run as the instance starts; nothing to do before or after. More
+mail may leave through your relay:** accounts made from now on, and those
+that had email on, get the notices about their work by email at once, and a
+base's owners are told by email when a role is given on it. To keep the old
+quiet for new accounts, set the instance's defaults in Administration,
+Health, "Person notification defaults", before people sign up.
 
 ### Added
 
@@ -37,6 +32,29 @@ first.
 - **Every notice mail carries a link that stops that kind of notice by
   email, and every digest one that stops the digest,** with no sign-in
   needed. The link is signed by the instance's keys.
+
+### Changed
+
+- **Each person chooses how each kind of notice reaches them.** The one
+  "email me" switch becomes a choice per kind of notice (a mention, a reply,
+  an assignment, an automation, a changed role, …): in the app, by email at
+  once, in a daily or a weekly digest. An administrator sets the defaults
+  for the instance; a person can also silence a noisy base or table. Notices
+  about the account's safety and an administrator's emergency access always
+  come by email and cannot be turned off. Accounts that had email off (the
+  default until now) keep those notices in the app only; accounts that had
+  it on, and accounts made from now on, also get them by email, until the
+  person or an administrator changes it.
+- **Owners of a base are told by email, too, when a role on it is given or
+  an owner is named**, unless they turn that kind of notice off.
+
+### Fixed
+
+- **Tasks no longer offers to download an export its author may no longer
+  read.** The file itself was already refused once the author's rights had
+  changed; the menu still offered it.
+- **A refused share link is said in the share dialog,** above Create a link,
+  instead of in a message that covered the button.
 
 ## 0.7.5 - 2026-11-24
 
