@@ -45,7 +45,9 @@ export class ReadBudget {
 
   take(bytes: number): void {
     // The client has gone: what is still being read has nowhere to go.
-    if (this.closed) throw new AppError("reads_busy");
+    // Its own code, since the server is not busy and its operator has
+    // nothing to add.
+    if (this.closed) throw new AppError("request_closed");
     if (this.used + bytes > this.limit) throw new AppError("page_too_large");
     if (!this.memory.reserve(bytes)) throw new AppError("reads_busy");
     this.used += bytes;

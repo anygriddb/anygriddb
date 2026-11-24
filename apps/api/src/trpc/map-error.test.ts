@@ -9,6 +9,9 @@ const router = t.router({
   locked: procedure.query(() => {
     throw new AppError("row_locked");
   }),
+  left: procedure.query(() => {
+    throw new AppError("request_closed");
+  }),
   broken: procedure.query(() => {
     throw new Error("relation t_x does not exist");
   }),
@@ -33,6 +36,12 @@ describe("tRPC errors", () => {
       code: "row_locked",
       message: "Row locked",
     });
+  });
+
+  it("says a read its client left is closed, not that the server is busy", async () => {
+    const error = await failure(() => caller.left());
+    expect(error.code).toBe("CLIENT_CLOSED_REQUEST");
+    expect(describeTRPCError(error).code).toBe("request_closed");
   });
 
   it("tells nothing of an internal error", async () => {

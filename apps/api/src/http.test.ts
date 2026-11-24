@@ -92,6 +92,29 @@ describe("API security headers", () => {
     expect(lines).toEqual([["info", { status: 429 }, "request failed"]]);
   });
 
+  it("keeps a read its client left off the errors", () => {
+    const lines: Array<[string, Record<string, unknown>, string]> = [];
+    const log = {
+      error: (object: Record<string, unknown>, message: string) =>
+        lines.push(["error", object, message]),
+      info: (object: Record<string, unknown>, message: string) =>
+        lines.push(["info", object, message]),
+    };
+    logFailure(log, {
+      error: new AppError("request_closed"),
+      status: 499,
+      message: "trpc failed",
+      context: { path: "rows.read", code: "request_closed" },
+    });
+    expect(lines).toEqual([
+      [
+        "info",
+        { path: "rows.read", code: "request_closed", status: 499 },
+        "trpc failed",
+      ],
+    ]);
+  });
+
   it("keeps AppError codes on the Fastify error path", () => {
     const refused = replyFromError(new AppError("access_denied"));
     expect(refused.status).toBe(403);

@@ -38,7 +38,7 @@ describe("ReadBudget", () => {
     const budget = budgetFor(response);
     expect(code(() => budget.take(1))).toBeNull();
     response.emit("close");
-    expect(code(() => budget.take(1))).toBe("reads_busy");
+    expect(code(() => budget.take(1))).toBe("request_closed");
   });
 });
 

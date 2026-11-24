@@ -46,6 +46,7 @@ const ERROR_MESSAGES: Record<ErrorCode, MessageDescriptor> = {
   uploads_busy: msg`Too many files are being sent right now. Try again in a moment.`,
   read_timeout: msg`This request took too long. Try again in a moment.`,
   reads_busy: msg`Too much is being read right now. Try again in a moment.`,
+  request_closed: msg`The request was stopped before its answer. Try again.`,
   page_too_large: msg`This page holds too much to read at once. Show fewer rows or fields.`,
   unknown_account: msg`No account with this email`,
   account_already_exists: msg`This account already exists`,
