@@ -8,23 +8,40 @@ first.
 
 ## Unreleased
 
+## 0.7.0 - 2026-11-24
+
+**Upgrade with this release's Compose files and its pin, as usual: nothing else
+to do.** The stack makes the application's database role, its password and its
+rights when it starts. On a PostgreSQL of your own, or with a `compose.yml` of
+your own, the instance keeps signing in as the owner of its tables and says so
+in Administration > Health. The operations guide gives the two steps that move
+it.
+
+### Breaking
+
+- **The application's `DATABASE_URL` no longer names the owner of the tables.**
+  A script of yours that reused it for a migration or a change of structure
+  needs `POSTGRES_USER` and `POSTGRES_PASSWORD` instead.
+- **A refused upgrade or a failed migration is in `docker compose logs prepare`**,
+  no longer in the log of `app`, which does not start.
+- **A field a locked or signed row holds a value in stays in the trash** until
+  that row is unlocked, which the trail records. Purging it would have left a
+  record shown as signed without what was signed.
+
 ### Security
 
 - **The application no longer signs in as the owner of its tables.** Under
   Compose, a one-shot service, `prepare`, holds the owner's credentials, runs
   the migrations and gives the application a role of its own, `anygriddb_app`,
-  with a password made once. That role cannot rewrite the change trail, the signatures or the sign-in trail, or change or remove a value a locked or signed row holds. What it can still do is written on the trail: unlock a row, drop a table, erase an account, purge events past the retention. Nothing to do when upgrading with the
-  release's Compose files. On a PostgreSQL of your own, an instance keeps
-  working as it was and says so in Administration > Health; the operations
-  guide gives the two steps. A refused upgrade or a failed migration is now in
-  `docker compose logs prepare`.
-- **A field a locked or signed row holds a value in stays in the trash** until
-  that row is unlocked, which the trail records. Purging it would have left a
-  record shown as signed without what was signed.
+  with a password made once. That role cannot rewrite the change trail, the
+  signatures or the sign-in trail, or change or remove a value a locked or
+  signed row holds. What it can still do is written on the trail: unlock a row,
+  drop a table, erase an account, purge events past the retention. It could
+  also add an event or a signature in someone's name, since the application
+  says who acts.
 - **The retention purge and an account's erasure write their own event**, in
   the database, whatever called them. The purge takes nothing the instance's
   retention keeps.
-
 - **The change trail answers to the role that owns it.** A setting any database
   session could write was enough to delete an event, give it to another author,
   or change the catalog with no event. It now counts only for the owner of the
@@ -42,6 +59,9 @@ first.
   file fields lack. An application signed in as such a role changes nothing in
   the database's structure at its start, and refuses a database that has not
   been brought to its version.
+- **`docker compose run --rm indexes`** builds the index of a file field that
+  has none, beside the writes. The application names one that is missing in its
+  start log, and files are served correctly meanwhile.
 
 ## 0.6.1 - 2026-11-23
 
