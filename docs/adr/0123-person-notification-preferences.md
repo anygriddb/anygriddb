@@ -1,4 +1,4 @@
-# 0126 — Preferences for person notifications
+# 0123 — Preferences for person notifications
 
 - Status: Accepted
 - Date: 2026-11-24
@@ -41,9 +41,13 @@ that did not ask for a sign-in.
   mail. When a unified authorization surface lands, delivery calls that
   instead; the rule does not change.
 - **Every preference email carries an unsubscribe link** that adjusts that
-  event's channels without a session. Required immediate email refuses
-  the change and says why. Invitations and the administrator's operational
+  event's channels without a session, signed with the instance's keys. A
+  digest's link names no event: it stops that digest for every kind of
+  notice. A notice on a required channel carries no link, and a link forged
+  for one is refused. Invitations and the administrator's operational
   broadcast stay outside the catalogue (ADR 0052).
+- **A digest lists at most 50 notices and counts the rest;** what waits
+  more than 30 days (mail off, an account disabled) is dropped.
 - **`notify_by_email` becomes preferences.** Accounts that had it off get
   collaborative events as in-app only; accounts that had it on keep the
   built-in defaults (in-app and immediate email). The column is then

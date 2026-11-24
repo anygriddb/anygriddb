@@ -1,11 +1,11 @@
--- Person notification preferences (ADR 0126): per-event channels, instance
+-- Person notification preferences (ADR 0123): per-event channels, instance
 -- defaults, mutes of a noisy base or table, and a queue for digests.
 -- Accounts that had notify_by_email off keep collaborative events in-app
 -- only; the column then goes.
 
 CREATE TABLE "notification_defaults" (
   "event" text NOT NULL,
-  "channels" text[] NOT NULL,
+  "channels" jsonb NOT NULL,
   "updated_at" timestamptz NOT NULL DEFAULT now(),
   "updated_by" uuid REFERENCES "users" ("id") ON DELETE SET NULL,
   PRIMARY KEY ("event"),
@@ -31,19 +31,15 @@ CREATE TABLE "notification_defaults" (
     )
   ),
   CONSTRAINT "notification_defaults_channels" CHECK (
-    "channels" <@ ARRAY[
-      'in_app',
-      'email_immediate',
-      'email_daily',
-      'email_weekly'
-    ]::text[]
+    jsonb_typeof("channels") = 'array'
+    AND "channels" <@ '["in_app", "email_immediate", "email_daily", "email_weekly"]'::jsonb
   )
 );
 
 CREATE TABLE "notification_preferences" (
   "user_id" uuid NOT NULL REFERENCES "users" ("id") ON DELETE CASCADE,
   "event" text NOT NULL,
-  "channels" text[] NOT NULL,
+  "channels" jsonb NOT NULL,
   "updated_at" timestamptz NOT NULL DEFAULT now(),
   PRIMARY KEY ("user_id", "event"),
   CONSTRAINT "notification_preferences_event" CHECK (
@@ -68,12 +64,8 @@ CREATE TABLE "notification_preferences" (
     )
   ),
   CONSTRAINT "notification_preferences_channels" CHECK (
-    "channels" <@ ARRAY[
-      'in_app',
-      'email_immediate',
-      'email_daily',
-      'email_weekly'
-    ]::text[]
+    jsonb_typeof("channels") = 'array'
+    AND "channels" <@ '["in_app", "email_immediate", "email_daily", "email_weekly"]'::jsonb
   )
 );
 
@@ -144,7 +136,7 @@ INSERT INTO "notification_preferences" ("user_id", "event", "channels")
 SELECT
   u."id",
   e."event",
-  ARRAY['in_app']::text[]
+  '["in_app"]'::jsonb
 FROM "users" u
 CROSS JOIN (
   VALUES
