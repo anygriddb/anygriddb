@@ -7,6 +7,7 @@ import {
   conversionTimeZone,
   convertsValues,
   draftOf,
+  draftProblems,
   fieldRequest,
   formulaConfigOf,
   moveOption,
@@ -605,5 +606,78 @@ describe("fieldRequest", () => {
         table,
       ),
     ).toMatchObject({ input: { config: {} } });
+  });
+});
+
+describe("draftProblems", () => {
+  const option = { name: "Open", color: "blue" };
+
+  it("asks nothing of a type that needs nothing more", () => {
+    expect(draftProblems(fresh({ fieldType: "text" }), true)).toEqual([]);
+    expect(
+      draftProblems(
+        fresh({ fieldType: "single_select", options: [option] }),
+        true,
+      ),
+    ).toEqual([]);
+    expect(
+      draftProblems(
+        fresh({
+          fieldType: "rollup",
+          relation: "client",
+          targetColumn: "amount",
+        }),
+        true,
+      ),
+    ).toEqual([]);
+    expect(
+      draftProblems(
+        fresh({
+          fieldType: "button",
+          buttonAction: "run_automation",
+          buttonUrl: "",
+        }),
+        true,
+      ),
+    ).toEqual([]);
+  });
+
+  it("names each part still missing, in the dialog's order", () => {
+    for (const fieldType of ["single_select", "multi_select"]) {
+      expect(draftProblems(fresh({ fieldType, options: [] }), false)).toEqual([
+        "options",
+      ]);
+    }
+    expect(
+      draftProblems(
+        fresh({ fieldType: "lookup", relation: "", targetColumn: "" }),
+        true,
+      ),
+    ).toEqual(["relation", "target"]);
+    expect(
+      draftProblems(
+        fresh({ fieldType: "rollup", relation: "client", targetColumn: "" }),
+        true,
+      ),
+    ).toEqual(["target"]);
+    expect(
+      draftProblems(
+        fresh({
+          fieldType: "button",
+          buttonAction: "open_url",
+          buttonUrl: "  ",
+        }),
+        true,
+      ),
+    ).toEqual(["buttonUrl"]);
+  });
+
+  it("leaves a lookup's link alone once the lookup is made", () => {
+    expect(
+      draftProblems(
+        fresh({ fieldType: "lookup", relation: "", targetColumn: "" }),
+        false,
+      ),
+    ).toEqual([]);
   });
 });

@@ -1897,6 +1897,7 @@ msgid "Add a date field to show the timeline."
 msgstr "Add a date field to show the timeline."
 
 #: components/grid/grid-header.tsx
+#: components/table/view-toolbar.tsx
 #: components/views/view-common.tsx
 msgid "Add a field"
 msgstr "Add a field"
@@ -1992,6 +1993,10 @@ msgstr "Add an action"
 #: components/settings/second-factor.tsx
 msgid "Add another passkey"
 msgstr "Add another passkey"
+
+#: components/fields/field-settings.tsx
+msgid "Add at least one option."
+msgstr "Add at least one option."
 
 #: lib/errors.ts
 msgid "Add at least one table before exporting"
@@ -3233,9 +3238,17 @@ msgstr "Choose another image"
 msgid "Choose at least one schedule, or the monitor will never be pinged by a job."
 msgstr "Choose at least one schedule, or the monitor will never be pinged by a job."
 
+#: components/fields/field-link-settings.tsx
+msgid "Choose the field it reads."
+msgstr "Choose the field it reads."
+
 #: components/views/map-view.tsx
 msgid "Choose the fields that hold the latitude and the longitude."
 msgstr "Choose the fields that hold the latitude and the longitude."
+
+#: components/fields/field-link-settings.tsx
+msgid "Choose the link it reads through."
+msgstr "Choose the link it reads through."
 
 #: components/admin/sign-in-trail.tsx
 msgid "Chosen accounts"
@@ -5503,6 +5516,10 @@ msgstr "Give a role to someone"
 #: components/admin/give-base-role.tsx
 msgid "Give myself the role"
 msgstr "Give myself the role"
+
+#: components/fields/field-settings.tsx
+msgid "Give the address the button opens."
+msgstr "Give the address the button opens."
 
 #: components/admin/account-actions.tsx
 msgid "Give the auditor role"
@@ -12714,6 +12731,10 @@ msgstr "This table has no date or number field to put its rows in order."
 #: components/dashboards/dashboard-board.tsx
 msgid "This table has no field this measure can read."
 msgstr "This table has no field this measure can read."
+
+#: components/fields/field-link-settings.tsx
+msgid "This table has no link yet: add a link to another table first."
+msgstr "This table has no link yet: add a link to another table first."
 
 #: components/dashboards/dashboard-board.tsx
 msgid "This table has no number field to count in bins."

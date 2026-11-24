@@ -366,6 +366,22 @@ test.describe("a number field that refuses negatives, then empties", () => {
     await page.getByRole("button", { name: "Add a field" }).click();
     const dialog = page.getByRole("dialog");
     await dialog.getByLabel("Field name").fill("Stock");
+    // A list with no option is not sent: the dialog says what it needs,
+    // where it is given, and nothing reaches the server.
+    await pickFieldType(page, dialog, "Single select");
+    let asked = 0;
+    const count = () => (asked += 1);
+    page.on("request", count);
+    await dialog.getByRole("button", { name: "Create field" }).click();
+    await expect(dialog.getByText("Add at least one option.")).toBeVisible();
+    await expect(dialog.getByLabel("New option")).toBeFocused();
+    await expect(dialog.getByLabel("New option")).toHaveAttribute(
+      "aria-invalid",
+      "true",
+    );
+    expect(await accessibilityViolations(page)).toEqual([]);
+    page.off("request", count);
+    expect(asked).toBe(0);
     await pickFieldType(page, dialog, "Number");
     await dialog.getByLabel("Refuse negative numbers").check();
     await dialog.getByRole("button", { name: "Create field" }).click();

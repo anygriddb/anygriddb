@@ -30,7 +30,9 @@ import {
   conversionTimeZone,
   CONVERTIBLE,
   convertsValues,
+  DRAFT_SPOT_CONTROLS,
   draftOf,
+  draftProblems,
   type FieldDraft,
   type FieldEditorTarget,
   fieldRequest,
@@ -133,7 +135,10 @@ export function FieldEditor({
     fieldType === "formula" &&
     (!draft.formula.trim() ||
       checkFormulaTyped(draft.formula, scope.refs, scope.typeContext) !== null);
-  const settings = { draft, set };
+  // Once a save was refused here, each part still missing says so.
+  const [tried, setTried] = useState(false);
+  const problems = new Set(tried ? draftProblems(draft, isNew) : []);
+  const settings = { draft, set, problems };
 
   /**
    * Whether a change of type must be confirmed first: it would lose or
@@ -227,6 +232,14 @@ export function FieldEditor({
   }
 
   function save() {
+    // What the server would refuse without saying which part: said here,
+    // under that part, which takes the keyboard.
+    const missing = draftProblems(draft, isNew)[0];
+    if (missing) {
+      setTried(true);
+      document.getElementById(DRAFT_SPOT_CONTROLS[missing])?.focus();
+      return;
+    }
     setBusy(true);
     void send().finally(() => setBusy(false));
   }
