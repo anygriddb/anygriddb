@@ -4,6 +4,7 @@
  * rewritten by the role that owns it.
  */
 import { randomBytes, randomUUID } from "node:crypto";
+import { Readable } from "node:stream";
 import type { Database } from "@anygriddb/db";
 import type pg from "pg";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -13,9 +14,10 @@ import {
   BATCH_EVENTS,
   shipTrail,
   trailShippingStatus,
+  WAITING_COUNTED,
   type TrailBatch,
 } from "./trail-shipping.js";
-import { verifyTrail } from "./trail-verify.js";
+import { linesOf, verifyTrail } from "./trail-verify.js";
 
 describe("the change trail's copy at the collectors", () => {
   const ring = keyRing(randomBytes(32), "test");
@@ -174,6 +176,17 @@ describe("the change trail's copy at the collectors", () => {
     expect(report.matched).toBe(sentIds().length - 1);
   });
 
+  it("reads a collector's file as a stream, its batches in any order", async () => {
+    const text = file([...sent].reverse());
+    const pieces = Array.from({ length: Math.ceil(text.length / 7) }, (_, at) =>
+      text.slice(at * 7, at * 7 + 7),
+    );
+    const report = await verifyTrail(db, ring, linesOf(Readable.from(pieces)));
+    expect(report.findings).toEqual([]);
+    expect(report.batches).toBe(sent.length);
+    expect(report.matched + report.erased).toBe(sentIds().length);
+  });
+
   it("names what the owner of the trail rewrote, and the batches lost", async () => {
     const full = sent.find((batch) => batch.events.length === BATCH_EVENTS);
     const [altered, deleted, reassigned] = full?.events ?? [];
@@ -241,8 +254,21 @@ describe("the change trail's copy at the collectors", () => {
       indexed: true,
       batch: sent.at(-1)?.batch,
       waiting: 0,
+      waitingMore: false,
     });
     await write(alice);
     expect((await trailShippingStatus(db, undefined)).waiting).toBe(1);
+  });
+
+  it("counts what waits up to a bound, and says there is more", async () => {
+    await ownerPool.query(
+      `insert into audit_events (user_id, action)
+       select $1, 'update' from generate_series(1, $2::int)`,
+      [alice, WAITING_COUNTED],
+    );
+    expect(await trailShippingStatus(db, undefined)).toMatchObject({
+      waiting: WAITING_COUNTED,
+      waitingMore: true,
+    });
   });
 });

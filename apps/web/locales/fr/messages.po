@@ -1088,6 +1088,10 @@ msgstr "{visible, plural, one {# ligne visible} other {# lignes visibles}}"
 msgid "{waiting, plural, one {# change not sent yet.} other {# changes not sent yet.}}"
 msgstr "{waiting, plural, one {# modification pas encore envoyée.} other {# modifications pas encore envoyées.}}"
 
+#: components/admin/security-tab.tsx
+msgid "{waiting, plural, one {More than # change not sent yet.} other {More than # changes not sent yet.}}"
+msgstr "{waiting, plural, one {Plus de # modification pas encore envoyée.} other {Plus de # modifications pas encore envoyées.}}"
+
 #: lib/snapshot-report.ts
 msgid "{widgets, plural, one {# widget that reads a source's table or a personal view, left out of its dashboard} other {# widgets that read a source's table or a personal view, left out of their dashboards}}"
 msgstr "{widgets, plural, one {# widget qui lit la table d’une source ou une vue personnelle, laissé hors de son tableau de bord} other {# widgets qui lisent la table d’une source ou une vue personnelle, laissés hors de leur tableau de bord}}"

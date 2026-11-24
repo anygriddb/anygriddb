@@ -4,8 +4,12 @@
  * kept, one batch a line, as the HTTPS collector got it or as a syslog
  * line. A batch lost or changed, an event changed, deleted outside a
  * purge, given another author, or never sent, is said.
+ *
+ * The file is read a line at a time, and what is kept of it is bounded: a
+ * few bytes a batch for its chain, 24 an event to find what was never
+ * sent. A month of a busy instance's trail is millions of events.
  */
-import { compareCodeUnits, POLICY_BOUNDS } from "@anygriddb/core";
+import { POLICY_BOUNDS } from "@anygriddb/core";
 import type { Database } from "@anygriddb/db";
 import { sql } from "kysely";
 import { keyOf, type KeyRing } from "../auth/key-ring.js";
@@ -57,6 +61,82 @@ export type VerifyReport = {
 const LISTED = 1_000;
 /** Events read from the database at once. */
 const CHUNK = 1_000;
+/** The longest line read: a batch of 25 events stays under 8 KiB. */
+export const LINE_BYTES = 1024 * 1024;
+
+/** Findings as they come: the first thousand listed, the others counted. */
+export class Findings {
+  readonly listed: Finding[] = [];
+  more = 0;
+
+  add(finding: Finding): void {
+    if (this.listed.length < LISTED) this.listed.push(finding);
+    else this.more += 1;
+  }
+
+  /**
+   * The batches from `from` up to `to`, `to` excluded, all missing. However
+   * far apart a forged number puts them, this lists a thousand at most.
+   */
+  addMissing(from: number, to: number): void {
+    const count = to - from;
+    const listed = Math.min(count, LISTED - this.listed.length);
+    for (let index = 0; index < listed; index += 1) {
+      this.listed.push({ kind: "batch_missing", batch: from + index });
+    }
+    this.more += count - listed;
+  }
+}
+
+/** A collector's input, a line at a time: null for a line too long to be a batch. */
+export async function* linesOf(
+  input: AsyncIterable<Buffer | string>,
+): AsyncGenerator<string | null> {
+  let parts: Buffer[] = [];
+  let held = 0;
+  let overlong = false;
+  for await (const chunk of input) {
+    let data = typeof chunk === "string" ? Buffer.from(chunk) : chunk;
+    for (let end = data.indexOf(0x0a); end >= 0; end = data.indexOf(0x0a)) {
+      const last = data.subarray(0, end);
+      if (overlong || held + last.length > LINE_BYTES) yield null;
+      else yield Buffer.concat([...parts, last]).toString("utf8");
+      parts = [];
+      held = 0;
+      overlong = false;
+      data = data.subarray(end + 1);
+    }
+    if (overlong) continue;
+    if (held + data.length > LINE_BYTES) {
+      // What is kept of a line stops here: the rest is read past.
+      overlong = true;
+      parts = [];
+      held = 0;
+    } else if (data.length > 0) {
+      parts.push(data);
+      held += data.length;
+    }
+  }
+  if (overlong) yield null;
+  else if (held > 0) yield Buffer.concat(parts).toString("utf8");
+}
+
+const textOrNull = (value: unknown) =>
+  value === null || typeof value === "string";
+
+function isEntry(value: unknown): value is TrailEntry {
+  if (!value || typeof value !== "object") return false;
+  const entry = value as Partial<TrailEntry>;
+  return (
+    typeof entry.id === "string" &&
+    textOrNull(entry.order) &&
+    typeof entry.at === "string" &&
+    typeof entry.action === "string" &&
+    typeof entry.userId === "string" &&
+    textOrNull(entry.actedAs) &&
+    typeof entry.fingerprint === "string"
+  );
+}
 
 function isBatch(value: unknown): value is TrailBatch {
   if (!value || typeof value !== "object") return false;
@@ -64,77 +144,222 @@ function isBatch(value: unknown): value is TrailBatch {
   return (
     batch.action === "trail_batch" &&
     Number.isSafeInteger(batch.batch) &&
+    textOrNull(batch.previous) &&
     typeof batch.key === "string" &&
     typeof batch.digest === "string" &&
-    Array.isArray(batch.events)
+    Array.isArray(batch.events) &&
+    batch.events.every(isEntry)
   );
 }
 
 /**
- * The batches of a collector's file: a JSON object a line, or a syslog line
- * whose message is one. Answers how many lines were not a batch.
+ * The batch a line of a collector's file holds: a JSON object, or a syslog
+ * line whose message is one. Null when it holds none.
  */
-export function readBatches(text: string): {
-  batches: TrailBatch[];
-  unreadable: number;
-} {
-  const batches: TrailBatch[] = [];
-  let unreadable = 0;
-  for (const line of text.split("\n")) {
-    const start = line.indexOf("{");
-    if (start < 0) {
-      if (line.trim() !== "") unreadable += 1;
-      continue;
-    }
-    try {
-      const value: unknown = JSON.parse(line.slice(start));
-      if (isBatch(value)) batches.push(value);
-      else unreadable += 1;
-    } catch {
-      unreadable += 1;
-    }
+export function batchOf(line: string): TrailBatch | null {
+  const start = line.indexOf("{");
+  if (start < 0) return null;
+  try {
+    const value: unknown = JSON.parse(line.slice(start));
+    return isBatch(value) ? value : null;
+  } catch {
+    return null;
   }
-  return { batches, unreadable };
 }
 
 /**
- * The batches in their order, one of each number, and what their chain
- * says: a digest that is not its fields', a number missing, a previous
- * digest that is not the batch before's.
+ * The chain of the batches read, a digest and the previous one's a batch:
+ * a digest that is not its fields', two batches of one number, a number
+ * missing, a previous digest that is not the batch before's.
  */
-export function checkChain(batches: readonly TrailBatch[]): {
-  ordered: TrailBatch[];
-  findings: Finding[];
-} {
-  const findings: Finding[] = [];
-  const byNumber = new Map<number, TrailBatch>();
-  for (const batch of batches) {
-    const held = byNumber.get(batch.batch);
-    if (!held) byNumber.set(batch.batch, batch);
-    else if (held.digest !== batch.digest) {
-      findings.push({ kind: "batch_forked", batch: batch.batch });
-    }
+export class BatchChain {
+  private readonly links = new Map<
+    number,
+    { digest: string; previous: string | null }
+  >();
+
+  get size(): number {
+    return this.links.size;
   }
-  const ordered = [...byNumber.values()].sort((a, b) => a.batch - b.batch);
-  let before: TrailBatch | undefined;
-  for (const batch of ordered) {
+
+  /**
+   * Takes a batch as read. Answers whether its events are to be checked:
+   * not when a batch of its number was read before, the same or not.
+   */
+  take(batch: TrailBatch, findings: Findings): boolean {
+    const held = this.links.get(batch.batch);
+    if (held) {
+      if (held.digest !== batch.digest) {
+        findings.add({ kind: "batch_forked", batch: batch.batch });
+      }
+      return false;
+    }
+    this.links.set(batch.batch, {
+      digest: batch.digest,
+      previous: batch.previous,
+    });
     if (batchDigest(batch) !== batch.digest) {
-      findings.push({ kind: "batch_altered", batch: batch.batch });
+      findings.add({ kind: "batch_altered", batch: batch.batch });
     }
-    if (before) {
-      for (let lost = before.batch + 1; lost < batch.batch; lost += 1) {
-        findings.push({ kind: "batch_missing", batch: lost });
-      }
-      if (
-        before.batch + 1 === batch.batch &&
-        batch.previous !== before.digest
-      ) {
-        findings.push({ kind: "chain_broken", batch: batch.batch });
-      }
-    }
-    before = batch;
+    return true;
   }
-  return { ordered, findings };
+
+  /** Once every batch is read: the numbers missing, and the links broken. */
+  finish(findings: Findings): void {
+    const numbers = Float64Array.from(this.links.keys()).sort((a, b) => a - b);
+    let before: { batch: number; digest: string } | undefined;
+    for (const batch of numbers) {
+      const link = this.links.get(batch);
+      if (!link) continue;
+      if (before && batch > before.batch + 1) {
+        findings.addMissing(before.batch + 1, batch);
+      } else if (before && link.previous !== before.digest) {
+        findings.add({ kind: "chain_broken", batch });
+      }
+      before = { batch, digest: link.digest };
+    }
+  }
+}
+
+/** A uuid as the database writes it: a batch from elsewhere may say it otherwise. */
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+const ID_BYTES = 16;
+
+/** A uuid's 16 bytes. */
+function idBytes(id: string): Buffer {
+  return Buffer.from(id.replaceAll("-", ""), "hex");
+}
+
+/** A uuid as text, from its 16 bytes. */
+function idText(bytes: Buffer): string {
+  const hex = bytes.toString("hex");
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
+
+/**
+ * The events a file carried, by a number that orders them (a write order,
+ * or a time in microseconds) then their id: 24 bytes an event. Sorted once
+ * read, then asked.
+ */
+export class SentEvents {
+  private keys = new Float64Array(1024);
+  private ids = Buffer.alloc(1024 * ID_BYTES);
+  private count = 0;
+  private sorted = true;
+
+  get size(): number {
+    return this.count;
+  }
+
+  add(key: number, id: string): void {
+    if (this.count === this.keys.length) {
+      const keys = new Float64Array(this.count * 2);
+      keys.set(this.keys);
+      this.keys = keys;
+      const ids = Buffer.alloc(this.count * 2 * ID_BYTES);
+      this.ids.copy(ids);
+      this.ids = ids;
+    }
+    this.keys[this.count] = key;
+    idBytes(id).copy(this.ids, this.count * ID_BYTES);
+    if (this.count > 0 && this.compare(this.count - 1, this.count) > 0) {
+      this.sorted = false;
+    }
+    this.count += 1;
+  }
+
+  /** The event at `a` against the one at `b`. */
+  private compare(a: number, b: number): number {
+    const keyA = this.keys[a] ?? 0;
+    const keyB = this.keys[b] ?? 0;
+    if (keyA !== keyB) return keyA < keyB ? -1 : 1;
+    return this.ids.compare(
+      this.ids,
+      b * ID_BYTES,
+      (b + 1) * ID_BYTES,
+      a * ID_BYTES,
+      (a + 1) * ID_BYTES,
+    );
+  }
+
+  /** In their order. A file read as written is already: nothing moves. */
+  sort(): void {
+    if (this.sorted) return;
+    const order = Uint32Array.from({ length: this.count }, (_, at) => at).sort(
+      (a, b) => this.compare(a, b),
+    );
+    const keys = new Float64Array(this.count);
+    const ids = Buffer.alloc(this.count * ID_BYTES);
+    order.forEach((from, to) => {
+      keys[to] = this.keys[from] ?? 0;
+      this.ids.copy(ids, to * ID_BYTES, from * ID_BYTES, (from + 1) * ID_BYTES);
+    });
+    this.keys = keys;
+    this.ids = ids;
+    this.sorted = true;
+  }
+
+  /** The first and the last, once sorted. */
+  ends(): {
+    first: { key: number; id: string };
+    last: { key: number; id: string };
+  } | null {
+    if (this.count === 0) return null;
+    const at = (index: number) => ({
+      key: this.keys[index] ?? 0,
+      id: idText(this.ids.subarray(index * ID_BYTES, (index + 1) * ID_BYTES)),
+    });
+    return { first: at(0), last: at(this.count - 1) };
+  }
+
+  /** Whether this event was carried, once sorted. */
+  has(key: number, id: string): boolean {
+    const bytes = idBytes(id);
+    let low = 0;
+    let high = this.count - 1;
+    while (low <= high) {
+      const middle = (low + high) >>> 1;
+      const held = this.keys[middle] ?? 0;
+      const order =
+        held === key
+          ? this.ids.compare(
+              bytes,
+              0,
+              ID_BYTES,
+              middle * ID_BYTES,
+              (middle + 1) * ID_BYTES,
+            )
+          : held < key
+            ? -1
+            : 1;
+      if (order === 0) return true;
+      if (order < 0) low = middle + 1;
+      else high = middle - 1;
+    }
+    return false;
+  }
+}
+
+/** The time and id of an event, as the copy orders the early ones. */
+const EARLY_AT = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}Z$/;
+
+/** An event's time, as the copy writes it, in microseconds. */
+export function microsOf(at: string): number {
+  return Date.parse(`${at.slice(0, 19)}Z`) * 1000 + Number(at.slice(20, 26));
+}
+
+/** The copy's text of a time in microseconds. */
+export function atOf(micros: number): string {
+  const seconds = Math.floor(micros / 1_000_000);
+  const fraction = String(micros - seconds * 1_000_000).padStart(6, "0");
+  return `${new Date(seconds * 1000).toISOString().slice(0, 19)}.${fraction}Z`;
+}
+
+/** An event's write order as a number, or null when it is none it could hold. */
+function orderOf(order: string | null): number | null {
+  if (order === null || !/^\d{1,16}$/.test(order)) return null;
+  const number = Number(order);
+  return Number.isSafeInteger(number) ? number : null;
 }
 
 export type EventVerdict =
@@ -240,62 +465,113 @@ async function purgeReach(db: Database, now: Date): Promise<string | null> {
   return new Date(Math.min(before.getTime(), floor)).toISOString();
 }
 
-/** A uuid as the database writes it: a batch from elsewhere may say it otherwise. */
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+type Pending = { entry: TrailEntry; batch: TrailBatch };
 
-/** Compares what a collector holds with the database. */
+/** Checks events sent against the database, a chunk at a time. */
+async function checkEvents(
+  db: Database,
+  ring: KeyRing,
+  purgedBefore: string | null,
+  pending: readonly Pending[],
+  report: VerifyReport,
+  findings: Findings,
+): Promise<void> {
+  const ids = pending
+    .map(({ entry }) => entry.id)
+    .filter((id) => UUID.test(id));
+  const rows = await rowsOf(db, ids);
+  const authors = pending.flatMap(({ entry }) =>
+    [entry.userId, entry.actedAs].filter(
+      (id): id is string => id !== null && UUID.test(id),
+    ),
+  );
+  const accounts = await accountsOf(db, [...new Set(authors)]);
+  for (const { entry, batch } of pending) {
+    const verdict = verdictOf(entry, batch.key, rows.get(entry.id), {
+      key: (id) => keyOf(ring, id, "trail"),
+      purgedBefore,
+      exists: (userId) => accounts.has(userId),
+    });
+    if (verdict === "matched") report.matched += 1;
+    else if (verdict === "purged") report.purged += 1;
+    else if (verdict === "erased") report.erased += 1;
+    else findings.add({ kind: verdict, batch: batch.batch, id: entry.id });
+  }
+}
+
+/** Notes an event carried, by its write order, or by its time when it has none. */
+function noteSent(
+  entry: TrailEntry,
+  ordered: SentEvents,
+  early: SentEvents,
+): void {
+  if (!UUID.test(entry.id)) return;
+  if (entry.order === null) {
+    if (EARLY_AT.test(entry.at)) early.add(microsOf(entry.at), entry.id);
+    return;
+  }
+  const order = orderOf(entry.order);
+  if (order !== null) ordered.add(order, entry.id);
+}
+
+/** Compares what a collector holds, a line at a time, with the database. */
 export async function verifyTrail(
   db: Database,
   ring: KeyRing,
-  text: string,
+  input: string | Iterable<string | null> | AsyncIterable<string | null>,
   now: Date = new Date(),
 ): Promise<VerifyReport & { unreadable: number }> {
-  const { batches, unreadable } = readBatches(text);
-  const { ordered, findings } = checkChain(batches);
+  const lines = typeof input === "string" ? input.split("\n") : input;
   const purgedBefore = await purgeReach(db, now);
   const report: VerifyReport = {
-    batches: ordered.length,
+    batches: 0,
     events: 0,
     matched: 0,
     purged: 0,
     erased: 0,
-    findings,
+    findings: [],
     more: 0,
   };
-  const entries = ordered.flatMap((batch) =>
-    batch.events.map((entry) => ({ entry, batch })),
-  );
-  report.events = entries.length;
-  const sent = new Set<string>();
-  for (let at = 0; at < entries.length; at += CHUNK) {
-    const chunk = entries.slice(at, at + CHUNK);
-    const ids = chunk
-      .map(({ entry }) => entry.id)
-      .filter((id) => UUID.test(id));
-    const rows = await rowsOf(db, ids);
-    const authors = chunk.flatMap(({ entry }) =>
-      [entry.userId, entry.actedAs].filter(
-        (id): id is string => id !== null && UUID.test(id),
-      ),
-    );
-    const accounts = await accountsOf(db, [...new Set(authors)]);
-    for (const { entry, batch } of chunk) {
-      sent.add(entry.id);
-      const verdict = verdictOf(entry, batch.key, rows.get(entry.id), {
-        key: (id) => keyOf(ring, id, "trail"),
-        purgedBefore,
-        exists: (userId) => accounts.has(userId),
-      });
-      if (verdict === "matched") report.matched += 1;
-      else if (verdict === "purged") report.purged += 1;
-      else if (verdict === "erased") report.erased += 1;
-      else findings.push({ kind: verdict, batch: batch.batch, id: entry.id });
+  // What the chain says is listed before what the events say.
+  const ofChain = new Findings();
+  const ofEvents = new Findings();
+  const chain = new BatchChain();
+  const ordered = new SentEvents();
+  const early = new SentEvents();
+  let unreadable = 0;
+  let pending: Pending[] = [];
+  for await (const line of lines) {
+    if (line !== null && line.trim() === "") continue;
+    const batch = line === null ? null : batchOf(line);
+    if (!batch) {
+      unreadable += 1;
+      continue;
+    }
+    if (!chain.take(batch, ofChain)) continue;
+    for (const entry of batch.events) {
+      report.events += 1;
+      noteSent(entry, ordered, early);
+      pending.push({ entry, batch });
+    }
+    if (pending.length >= CHUNK) {
+      await checkEvents(db, ring, purgedBefore, pending, report, ofEvents);
+      pending = [];
     }
   }
-  await notSent(db, ordered, sent, findings);
-  await earlyNotSent(db, ordered, sent, findings);
-  report.more = Math.max(0, findings.length - LISTED);
-  report.findings = findings.slice(0, LISTED);
+  await checkEvents(db, ring, purgedBefore, pending, report, ofEvents);
+  chain.finish(ofChain);
+  report.batches = chain.size;
+  ordered.sort();
+  early.sort();
+  await notSent(db, ordered, ofEvents);
+  await earlyNotSent(db, early, ofEvents);
+  report.findings = [...ofChain.listed, ...ofEvents.listed].slice(0, LISTED);
+  report.more =
+    ofChain.listed.length +
+    ofChain.more +
+    ofEvents.listed.length +
+    ofEvents.more -
+    report.findings.length;
   return { ...report, unreadable };
 }
 
@@ -305,44 +581,32 @@ export async function verifyTrail(
  */
 async function notSent(
   db: Database,
-  ordered: readonly TrailBatch[],
-  sent: ReadonlySet<string>,
-  findings: Finding[],
+  sent: SentEvents,
+  findings: Findings,
 ): Promise<void> {
-  const orders = ordered.flatMap((batch) =>
-    batch.events.map((entry) => entry.order),
-  );
-  let first: bigint | undefined;
-  let last: bigint | undefined;
-  for (const order of orders) {
-    if (order === null || !/^\d{1,19}$/.test(order)) continue;
-    const number = BigInt(order);
-    if (first === undefined || number < first) first = number;
-    if (last === undefined || number > last) last = number;
-  }
-  if (first === undefined || last === undefined) return;
-  let after = first - 1n;
+  const ends = sent.ends();
+  if (!ends) return;
+  let after = String(ends.first.key - 1);
+  const last = String(ends.last.key);
   for (;;) {
     const { rows } = await sql<{
       id: string;
       order: string;
     }>`select id::text as "id",
         write_order::text as "order" from audit_events
-      where write_order > ${after.toString()}::bigint
-        and write_order <= ${last.toString()}::bigint
+      where write_order > ${after}::bigint
+        and write_order <= ${last}::bigint
       order by write_order limit ${CHUNK}`.execute(db);
     for (const row of rows) {
-      if (!sent.has(row.id))
-        findings.push({ kind: "event_not_sent", id: row.id });
+      if (!sent.has(Number(row.order), row.id)) {
+        findings.add({ kind: "event_not_sent", id: row.id });
+      }
     }
     const end = rows.at(-1);
     if (!end || rows.length < CHUNK) return;
-    after = BigInt(end.order);
+    after = end.order;
   }
 }
-
-/** The time and id of an event, as the copy orders the early ones. */
-const EARLY_AT = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}Z$/;
 
 /**
  * The events from before the write order the database holds between the
@@ -350,21 +614,14 @@ const EARLY_AT = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}Z$/;
  */
 async function earlyNotSent(
   db: Database,
-  ordered: readonly TrailBatch[],
-  sent: ReadonlySet<string>,
-  findings: Finding[],
+  sent: SentEvents,
+  findings: Findings,
 ): Promise<void> {
-  const keys = ordered
-    .flatMap((batch) => batch.events)
-    .filter((entry) => entry.order === null)
-    .filter((entry) => EARLY_AT.test(entry.at) && UUID.test(entry.id))
-    .map((entry) => `${entry.at} ${entry.id}`)
-    .sort(compareCodeUnits);
-  const first = keys.at(0)?.split(" ");
-  const last = keys.at(-1)?.split(" ");
-  if (!first || !last) return;
-  let after: string[] = first;
+  const ends = sent.ends();
+  if (!ends) return;
+  let after = [atOf(ends.first.key), ends.first.id];
   let inclusive = true;
+  const last = [atOf(ends.last.key), ends.last.id];
   for (;;) {
     const { rows } = await sql<{
       id: string;
@@ -379,8 +636,8 @@ async function earlyNotSent(
         and (occurred_at, id) <= (${last[0]}::timestamptz, ${last[1]}::uuid)
       order by occurred_at, id limit ${CHUNK}`.execute(db);
     for (const row of rows) {
-      if (!sent.has(row.id)) {
-        findings.push({ kind: "event_not_sent", id: row.id });
+      if (!sent.has(microsOf(row.at), row.id)) {
+        findings.add({ kind: "event_not_sent", id: row.id });
       }
     }
     const end = rows.at(-1);

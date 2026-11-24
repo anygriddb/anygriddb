@@ -361,9 +361,20 @@ export type TrailShippingStatus = {
   batch: number;
   shippedAt: string | null;
   failedAt: string | null;
-  /** Events not sent yet; null when they cannot be counted cheaply. */
+  /**
+   * Events not sent yet, counted up to `WAITING_COUNTED`; null when they
+   * cannot be counted cheaply.
+   */
   waiting: number | null;
+  /** More events wait than were counted. */
+  waitingMore: boolean;
 };
+
+/**
+ * How many waiting events the page counts at most: the count is read on
+ * each refresh, and a trail that was never sent is the whole trail.
+ */
+export const WAITING_COUNTED = 100_000;
 
 /** What Administration shows of the copy. */
 export async function trailShippingStatus(
@@ -381,24 +392,27 @@ export async function trailShippingStatus(
       .where("id", "=", true)
       .executeTakeFirst(),
   ]);
-  let waiting: number | null = null;
+  let counted: number | null = null;
   if (indexed) {
     // Read where the copy stands in the database itself: its cursor keeps
-    // microseconds a date in this process would lose.
+    // microseconds a date in this process would lose. Each part stops one
+    // past what is shown.
     const { rows } = await sql<{ waiting: string }>`select (
-        (select count(*) from audit_events
+        (select count(*) from (select 1 from audit_events
           where write_order > coalesce(
-            (select shipped_order from trail_shipping where id), 0))
-        + (select count(*) from audit_events e
+            (select shipped_order from trail_shipping where id), 0)
+          limit ${WAITING_COUNTED + 1}) ordered)
+        + (select count(*) from (select 1 from audit_events e
             where e.write_order is null
               and not coalesce((select early_done from trail_shipping where id), false)
               and (e.occurred_at, e.id) > (
                 select coalesce(t.early_at, '-infinity'),
                        coalesce(t.early_id, '00000000-0000-0000-0000-000000000000')
                   from (select 1) one
-                  left join trail_shipping t on t.id))
+                  left join trail_shipping t on t.id)
+            limit ${WAITING_COUNTED + 1}) early)
       )::text as "waiting"`.execute(db);
-    waiting = Number(rows[0]?.waiting ?? 0);
+    counted = Number(rows[0]?.waiting ?? 0);
   }
   return {
     on: settings.trailToCollector,
@@ -407,6 +421,7 @@ export async function trailShippingStatus(
     batch: state ? Number(state.batch) : 0,
     shippedAt: state?.shippedAt?.toISOString() ?? null,
     failedAt: state?.failedAt?.toISOString() ?? null,
-    waiting,
+    waiting: counted === null ? null : Math.min(counted, WAITING_COUNTED),
+    waitingMore: counted !== null && counted > WAITING_COUNTED,
   };
 }

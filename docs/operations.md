@@ -1236,7 +1236,7 @@ the instance's own accounts cannot write to. A batch may arrive twice, with
 the same number and content, when a collector was away. The events written
 before 0.6.1 carry no write order (`"order": null`) and go first, by date. A
 long trail takes a while to send: each batch is one request, and
-Administration says how many events still wait.
+Administration says how many events still wait, counting up to 100,000.
 
 A long trail first needs the two indexes the batches are read by. An instance
 whose application owns the tables builds it at its start; under Compose,
@@ -1256,7 +1256,9 @@ finds a batch changed, missing or given twice with other contents, or an
 event changed, deleted though no purge could take it, given another author,
 or never sent. A purge and an account's erasure change the trail as they
 should, and are counted apart. A file may hold any run of batches, a day's or a
-month's: the check covers the events from its first to its last. Batches
+month's, in any order: the check covers the events from its first to its last.
+It reads the file a line at a time and keeps 24 bytes an event: 6 million
+events take about a minute and under 1 GiB. Batches
 made under an earlier key are read while that key is in
 `AUTH_ENCRYPTION_PREVIOUS_KEYS`. Two batches of one number also come from a
 restore of an older backup: the instance numbers again from what it holds.

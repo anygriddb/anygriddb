@@ -8,6 +8,20 @@ first.
 
 ## Unreleased
 
+### Fixed
+
+- **`anygriddb trail verify` reads a collector's file of any length.** It
+  read the whole file into memory first: 1.2 million events took 2.2 GiB,
+  and a file of more than about 2 million (512 MiB of text) stopped with
+  an error. It now reads a line at a time and keeps 24 bytes an event: 6
+  million events were checked in about a minute in under 1 GiB, as written or
+  in reverse order. A line too long to be a batch, or a batch whose events
+  are not events, is counted as unreadable, and a forged batch number no
+  longer makes it list every number in between.
+- Administration counts the change trail's events still to send up to
+  100,000, then says "more than": it counted the whole trail on each
+  refresh (0.2 s for 6 million events, 9 ms now).
+
 ## 0.7.2 - 2026-11-24
 
 **Upgrade with this release's Compose files and its pin, as usual: nothing else

@@ -53,6 +53,7 @@ import { buildFileIndexes } from "./data/file-indexes.js";
 import { buildTrailIndex } from "./data/trail-index.js";
 import {
   describeTrailReport,
+  linesOf,
   verifyTrail,
 } from "./integrations/trail-verify.js";
 import { migrateStore } from "./database-start.js";
@@ -270,15 +271,6 @@ async function databasePrepare(args: string[]): Promise<number> {
   }
 }
 
-/** Everything given on the standard input, as text. */
-async function standardInput(): Promise<string> {
-  const chunks: Buffer[] = [];
-  for await (const chunk of process.stdin) {
-    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(String(chunk)));
-  }
-  return Buffer.concat(chunks).toString("utf8");
-}
-
 /** Compares what a collector kept of the change trail with the database. */
 async function trailVerify(args: string[]): Promise<number> {
   parseArgs({ args, options: {}, strict: true });
@@ -287,11 +279,11 @@ async function trailVerify(args: string[]): Promise<number> {
       "trail verify reads what a collector kept on its input: anygriddb trail verify < trail.jsonl",
     );
   }
-  const text = await standardInput();
   const ring = readEncryptionKey();
   const { db, close } = createDb(databaseUrl(), { max: 2 });
   try {
-    const report = await verifyTrail(db, ring, text);
+    // A line at a time: a month of a busy instance's trail is millions of events.
+    const report = await verifyTrail(db, ring, linesOf(process.stdin));
     process.stdout.write(`${describeTrailReport(report)}\n`);
     return report.findings.length > 0 ? 1 : 0;
   } finally {
