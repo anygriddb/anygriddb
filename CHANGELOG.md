@@ -8,6 +8,15 @@ first.
 
 ## Unreleased
 
+## 0.7.2 - 2026-11-24
+
+**Upgrade with this release's Compose files and its pin, as usual: nothing else
+to do.** A copy of the change trail turned on with 0.7.1 sends the whole trail
+again, in the same chain: the collector may receive an event twice. The copy's
+indexes are built by the upgrade on a trail of up to 100,000 events; a longer
+one gets them beside the writes, under Compose with `docker compose run --rm
+indexes`, needed only to use the copy.
+
 ### Security
 
 - **An event's place in the change trail is the database's to give.** The

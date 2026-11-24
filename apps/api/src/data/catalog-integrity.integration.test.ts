@@ -359,6 +359,7 @@ const RELEASED = [
   ["0.6.1", "0129"],
   ["0.7.0", "0133"],
   ["0.7.1", "0134"],
+  ["0.7.2", "0135"],
 ] as const;
 
 // An instance is upgraded from any release, not only from the last: the
