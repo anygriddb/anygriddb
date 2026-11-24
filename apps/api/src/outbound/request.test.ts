@@ -214,6 +214,53 @@ describe("requestOutbound security", () => {
     expect(hits).toBe(2);
   });
 
+  it("does not turn a POST into a GET: a 302 answers as the failure it is", async () => {
+    let hits = 0;
+    const { port, ca } = await localHttps((request, response) => {
+      hits += 1;
+      if (request.url === "/hook") {
+        response.writeHead(302, { Location: "/landing" });
+        response.end("moved");
+        return;
+      }
+      response.writeHead(200);
+      response.end("a page, not the delivery");
+    });
+    const answer = await callTo(port, ca, "/hook", {
+      method: "POST",
+      body: '{"event":"x"}',
+    });
+    expect(answer.status).toBe(302);
+    expect(hits).toBe(1);
+  });
+
+  it("follows a 307 on the same origin with the method and the body", async () => {
+    const seen: Array<{ method?: string; url?: string; body: string }> = [];
+    const { port, ca } = await localHttps((request, response) => {
+      let body = "";
+      request.on("data", (chunk: Buffer) => (body += chunk.toString("utf8")));
+      request.on("end", () => {
+        seen.push({ method: request.method, url: request.url, body });
+        if (request.url === "/hook") {
+          response.writeHead(307, { Location: "/hook/v2" });
+          response.end();
+          return;
+        }
+        response.writeHead(204);
+        response.end();
+      });
+    });
+    const answer = await callTo(port, ca, "/hook", {
+      method: "POST",
+      body: '{"event":"x"}',
+    });
+    expect(answer.status).toBe(204);
+    expect(seen).toEqual([
+      { method: "POST", url: "/hook", body: '{"event":"x"}' },
+      { method: "POST", url: "/hook/v2", body: '{"event":"x"}' },
+    ]);
+  });
+
   it("refuses a same-origin redirect whose path resolves to a blocked host", async () => {
     // Location is absolute to metadata; same-origin check fails first.
     const { port, ca } = await localHttps((_request, response) => {
@@ -234,6 +281,21 @@ describe("requestOutbound security", () => {
     await expect(callTo(port, ca, "/", { maxBytes: 100 })).rejects.toThrow(
       "Answer too large",
     );
+  });
+
+  it("cuts a longer answer where asked, and keeps its status", async () => {
+    const { port, ca } = await localHttps((_request, response) => {
+      response.writeHead(500, { "content-type": "text/plain" });
+      response.end("y".repeat(5_000));
+    });
+    const answer = await callTo(port, ca, "/", {
+      maxBytes: 100,
+      tooLarge: "cut",
+    });
+    expect(answer.status).toBe(500);
+    expect(answer.body).toBe("y".repeat(100));
+    const bare = await callTo(port, ca, "/", { maxBytes: 0, tooLarge: "cut" });
+    expect(bare).toMatchObject({ status: 500, body: "" });
   });
 
   it("times out a slow answer", async () => {

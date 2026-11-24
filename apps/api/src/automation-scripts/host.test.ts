@@ -1,7 +1,7 @@
 import { AppError } from "@anygriddb/core";
 import { describe, expect, it } from "vitest";
 import type { PublicApiDeps } from "../public-api/index.js";
-import type { PinnedAnswer, requestPinned } from "../webhooks.js";
+import type { OutboundAnswer, requestOutbound } from "../outbound/index.js";
 import {
   bindingsWithin,
   SCRIPT_ANSWER_BYTES,
@@ -10,14 +10,17 @@ import {
   type ScriptSecret,
 } from "./host.js";
 
-type Sent = { url: string; options: Parameters<typeof requestPinned>[1] };
+type Sent = {
+  url: string;
+  options: Omit<Parameters<typeof requestOutbound>[0], "url">;
+};
 
 /** A host whose calls go nowhere: each is kept, and answered 200. */
 function hostWith(secrets: Record<string, ScriptSecret> = {}) {
   const sent: Sent[] = [];
-  const request: typeof requestPinned = (url, options) => {
+  const request: typeof requestOutbound = ({ url, ...options }) => {
     sent.push({ url, options });
-    const answer: PinnedAnswer = {
+    const answer: OutboundAnswer = {
       status: 200,
       headers: { "content-type": "application/json" },
       body: '{"ok":true}',
@@ -211,7 +214,10 @@ describe("a script's call to an address", () => {
 describe("a call that gets no answer", () => {
   it("is told to the script in a word, as a webhook's delivery is", async () => {
     const failures: Array<[Error, string]> = [
-      [new AppError("invalid_webhook"), "Request failed: Blocked target"],
+      [
+        new AppError("invalid_outbound_target"),
+        "Request failed: Blocked target",
+      ],
       [new Error("Timeout"), "Request failed: Timeout"],
       [new Error("Answer too large"), "Request failed: Answer too large"],
       [

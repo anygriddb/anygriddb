@@ -18,7 +18,11 @@ import {
   updateRecords,
   type WriteOrigin,
 } from "../public-api/index.js";
-import { failureText, type PinnedAnswer, requestPinned } from "../webhooks.js";
+import {
+  type OutboundAnswer,
+  outboundFailureText,
+  requestOutbound,
+} from "../outbound/index.js";
 import type { ScriptHost } from "./sandbox.js";
 
 /** A table of the automation's base, by its id or by its name. */
@@ -150,8 +154,8 @@ export function scriptHost(
     origin: WriteOrigin;
     /** The automation's secrets, by name: each goes to its host alone. */
     secrets?: ReadonlyMap<string, ScriptSecret>;
-    /** How a request leaves: `requestPinned`, unless a test says otherwise. */
-    request?: typeof requestPinned;
+    /** How a request leaves: `requestOutbound`, unless a test says otherwise. */
+    request?: typeof requestOutbound;
   },
 ): ScriptHost {
   let requests = 0;
@@ -161,7 +165,7 @@ export function scriptHost(
    * name, and only in a request to the host it is kept for; the script
    * never holds it.
    */
-  const call = async (args: unknown): Promise<PinnedAnswer> => {
+  const call = async (args: unknown): Promise<OutboundAnswer> => {
     const input = read(requestSchema, args);
     if (
       Object.keys(input.headers).some((name) =>
@@ -212,7 +216,8 @@ export function scriptHost(
       (name) => name.toLowerCase() === "user-agent",
     );
     try {
-      return await (context.request ?? requestPinned)(url, {
+      return await (context.request ?? requestOutbound)({
+        url,
         method: input.method,
         // Said to be an automation's, as its other calls are, unless the
         // script says who it is.
@@ -226,7 +231,7 @@ export function scriptHost(
       // A call that got no answer is the script's to handle, in the
       // words a webhook's delivery uses: a private address, a name that
       // does not resolve, a timeout. Nothing of the failure itself.
-      throw new AppError("script_request_failed", failureText(error), {
+      throw new AppError("script_request_failed", outboundFailureText(error), {
         cause: error,
       });
     }

@@ -18,16 +18,21 @@ export const OUTBOUND_TIMEOUT_MS = 10_000;
 
 const REDIRECT = new Set([301, 302, 303, 307, 308]);
 
-export type OutboundMethod =
-  "GET" | "POST" | "PUT" | "PATCH" | "DELETE" | "HEAD";
+type OutboundMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE" | "HEAD";
 
 export type OutboundCall = {
   url: string;
   method: OutboundMethod;
   headers?: Record<string, string>;
   body?: string;
-  /** Refuse an answer longer than this many bytes. */
+  /** The most of an answer that is read. */
   maxBytes: number;
+  /**
+   * An answer longer than `maxBytes`: refused (the default), or cut there,
+   * read to its end and the rest thrown away, for a caller that keeps only
+   * its status and a few words of it to show.
+   */
+  tooLarge?: "refuse" | "cut";
   /** A private address only when an administrator has said so. */
   allowPrivate?: boolean;
   /** Authority PEM for verifying the peer (tests pin their own CA). */
@@ -109,7 +114,7 @@ export function outboundLookup(allowPrivate: boolean): LookupFunction {
 
 function readLimited(
   response: NodeJS.ReadableStream,
-  maxBytes: number,
+  limit: { maxBytes: number; cut: boolean },
   abort: (error: Error) => void,
 ): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -124,8 +129,14 @@ function readLimited(
     };
     response.on("data", (chunk: Buffer) => {
       if (settled) return;
+      if (limit.cut) {
+        const kept = chunk.subarray(0, Math.max(0, limit.maxBytes - size));
+        size += kept.length;
+        if (kept.length > 0) chunks.push(kept);
+        return;
+      }
       size += chunk.length;
-      if (size > maxBytes) {
+      if (size > limit.maxBytes) {
         fail(new Error("Answer too large"));
         return;
       }
@@ -191,8 +202,10 @@ function requestOnce(
           : typeof raw === "string"
             ? raw
             : undefined;
-        readLimited(response, call.maxBytes, (error) =>
-          outgoing.destroy(error),
+        readLimited(
+          response,
+          { maxBytes: call.maxBytes, cut: call.tooLarge === "cut" },
+          (error) => outgoing.destroy(error),
         ).then(
           (text) =>
             resolve({
@@ -217,6 +230,21 @@ function requestOnce(
 }
 
 /**
+ * The request a redirect is followed with, or null when it is not. A 307
+ * or a 308 keeps the method and the body. A 301, 302 or 303 turns the
+ * request into a GET without its body, so only a GET or a HEAD follows
+ * it: a POST that was answered with one was not delivered, and saying the
+ * page it points at answered would claim it was.
+ */
+function followWith(status: number, call: OutboundCall): OutboundCall | null {
+  if (status === 307 || status === 308) return call;
+  if (call.method === "GET" || call.method === "HEAD") {
+    return { ...call, method: "GET", body: undefined };
+  }
+  return null;
+}
+
+/**
  * One HTTPS request, address pinned against SSRF and DNS rebinding, at
  * most one redirect on the same origin (checked again), body capped,
  * timed out. The certificate is verified (ADR 0030, 0125).
@@ -230,41 +258,46 @@ export async function requestOutbound(
     resolve: call.resolve,
   });
   let response = await requestOnce(url, call, allowPrivate);
-  if (
-    REDIRECT.has(response.status) &&
-    response.location &&
-    response.location.length < 2_000
-  ) {
+  const follow = REDIRECT.has(response.status)
+    ? followWith(response.status, call)
+    : null;
+  if (follow && response.location && response.location.length < 2_000) {
     const within = redirectWithinOrigin(url, response.location);
-    if (within === null) {
-      return {
-        status: response.status,
-        headers: response.headers,
-        body: response.body,
-      };
+    if (within !== null) {
+      const next = await assertOutboundTarget(within, {
+        allowPrivate,
+        resolve: call.resolve,
+      });
+      response = await requestOnce(
+        next,
+        { ...follow, url: within },
+        allowPrivate,
+      );
     }
-    const next = await assertOutboundTarget(within, {
-      allowPrivate,
-      resolve: call.resolve,
-    });
-    const asGet =
-      response.status === 301 ||
-      response.status === 302 ||
-      response.status === 303;
-    response = await requestOnce(
-      next,
-      {
-        ...call,
-        method: asGet ? "GET" : call.method,
-        body: asGet ? undefined : call.body,
-        url: within,
-      },
-      allowPrivate,
-    );
   }
   return {
     status: response.status,
     headers: response.headers,
     body: response.body,
   };
+}
+
+/**
+ * Posts a body and answers the status, as a delivery needs: the answer's
+ * text is read to its end and not kept.
+ */
+export async function postOutbound(
+  url: string,
+  body: string,
+  headers: Record<string, string>,
+): Promise<number> {
+  const answer = await requestOutbound({
+    url,
+    method: "POST",
+    headers,
+    body,
+    maxBytes: 0,
+    tooLarge: "cut",
+  });
+  return answer.status;
 }

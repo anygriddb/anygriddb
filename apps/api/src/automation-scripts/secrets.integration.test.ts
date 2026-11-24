@@ -27,7 +27,7 @@ import { recordingBus } from "../realtime/recording-bus.test-helpers.js";
 import { findLiveTable, loadRowScope } from "../services/rows.js";
 import { writeSettings } from "../settings.js";
 import { createTestDatabase } from "../test-database.js";
-import type { PinnedAnswer, requestPinned } from "../webhooks.js";
+import type { OutboundAnswer, requestOutbound } from "../outbound/index.js";
 
 const suffix = randomBytes(6).toString("hex");
 const master = randomBytes(32);
@@ -42,11 +42,11 @@ describe("a script's calls and its automation's secrets", () => {
   /** What the scripts sent, and what they are answered. */
   const sent: Array<{
     url: string;
-    options: Parameters<typeof requestPinned>[1];
+    options: Omit<Parameters<typeof requestOutbound>[0], "url">;
   }> = [];
-  const request: typeof requestPinned = (url, options) => {
+  const request: typeof requestOutbound = ({ url, ...options }) => {
     sent.push({ url, options });
-    const answer: PinnedAnswer = {
+    const answer: OutboundAnswer = {
       status: 200,
       headers: { "content-type": "application/json" },
       body: '{"name":"Ada"}',

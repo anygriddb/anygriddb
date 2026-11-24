@@ -50,8 +50,12 @@ registry.ts`) stays. Each provider builds a message; the outbound
 
 ## Consequences
 
-- Callers that still use `requestPinned` or `notify/outbound` move to
-  this service; those modules shrink as each emitter lands.
+- Webhooks, an automation's calls and scripts, the sign-in trail's
+  collectors (HTTPS and syslog), traces and notification channels reach
+  the outside through this service's checks; `requestPinned` and the
+  notifications' own address check are gone. A POST answered with a 301,
+  302 or 303 is not sent again as a GET: it was not delivered, and is said
+  so. The queue, the journal and the screen follow, one emitter at a time.
 - A new way out of the instance (another collector, another action)
   adds no socket code of its own: it enqueues through this service.
 - Mail stays on its SMTP path for the moment; when it moves, it uses

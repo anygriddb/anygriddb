@@ -5,7 +5,7 @@ import type { KeyRing } from "../auth/key-ring.js";
 import { decryptSecret } from "../auth/crypto.js";
 import {
   notifyFailureText,
-  requestOutbound,
+  sendOutbound,
   type Outbound,
   type OutboundResponse,
 } from "./outbound.js";
@@ -87,7 +87,7 @@ export async function pulse(
     .execute();
   if (rows.length === 0) return;
   const allowPrivate = (await readSettings(deps.db)).notifyAllowPrivate;
-  const send = deps.send ?? requestOutbound;
+  const send = deps.send ?? sendOutbound;
   for (const row of rows) {
     let failure: string | null = null;
     let status: number | null = null;
