@@ -813,6 +813,42 @@ test.describe("a timeline", () => {
     await expect(bar("Harvest")).toHaveText("Harvest");
     expect(await nameWidth("Tasting")).toBeLessThanOrEqual(1);
 
+    // A bar moves by its middle, and each of its dates by its edge, under
+    // the pointer: it says the days while it is carried, and the row takes
+    // them once it is dropped. A press that does not move still opens it.
+    const slide = async (name: string, at: number, by: number) => {
+      const box = await bar(name).boundingBox();
+      if (!box) throw new Error(`no bar ${name}`);
+      const y = box.y + box.height / 2;
+      const x = at < 0 ? box.x + box.width + at : box.x + at;
+      await page.mouse.move(x, y);
+      await page.mouse.down();
+      await page.mouse.move(x + by, y, { steps: 8 });
+      return {
+        drop: async () => {
+          await page.mouse.up();
+        },
+      };
+    };
+    const harvestWidth = await widthOf("Harvest");
+    const carried = await slide("Harvest", 200, 80);
+    await expect(page.getByText("18/11/2026 – 29/11/2026")).toBeVisible();
+    await carried.drop();
+    await expect(page.getByText("18/11/2026 – 29/11/2026")).toHaveCount(0);
+    // Its right edge a day back, its left edge a day out.
+    await (await slide("Harvest", -3, -40)).drop();
+    await (await slide("Harvest", 3, -40)).drop();
+    await expect.poll(() => widthOf("Harvest")).toBe(harvestWidth);
+    await bar("Harvest").click();
+    const details = page.getByRole("complementary", { name: "Row details" });
+    await expect(
+      details.getByText("17/11/2026", { exact: true }),
+    ).toBeVisible();
+    await expect(
+      details.getByText("28/11/2026", { exact: true }),
+    ).toBeVisible();
+    await page.keyboard.press("Escape");
+
     // Another period starts at its first day; back to this one, on today.
     await page.getByRole("button", { name: "Next period" }).click();
     await expect(page.getByText("December 2026")).toBeVisible();
