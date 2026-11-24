@@ -20,7 +20,7 @@ import { insertNativeBatch } from "./services/rows.js";
 import { insertBase, insertTable } from "./data/schema-ops.js";
 import { DiskStore, readFile } from "./files/index.js";
 import { jobRunners } from "./job-runners.js";
-import { jobFileReadableBy, type JobRow } from "./jobs.js";
+import { jobFileReadableBy, presentJob, type JobRow } from "./jobs.js";
 import { createTestDatabase } from "./test-database.js";
 
 const suffix = randomBytes(6).toString("hex");
@@ -436,6 +436,33 @@ describe("the file of an export, against the rules of today", () => {
     expect(await readable(job)).toBe(false);
     await noRule();
     expect(await readable(job)).toBe(true);
+  });
+
+  it("hides Download in the tasks list once the file is refused", async () => {
+    await noRule();
+    const written = await exported();
+    const job = {
+      ...written,
+      fileKey: "exports/deals.csv",
+      fileExpiresAt: new Date(Date.now() + 60_000),
+      createdAt: new Date("2026-11-24T12:00:00Z"),
+      finishedAt: new Date("2026-11-24T12:00:01Z"),
+    };
+    const reader = {
+      user: { id: member, isAdmin: false },
+      bindings: await loadBindings(db, member),
+    };
+    expect((await presentJob(db, job, reader)).download).toBe(true);
+    await hideAmount();
+    expect(
+      (
+        await presentJob(db, job, {
+          ...reader,
+          bindings: await loadBindings(db, member),
+        })
+      ).download,
+    ).toBe(false);
+    await noRule();
   });
 
   it("is refused once a row rule is set on the member", async () => {

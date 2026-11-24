@@ -501,7 +501,26 @@ function shownResult(result: JobRow["result"]): JobRow["result"] {
   );
 }
 
-export function publicJob(job: JobRow & { tableName?: string | null }) {
+/** A finished job whose file is still kept. */
+function fileInDate(job: JobRow): boolean {
+  return Boolean(
+    job.status === "done" &&
+    job.fileKey &&
+    job.fileExpiresAt &&
+    job.fileExpiresAt.getTime() > Date.now(),
+  );
+}
+
+/**
+ * A job as its author reads it. `fileReadable` is whether they may still
+ * have the file today (the same check as `GET /api/jobs/:id/file`): a
+ * finished export still in date is not offered once their rights no longer
+ * match what wrote it.
+ */
+export function publicJob(
+  job: JobRow & { tableName?: string | null },
+  options?: { fileReadable?: boolean },
+) {
   return {
     id: job.id,
     kind: job.kind,
@@ -517,12 +536,7 @@ export function publicJob(job: JobRow & { tableName?: string | null }) {
     baseId: job.baseId,
     tableId: job.tableId,
     tableName: job.tableName ?? null,
-    download: Boolean(
-      job.status === "done" &&
-      job.fileKey &&
-      job.fileExpiresAt &&
-      job.fileExpiresAt.getTime() > Date.now(),
-    ),
+    download: fileInDate(job) && Boolean(options?.fileReadable),
     retryable: jobCanRetry(job),
     createdAt: job.createdAt.toISOString(),
     finishedAt: job.finishedAt?.toISOString() ?? null,
@@ -530,6 +544,23 @@ export function publicJob(job: JobRow & { tableName?: string | null }) {
 }
 
 type PublicJob = ReturnType<typeof publicJob>;
+
+type JobReader = {
+  user: { id: string; isAdmin: boolean };
+  bindings: readonly Binding[];
+};
+
+/** A job with its download flag set from the reader's rights today. */
+export async function presentJob(
+  db: Database,
+  job: JobRow & { tableName?: string | null },
+  reader: JobReader,
+): Promise<PublicJob> {
+  if (!fileInDate(job)) return publicJob(job);
+  return publicJob(job, {
+    fileReadable: await jobFileReadableBy(db, job, reader),
+  });
+}
 
 /** A person's jobs, with the name of the table each one is about. */
 function jobsWithTable(db: Database) {
@@ -542,13 +573,13 @@ function jobsWithTable(db: Database) {
 
 export async function listJobs(
   db: Database,
-  userId: string,
+  reader: JobReader,
   limit: number,
   scope?: TokenScope,
 ): Promise<PublicJob[]> {
   if (scope?.baseIds?.length === 0) return [];
   const rows = await jobsWithTable(db)
-    .where("jobs.userId", "=", userId)
+    .where("jobs.userId", "=", reader.user.id)
     .$if(scope !== undefined, (query) =>
       query.where("jobs.baseId", "is not", null),
     )
@@ -558,7 +589,7 @@ export async function listJobs(
     .orderBy("jobs.createdAt", "desc")
     .limit(limit)
     .execute();
-  return rows.map((row) => publicJob(row));
+  return Promise.all(rows.map((row) => presentJob(db, row, reader)));
 }
 
 /**
