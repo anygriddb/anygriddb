@@ -27,7 +27,9 @@ export type KeyUse =
   | "email-otp"
   | "share-access"
   | "notify"
-  | "automation";
+  | "automation"
+  /** The change trail's fingerprints, sent to the collectors (ADR 0120). */
+  | "trail";
 
 export type KeyRing = {
   /** The identifier written on what is sealed from now on. */

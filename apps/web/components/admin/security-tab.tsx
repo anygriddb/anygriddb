@@ -1,11 +1,14 @@
 import type { InstanceSettingsPatch } from "@anygriddb/core";
 import { Button, Label, Select, Spinner, Textarea } from "@anygriddb/ui";
+import { plural } from "@lingui/core/macro";
 import { useLingui } from "@lingui/react/macro";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
 import { useErrorText } from "../../lib/errors";
+import { intlLocale } from "../../lib/format";
 import { ConfirmDialog } from "../shell/dialogs";
+import { LoadFailed } from "../shell/load-failed";
 import { RuledSection } from "../shell/notebook-page";
 import { trpc, useTRPC } from "../../lib/trpc";
 import { AccessReport } from "./access-report";
@@ -58,6 +61,55 @@ function Choice<T extends string | number>(props: {
  * The instance's security policy (ADR 0043): simple defaults an
  * administrator may change, never past the floors the API keeps.
  */
+/** How far the change trail's copy at the collectors went (ADR 0120). */
+function TrailCopyStatus() {
+  const { t, i18n } = useLingui();
+  const api = useTRPC();
+  const status = useQuery({
+    ...api.admin.trailShipping.status.queryOptions(),
+    refetchInterval: 60_000,
+  });
+  if (status.isError) {
+    return (
+      <LoadFailed error={status.error} onRetry={() => void status.refetch()} />
+    );
+  }
+  const data = status.data;
+  if (!data) return <Spinner />;
+  const waiting = data.waiting ?? 0;
+  const when = (iso: string) =>
+    new Date(iso).toLocaleString(intlLocale(i18n.locale), {
+      dateStyle: "long",
+      timeStyle: "short",
+    });
+  let said: string;
+  if (!data.collector) {
+    said = t`No collector is set: changes wait until one is, in Connections.`;
+  } else if (!data.indexed) {
+    said = t`Waiting for the trail's index, which a long trail gets after the start: run anygriddb database indexes as the tables' owner.`;
+  } else if (data.failedAt) {
+    const failed = when(data.failedAt);
+    said = t`The last send failed, ${failed}. It is tried again every minute.`;
+  } else if (data.shippedAt) {
+    const sent = when(data.shippedAt);
+    const batch = data.batch;
+    said = t`Last batch sent ${sent}, number ${batch}.`;
+  } else {
+    said = t`Changes made from now on are sent within a minute.`;
+  }
+  return (
+    <p className="max-w-2xl text-sm text-muted-foreground" role="status">
+      {said}
+      {waiting > 0
+        ? ` ${plural(waiting, {
+            one: "# change not sent yet.",
+            other: "# changes not sent yet.",
+          })}`
+        : ""}
+    </p>
+  );
+}
+
 function SecurityTab() {
   const { t } = useLingui();
   const errorText = useErrorText();
@@ -450,6 +502,18 @@ function SecurityTab() {
           onChange={(auditRetentionDays) => void save({ auditRetentionDays })}
           hint={t`A year at least: the trash restores a deleted row from this trail. What a shorter choice deletes cannot be brought back; signatures are never deleted.`}
         />
+        <Choice
+          id="policy-trail-to-collector"
+          label={t`Send to the collectors`}
+          value={data.trailToCollector ? "on" : "off"}
+          options={[
+            ["on", t`Yes: what each change is, never its values`],
+            ["off", t`No`],
+          ]}
+          onChange={(value) => void save({ trailToCollector: value === "on" })}
+          hint={t`The collectors of the sign-in trail (Connections) also get each change's id, time and authors, and a digest of what it holds under this instance's key. What they keep is out of this database's reach: anygriddb trail verify compares it with this trail and names what was rewritten here.`}
+        />
+        {data.trailToCollector ? <TrailCopyStatus /> : null}
       </RuledSection>
 
       <RuledSection

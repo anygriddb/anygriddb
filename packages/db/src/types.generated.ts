@@ -1042,6 +1042,18 @@ export interface TotpSecrets {
   userId: string;
 }
 
+export interface TrailShipping {
+  batch: Generated<Int8>;
+  digest: string | null;
+  failedAt: Timestamp | null;
+  horizonOrder: Int8 | null;
+  horizonXact: string | null;
+  id: Generated<boolean>;
+  shippedAt: Timestamp | null;
+  shippedOrder: Int8;
+  startedAt: Generated<Timestamp>;
+}
+
 export interface UsageDaily {
   accountsActive30d: number;
   accountsTotal: number;
@@ -1215,6 +1227,7 @@ export interface DB {
   tableAcls: TableAcls;
   tableFolders: TableFolders;
   totpSecrets: TotpSecrets;
+  trailShipping: TrailShipping;
   usageDaily: UsageDaily;
   users: Users;
   views: Views;

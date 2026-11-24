@@ -204,18 +204,33 @@ export async function deliverSiemEvent(
   key: KeyRing,
   payload: CollectorPayload,
 ): Promise<void> {
+  await postToSiem(
+    db,
+    key,
+    JSON.stringify({
+      source: "anygriddb",
+      ...payload,
+    }),
+  );
+}
+
+/**
+ * Posts a JSON body to the collector saved in Administration, signed with
+ * its secret. Answers false when none is saved; a refusal is thrown.
+ */
+export async function postToSiem(
+  db: Database,
+  key: KeyRing,
+  body: string,
+): Promise<boolean> {
   const row = await loadSiemRow(db);
-  if (!row) return;
+  if (!row) return false;
   const secret = decryptSecret(
     row.secretCiphertext,
     row.secretNonce,
     key,
     "siem",
   );
-  const body = JSON.stringify({
-    source: "anygriddb",
-    ...payload,
-  });
   const status = await postPinned(row.url, body, {
     "content-type": "application/json",
     "x-anygriddb-signature": signBody(secret, body),
@@ -223,6 +238,7 @@ export async function deliverSiemEvent(
   if (status < 200 || status >= 300) {
     throw new AppError("invalid_delivery", `HTTP ${status}`);
   }
+  return true;
 }
 
 /** Sends a test event to the saved URL. */

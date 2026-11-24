@@ -1199,6 +1199,65 @@ address, never an email or a secret. Two ways, alone or together:
   leaves from the queue, and is tried again when the collector is away.
   Nothing is sent in clear text.
 
+## The change trail to a collector
+
+The change trail stays in the database, and whoever holds the credentials
+of the role that owns the tables can rewrite it. To keep a copy out of its
+reach, turn on Administration, Security, Change trail, "Send to the
+collectors". The collectors above then also get, within a minute of each
+change, what it is and never what it held (ADR 0120):
+
+```json
+{
+  "source": "anygriddb",
+  "action": "trail_batch",
+  "batch": 42,
+  "previous": "<sha-256 of batch 41>",
+  "key": "0",
+  "events": [
+    {
+      "id": "…",
+      "order": "1234",
+      "at": "2026-11-24T10:00:00.123456Z",
+      "action": "update",
+      "userId": "…",
+      "actedAs": null,
+      "fingerprint": "<hmac>"
+    }
+  ],
+  "digest": "<sha-256 of this batch>"
+}
+```
+
+Up to 25 events a batch, so a syslog line (message id `trail`) stays under
+8 KiB. Batches are numbered from 1 and chained: keep them all, in a store
+the instance's own accounts cannot write to. A batch may arrive twice, with
+the same number and content, when a collector was away. What was written
+before the copy was turned on is not sent.
+
+A long trail first needs the index the batches are read by. An instance
+whose application owns the tables builds it at its start; under Compose,
+where it does not, run `docker compose run --rm indexes`. Administration
+shows the copy's state: the last batch, what waits, a failure.
+
+To check the trail, export what a collector kept, one batch a line (a
+syslog line or the JSON alone), and give it to the instance's own command,
+which reads the database and the encryption keys of the running service:
+
+```sh
+docker compose exec -T app anygriddb trail verify < trail.jsonl
+```
+
+It exits 0 when the trail holds each event as it was sent, and 1 when it
+finds a batch changed, missing or given twice with other contents, or an
+event changed, deleted though no purge could take it, given another author,
+or never sent. A purge and an account's erasure change the trail as they
+should, and are counted apart. A file may hold any run of batches, a day's or a
+month's: the check covers the events from its first to its last. Batches
+made under an earlier key are read while that key is in
+`AUTH_ENCRYPTION_PREVIOUS_KEYS`. Two batches of one number also come from a
+restore of an older backup: the instance numbers again from what it holds.
+
 ## Metrics and traces
 
 Both are off until you turn them on (ADR 0018).

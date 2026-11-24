@@ -92,6 +92,10 @@ It is append-only, kept six months to a year as the instance says, and cleared o
 
 Under Compose the application signs in to PostgreSQL as a role that owns no table. A one-shot service alone holds the owner's credentials, for the migrations. Stolen, the application's account cannot rewrite the change trail, the signatures, or the sign-in trail, or change or remove a value a locked or signed row holds. It could still add an event or a signature in someone's name, since the application says who acts. Unlocking a row, dropping a table, erasing an account, or purging events past a year each leave an event it cannot remove (ADR 0119).
 
+### A copy of the change trail out of the database's reach
+
+The role that owns the tables can still rewrite the change trail. Once an administrator turns it on (Administration > Security > Change trail), each event leaves for the instance's collectors as a fingerprint: its id, time, action and authors, and a keyed digest of what it holds, never a value. Batches are numbered and chained. `anygriddb trail verify` compares what a collector kept with the database and names any event changed, deleted outside a purge, given another author, or never sent (ADR 0120). It detects and does not prevent; the events written before it was turned on are not covered.
+
 ### An administrator's way into data
 
 Being an administrator gives no role on a base. Three gestures give an administrator a way into one, and none is silent:

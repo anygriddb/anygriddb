@@ -1084,6 +1084,10 @@ msgstr "{value} per page"
 msgid "{visible, plural, one {# visible row} other {# visible rows}}"
 msgstr "{visible, plural, one {# visible row} other {# visible rows}}"
 
+#: components/admin/security-tab.tsx
+msgid "{waiting, plural, one {# change not sent yet.} other {# changes not sent yet.}}"
+msgstr "{waiting, plural, one {# change not sent yet.} other {# changes not sent yet.}}"
+
 #: lib/snapshot-report.ts
 msgid "{widgets, plural, one {# widget that reads a source's table or a personal view, left out of its dashboard} other {# widgets that read a source's table or a personal view, left out of their dashboards}}"
 msgstr "{widgets, plural, one {# widget that reads a source's table or a personal view, left out of its dashboard} other {# widgets that read a source's table or a personal view, left out of their dashboards}}"
@@ -3101,6 +3105,10 @@ msgstr "Change trail kept for"
 msgid "Change trail purge"
 msgstr "Change trail purge"
 
+#: components/admin/sign-in-trail.tsx
+msgid "Change trail sent to the collectors"
+msgstr "Change trail sent to the collectors"
+
 #: components/shell/home-page.tsx
 msgid "Changed {when} by {name}"
 msgstr "Changed {when} by {name}"
@@ -3124,6 +3132,10 @@ msgstr "Changes are not allowed on this table: an administrator can enable them 
 #: components/admin/sources-tab.tsx
 msgid "Changes made elsewhere"
 msgstr "Changes made elsewhere"
+
+#: components/admin/security-tab.tsx
+msgid "Changes made from now on are sent within a minute."
+msgstr "Changes made from now on are sent within a minute."
 
 #: components/settings/table-rules-panel.tsx
 msgid "Changes not saved yet are not in this preview."
@@ -6554,6 +6566,10 @@ msgstr "Last activity {when}"
 msgid "Last activity is the newest change or export in one of the base's tables. Reading leaves no trace, unless a table records who opens it."
 msgstr "Last activity is the newest change or export in one of the base's tables. Reading leaves no trace, unless a table records who opens it."
 
+#: components/admin/security-tab.tsx
+msgid "Last batch sent {sent}, number {batch}."
+msgstr "Last batch sent {sent}, number {batch}."
+
 #: components/admin/health-tab.tsx
 msgid "Last checked {date}"
 msgstr "Last checked {date}"
@@ -7634,6 +7650,10 @@ msgstr "No bases yet."
 #: components/settings/second-factor.tsx
 msgid "No camera at hand? Type this key in the app instead."
 msgstr "No camera at hand? Type this key in the app instead."
+
+#: components/admin/security-tab.tsx
+msgid "No collector is set: changes wait until one is, in Connections."
+msgstr "No collector is set: changes wait until one is, in Connections."
 
 #: components/admin/sources-tab.tsx
 msgid "No column of this table tells when a row changes (a date and time set on every change, or a rowversion): keep the full copy."
@@ -10280,6 +10300,10 @@ msgstr "Send to Slack"
 msgid "Send to Teams"
 msgstr "Send to Teams"
 
+#: components/admin/security-tab.tsx
+msgid "Send to the collectors"
+msgstr "Send to the collectors"
+
 #: components/admin/identity-tab.tsx
 #: components/admin/sign-in-trail.tsx
 msgid "Sender name"
@@ -11495,6 +11519,10 @@ msgstr "The code by email is off"
 msgid "The code could not be sent: try again in a minute, or use a backup code"
 msgstr "The code could not be sent: try again in a minute, or use a backup code"
 
+#: components/admin/security-tab.tsx
+msgid "The collectors of the sign-in trail (Connections) also get each change's id, time and authors, and a digest of what it holds under this instance's key. What they keep is out of this database's reach: anygriddb trail verify compares it with this trail and names what was rewritten here."
+msgstr "The collectors of the sign-in trail (Connections) also get each change's id, time and authors, and a digest of what it holds under this instance's key. What they keep is out of this database's reach: anygriddb trail verify compares it with this trail and names what was rewritten here."
+
 #: components/record/record-panel.tsx
 msgid "The comment by {name} is replaced by “Comment deleted” for everyone, and cannot be put back."
 msgstr "The comment by {name} is replaced by “Comment deleted” for everyone, and cannot be put back."
@@ -11708,6 +11736,10 @@ msgstr "The last error is a short reason, never a secret. Send a test pings a he
 #: components/dashboards/dashboard-board.tsx
 msgid "The last row is the one where this field is greatest and, of several, the one added last. A row where either field is empty is passed over."
 msgstr "The last row is the one where this field is greatest and, of several, the one added last. A row where either field is empty is passed over."
+
+#: components/admin/security-tab.tsx
+msgid "The last send failed, {failed}. It is tried again every minute."
+msgstr "The last send failed, {failed}. It is tried again every minute."
 
 #: components/shell/about-dialog.tsx
 msgid "The license"
@@ -13481,6 +13513,10 @@ msgstr "Viewer"
 msgid "Views"
 msgstr "Views"
 
+#: components/admin/security-tab.tsx
+msgid "Waiting for the trail's index, which a long trail gets after the start: run anygriddb database indexes as the tables' owner."
+msgstr "Waiting for the trail's index, which a long trail gets after the start: run anygriddb database indexes as the tables' owner."
+
 #: components/settings/webhooks-panel.tsx
 msgid "Waiting to be sent"
 msgstr "Waiting to be sent"
@@ -13888,6 +13924,10 @@ msgstr "Yes or no"
 #: components/admin/security-tab.tsx
 msgid "Yes, in the app and by email"
 msgstr "Yes, in the app and by email"
+
+#: components/admin/security-tab.tsx
+msgid "Yes: what each change is, never its values"
+msgstr "Yes: what each change is, never its values"
 
 #: components/table/filter-builder.tsx
 msgid "yesterday"

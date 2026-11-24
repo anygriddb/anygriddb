@@ -1084,6 +1084,10 @@ msgstr "{value} par page"
 msgid "{visible, plural, one {# visible row} other {# visible rows}}"
 msgstr "{visible, plural, one {# ligne visible} other {# lignes visibles}}"
 
+#: components/admin/security-tab.tsx
+msgid "{waiting, plural, one {# change not sent yet.} other {# changes not sent yet.}}"
+msgstr "{waiting, plural, one {# modification pas encore envoyée.} other {# modifications pas encore envoyées.}}"
+
 #: lib/snapshot-report.ts
 msgid "{widgets, plural, one {# widget that reads a source's table or a personal view, left out of its dashboard} other {# widgets that read a source's table or a personal view, left out of their dashboards}}"
 msgstr "{widgets, plural, one {# widget qui lit la table d’une source ou une vue personnelle, laissé hors de son tableau de bord} other {# widgets qui lisent la table d’une source ou une vue personnelle, laissés hors de leur tableau de bord}}"
@@ -3101,6 +3105,10 @@ msgstr "Durée de conservation du journal des modifications"
 msgid "Change trail purge"
 msgstr "Purge du journal des modifications"
 
+#: components/admin/sign-in-trail.tsx
+msgid "Change trail sent to the collectors"
+msgstr "Journal des modifications envoyé aux collecteurs"
+
 #: components/shell/home-page.tsx
 msgid "Changed {when} by {name}"
 msgstr "Modifiée {when} par {name}"
@@ -3124,6 +3132,10 @@ msgstr "Les modifications ne sont pas autorisées sur cette table : un administ
 #: components/admin/sources-tab.tsx
 msgid "Changes made elsewhere"
 msgstr "Changements faits ailleurs"
+
+#: components/admin/security-tab.tsx
+msgid "Changes made from now on are sent within a minute."
+msgstr "Les modifications faites à partir de maintenant partent dans la minute."
 
 #: components/settings/table-rules-panel.tsx
 msgid "Changes not saved yet are not in this preview."
@@ -6554,6 +6566,10 @@ msgstr "Dernière activité le {when}"
 msgid "Last activity is the newest change or export in one of the base's tables. Reading leaves no trace, unless a table records who opens it."
 msgstr "La dernière activité est la modification ou l’export le plus récent dans l’une des tables de la base. Une lecture ne laisse aucune trace, sauf si une table note qui l’ouvre."
 
+#: components/admin/security-tab.tsx
+msgid "Last batch sent {sent}, number {batch}."
+msgstr "Dernier lot envoyé le {sent}, numéro {batch}."
+
 #: components/admin/health-tab.tsx
 msgid "Last checked {date}"
 msgstr "Dernière vérification {date}"
@@ -7634,6 +7650,10 @@ msgstr "Aucune base pour l’instant."
 #: components/settings/second-factor.tsx
 msgid "No camera at hand? Type this key in the app instead."
 msgstr "Pas d’appareil photo sous la main ? Saisissez plutôt cette clé dans l’application."
+
+#: components/admin/security-tab.tsx
+msgid "No collector is set: changes wait until one is, in Connections."
+msgstr "Aucun collecteur n’est configuré : les modifications attendent qu’il le soit, dans Connexions externes."
 
 #: components/admin/sources-tab.tsx
 msgid "No column of this table tells when a row changes (a date and time set on every change, or a rowversion): keep the full copy."
@@ -10280,6 +10300,10 @@ msgstr "Envoyer vers Slack"
 msgid "Send to Teams"
 msgstr "Envoyer vers Teams"
 
+#: components/admin/security-tab.tsx
+msgid "Send to the collectors"
+msgstr "Envoyer aux collecteurs"
+
 #: components/admin/identity-tab.tsx
 #: components/admin/sign-in-trail.tsx
 msgid "Sender name"
@@ -11495,6 +11519,10 @@ msgstr "Le code par email est désactivé"
 msgid "The code could not be sent: try again in a minute, or use a backup code"
 msgstr "Le code n’a pas pu être envoyé : réessayez dans une minute, ou utilisez un code de secours"
 
+#: components/admin/security-tab.tsx
+msgid "The collectors of the sign-in trail (Connections) also get each change's id, time and authors, and a digest of what it holds under this instance's key. What they keep is out of this database's reach: anygriddb trail verify compares it with this trail and names what was rewritten here."
+msgstr "Les collecteurs du journal des connexions (Connexions externes) reçoivent aussi, pour chaque modification, son identifiant, sa date et ses auteurs, et une empreinte de ce qu’elle contient sous la clé de cette instance. Ce qu’ils gardent est hors de portée de cette base : anygriddb trail verify le compare à ce journal et nomme ce qui y a été réécrit."
+
 #: components/record/record-panel.tsx
 msgid "The comment by {name} is replaced by “Comment deleted” for everyone, and cannot be put back."
 msgstr "Le commentaire écrit par {name} est remplacé par « Commentaire supprimé » pour tout le monde et ne peut pas être rétabli."
@@ -11708,6 +11736,10 @@ msgstr "La dernière erreur est une raison courte, jamais un secret. Envoyer un 
 #: components/dashboards/dashboard-board.tsx
 msgid "The last row is the one where this field is greatest and, of several, the one added last. A row where either field is empty is passed over."
 msgstr "La dernière ligne est celle où ce champ est le plus grand et, à égalité, celle ajoutée en dernier. Une ligne où l’un des deux champs est vide est ignorée."
+
+#: components/admin/security-tab.tsx
+msgid "The last send failed, {failed}. It is tried again every minute."
+msgstr "Le dernier envoi a échoué le {failed}. Il est retenté chaque minute."
 
 #: components/shell/about-dialog.tsx
 msgid "The license"
@@ -13481,6 +13513,10 @@ msgstr "Lecteur"
 msgid "Views"
 msgstr "Vues"
 
+#: components/admin/security-tab.tsx
+msgid "Waiting for the trail's index, which a long trail gets after the start: run anygriddb database indexes as the tables' owner."
+msgstr "En attente de l’index du journal, qu’un long journal reçoit après le démarrage : lancez anygriddb database indexes avec le rôle propriétaire des tables."
+
 #: components/settings/webhooks-panel.tsx
 msgid "Waiting to be sent"
 msgstr "En attente d’envoi"
@@ -13888,6 +13924,10 @@ msgstr "Oui ou non"
 #: components/admin/security-tab.tsx
 msgid "Yes, in the app and by email"
 msgstr "Oui, dans l’application et par email"
+
+#: components/admin/security-tab.tsx
+msgid "Yes: what each change is, never its values"
+msgstr "Oui : ce qu’est chaque modification, jamais ses valeurs"
 
 #: components/table/filter-builder.tsx
 msgid "yesterday"

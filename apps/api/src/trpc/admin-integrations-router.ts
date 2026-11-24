@@ -57,6 +57,7 @@ import {
   revokeScimToken,
   revokeScimTokenInputSchema,
 } from "../scim/tokens.js";
+import { trailShippingStatus } from "../integrations/trail-shipping.js";
 import { handle } from "./guard.js";
 import { t } from "./init.js";
 import {
@@ -347,6 +348,20 @@ export const siemRouter = t.router({
       const admin = await requireAdmin(ctx);
       await clearSiem(ctx.db, admin.id, ctx.req.ip);
       return { ok: true as const };
+    }),
+  ),
+});
+
+/**
+ * The change trail's copy at the collectors (ADR 0120): whether it is
+ * on, how far it went, and what waits. Turned on in the instance's
+ * settings, with the proof.
+ */
+export const trailShippingRouter = t.router({
+  status: procedure.query(({ ctx }) =>
+    handle(ctx, async () => {
+      await requireAdmin(ctx);
+      return trailShippingStatus(ctx.db, ctx.env.SYSLOG);
     }),
   ),
 });
