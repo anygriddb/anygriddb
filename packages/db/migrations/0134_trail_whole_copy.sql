@@ -31,7 +31,8 @@ ALTER TABLE "trail_shipping" ADD COLUMN "early_done" boolean NOT NULL DEFAULT fa
 -- A copy turned on with 0.7.1 began at the newest event then: it sends the
 -- whole trail again, in the same chain. An event may reach a collector
 -- twice; none is missing.
-UPDATE "trail_shipping" SET "shipped_order" = 0, "horizon_order" = NULL, "horizon_xact" = NULL;--> statement-breakpoint
+UPDATE "trail_shipping" SET "shipped_order" = 0, "horizon_order" = NULL, "horizon_xact" = NULL
+ WHERE "id";--> statement-breakpoint
 -- Those early events in the order they were written, as an index of their
 -- own: a short trail gets it here, a long one beside the writes, after the
 -- start, as the write order's (`anygriddb database indexes`).
