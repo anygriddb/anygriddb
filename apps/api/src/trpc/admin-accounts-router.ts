@@ -13,6 +13,7 @@ import {
   endUserSessions,
   eraseInfo,
   eraseOtherAccount,
+  helpdeskReach,
   listSessions,
   otherAccount,
   revokeAllTokens,
@@ -417,6 +418,12 @@ export const adminAccountProcedures = {
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
         const admin = await requireSupport(ctx);
+        const owner = await ctx.db
+          .selectFrom("sessions")
+          .select("userId")
+          .where("id", "=", input.sessionId)
+          .executeTakeFirst();
+        if (owner) await helpdeskReach(ctx.db, admin, owner.userId);
         const { userId } = await endSession(ctx.db, admin.id, input.sessionId);
         ctx.hub.closeUser(userId);
         return { ok: true as const };
@@ -428,6 +435,7 @@ export const adminAccountProcedures = {
       handle(ctx, async () => {
         const admin = await requireSupport(ctx);
         if (input.userId === admin.id) throw new AppError("invalid_account");
+        await helpdeskReach(ctx.db, admin, input.userId);
         const count = await endUserSessions(ctx.db, admin.id, input.userId);
         ctx.hub.closeUser(input.userId);
         return { count };
@@ -436,7 +444,11 @@ export const adminAccountProcedures = {
   endOtherSessions: procedure.mutation(({ ctx }) =>
     handle(ctx, async () => {
       const admin = await requireSupport(ctx);
-      const ended = await endOtherSessions(ctx.db, admin.id, "everyone");
+      const ended = await endOtherSessions(
+        ctx.db,
+        admin.id,
+        admin.isAdmin ? "everyone" : "no_role",
+      );
       ctx.hub.closeAllBut(admin.id);
       return { count: ended.length };
     }),
@@ -455,6 +467,7 @@ export const adminAccountProcedures = {
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
         const admin = await requireSupport(ctx);
+        await helpdeskReach(ctx.db, admin, input.userId);
         await clearFactors(ctx.db, admin.id, input.userId);
         ctx.hub.closeUser(input.userId);
         void sendSecurityNotice(
@@ -471,6 +484,7 @@ export const adminAccountProcedures = {
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
         const admin = await requireSupport(ctx);
+        await helpdeskReach(ctx.db, admin, input.userId);
         return { count: await unlinkSignOn(ctx.db, admin.id, input.userId) };
       }),
     ),
@@ -481,6 +495,7 @@ export const adminAccountProcedures = {
       handle(ctx, async () => {
         const admin = await requireSupport(ctx);
         await otherAccount(ctx.db, admin.id, input.userId);
+        await helpdeskReach(ctx.db, admin, input.userId);
         await unlockAccount(ctx.db, admin.id, input.userId);
         return { ok: true as const };
       }),
@@ -496,6 +511,7 @@ export const adminAccountProcedures = {
       handle(ctx, async () => {
         const admin = await requireSupport(ctx);
         await otherAccount(ctx.db, admin.id, input.userId);
+        await helpdeskReach(ctx.db, admin, input.userId);
         const link = await createResetLink(ctx.db, {
           userId: input.userId,
           createdBy: admin.id,
@@ -530,6 +546,7 @@ export const adminAccountProcedures = {
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
         const admin = await requireSupport(ctx);
+        await helpdeskReach(ctx.db, admin, input.userId);
         return {
           count: await revokeUserTokens(ctx.db, admin.id, input.userId),
         };

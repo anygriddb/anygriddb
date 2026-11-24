@@ -311,14 +311,15 @@ export async function endUserSessions(
 }
 
 /**
- * Ends the sessions of everyone but the actor, or, for maintenance, of
- * everyone who is not an administrator. One event for the sweep. Returns
- * the accounts signed out.
+ * Ends the sessions of everyone but the actor; for maintenance, of
+ * everyone who is not an administrator; for support, of everyone who holds
+ * no role of Administration (`helpdeskReach`). One event for the sweep.
+ * Returns the accounts signed out.
  */
 export async function endOtherSessions(
   db: Database,
   actorId: string,
-  scope: "everyone" | "non_admins",
+  scope: "everyone" | "non_admins" | "no_role",
 ): Promise<string[]> {
   return db.transaction().execute(async (tx) => {
     const ended = await tx
@@ -327,6 +328,16 @@ export async function endOtherSessions(
       .$if(scope === "non_admins", (query) =>
         query.where("userId", "in", (eb) =>
           eb.selectFrom("users").select("id").where("isAdmin", "=", false),
+        ),
+      )
+      .$if(scope === "no_role", (query) =>
+        query.where("userId", "in", (eb) =>
+          eb
+            .selectFrom("users")
+            .select("id")
+            .where("isAdmin", "=", false)
+            .where("isSupport", "=", false)
+            .where("isAuditor", "=", false),
         ),
       )
       .returning("userId")
@@ -365,6 +376,30 @@ export async function otherAccount(
     .where("id", "=", userId)
     .executeTakeFirst();
   if (!found) throw new AppError("unknown_account");
+}
+
+/**
+ * Whether the account acting may do a helpdesk's act to this one (ADR
+ * 0054). An administrator may, to anyone. Support may only to an account
+ * that holds no role of Administration: clearing an administrator's
+ * factors and taking their reset link, where no mail is set up, would
+ * hand support the administrator's account, and the same with another
+ * support or an auditor, whose exports support is kept from.
+ */
+export async function helpdeskReach(
+  db: Database,
+  actor: { id: string; isAdmin: boolean },
+  userId: string,
+): Promise<void> {
+  if (actor.isAdmin) return;
+  const target = await db
+    .selectFrom("users")
+    .select(["isAdmin", "isSupport", "isAuditor"])
+    .where("id", "=", userId)
+    .executeTakeFirst();
+  if (target && (target.isAdmin || target.isSupport || target.isAuditor)) {
+    throw new AppError("account_out_of_reach");
+  }
 }
 
 export const adminEraseInputSchema = z

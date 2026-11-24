@@ -18,6 +18,11 @@ sources.
 - **Support may:** list accounts and sessions; unlock; send or hand over a
   password reset; clear factors; unlink SSO; revoke API tokens; end
   sessions; read the audit and sign-in trails (not CSV export).
+- **Only on an account that holds no role of Administration** (amended
+  2026-11-25). Clearing an administrator's factors, then taking the reset
+  link an instance without mail hands over, gave support the
+  administrator's account; another support's or an auditor's the same.
+  Ending every other session spares those accounts when support asks.
 - **Support may not:** change settings or security policy; configure SMTP,
   OIDC, SAML, or SCIM; manage sources; grant admin or support; erase
   accounts; create accounts; send operator mail; withdraw invitations;

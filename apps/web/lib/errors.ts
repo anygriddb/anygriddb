@@ -51,6 +51,7 @@ const ERROR_MESSAGES: Record<ErrorCode, MessageDescriptor> = {
   unknown_account: msg`No account with this email`,
   account_already_exists: msg`This account already exists`,
   invalid_account: msg`This cannot be done to this account`,
+  account_out_of_reach: msg`This account holds a role of Administration: only an administrator can do this`,
   invalid_invitation: msg`This invitation does not exist or has expired`,
   invalid_origin: msg`Passkeys need a hostname in PUBLIC_URL (a DNS name or localhost), not an IP address. Open AnyGridDB at that address, or use a TOTP app.`,
   invalid_totp_secret: msg`Invalid TOTP secret`,

@@ -139,6 +139,17 @@ export function useAccountActions({
     if (self && action !== "edit") {
       return { ok: false, reason: t`Your own account: from your settings` };
     }
+    // Support helps people sign in, never someone who holds a role of
+    // Administration: that would hand it their access.
+    if (
+      !viewerIsAdmin &&
+      (target.isAdmin || target.isSupport || target.isAuditor)
+    ) {
+      return {
+        ok: false,
+        reason: t`Holds a role of Administration: administrators only`,
+      };
+    }
     switch (action) {
       case "edit":
         return target.managed
