@@ -102,37 +102,6 @@ export async function channelsForMany(
   return result;
 }
 
-/**
- * Whether a scoped event about this table is muted for the person (the
- * table itself, or its base).
- */
-export async function isMuted(
-  db: Database,
-  userId: string,
-  scope: { baseId?: string | null; tableId?: string | null },
-): Promise<boolean> {
-  if (!scope.baseId && !scope.tableId) return false;
-  const row = await db
-    .selectFrom("notificationMutes")
-    .select("id")
-    .where("userId", "=", userId)
-    .where((eb) => {
-      const parts = [];
-      if (scope.tableId) {
-        parts.push(eb("tableId", "=", scope.tableId));
-      }
-      if (scope.baseId) {
-        parts.push(
-          eb.and([eb("baseId", "=", scope.baseId), eb("tableId", "is", null)]),
-        );
-      }
-      return eb.or(parts);
-    })
-    .limit(1)
-    .executeTakeFirst();
-  return row !== undefined;
-}
-
 /** Mutes that match any of the given people and tables, as a set of keys. */
 export async function mutedKeys(
   db: Database,
@@ -167,15 +136,6 @@ export async function mutedKeys(
     muted.add(`${row.userId}:b:${row.baseId}`);
   }
   return muted;
-}
-
-export function muteKey(
-  userId: string,
-  scope: { tableId?: string | null; baseId?: string | null },
-): string | null {
-  if (scope.tableId) return `${userId}:t:${scope.tableId}`;
-  if (scope.baseId) return `${userId}:b:${scope.baseId}`;
-  return null;
 }
 
 /** Saves one person's channels for one event, keeping required ones. */

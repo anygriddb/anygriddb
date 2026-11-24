@@ -12,8 +12,8 @@ import {
   type SideFieldType,
 } from "./external-write";
 
-export const FREEZE_TABLE_ID = "00000000-0000-4000-8000-00000000ft01";
-export const FREEZE_LINK_ID = "00000000-0000-4000-8000-00000000ft02";
+const FREEZE_TABLE_ID = "00000000-0000-4000-8000-00000000ft01";
+const FREEZE_LINK_ID = "00000000-0000-4000-8000-00000000ft02";
 
 export const FREEZE_DIALECTS: readonly DialectName[] = [
   "postgres",
