@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildDuplicateComments,
   buildDuplicateJunction,
   buildDuplicateRows,
   buildDuplicateSelfLinks,
@@ -167,5 +168,50 @@ describe("copying a table's rows in SQL", () => {
         limit: 0,
       }),
     ).toThrow("Invalid limit");
+  });
+});
+
+describe("copying the comments of a table's rows", () => {
+  const ids = {
+    fromTableId: "11111111-1111-4111-8111-111111111111",
+    toTableId: "22222222-2222-4222-8222-222222222222",
+  };
+
+  it("puts each range's comments on the rows of the same numbers", () => {
+    const statement = buildDuplicateComments({
+      from: "t_notes",
+      to: "t_notes_copy",
+      ...ids,
+      after: "0",
+      upto: "5000",
+    });
+    expect(statement.values).toEqual([
+      ids.fromTableId,
+      ids.toTableId,
+      "0",
+      "5000",
+    ]);
+    expect(statement.text).toContain(
+      `join "t_notes_copy" t on t."ag_seq" = s."ag_seq"`,
+    );
+    // A reply is put on the copy of what it answers.
+    expect(statement.text).toContain(
+      `left join source p on p."id" = c."parent_id"`,
+    );
+  });
+
+  it("refuses a name, a number, or a table id it cannot bind", () => {
+    const base = {
+      from: "t_notes",
+      to: "t_copy",
+      ...ids,
+      after: "0",
+      upto: "9",
+    };
+    expect(() => buildDuplicateComments({ ...base, to: 'x"; drop' })).toThrow();
+    expect(() => buildDuplicateComments({ ...base, upto: "9 or 1" })).toThrow();
+    expect(() =>
+      buildDuplicateComments({ ...base, toTableId: "not an id" }),
+    ).toThrow();
   });
 });

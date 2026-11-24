@@ -3,6 +3,7 @@ import {
   isHomeTable,
   type BaseTemplate,
   buildDuplicateJunction,
+  buildDuplicateComments,
   buildDuplicateRows,
   buildDuplicateSelfLinks,
   buildDuplicateStatus,
@@ -24,7 +25,7 @@ import {
   ROLLUP_FNS,
   type RollupFn,
 } from "@anygriddb/core";
-import type { Database } from "@anygriddb/db";
+import { runStatement, type Database } from "@anygriddb/db";
 import { runRows, withAudit } from "./audit-context.js";
 import { insertComputed } from "./computed.js";
 import {
@@ -374,6 +375,19 @@ async function copyRows(
     await input.onProgress?.(done, input.total);
   }
   if (ranges.length === 0) return 0;
+  // Each copied row's comments come along, on the row of its number.
+  for (const range of ranges) {
+    await runStatement(
+      db,
+      buildDuplicateComments({
+        from: input.source.physicalName,
+        to: physical.physicalName,
+        fromTableId: input.source.id,
+        toTableId: input.copyId,
+        ...range,
+      }),
+    );
+  }
   // A row added to the copy later takes a number none of its rows has.
   await withAudit(db, audit, (tx) =>
     runRows(

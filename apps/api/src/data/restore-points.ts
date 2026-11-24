@@ -262,6 +262,7 @@ export async function restoreFromPoint(
       },
       readFile: opened.readFile,
       readLines: opened.readLines,
+      readComments: opened.readComments,
       maxRows: deps.maxRows,
       maxFileBytes: deps.maxFileBytes,
       names: deps.names,

@@ -15,6 +15,17 @@ to do.** No migration.
 
 ### Added
 
+- **A restore point, a copy of a base, and a copy of a table with its rows
+  keep their rows' comments,** with their replies, authors, dates, edits and
+  resolutions (ADR 0122). A comment by an account erased since comes back as
+  the erased account's. A restore point made before this version has none to
+  give back, and a version before this one cannot read a restore point of a
+  base with comments. A file downloaded or brought from elsewhere still
+  carries no comments: their authors are believed only in the instance's own
+  copies.
+
+### Added
+
 - **A timeline's bars move under the pointer.** Dragged by its middle, a bar
   moves both its dates; by an edge, that date alone, never past the other.
   The days show while it is carried, a date that keeps a time keeps it, and

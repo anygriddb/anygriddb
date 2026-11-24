@@ -37,6 +37,35 @@ function assertSeq(value: string): void {
   if (!SEQ.test(value)) throw new AppError("invalid_body");
 }
 
+const TABLE_ID =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * The comments of a range of a table's rows, copied onto the rows of its
+ * copy that took the same numbers: each thread as it was, a reply on the
+ * copy of what it answers, with its authors and dates (ADR 0122).
+ */
+export function buildDuplicateComments(input: {
+  from: string;
+  to: string;
+  fromTableId: string;
+  toTableId: string;
+  after: string;
+  upto: string;
+}): ParameterizedSql {
+  assertIdentifier(input.from, "table name");
+  assertIdentifier(input.to, "table name");
+  assertSeq(input.after);
+  assertSeq(input.upto);
+  if (!TABLE_ID.test(input.fromTableId) || !TABLE_ID.test(input.toTableId)) {
+    throw new AppError("invalid_body");
+  }
+  return {
+    text: `with source as (select c.*, t."id" as "copy_row", gen_random_uuid() as "copy_id" from "comments" c join ${quoteIdent(input.from)} s on s."id"::text = c."row_id" join ${quoteIdent(input.to)} t on t."ag_seq" = s."ag_seq" where c."table_id" = $1::uuid and s."ag_seq" > $3::bigint and s."ag_seq" <= $4::bigint) insert into "comments" ("id", "table_id", "row_id", "author_id", "body", "parent_id", "created_at", "updated_at", "deleted_at", "resolved_at", "resolved_by") select c."copy_id", $2::uuid, c."copy_row"::text, c."author_id", c."body", p."copy_id", c."created_at", c."updated_at", c."deleted_at", c."resolved_at", c."resolved_by" from source c left join source p on p."id" = c."parent_id"`,
+    values: [input.fromTableId, input.toTableId, input.after, input.upto],
+  };
+}
+
 function names(values: readonly string[]): string[] {
   for (const value of values) assertIdentifier(value, "column name");
   return values.map(quoteIdent);

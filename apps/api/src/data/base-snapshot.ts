@@ -2,6 +2,7 @@ import {
   AppError,
   buildPlacesInRange,
   buildPositionsAfter,
+  buildRowIdsBySeq,
   buildRowSeqs,
   buildSequenceAfter,
   buildSnapshotForeignKeys,
@@ -28,6 +29,7 @@ import {
   MAX_SNAPSHOT_BYTES,
   MAX_SNAPSHOT_DASHBOARDS,
   MAX_SNAPSHOT_TABLES,
+  MAX_SNAPSHOT_COMMENTS,
   MAX_SNAPSHOT_FILES,
   MAX_SNAPSHOT_FOLDERS,
   MAX_SNAPSHOT_LINE_BYTES,
@@ -50,6 +52,9 @@ import {
   type SnapshotFileRef,
   snapshotFileRefSchema,
   snapshotFilename,
+  type SnapshotComment,
+  snapshotCommentSchema,
+  snapshotCommentsEntry,
   type SnapshotLine,
   snapshotLineCells,
   snapshotLineField,
@@ -64,9 +69,10 @@ import {
   widgetSettings,
   writeSnapshotLine,
 } from "@anygriddb/core";
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { join } from "node:path";
 import { runStatement, type Database } from "@anygriddb/db";
+import { sql } from "kysely";
 import {
   cleanFilename,
   loadAttachmentMeta,
@@ -75,6 +81,7 @@ import {
 import { runRows, withAudit } from "./audit-context.js";
 import { insertComputed } from "./computed.js";
 import { createDashboard, listDashboards, upsertWidget } from "./dashboards.js";
+import { ERASED_USER_ID } from "./erasure.js";
 import { MAX_COPY_ROWS, toCell } from "./data-ops.js";
 import { loadEngine, sortColumns, type ColumnRow } from "./engine.js";
 import { createFolder, listFolders, moveTableToFolder } from "./folders.js";
@@ -702,6 +709,97 @@ async function* tableLines(
   }
 }
 
+/** A row's id as a native table gives it. */
+const ROW_UUID =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+
+/** An instant as the copy writes it: UTC, to the microsecond. */
+const COMMENT_AT = (column: string) =>
+  sql<string>`to_char(${sql.ref(column)} at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`;
+
+/** Whether any row of a table has a comment: none, no entry. */
+async function hasComments(db: Database, tableId: string): Promise<boolean> {
+  const found = await db
+    .selectFrom("comments")
+    .select("id")
+    .where("tableId", "=", tableId)
+    .limit(1)
+    .executeTakeFirst();
+  return found !== undefined;
+}
+
+/**
+ * A table's comments as the lines of its entry in an instance's own copy
+ * (ADR 0122): row by row, each row's in the order they were written, so
+ * that a reply follows what it answers. A comment on a row the copy does
+ * not hold, one in the trash, stays behind.
+ */
+async function* commentLines(
+  db: Database,
+  table: SourceTable,
+  onComments: (count: number) => void,
+): AsyncGenerator<string> {
+  let after: { rowId: string; at: string; id: string } | undefined;
+  for (;;) {
+    let query = db
+      .selectFrom("comments")
+      .select([
+        "id",
+        "rowId",
+        "parentId",
+        "authorId",
+        "body",
+        "resolvedBy",
+        COMMENT_AT("createdAt").as("createdAt"),
+        COMMENT_AT("updatedAt").as("updatedAt"),
+        COMMENT_AT("deletedAt").as("deletedAt"),
+        COMMENT_AT("resolvedAt").as("resolvedAt"),
+      ])
+      .where("tableId", "=", table.id)
+      .orderBy("rowId")
+      .orderBy("createdAt")
+      .orderBy("id")
+      .limit(SNAPSHOT_PAGE);
+    if (after) {
+      const { rowId, at, id } = after;
+      query = query.where(
+        sql<boolean>`(row_id, created_at, id) > (${rowId}, ${at}::timestamptz, ${id}::uuid)`,
+      );
+    }
+    const page = await query.execute();
+    const last = page.at(-1);
+    if (!last) return;
+    after = { rowId: last.rowId, at: last.createdAt, id: last.id };
+    const rowIds = [...new Set(page.map((comment) => comment.rowId))].filter(
+      (id) => ROW_UUID.test(id),
+    );
+    const seqs =
+      rowIds.length > 0
+        ? await seqsOf(db, table.physicalName, rowIds)
+        : new Map<string, string>();
+    let count = 0;
+    for (const comment of page) {
+      const row = seqs.get(comment.rowId);
+      if (!row) continue;
+      const line: SnapshotComment = {
+        id: comment.id,
+        row,
+        parent: comment.parentId,
+        author: comment.authorId,
+        body: comment.body,
+        createdAt: comment.createdAt,
+        updatedAt: comment.updatedAt,
+        deletedAt: comment.deletedAt,
+        resolvedAt: comment.resolvedAt,
+        resolvedBy: comment.resolvedBy,
+      };
+      count += 1;
+      yield `${JSON.stringify(snapshotCommentSchema.parse(line))}\n`;
+    }
+    onComments(count);
+  }
+}
+
 /** A snapshot's JSON, refused past its size. */
 function snapshotBytes(snapshot: BaseSnapshot): Buffer {
   const bytes = Buffer.from(`${JSON.stringify(snapshot)}\n`, "utf8");
@@ -832,11 +930,25 @@ export async function writeBaseSnapshot(
           keepState,
         ),
       );
+      // The instance's own copy brings its rows' comments along.
+      let comments = 0;
+      if (keepState && rowCount > 0 && (await hasComments(db, table.id))) {
+        await writer.addDeflatedStream(
+          snapshotCommentsEntry(table.key),
+          commentLines(db, table, (count) => {
+            comments += count;
+            if (comments > MAX_SNAPSHOT_COMMENTS) {
+              throw new AppError("too_large_snapshot");
+            }
+          }),
+        );
+      }
       const people = access.get(table.id);
       tables.push({
         ...table.snapshot,
         rowCount,
         ...(people?.length ? { access: people } : {}),
+        ...(comments > 0 ? { comments } : {}),
       });
     }
     if (attachments.size > MAX_SNAPSHOT_FILES) {
@@ -1369,6 +1481,106 @@ async function restoreStatuses(
  * brings each row's dates, authors, and status back, and is read only for a
  * caller that says the copy is the instance's own (`keepRowState`).
  */
+/** Comments written in one statement while a copy is read back. */
+const COMMENT_BATCH = 500;
+
+/**
+ * Gives one table of an instance's own copy its comments back (ADR 0122),
+ * each on the row that took its number here, a reply on what it answers.
+ * An author or a resolver whose account was erased since the copy is the
+ * erased account's placeholder, as the erasure would have made them.
+ */
+async function restoreComments(
+  db: Database,
+  input: {
+    tableId: string;
+    physicalName: string;
+    lines: AsyncIterable<SnapshotComment>;
+    count: number;
+    /** The numbers of the rows that took a new one. */
+    renumbered: ReadonlyMap<string, string>;
+  },
+): Promise<void> {
+  const given = new Map<string, string>();
+  let batch: SnapshotComment[] = [];
+  let count = 0;
+  const flush = async () => {
+    if (batch.length === 0) return;
+    const seqs = [
+      ...new Set(
+        batch.map(
+          (comment) => input.renumbered.get(comment.row) ?? comment.row,
+        ),
+      ),
+    ];
+    const rows = new Map<string, string>();
+    for (const found of await runStatement(
+      db,
+      buildRowIdsBySeq({ table: input.physicalName, seqs }),
+    )) {
+      rows.set(String(found.seq), String(found.id));
+    }
+    const named = [
+      ...new Set(
+        batch.flatMap((comment) =>
+          comment.resolvedBy
+            ? [comment.author, comment.resolvedBy]
+            : [comment.author],
+        ),
+      ),
+    ];
+    const accounts = new Set(
+      (
+        await db
+          .selectFrom("users")
+          .select("id")
+          .where("id", "in", named)
+          .execute()
+      ).map((user) => user.id),
+    );
+    const values = batch.flatMap((comment) => {
+      const rowId = rows.get(input.renumbered.get(comment.row) ?? comment.row);
+      // A row added while the copy was written, after its rows were read:
+      // its comment stays behind with it.
+      if (!rowId) return [];
+      const id = randomUUID();
+      given.set(comment.id, id);
+      return [
+        {
+          id,
+          tableId: input.tableId,
+          rowId,
+          authorId: accounts.has(comment.author)
+            ? comment.author
+            : ERASED_USER_ID,
+          body: comment.body,
+          parentId: comment.parent ? (given.get(comment.parent) ?? null) : null,
+          createdAt: comment.createdAt,
+          updatedAt: comment.updatedAt,
+          deletedAt: comment.deletedAt,
+          resolvedAt: comment.resolvedAt,
+          resolvedBy:
+            comment.resolvedBy && accounts.has(comment.resolvedBy)
+              ? comment.resolvedBy
+              : null,
+        },
+      ];
+    });
+    if (values.length > 0) {
+      await db.insertInto("comments").values(values).execute();
+    }
+    batch = [];
+  };
+  for await (const comment of input.lines) {
+    count += 1;
+    if (count > input.count) throw new AppError("invalid_snapshot");
+    batch.push(comment);
+    if (batch.length >= COMMENT_BATCH) await flush();
+  }
+  await flush();
+  if (count !== input.count) throw new AppError("invalid_snapshot");
+}
+
 export async function importBaseSnapshot(
   db: Database,
   files: FileStore,
@@ -1391,6 +1603,8 @@ export async function importBaseSnapshot(
     readFile?: (id: string, maxBytes: number) => Promise<Buffer | undefined>;
     /** Version 3: a table's lines, read from its entry in their order. */
     readLines?: (key: string) => AsyncIterable<SnapshotLine>;
+    /** Version 4: a table's comments, read from their entry in their order. */
+    readComments?: (key: string) => AsyncIterable<SnapshotComment>;
     /** The most rows a version 3 snapshot brings, all tables together. */
     maxRows: number;
     /** The instance's limit for one attachment. */
@@ -1662,6 +1876,18 @@ export async function importBaseSnapshot(
             );
           },
         );
+        if (table.comments) {
+          if (!keepState || !input.readComments) {
+            throw new AppError("invalid_snapshot");
+          }
+          await restoreComments(db, {
+            tableId,
+            physicalName: physical.physicalName,
+            lines: input.readComments(table.key),
+            count: table.comments,
+            renumbered: moved,
+          });
+        }
       } else if (table.rows) {
         await restore(table.rows);
         // Versions 1 and 2 name a row's id under `__id`.
@@ -1987,6 +2213,33 @@ export async function* readSnapshotLines(
         throw new AppError("invalid_snapshot");
       }
       const parsed = schema.safeParse(raw);
+      if (!parsed.success) throw new AppError("invalid_snapshot");
+      yield parsed.data;
+    }
+  } catch (error) {
+    if (error instanceof ZipError) {
+      throw new AppError("invalid_snapshot", { cause: error });
+    }
+    throw error;
+  }
+}
+
+/** A table's comments in an instance's own copy, each line checked. */
+export async function* readSnapshotComments(
+  archive: ZipReader,
+  key: string,
+): AsyncGenerator<SnapshotComment> {
+  try {
+    for await (const text of archive.lines(snapshotCommentsEntry(key), {
+      maxLine: MAX_SNAPSHOT_LINE_BYTES,
+    })) {
+      let raw: unknown;
+      try {
+        raw = JSON.parse(text);
+      } catch {
+        throw new AppError("invalid_snapshot");
+      }
+      const parsed = snapshotCommentSchema.safeParse(raw);
       if (!parsed.success) throw new AppError("invalid_snapshot");
       yield parsed.data;
     }

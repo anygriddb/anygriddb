@@ -9,6 +9,7 @@ import {
   exportSnapshotJobInputSchema,
   importSnapshotJobInputSchema,
   ownSnapshotLineSchema,
+  snapshotCommentSchema,
   snapshotFilename,
   snapshotLineCells,
   snapshotLineField,
@@ -480,6 +481,50 @@ describe("version 4: an instance's own copy of its rows", () => {
       }).success,
     ).toBe(true);
     expect(baseSnapshotSchema.safeParse(kept).success).toBe(false);
+  });
+
+  it("carries a table's comments, and only there", () => {
+    const table = minimal.tables[0];
+    if (!table) throw new Error("no table");
+    const { rows: _rows, ...schema } = table;
+    const kept = { ...minimal, version: SNAPSHOT_KEPT_VERSION };
+    const withComments = (snapshot: object, rowCount?: number) =>
+      baseSnapshotSchema.safeParse({
+        ...snapshot,
+        tables: [{ ...schema, ...(rowCount ? { rowCount } : {}), comments: 2 }],
+      }).success;
+    expect(withComments(kept, 1)).toBe(true);
+    // A file a person downloads, or any other, brings none (ADR 0122).
+    expect(withComments({ ...minimal, version: SNAPSHOT_VERSION }, 1)).toBe(
+      false,
+    );
+    // Nor do they come without the rows they are on.
+    expect(withComments(kept)).toBe(false);
+  });
+
+  it("reads a comment as it was, and refuses one it cannot write back", () => {
+    const comment = {
+      id,
+      row: "12",
+      parent: null,
+      author: id,
+      body: "Is the dose right?",
+      createdAt: "2026-03-01T08:15:30.123456Z",
+      updatedAt: null,
+      deletedAt: null,
+      resolvedAt: "2026-03-02T09:00:00.000001Z",
+      resolvedBy: id,
+    };
+    const read = (value: object) =>
+      snapshotCommentSchema.safeParse(value).success;
+    expect(read(comment)).toBe(true);
+    expect(read({ ...comment, parent: id, resolvedBy: null })).toBe(true);
+    expect(read({ ...comment, row: "0" })).toBe(false);
+    expect(read({ ...comment, author: null })).toBe(false);
+    expect(read({ ...comment, author: "someone" })).toBe(false);
+    expect(read({ ...comment, createdAt: "2026-03-01T08:15:30Z" })).toBe(false);
+    expect(read({ ...comment, body: "x".repeat(4_001) })).toBe(false);
+    expect(read({ ...comment, extra: true })).toBe(false);
   });
 
   it("tells a row that claims a state from a field of that name", () => {

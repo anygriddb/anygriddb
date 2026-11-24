@@ -100,6 +100,22 @@ export function buildSnapshotStatus(input: {
   };
 }
 
+/** The ids of some rows of a table, by their sequence numbers. */
+export function buildRowIdsBySeq(input: {
+  table: string;
+  seqs: readonly string[];
+}): ParameterizedSql {
+  assertIdentifier(input.table, "table name");
+  if (input.seqs.length === 0 || input.seqs.length > MAX_SNAPSHOT_LINK_PAIRS) {
+    throw new AppError("invalid_limit");
+  }
+  assertSeqs(input.seqs);
+  return {
+    text: `select "id"::text as "id", "ag_seq"::text as "seq" from ${quoteIdent(input.table)} where "ag_seq" = any($1::bigint[])`,
+    values: [[...input.seqs]],
+  };
+}
+
 /** The sequence numbers of some rows of a table, by their ids. */
 export function buildRowSeqs(input: {
   table: string;

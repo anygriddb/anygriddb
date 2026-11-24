@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildPlacesInRange,
   buildPositionsAfter,
+  buildRowIdsBySeq,
   buildRowSeqs,
   buildSnapshotForeignKeys,
   buildSnapshotJunction,
@@ -28,6 +29,10 @@ describe("a snapshot's rows, by sequence number", () => {
     expect(buildRowSeqs({ table: "t_tasks", ids: [ROW] }).values).toEqual([
       [ROW],
     ]);
+    expect(buildRowIdsBySeq({ table: "t_tasks", seqs: ["7"] })).toEqual({
+      text: 'select "id"::text as "id", "ag_seq"::text as "seq" from "t_tasks" where "ag_seq" = any($1::bigint[])',
+      values: [["7"]],
+    });
     expect(buildPositionsAfter({ table: "t_tasks" })).toEqual({
       text: "select ag_advance_row_place($1::text)",
       values: ["t_tasks"],
@@ -57,6 +62,10 @@ describe("a snapshot's rows, by sequence number", () => {
       buildSnapshotKeys({ table: 'x"; drop', after: "0", limit: 10 }),
     ).toThrow();
     expect(() => buildRowSeqs({ table: "t_tasks", ids: ["r1"] })).toThrow();
+    expect(() => buildRowIdsBySeq({ table: "t_tasks", seqs: [] })).toThrow();
+    expect(() =>
+      buildRowIdsBySeq({ table: "t_tasks", seqs: ["1; drop"] }),
+    ).toThrow();
     expect(() => buildRowSeqs({ table: "t_tasks", ids: [] })).toThrow();
   });
 

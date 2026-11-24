@@ -552,6 +552,7 @@ export {
 
 export {
   buildDuplicateJunction,
+  buildDuplicateComments,
   buildDuplicateRows,
   buildDuplicateSelfLinks,
   buildDuplicateStatus,
@@ -560,6 +561,7 @@ export {
 } from "./query/duplicate";
 export {
   buildPositionsAfter,
+  buildRowIdsBySeq,
   buildRowSeqs,
   buildSnapshotForeignKeys,
   buildSnapshotJunction,
@@ -723,6 +725,7 @@ export {
 export {
   MAX_SNAPSHOT_ARCHIVE_BYTES,
   MAX_SNAPSHOT_BYTES,
+  MAX_SNAPSHOT_COMMENTS,
   MAX_SNAPSHOT_DASHBOARDS,
   MAX_SNAPSHOT_FILES,
   MAX_SNAPSHOT_FOLDERS,
@@ -748,11 +751,14 @@ export {
   snapshotLineField,
   snapshotLineSchema,
   snapshotRowCount,
+  snapshotCommentSchema,
+  snapshotCommentsEntry,
   snapshotRowStateSchema,
   snapshotRowsEntry,
   snapshotSummary,
   writeSnapshotLine,
   type BaseSnapshot,
+  type SnapshotComment,
   type SnapshotDashboard,
   type SnapshotFile,
   type SnapshotFileRef,
