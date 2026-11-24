@@ -238,10 +238,21 @@ describe("the role the application signs in as", () => {
 
     it("drops a field no signed row holds a value in", async () => {
       await within(async (client) => {
+        const later = async () => {
+          const { rows } = await client.query(
+            `select 1 from pg_attribute
+              where attrelid = $1::text::regclass
+                and attname = 'later' and not attisdropped`,
+            [table],
+          );
+          return rows.length;
+        };
         await client.query(
           `select ag_add_column('${table}', 'later', 'text', null)`,
         );
+        expect(await later()).toBe(1);
         await client.query(`select ag_drop_column('${table}', 'later')`);
+        expect(await later()).toBe(0);
       });
     });
 

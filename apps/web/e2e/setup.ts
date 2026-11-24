@@ -2,6 +2,7 @@ import { randomBytes } from "node:crypto";
 import AxeBuilder from "@axe-core/playwright";
 import { expect, type Locator, type Page } from "@playwright/test";
 import { decodeBase32, totpCode } from "../../api/src/auth/totp-code.ts";
+import { journeysDatabaseUrl } from "./database-url";
 
 /**
  * The journeys' PostgreSQL as the cluster's own first role. A journey
@@ -10,10 +11,7 @@ import { decodeBase32, totpCode } from "../../api/src/auth/totp-code.ts";
  * anything in a database it does not own (ADR 0003).
  */
 export function clusterUrl(): string {
-  const url = new URL(
-    process.env.DATABASE_URL ??
-      "postgres://anygriddb:anygriddb@127.0.0.1:5433/anygriddb",
-  );
+  const url = new URL(journeysDatabaseUrl());
   url.username = "postgres";
   return url.toString();
 }
@@ -232,7 +230,7 @@ export async function signUpWithTable(
   const email = `e2e-${stamp}@example.com`;
   await signUp(
     page,
-    { email, name, password: "correct-horse-battery" },
+    { email, name, password: "correct-horse-battery" }, // NOSONAR: a made-up account of a throwaway test database
     options,
   );
 

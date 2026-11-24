@@ -13,7 +13,7 @@ import type { KeyRing } from "./key-ring.js";
 import { hashSessionToken } from "./session.js";
 import { isUniqueViolation } from "../data/schema-ops.js";
 
-const LOGOUT_EVENT = "http://schemas.openid.net/event/backchannel-logout";
+const LOGOUT_EVENT = "http://schemas.openid.net/event/backchannel-logout"; // NOSONAR: the name the specification gives this event, never fetched
 /** Public-key signatures only: a shared secret would let a client forge one. */
 const ALGORITHMS = [
   "RS256",

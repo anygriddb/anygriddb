@@ -13,6 +13,7 @@ import {
   type ParameterizedSql,
 } from "./params";
 import { AppError } from "../errors";
+import { compareCodeUnits } from "../text-order";
 import { MAX_READ_LIMIT } from "./read";
 import { FAR_ROW_NUMBER } from "./snapshot-rows";
 
@@ -279,7 +280,7 @@ export function buildInsertMany(input: {
 
 /** The fields a row sets, whatever the order it names them in. */
 function shapeOf(values: Readonly<Record<string, Cell>>): string {
-  return Object.keys(values).sort().join("\u0000");
+  return Object.keys(values).sort(compareCodeUnits).join("\u0000");
 }
 
 /**

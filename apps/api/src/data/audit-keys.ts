@@ -2,6 +2,7 @@
  * What a write changed, read from the trail's snapshots of a row (or a
  * catalog item) before and after it: field names only, never values.
  */
+import { compareCodeUnits } from "@anygriddb/core";
 
 /**
  * Keys every write touches, which say nothing of what it changed: who
@@ -43,5 +44,5 @@ export function changedKeys(oldValue: unknown, newValue: unknown): string[] {
         JSON.stringify(before[key] ?? null) !==
         JSON.stringify(after[key] ?? null),
     )
-    .sort();
+    .sort(compareCodeUnits);
 }

@@ -27,7 +27,7 @@ const PINNED = ["dependencies", "devDependencies", "optionalDependencies"];
 const SEMVER =
   /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/;
 
-const tracked = execFileSync("git", ["ls-files", "-z"], { encoding: "utf8" })
+const tracked = execFileSync("git", ["ls-files", "-z"], { encoding: "utf8" }) // NOSONAR: a check run with the developer's own tools
   .split("\0")
   .filter(Boolean);
 const problems = [];

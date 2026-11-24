@@ -1,5 +1,6 @@
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
+import { journeysDatabaseUrl } from "./database-url";
 import { expect, test } from "./journey";
 import pg from "pg";
 import {
@@ -18,9 +19,7 @@ import {
   watchPolicy,
 } from "./setup";
 
-const controlUrl =
-  process.env.DATABASE_URL ??
-  "postgres://anygriddb:anygriddb@127.0.0.1:5433/anygriddb";
+const controlUrl = journeysDatabaseUrl();
 
 /**
  * Addresses of their own. The e2e server trusts the loopback peer

@@ -10,6 +10,7 @@
  * a value is read would look like a change of the value.
  */
 import { numberToDecimal, toDecimalString } from "../decimal";
+import { compareCodeUnits } from "../text-order";
 import type { EngineColumn, EngineTable } from "./engine";
 import { rowError } from "./read";
 
@@ -104,7 +105,7 @@ export function sealRow(
 
 /** The text a fingerprint hashes: `[name, value]` pairs in name order. */
 export function sealText(values: Readonly<Record<string, unknown>>): string {
-  const names = Object.keys(values).sort();
+  const names = Object.keys(values).sort(compareCodeUnits);
   return JSON.stringify(names.map((name) => [name, values[name] ?? null]));
 }
 
@@ -123,5 +124,5 @@ export function sealDrift(
         JSON.stringify(sealed[name] ?? null) !==
         JSON.stringify(current[name] ?? null),
     )
-    .sort();
+    .sort(compareCodeUnits);
 }

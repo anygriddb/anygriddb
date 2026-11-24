@@ -168,7 +168,7 @@ function defaultAction(type: ActionType, tableId: string): AutomationAction {
       return {
         type,
         when: EMPTY_FILTER,
-        then: [defaultStep("update_record", tableId)],
+        then: [defaultStep("update_record", tableId)], // NOSONAR: a stored JSON key holding steps, never a function
         otherwise: [],
       };
     case "for_each":
@@ -390,7 +390,7 @@ function ActionEditor(props: {
             steps={action.then}
             columns={table.columns}
             tableId={table.table.id}
-            onChange={(then) => props.onChange({ ...action, then })}
+            onChange={(then) => props.onChange({ ...action, then })} // NOSONAR: a stored JSON key holding steps, never a function
           />
           <span className="text-xs text-muted-foreground">{t`Otherwise:`}</span>
           <StepsEditor

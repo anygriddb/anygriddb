@@ -1,5 +1,6 @@
 import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
+import { journeysDatabaseUrl } from "./database-url";
 import { expect, test } from "./journey";
 import { accessibilityViolations, uniqueStamp } from "./setup";
 
@@ -8,16 +9,14 @@ const root = fileURLToPath(new URL("../../../", import.meta.url));
 /** The token, asked for as the operator does: `anygriddb install-token`. */
 function installToken(): string {
   const printed = execFileSync(
-    "pnpm",
+    "pnpm", // NOSONAR: a test step, run with the developer's own tools
     ["--silent", "--filter", "@anygriddb/api", "cli", "install-token"],
     {
       cwd: root,
       encoding: "utf8",
       env: {
         ...process.env,
-        DATABASE_URL:
-          process.env.DATABASE_URL ??
-          "postgres://anygriddb:anygriddb@127.0.0.1:5433/anygriddb",
+        DATABASE_URL: journeysDatabaseUrl(),
       },
     },
   );

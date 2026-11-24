@@ -14,7 +14,7 @@ function collectJson(dir) {
     if (statSync(path).isDirectory()) files.push(...collectJson(path));
     else if (name.endsWith(".json")) files.push(path);
   }
-  return files.sort();
+  return files.sort((a, b) => a.localeCompare(b, "en"));
 }
 
 function errorRate(ok, errors) {

@@ -16,7 +16,7 @@ export const ARGON2_OPTIONS = {
  * The plaintext is not stored.
  */
 export const DUMMY_PASSWORD_HASH =
-  "$argon2id$v=19$m=65536,t=3,p=1$jz2qWJwrbBWWYctf1bMr1w$ASSMur5MyD1TjWytKGp7jb692F21j2Kpc4Y4vCrTyuY";
+  "$argon2id$v=19$m=65536,t=3,p=1$jz2qWJwrbBWWYctf1bMr1w$ASSMur5MyD1TjWytKGp7jb692F21j2Kpc4Y4vCrTyuY"; // NOSONAR: a hash of a discarded text, verified for its cost
 
 export function hashPassword(password: string): Promise<string> {
   return hash(password, ARGON2_OPTIONS);
