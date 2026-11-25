@@ -2,9 +2,16 @@
  * Sends queued daily and weekly digests through the instance mail relay
  * (ADR 0123). One mail per person per period, listing what waited.
  */
-import { trimEndRun, ceilingOf } from "@anygriddb/core";
+import {
+  ceilingOf,
+  effectiveTableRole,
+  roleGrants,
+  trimEndRun,
+} from "@anygriddb/core";
 import type { Database } from "@anygriddb/db";
+import { loadBindings } from "../auth/access.js";
 import type { KeyRing } from "../auth/key-ring.js";
+import { liveBase, liveTable } from "../data/live.js";
 import { resolveSmtp } from "../integrations/smtp.js";
 import { moment, notificationSubject, type MailVoice } from "../mail-i18n.js";
 import { sendMail, smtpReady, type SmtpConfig } from "../mail.js";
@@ -101,6 +108,46 @@ export function digestText(
   ].join("\n");
 }
 
+/**
+ * The items of one person's digest they may still read when it is sent:
+ * a notice of a table they no longer read, or of a table or a base gone,
+ * waited up to a week and is dropped, not mailed (ADR 0123).
+ */
+async function stillReadable<Item extends { tableId: string | null }>(
+  db: Database,
+  userId: string,
+  items: readonly Item[],
+): Promise<Item[]> {
+  const named = [
+    ...new Set(items.flatMap((item) => (item.tableId ? [item.tableId] : []))),
+  ];
+  if (named.length === 0) return [...items];
+  const [tables, bindings] = await Promise.all([
+    db
+      .selectFrom("dataTables")
+      .innerJoin("bases", "bases.id", "dataTables.baseId")
+      .select(["dataTables.id", "dataTables.baseId"])
+      .where("dataTables.id", "in", named)
+      .where(liveTable())
+      .where(liveBase())
+      .execute(),
+    loadBindings(db, userId),
+  ]);
+  const readable = new Set(
+    tables
+      .filter((table) =>
+        roleGrants(
+          effectiveTableRole(bindings, table.id, table.baseId),
+          "rows.read",
+        ),
+      )
+      .map((table) => table.id),
+  );
+  return items.filter(
+    (item) => item.tableId === null || readable.has(item.tableId),
+  );
+}
+
 export async function sendDigests(
   deps: DigestDeps,
   period: "daily" | "weekly",
@@ -117,7 +164,7 @@ export async function sendDigests(
   if (!smtpReady(smtp)) return 0;
   const items = await deps.db
     .selectFrom("notificationDigestItems")
-    .select(["id", "userId", "event", "payload", "createdAt"])
+    .select(["id", "userId", "event", "payload", "createdAt", "tableId"])
     .where("period", "=", period)
     .orderBy("createdAt", "asc")
     .execute();
@@ -144,7 +191,19 @@ export async function sendDigests(
       : `${voice.name}: ${period} digest`;
   let sent = 0;
   for (const user of users) {
-    const list = byUser.get(user.id) ?? [];
+    const queued = byUser.get(user.id) ?? [];
+    const list = await stillReadable(deps.db, user.id, queued);
+    const dropped = queued.filter((item) => !list.includes(item));
+    if (dropped.length > 0) {
+      await deps.db
+        .deleteFrom("notificationDigestItems")
+        .where(
+          "id",
+          "in",
+          dropped.map((item) => item.id),
+        )
+        .execute();
+    }
     if (list.length === 0) continue;
     // The digest's own link stops the digest, every kind of notice in it.
     const stopUrl = unsubscribeUrl(origin, deps.env.AUTH_ENCRYPTION_KEY, {

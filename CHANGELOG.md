@@ -25,6 +25,15 @@ first.
   count the database does not give within two seconds lets the request
   through, said in the log once a minute.
 
+### Security
+
+- A daily or weekly digest listed what waited for a person even when they
+  no longer read its table: a notice queued before their role was taken
+  away, or before the table or its base went to the trash, was mailed up
+  to a week later with the table's name and what happened. A digest now
+  asks again, when it is sent, whether the person reads each table it
+  names, and drops what they no longer do.
+
 ## 0.10.0 - 2026-11-25
 
 **Roles an administrator made: check them after the upgrade.** A token
