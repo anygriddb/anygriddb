@@ -6,7 +6,6 @@ import {
   createTableInputSchema,
   deleteTableInputSchema,
   duplicateTableInputSchema,
-  type FieldType,
   getTableCircuitInputSchema,
   isWritableType,
   listCircuitTemplatesInputSchema,
@@ -292,7 +291,7 @@ export const catalogTableProcedures = {
                 .where("deletedAt", "is", null)
                 .execute()
             )
-              .filter((column) => isWritableType(column.fieldType as FieldType))
+              .filter((column) => isWritableType(column.fieldType))
               .map((column) => column.name),
           );
           if (named.some((name) => !stored.has(name))) {

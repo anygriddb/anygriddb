@@ -13,15 +13,17 @@ export function keyFrom(
   taken: ReadonlySet<string>,
   fallback: string,
 ): string {
+  // Words of letters and digits, joined by one underscore, from the first
+  // that starts with a letter: no quantifier the lint finds slow.
+  const words = label
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .split(/[^a-z0-9]/)
+    .filter((word) => word !== "");
+  const start = words.findIndex((word) => /^[a-z]/.test(word));
   const plain =
-    label
-      .normalize("NFD")
-      .replace(/[̀-ͯ]/g, "")
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "_")
-      .replace(/^[^a-z]+/, "")
-      .replace(/_+$/, "")
-      .slice(0, 48) || fallback;
+    start === -1 ? fallback : words.slice(start).join("_").slice(0, 48);
   let key = plain;
   for (let n = 2; taken.has(key); n += 1) key = `${plain}_${n}`;
   return key;

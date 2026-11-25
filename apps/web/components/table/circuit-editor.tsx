@@ -2,7 +2,6 @@ import {
   type CircuitDefinition,
   definitionOf,
   isWritableType,
-  type FieldType,
   roleGrants,
 } from "@anygriddb/core";
 import {
@@ -95,7 +94,7 @@ function CircuitForm(props: {
   const [busy, setBusy] = useState(false);
   const toMove = statesToMove(props.saved.states, draft, props.counts);
   const fields = table.table.columns.filter((column) =>
-    isWritableType(column.fieldType as FieldType),
+    isWritableType(column.fieldType),
   );
   // Only who takes steps at all may be named on one.
   const takers = (made.data?.roles ?? []).filter((role) =>
