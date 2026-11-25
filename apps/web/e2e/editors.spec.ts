@@ -454,7 +454,11 @@ test.describe("a colour and a place", () => {
     });
     await send(page, "rows.insertMany", {
       tableId,
-      rows: [{ name: "Paris" }, { name: "Nowhere" }],
+      rows: [
+        { name: "Paris" },
+        { name: "Nowhere" },
+        { name: "Lyon", spot: "45.764,4.8357" },
+      ],
     });
     await page.reload();
     await page.getByRole("grid").waitFor();
@@ -508,7 +512,17 @@ test.describe("a colour and a place", () => {
       .getByRole("button", { name: "Create", exact: true })
       .click();
     await expect(page.getByTitle("Paris", { exact: true })).toBeVisible();
-    await expect(page.getByText("1 point", { exact: true })).toBeVisible();
+    await expect(page.getByText("2 points", { exact: true })).toBeVisible();
+    // Framed on its places, with no basemap as with one: two cities of one
+    // country stand apart, where the whole globe drew them as one blot.
+    const paris = await page.getByTitle("Paris", { exact: true }).boundingBox();
+    const lyon = await page.getByTitle("Lyon", { exact: true }).boundingBox();
+    expect(
+      Math.hypot(
+        (paris?.x ?? 0) - (lyon?.x ?? 0),
+        (paris?.y ?? 0) - (lyon?.y ?? 0),
+      ),
+    ).toBeGreaterThan(150);
     await expect(page.getByLabel("Place")).toHaveValue("spot");
     await expect(page.getByLabel("Latitude")).toHaveCount(0);
     expect(await accessibilityViolations(page)).toEqual([]);
