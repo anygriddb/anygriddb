@@ -31,7 +31,7 @@ import { useSubmitGuard } from "../../lib/submit-guard";
 import { focusOutside } from "../../lib/tab-out";
 import { useTRPC } from "../../lib/trpc";
 import type { CatalogColumn, RowItem } from "../../lib/types";
-import { opensPanel } from "../fields/cell-editor";
+import { editingOf, opensPanel } from "../fields/field-editing";
 import { DEFAULT_WIDTH } from "../fields/field-meta";
 import { placeAfterMove } from "../table/column-layout";
 import { useTable, type CellValue } from "../table/table-context";
@@ -677,7 +677,7 @@ export function GridView(props: GridProps) {
       toast.error(t`Row locked`);
       return;
     }
-    if (column.fieldType === "boolean") {
+    if (editingOf(column.fieldType).by === "checkbox") {
       if (!togglesCheckbox(text)) return;
       void table.updateCells([
         {

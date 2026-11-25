@@ -42,7 +42,8 @@ import { useSubmitGuard } from "../../lib/submit-guard";
 import { trpc, useTRPC } from "../../lib/trpc";
 import { grants, type CatalogColumn, type RowItem } from "../../lib/types";
 import { AttachmentPreview } from "../fields/attachment-preview";
-import { CellEditor, opensPanel } from "../fields/cell-editor";
+import { CellEditor } from "../fields/cell-editor";
+import { editingOf, opensPanel, takesLines } from "../fields/field-editing";
 import { linkTarget } from "../fields/link-actions";
 import { ButtonCell } from "../fields/button-cell";
 import { CellValueView, UntickedBox } from "../fields/cell-value";
@@ -124,6 +125,8 @@ function FieldRow({
   const files = column.fieldType === "attachment" ? attachmentList(value) : [];
   const canEditField =
     editable && (isEditableColumn(column) || isEditableLink(column));
+  // A checkbox is ticked by a click on it, and opens no editor.
+  const ticks = editingOf(column.fieldType).by === "checkbox";
   const toggle = () =>
     void table.updateCells([
       { rowId: row.id, values: { [column.name]: !value } },
@@ -163,13 +166,11 @@ function FieldRow({
             : "text-sm",
           canEditField && "cursor-text hover:border-border",
           editing && !opensPanel(column.fieldType) && "h-9",
-          (column.fieldType === "long_text" || column.fieldType === "json") &&
-            editing &&
-            "h-40",
+          takesLines(column.fieldType) && editing && "h-40",
         )}
         onClick={() => {
           if (!canEditField || editing) return;
-          if (column.fieldType === "boolean") {
+          if (ticks) {
             toggle();
             return;
           }
@@ -177,7 +178,7 @@ function FieldRow({
         }}
       >
         {canEditField && !editing ? (
-          column.fieldType === "boolean" ? (
+          ticks ? (
             <button
               ref={editButton}
               type="button"

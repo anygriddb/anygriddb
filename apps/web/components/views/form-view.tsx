@@ -63,6 +63,7 @@ import {
   singleSelectAppearance,
 } from "../fields/field-appearance";
 import { RatingControl } from "../fields/rating-control";
+import { blankAnswer, editingOf, type Editing } from "../fields/field-editing";
 import { isEditableColumn } from "../grid/grid-clipboard";
 import { useTable } from "../table/table-context";
 import { formPrefill } from "./form-prefill";
@@ -100,26 +101,18 @@ type FormConfig = {
   fields?: FormField[];
 };
 
-const SUPPORTED = new Set([
-  "text",
-  "long_text",
-  "number",
-  "boolean",
+/** What a form asks: what a person types, picks, ticks, or sends. */
+const ANSWERED: ReadonlySet<Editing["by"]> = new Set([
+  "typing",
   "date",
-  "datetime",
-  "single_select",
-  "multi_select",
-  "email",
-  "url",
-  "phone",
-  "color",
-  "place",
-  "json",
   "rating",
-  "duration",
-  "user",
-  "attachment",
+  "options",
+  "checkbox",
+  "people",
+  "files",
 ]);
+
+const answers = (fieldType: string) => ANSWERED.has(editingOf(fieldType).by);
 
 /**
  * One answer of a form. It is named by its label and described by its
@@ -152,22 +145,29 @@ export function FieldInput({
     "aria-invalid": invalid || undefined,
     "aria-describedby": describedBy(column.name, described, invalid),
   };
-  switch (column.fieldType) {
-    case "long_text":
-    case "json":
-      return (
+  const editing = editingOf(column.fieldType);
+  switch (editing.by) {
+    case "typing":
+      return editing.lines === "many" ? (
         <Textarea
           id={id}
           {...aria}
           value={String(value)}
           onChange={(event) => onChange(event.target.value)}
-          className={
-            column.fieldType === "json" ? "font-mono text-xs" : undefined
-          }
-          spellCheck={column.fieldType === "json" ? false : undefined}
+          className={editing.code ? "font-mono text-xs" : undefined}
+          spellCheck={editing.code ? false : undefined}
+        />
+      ) : (
+        <Input
+          id={id}
+          {...aria}
+          type={editing.input}
+          inputMode={editing.digits ? "decimal" : undefined}
+          value={String(value)}
+          onChange={(event) => onChange(event.target.value)}
         />
       );
-    case "boolean": {
+    case "checkbox": {
       const appearance = booleanAppearance(column);
       if (appearance === "yes_no") {
         return (
@@ -223,7 +223,38 @@ export function FieldInput({
         />
       );
     }
-    case "single_select":
+    case "options":
+      if (editing.multiple) {
+        const list = Array.isArray(value) ? value : [];
+        return (
+          <div
+            id={id}
+            role="group"
+            aria-labelledby={ids.label}
+            {...aria}
+            className="flex flex-wrap gap-3"
+          >
+            {optionsOf(column).map((option) => (
+              <label
+                key={option.name}
+                className="flex items-center gap-1.5 text-sm"
+              >
+                <Checkbox
+                  checked={list.includes(option.name)}
+                  onChange={(event) =>
+                    onChange(
+                      event.target.checked
+                        ? [...list, option.name]
+                        : list.filter((item) => item !== option.name),
+                    )
+                  }
+                />
+                {option.name}
+              </label>
+            ))}
+          </div>
+        );
+      }
       if (singleSelectAppearance(column) === "radio") {
         return (
           <div
@@ -264,37 +295,6 @@ export function FieldInput({
           ))}
         </Select>
       );
-    case "multi_select": {
-      const list = Array.isArray(value) ? value : [];
-      return (
-        <div
-          id={id}
-          role="group"
-          aria-labelledby={ids.label}
-          {...aria}
-          className="flex flex-wrap gap-3"
-        >
-          {optionsOf(column).map((option) => (
-            <label
-              key={option.name}
-              className="flex items-center gap-1.5 text-sm"
-            >
-              <Checkbox
-                checked={list.includes(option.name)}
-                onChange={(event) =>
-                  onChange(
-                    event.target.checked
-                      ? [...list, option.name]
-                      : list.filter((item) => item !== option.name),
-                  )
-                }
-              />
-              {option.name}
-            </label>
-          ))}
-        </div>
-      );
-    }
     case "rating": {
       const rating =
         value === "" || typeof value === "boolean" ? null : Number(value);
@@ -312,7 +312,7 @@ export function FieldInput({
         />
       );
     }
-    case "user": {
+    case "people": {
       const multiple =
         (column.config as { multiple?: boolean }).multiple === true;
       const picked = Array.isArray(value)
@@ -372,7 +372,6 @@ export function FieldInput({
       );
     }
     case "date":
-    case "datetime":
       return (
         <FormDate
           id={id}
@@ -385,17 +384,13 @@ export function FieldInput({
           onChange={onChange}
         />
       );
-    default:
-      return (
-        <Input
-          id={id}
-          {...aria}
-          type={column.fieldType === "email" ? "email" : "text"}
-          inputMode={column.kind === "number" ? "decimal" : undefined}
-          value={String(value)}
-          onChange={(event) => onChange(event.target.value)}
-        />
-      );
+    // Files are sent by `FormFiles`, rows linked by a new row's own
+    // input; nobody gives the others a value.
+    case "files":
+    case "links":
+    case "button":
+    case "none":
+      return null;
   }
 }
 
@@ -404,7 +399,7 @@ export function FormView(props: ViewProps) {
   const table = useTable();
   const form = (props.config.form ?? {}) as FormConfig;
   const candidates = props.allColumns.filter(
-    (column) => isEditableColumn(column) && SUPPORTED.has(column.fieldType),
+    (column) => isEditableColumn(column) && answers(column.fieldType),
   );
   // A field the table requires is on the form, required, unconditioned.
   const fields: FormField[] = withRequiredFormFields(
@@ -615,12 +610,7 @@ export function FormView(props: ViewProps) {
                         )}
                         invalid={Boolean(problems[column.name])}
                         value={
-                          values[column.name] ??
-                          (column.fieldType === "multi_select"
-                            ? []
-                            : column.fieldType === "boolean"
-                              ? false
-                              : "")
+                          values[column.name] ?? blankAnswer(column.fieldType)
                         }
                         onChange={(value) => answer(column.name, value)}
                         people={table.people}

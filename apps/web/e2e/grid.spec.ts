@@ -1413,6 +1413,16 @@ test.describe("what is copied, pasted, and typed in the grid", () => {
     await pasteAndSettle(page);
     expect((await rowById(page, tableId, rowId)).again).toBe(3661);
 
+    // Opened to be edited, a duration shows its seconds, which its cell
+    // leaves out: an edit starts from the whole value.
+    await expect(cellOf("spent")).toHaveText("1:01");
+    await cellOf("spent").click();
+    await page.keyboard.press("Enter");
+    const spent = page.getByRole("textbox", { name: "spent", exact: true });
+    await expect(spent).toHaveValue("1:01:01");
+    await page.keyboard.press("Escape");
+    await expect(spent).toBeHidden();
+
     // A text changed elsewhere is read as what it says.
     await page.evaluate(() => navigator.clipboard.writeText("2.50"));
     await cellOf("copy").click();
