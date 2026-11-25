@@ -159,7 +159,7 @@ export function madePermissions(
   return PERMISSIONS.filter((permission) => wanted.has(permission));
 }
 
-export function isPermission(value: string): value is Permission {
+function isPermission(value: string): value is Permission {
   return (PERMISSIONS as readonly string[]).includes(value);
 }
 

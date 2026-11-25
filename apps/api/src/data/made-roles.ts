@@ -124,6 +124,22 @@ export async function ownGiven(
   return row ? givenOf(row) : null;
 }
 
+/** The role an invitation to a base offers, if it is one of the base's. */
+export async function invitationGiven(
+  db: Pick<Database, "selectFrom">,
+  invitationId: string,
+  baseId: string,
+): Promise<Given | null> {
+  const row = await db
+    .selectFrom("invitations as i")
+    .leftJoin("madeRoles as m", "m.id", "i.madeRoleId")
+    .select(["i.role", ...MADE_COLUMNS])
+    .where("i.id", "=", invitationId)
+    .where("i.baseId", "=", baseId)
+    .executeTakeFirst();
+  return row ? givenOf(row) : null;
+}
+
 /** The role a group holds on a base, if any. */
 export async function groupGiven(
   db: Pick<Database, "selectFrom">,

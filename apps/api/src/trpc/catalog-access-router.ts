@@ -51,6 +51,7 @@ import {
   assertMayTouch,
   givenBy,
   groupGiven,
+  invitationGiven,
   madeRoleChoices,
   ownGiven,
 } from "../data/made-roles.js";
@@ -312,7 +313,17 @@ export const catalogAccessProcedures = {
     .input(z.object({ baseId: z.uuid(), invitationId: z.uuid() }))
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
-        const { user } = await guardBase(ctx, input.baseId, "members.manage");
+        const { user, role } = await guardBase(
+          ctx,
+          input.baseId,
+          "members.manage",
+        );
+        // An invitation offers a role: only one who could give it takes
+        // it back (ADR 0128).
+        assertMayTouch(
+          role,
+          await invitationGiven(ctx.db, input.invitationId, input.baseId),
+        );
         await revokeInvitation(
           ctx.db,
           user.id,

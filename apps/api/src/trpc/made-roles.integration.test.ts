@@ -233,6 +233,22 @@ describe("made roles", () => {
         }),
       ),
     ).toBe("role_beyond_reach");
+    // Nor takes back an invitation an owner sent with a wider role.
+    await owner.call().catalog.invite({
+      baseId: ids.base,
+      email: `editor-${ids.base.slice(0, 8)}@example.org`,
+      role: "editor",
+    });
+    const waiting = await api.invitations({ baseId: ids.base });
+    const wider = waiting.invitations.find((item) => item.role === "editor");
+    expect(
+      await errorCode(
+        api.revokeInvitation({
+          baseId: ids.base,
+          invitationId: wider?.id ?? "",
+        }),
+      ),
+    ).toBe("role_beyond_reach");
   });
 
   it("go only once nobody holds them, nor an invitation waits", async () => {

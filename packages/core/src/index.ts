@@ -349,7 +349,6 @@ export {
   effectiveTableRole,
   enrollmentGate,
   grantName,
-  isPermission,
   madePermissions,
   mayGive,
   readOnlyGiven,
