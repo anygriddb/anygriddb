@@ -16,7 +16,9 @@ first.
 - What the server refuses is said in the dialog that asked, above its
   buttons, rather than in a toast that could lie over Save on a laptop's
   screen: the automation editor and list, an import, a new base, a file of
-  people, and every prompt and confirmation.
+  people, a source's settings and its connection test, a dashboard's
+  widget, a row's signature asked again after a wrong password, and every
+  prompt and confirmation, an account's erasure included.
 
 ## 0.9.2 - 2026-11-25
 

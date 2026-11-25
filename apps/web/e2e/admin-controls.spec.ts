@@ -803,15 +803,18 @@ test("an administrator deletes a departed owner and names who takes the base", a
     // Nothing typed, then no new owner, then an address no account has:
     // each is refused and the dialog stays.
     const erase = dialog.getByRole("button", { name: "Delete", exact: true });
+    // Each is said in the dialog, above its buttons.
     await erase.click();
-    await expect(
-      page.getByText("Type the account's email to confirm"),
-    ).toBeVisible();
+    await expect(dialog.getByRole("alert")).toHaveText(
+      "Type the account's email to confirm",
+    );
     await dialog
       .getByLabel(`Type ${leavingEmail} to confirm`)
       .fill(leavingEmail);
     await erase.click();
-    await expect(page.getByText("Type the new owner's email")).toBeVisible();
+    await expect(dialog.getByRole("alert")).toHaveText(
+      "Type the new owner's email",
+    );
     await dialog
       .getByLabel("New owner's email")
       .fill(`e2e-nobody-${stamp}@example.com`);

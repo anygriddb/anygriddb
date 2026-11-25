@@ -44,7 +44,7 @@ import { LoadFailed } from "../shell/load-failed";
 import { BlockedSourcesBanner } from "../table/source-reach";
 import { trpc, useTRPC } from "../../lib/trpc";
 import { grants } from "../../lib/types";
-import { PromptDialog } from "../shell/dialogs";
+import { PromptDialog, Refusal, useRefusal } from "../shell/dialogs";
 import { Earlier } from "../history/earlier";
 import {
   moveWidget,
@@ -850,7 +850,7 @@ function WidgetForm(props: {
   onSubmit: (draft: WidgetDraft) => Promise<void>;
 }) {
   const { t } = useLingui();
-  const errorText = useErrorText();
+  const refusal = useRefusal();
   const catalog = useCatalog();
   const base = catalog.data?.find((item) => item.id === props.baseId);
   const api = useTRPC();
@@ -946,8 +946,9 @@ function WidgetForm(props: {
 
   async function submit() {
     if (!title.trim() || !tableId) return;
+    refusal.clear();
     if (kind === "view_embed" && !embedded) {
-      toast.error(t`Invalid view`);
+      refusal.show(t`Invalid view`);
       return;
     }
     setBusy(true);
@@ -991,7 +992,7 @@ function WidgetForm(props: {
             : { tableId, viewId: embedded };
       await props.onSubmit({ title: title.trim(), kind, config: draftConfig });
     } catch (cause) {
-      toast.error(errorText(cause));
+      refusal.say(cause);
     } finally {
       setBusy(false);
     }
@@ -1324,6 +1325,7 @@ function WidgetForm(props: {
           )}
         </>
       ) : null}
+      <Refusal text={refusal.text} className="sm:col-span-2" />
       <div className="flex justify-end gap-2 sm:col-span-2">
         <Button
           type="submit"
