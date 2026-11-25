@@ -684,9 +684,8 @@ function History({ row }: { row: RowItem }) {
                         className="rounded bg-muted px-2 py-1 text-xs"
                       >
                         <span className="font-medium">
-                          {column?.label ?? key}
+                          {t`${{ field: column?.label ?? key }}:`}
                         </span>{" "}
-                        :{" "}
                         <span className="text-danger line-through">
                           {show(before[key])}
                         </span>{" "}

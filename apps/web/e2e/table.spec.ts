@@ -496,6 +496,8 @@ test.describe("a table's rows", () => {
     await page.keyboard.press(" ");
     await panel.getByRole("tab", { name: "History" }).click();
     await expect(panel.getByText("Reason: Recount")).toBeVisible();
+    // A field's name and its colon, as the reader's language writes them.
+    await expect(panel.getByText("Amount:", { exact: true })).toBeVisible();
     await panel.getByRole("button", { name: "Close" }).click();
 
     // Where a field asks why, a row that comes back says why too: from

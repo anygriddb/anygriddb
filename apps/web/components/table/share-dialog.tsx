@@ -218,10 +218,11 @@ export function ShareDialog({
               ) : null}
               <span className="min-w-0 flex-1">
                 <span className="block truncate">
-                  {t`Created by ${{ name: share.createdBy }} on ${{ date: when.day(share.createdAt) }}`}
+                  {t`Created by ${{ name: share.createdBy }} on ${{ date: when.instant(share.createdAt) }}`}
                   {share.expiresAt
                     ? ` · ${t`expires on ${{ date: when.day(share.expiresAt) }}`}`
                     : ""}
+                  {share.allowCopy ? ` · ${t`copying allowed`}` : ""}
                 </span>
                 {share.embedOrigins.length > 0 ? (
                   <span className="block truncate text-xs text-muted-foreground">

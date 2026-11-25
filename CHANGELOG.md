@@ -25,6 +25,14 @@ with their history; nothing to do before or after.**
   same schedule, and a delivery whose attempt a stopped worker lost is
   queued again, a channel's included.
 
+### Fixed
+
+- Two share links of one view or one base, made the same day, read alike
+  in the list of existing links: each now says the moment it was made, and
+  a view's link says when it allows copying the data.
+- A row's history wrote a field's name with a space before its colon in
+  English ("Status : … → Done").
+
 ## 0.9.1 - 2026-11-25
 
 **Upgrade with this release's Compose files and its pin, as usual. One
