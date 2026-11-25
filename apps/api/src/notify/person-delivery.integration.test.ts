@@ -14,6 +14,8 @@ import { recordingBus } from "../realtime/recording-bus.test-helpers.js";
 import { createTestDatabase } from "../test-database.js";
 import { browserFactory, signUpProved } from "../trpc/caller.test-helpers.js";
 import { deliverPersonNotices, type DeliverDeps } from "./deliver-person.js";
+import { grantMember, revokeMember } from "../data/members.js";
+import { insertBase, insertTable } from "../data/schema-ops.js";
 import { sendDigests } from "./digest.js";
 import { channelsFor, savePreference } from "./person-preferences.js";
 import { unsubscribeToken } from "./unsubscribe.js";
@@ -92,6 +94,52 @@ describe("a person's notices", () => {
     expect(await sendDigests({ db, env, log: () => undefined }, "daily")).toBe(
       0,
     );
+  });
+
+  it("leaves out of a digest a notice of a table the person no longer reads", async () => {
+    const ownerId = await signUpProved(browser(), db, {
+      email: `owner-${suffix}@example.org`,
+      displayName: "Otto Owner",
+      password: PASSWORD,
+    });
+    const baseId = (await insertBase(db, ownerId, { name: "Ledger" })).id;
+    const tableId = (
+      await insertTable(db, ownerId, {
+        baseId,
+        name: "Salaires",
+        columns: [{ name: "name", label: "Name", fieldType: "text" }],
+      })
+    ).id;
+    await grantMember(db, ownerId, { baseId, email: address, role: "viewer" });
+    await savePreference(db, userId, "row_changed", ["in_app", "email_daily"]);
+    const notice = {
+      userId,
+      event: "row_changed" as const,
+      bellKind: "row_changed" as const,
+      data: { table: "Salaires" },
+      tableId,
+      baseId,
+      link: `${env.PUBLIC_URL}/t/${tableId}`,
+    };
+    await deliverPersonNotices(deps, [notice]);
+    // Taken out of the base before the digest goes: it says nothing of it.
+    await revokeMember(db, ownerId, { baseId, userId });
+    expect(await sendDigests({ db, env, log: () => undefined }, "daily")).toBe(
+      0,
+    );
+    const left = await db
+      .selectFrom("notificationDigestItems")
+      .select("id")
+      .where("userId", "=", userId)
+      .execute();
+    expect(left).toEqual([]);
+    // Back in the base, the next notice is sent.
+    await grantMember(db, ownerId, { baseId, email: address, role: "viewer" });
+    await deliverPersonNotices(deps, [notice]);
+    expect(await sendDigests({ db, env, log: () => undefined }, "daily")).toBe(
+      1,
+    );
+    expect(mailText(await smtp.next(address))).toContain("Salaires");
   });
 
   it("stops the whole digest from its link, without a session", async () => {
