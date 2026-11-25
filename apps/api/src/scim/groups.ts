@@ -107,6 +107,71 @@ export async function syncGroupBindings(
   `.execute(tx);
 }
 
+/**
+ * The bases a group owns that have an owner now, their rows held until
+ * the transaction ends, as a change to a base's members holds it: a change
+ * to the group waits for any change to those bases' members, and sees it.
+ */
+async function ownedThroughGroup(
+  tx: AuditTx,
+  groupId: string,
+): Promise<string[]> {
+  const owned = await tx
+    .selectFrom("groupRoles")
+    .select("baseId")
+    .where("groupId", "=", groupId)
+    .where("role", "=", "owner")
+    .execute();
+  if (owned.length === 0) return [];
+  const bases = await tx
+    .selectFrom("bases as b")
+    .select("b.id")
+    .where(
+      "b.id",
+      "in",
+      owned.map((row) => row.baseId),
+    )
+    .where(liveBase("b"))
+    .orderBy("b.id")
+    .forUpdate()
+    .execute();
+  const ids = bases.map((base) => base.id);
+  if (ids.length === 0) return [];
+  const held = await tx
+    .selectFrom("roleBindings")
+    .select("scopeId")
+    .distinct()
+    .where("scope", "=", "base")
+    .where("scopeId", "in", ids)
+    .where("role", "=", "owner")
+    .execute();
+  return held.map((row) => row.scopeId);
+}
+
+/**
+ * Refuses a change to a group that left one of these bases, which had an
+ * owner, with none: nobody could then share it, change its structure or
+ * delete it. A person keeps their base by a role of their own, or another
+ * group's.
+ */
+async function assertOwnersLeft(
+  tx: AuditTx,
+  baseIds: readonly string[],
+): Promise<void> {
+  if (baseIds.length === 0) return;
+  const left = await tx
+    .selectFrom("roleBindings")
+    .select("scopeId")
+    .distinct()
+    .where("scope", "=", "base")
+    .where("scopeId", "in", baseIds)
+    .where("role", "=", "owner")
+    .execute();
+  if (left.length < new Set(baseIds).size) {
+    throw new AppError("invalid_owner");
+  }
+}
+
 /** The instance's groups, for administrators and for sharing a base. */
 export async function listGroups(db: Database) {
   const rows = await db
@@ -232,6 +297,7 @@ export async function setGroupRole(
   if (!base || !group)
     throw new AppError(base ? "unknown_group" : "unknown_base");
   return withAudit(db, { userId: actorId, source: "web" }, async (tx) => {
+    const owned = await ownedThroughGroup(tx, input.groupId);
     const before = await tx
       .selectFrom("groupRoles as r")
       .leftJoin("madeRoles as m", "m.id", "r.madeRoleId")
@@ -256,6 +322,7 @@ export async function setGroupRole(
         .execute();
     }
     await syncGroupBindings(tx, input.groupId);
+    await assertOwnersLeft(tx, owned);
     return { previous: before ? givenOf(before) : null };
   });
 }
@@ -342,7 +409,9 @@ export async function deleteLocalGroup(
 ): Promise<void> {
   await withAudit(db, { userId: actorId, source: "web" }, async (tx) => {
     await requireLocalGroup(tx, groupId);
+    const owned = await ownedThroughGroup(tx, groupId);
     await tx.deleteFrom("groups").where("id", "=", groupId).execute();
+    await assertOwnersLeft(tx, owned);
   });
 }
 
@@ -405,11 +474,13 @@ export async function removeLocalGroupMember(
 ): Promise<void> {
   await withAudit(db, { userId: actorId, source: "web" }, async (tx) => {
     await requireLocalGroup(tx, input.groupId);
+    const owned = await ownedThroughGroup(tx, input.groupId);
     await tx
       .deleteFrom("groupMembers")
       .where("groupId", "=", input.groupId)
       .where("userId", "=", input.userId)
       .execute();
     await syncGroupBindings(tx, input.groupId);
+    await assertOwnersLeft(tx, owned);
   });
 }

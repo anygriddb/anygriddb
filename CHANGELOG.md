@@ -8,6 +8,13 @@ first.
 
 ## Unreleased
 
+### Fixed
+
+- A base could lose its last owner through a group: a member taken out of a
+  group that owned it, the group's role changed or taken back, or the group
+  deleted. Each is now refused when it would leave a base that had an owner
+  with none, as a change to a person's own role already was.
+
 ## 0.10.0 - 2026-11-25
 
 **Roles an administrator made: check them after the upgrade.** A token
