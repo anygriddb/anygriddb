@@ -9,7 +9,9 @@ import {
   isComputedType,
   isRelationType,
   isSystemType,
+  isWritableType,
   type FieldType,
+  type WritableType,
 } from "./field-types";
 import { AppError } from "./errors";
 import { isIsoDate, isIsoDateTime } from "./iso-date";
@@ -170,14 +172,13 @@ function isUniqueStrings(value: unknown, max: number): value is string[] {
     new Set(value).size === value.length
   );
 }
-
 /**
  * Checks a value against its column before it reaches SQL. Throws a stable
  * message: `Formula column is computed`, `Column is read-only`,
  * `Invalid relation`, `Invalid attachment`, or `Invalid cell`.
  */
 export function assertCellValue(column: CellColumn, value: unknown): void {
-  const { fieldType, config } = column;
+  const { fieldType } = column;
   if (isComputedType(fieldType)) {
     throw new AppError("formula_column_is_computed");
   }
@@ -190,118 +191,9 @@ export function assertCellValue(column: CellColumn, value: unknown): void {
   if (value === null) {
     return;
   }
-  switch (fieldType) {
-    case "text":
-      if (typeof value === "string" && value.length <= CELL_TEXT_LIMITS.text)
-        return;
-      break;
-    case "long_text":
-      if (
-        typeof value === "string" &&
-        value.length <= CELL_TEXT_LIMITS.long_text
-      )
-        return;
-      break;
-    case "email":
-      if (typeof value === "string" && isEmail(value)) return;
-      break;
-    case "url":
-      if (typeof value === "string" && isHttpUrl(value)) return;
-      break;
-    case "phone":
-      if (typeof value === "string" && PHONE.test(value)) return;
-      break;
-    case "color":
-      if (typeof value === "string" && isColor(value)) return;
-      break;
-    case "place":
-      if (typeof value === "string" && isPlace(value)) return;
-      break;
-    case "json":
-      if (isJsonDocument(value)) return;
-      break;
-    case "number": {
-      // Exact as a decimal string (ADR 0023). A finite number is accepted
-      // from older clients, unless it is an integer JSON has already rounded.
-      const decimal = isDecimalString(value);
-      if (
-        !decimal &&
-        !(
-          typeof value === "number" &&
-          Number.isFinite(value) &&
-          !isRoundedInteger(value)
-        )
-      ) {
-        break;
-      }
-      // Under zero: a minus sign before a digit that is not zero.
-      const negative = decimal
-        ? value.startsWith("-") && /[1-9]/.test(value)
-        : value < 0;
-      if (config.nonNegative && negative) {
-        throw new AppError("negative_number");
-      }
-      return;
-    }
-    case "duration":
-      if (typeof value === "number" && Number.isFinite(value) && value >= 0)
-        return;
-      break;
-    case "rating": {
-      const max = config.ratingMax ?? 5;
-      if (
-        typeof value === "number" &&
-        Number.isInteger(value) &&
-        value >= 0 &&
-        value <= max
-      )
-        return;
-      break;
-    }
-    case "boolean":
-      if (typeof value === "boolean") return;
-      break;
-    case "date":
-      if (typeof value === "string" && isIsoDate(value)) return;
-      break;
-    case "datetime":
-      if (
-        typeof value === "string" &&
-        isIsoDateTime(value, column.instantDigits)
-      )
-        return;
-      break;
-    case "single_select":
-      if (
-        typeof value === "string" &&
-        selectOptionNames(config).includes(value)
-      )
-        return;
-      break;
-    case "multi_select": {
-      const names = selectOptionNames(config);
-      if (
-        isUniqueStrings(value, MAX_ARRAY_ITEMS) &&
-        value.every((item) => names.includes(item))
-      )
-        return;
-      break;
-    }
-    case "user": {
-      const max = config.multiple ? 50 : 1;
-      if (isUniqueStrings(value, max) && value.every((id) => UUID.test(id)))
-        return;
-      break;
-    }
-    case "attachment":
-      if (
-        isUniqueStrings(value, MAX_CELL_FILES) &&
-        value.every((key) => ATTACHMENT_KEY.test(key))
-      )
-        return;
-      throw new AppError("invalid_attachment");
-  }
-  throw new AppError("invalid_cell");
+  const rule = cellRuleOf(fieldType);
+  if (rule?.keeps(value, column)) return;
+  throw new AppError(rule?.refusedAs ?? "invalid_cell");
 }
 
 const TRUE_WORDS = new Set([
@@ -433,41 +325,308 @@ export type CellRefusal =
 
 type CellReading = { value: CellValue } | { refused: CellRefusal };
 
+/** Text as it was typed, its line ends made `\n`, and the same trimmed. */
+type TypedText = { text: string; trimmed: string };
+
+/**
+ * How one writable type takes a cell: what it keeps, and how it reads loose
+ * input. Each type has its own, and `CELL_RULES` refuses a type left out.
+ */
+type CellRule = {
+  /**
+   * Whether a value, never null, is one this type keeps. A value the type
+   * refuses for a reason of its own throws that reason.
+   */
+  keeps: (value: unknown, column: CellColumn) => boolean;
+  /** The refusal of a value it does not keep: `invalid_cell` unless said. */
+  refusedAs?: "invalid_attachment";
+  /** Reads text: never an empty one, unless `readsEmpty`. */
+  read: (
+    typed: TypedText,
+    column: CellColumn,
+    context: CoerceContext,
+  ) => CellValue | undefined;
+  /** An empty text is a value of its own, not an empty cell. */
+  readsEmpty?: true;
+  /** A JSON number or boolean, which is otherwise read as its text. */
+  readScalar?: (raw: number | boolean) => CellValue | undefined;
+  /**
+   * A list sent as such: one document, or items picked one by one, which
+   * is otherwise read as its items written out.
+   */
+  readList?: "document" | "items";
+  /** Why loose input was not taken, where the type says more than `invalid_cell`. */
+  refusal?: (
+    raw: unknown,
+    candidate: CellValue | undefined,
+    column: CellColumn,
+    context: CoerceContext,
+  ) => CellRefusal | undefined;
+};
+
+function isTextWithin(value: unknown, limit: number): boolean {
+  return typeof value === "string" && value.length <= limit;
+}
+
+function tooLong(limit: number): CellRule["refusal"] {
+  return (_raw, candidate) =>
+    typeof candidate === "string" && candidate.length > limit
+      ? { code: "value_too_long", limit }
+      : undefined;
+}
+
+/** A number typed in a way that reads two ways, by the reader's mark. */
+function ambiguousNumber(
+  raw: unknown,
+  _candidate: CellValue | undefined,
+  _column: CellColumn,
+  context: CoerceContext,
+): CellRefusal | undefined {
+  if (typeof raw !== "string") return undefined;
+  if (context.decimalMark === undefined && isAmbiguousNumber(raw)) {
+    return { code: "ambiguous_number" };
+  }
+  if (context.decimalMark === "," && isAmbiguousPoint(raw)) {
+    return { code: "ambiguous_point" };
+  }
+  return undefined;
+}
+
+/** A day in numbers that reads two ways, with no order to read it in. */
+function ambiguousDay(
+  raw: unknown,
+  _candidate: CellValue | undefined,
+  column: CellColumn,
+  context: CoerceContext,
+): CellRefusal | undefined {
+  return typeof raw === "string" &&
+    dayOrderOf(column.config, context) === undefined &&
+    isAmbiguousDate(raw)
+    ? { code: "ambiguous_date" }
+    : undefined;
+}
+
+/** A JSON number as a count (stars, seconds); a boolean as one or none. */
+function scalarAsCount(raw: number | boolean): number {
+  return typeof raw === "number" ? raw : raw ? 1 : 0;
+}
+
+/** An option of the field: the same name, else the same in any case. */
+function optionNamed(names: string[], typed: string): string | undefined {
+  return (
+    names.find((name) => name === typed) ??
+    names.find((name) => name.toLowerCase() === typed.toLowerCase())
+  );
+}
+
+/** One rule per writable type, the compiler refusing a type left out. */
+const CELL_RULES = {
+  text: {
+    keeps: (value) => isTextWithin(value, CELL_TEXT_LIMITS.text),
+    read: ({ text }) => text.replace(/\n/g, " "),
+    refusal: tooLong(CELL_TEXT_LIMITS.text),
+  },
+  long_text: {
+    keeps: (value) => isTextWithin(value, CELL_TEXT_LIMITS.long_text),
+    read: ({ text }) => text,
+    refusal: tooLong(CELL_TEXT_LIMITS.long_text),
+  },
+  email: {
+    keeps: (value) => typeof value === "string" && isEmail(value),
+    read: ({ trimmed }) => trimmed,
+  },
+  url: {
+    keeps: (value) => typeof value === "string" && isHttpUrl(value),
+    read: ({ trimmed }) => trimmed,
+  },
+  phone: {
+    keeps: (value) => typeof value === "string" && PHONE.test(value),
+    read: ({ trimmed }) => trimmed,
+  },
+  color: {
+    keeps: (value) => typeof value === "string" && isColor(value),
+    read: ({ trimmed }) => parseColor(trimmed),
+  },
+  place: {
+    keeps: (value) => typeof value === "string" && isPlace(value),
+    read: ({ trimmed }) => {
+      const place = parsePlace(trimmed);
+      return place ? formatPlace(place) : undefined;
+    },
+  },
+  json: {
+    keeps: (value) => isJsonDocument(value),
+    // A list sent as such is the document itself.
+    readList: "document",
+    read: ({ trimmed }) => {
+      const document = parseJsonDocument(trimmed);
+      return document !== undefined && spellsUnwritableText(document)
+        ? undefined
+        : document;
+    },
+  },
+  number: {
+    keeps: (value, { config }) => {
+      // Exact as a decimal string (ADR 0023). A finite number is accepted
+      // from older clients, unless it is an integer JSON has already rounded.
+      const decimal = isDecimalString(value);
+      if (
+        !decimal &&
+        !(
+          typeof value === "number" &&
+          Number.isFinite(value) &&
+          !isRoundedInteger(value)
+        )
+      ) {
+        return false;
+      }
+      // Under zero: a minus sign before a digit that is not zero.
+      const negative = decimal
+        ? value.startsWith("-") && /[1-9]/.test(value)
+        : value < 0;
+      if (config.nonNegative && negative) {
+        throw new AppError("negative_number");
+      }
+      return true;
+    },
+    readScalar: (raw) =>
+      typeof raw === "number" ? numberToDecimal(raw) : raw ? "1" : "0",
+    read: ({ trimmed }, _column, context) =>
+      readNumberText(trimmed, context.decimalMark),
+    refusal: ambiguousNumber,
+  },
+  duration: {
+    keeps: (value) =>
+      typeof value === "number" && Number.isFinite(value) && value >= 0,
+    readScalar: scalarAsCount,
+    read: ({ trimmed }, _column, context) =>
+      parseDuration(trimmed, context.decimalMark),
+    refusal: ambiguousNumber,
+  },
+  rating: {
+    keeps: (value, { config }) =>
+      typeof value === "number" &&
+      Number.isInteger(value) &&
+      value >= 0 &&
+      value <= (config.ratingMax ?? 5),
+    readScalar: scalarAsCount,
+    // Only stars, or a number: a whole one, which the check asks.
+    read: ({ trimmed }, _column, context) =>
+      /^[★⭐]+$/u.test(trimmed)
+        ? (trimmed.match(/[★⭐]/gu)?.length ?? 0)
+        : readFloat(trimmed, context.decimalMark),
+    refusal: ambiguousNumber,
+  },
+  boolean: {
+    keeps: (value) => typeof value === "boolean",
+    readScalar: (raw) => (typeof raw === "boolean" ? raw : raw !== 0),
+    readsEmpty: true,
+    read: ({ trimmed }) => {
+      const lower = trimmed.toLowerCase();
+      if (TRUE_WORDS.has(lower)) return true;
+      if (FALSE_WORDS.has(lower)) return false;
+      return undefined;
+    },
+  },
+  date: {
+    keeps: (value) => typeof value === "string" && isIsoDate(value),
+    read: ({ trimmed }, { config }, context) =>
+      readDayText(trimmed, dayOrderOf(config, context)),
+    refusal: ambiguousDay,
+  },
+  datetime: {
+    keeps: (value, column) =>
+      typeof value === "string" && isIsoDateTime(value, column.instantDigits),
+    read: ({ trimmed }, column, context) =>
+      readInstantText(trimmed, {
+        order: dayOrderOf(column.config, context),
+        timeZone: fieldZone(column.config, context),
+        digits: column.instantDigits,
+      }),
+    refusal: ambiguousDay,
+  },
+  single_select: {
+    keeps: (value, { config }) =>
+      typeof value === "string" && selectOptionNames(config).includes(value),
+    read: ({ trimmed }, { config }) =>
+      optionNamed(selectOptionNames(config), trimmed),
+  },
+  multi_select: {
+    keeps: (value, { config }) => {
+      const names = selectOptionNames(config);
+      return (
+        isUniqueStrings(value, MAX_ARRAY_ITEMS) &&
+        value.every((item) => names.includes(item))
+      );
+    },
+    readList: "items",
+    read: ({ trimmed }, { config }) => {
+      const names = selectOptionNames(config);
+      const picked: string[] = [];
+      for (const item of splitList(trimmed)) {
+        const match = optionNamed(names, item);
+        if (!match) {
+          return undefined;
+        }
+        if (!picked.includes(match)) {
+          picked.push(match);
+        }
+      }
+      return picked;
+    },
+  },
+  user: {
+    keeps: (value, { config }) =>
+      isUniqueStrings(value, config.multiple ? 50 : 1) &&
+      value.every((id) => UUID.test(id)),
+    readList: "items",
+    read: ({ trimmed }, _column, context) => {
+      const ids: string[] = [];
+      for (const item of splitList(trimmed)) {
+        const id = UUID.test(item)
+          ? item.toLowerCase()
+          : context.resolveUser?.(item);
+        if (!id) {
+          return undefined;
+        }
+        if (!ids.includes(id)) {
+          ids.push(id);
+        }
+      }
+      return ids;
+    },
+  },
+  attachment: {
+    keeps: (value) =>
+      isUniqueStrings(value, MAX_CELL_FILES) &&
+      value.every((key) => ATTACHMENT_KEY.test(key)),
+    refusedAs: "invalid_attachment",
+    readList: "items",
+    read: ({ trimmed }) => splitList(trimmed),
+  },
+} satisfies Record<WritableType, CellRule>;
+
+/** The rule of a type a user writes, and none for any other. */
+function cellRuleOf(fieldType: FieldType): CellRule | undefined {
+  return isWritableType(fieldType) ? CELL_RULES[fieldType] : undefined;
+}
+
 function refusalOf(
   column: CellColumn,
   raw: unknown,
   candidate: CellValue | undefined,
   context: CoerceContext,
 ): CellRefusal {
-  const { fieldType } = column;
-  if (
-    (fieldType === "text" || fieldType === "long_text") &&
-    typeof candidate === "string" &&
-    candidate.length > CELL_TEXT_LIMITS[fieldType]
-  ) {
-    return { code: "value_too_long", limit: CELL_TEXT_LIMITS[fieldType] };
-  }
-  if (typeof raw !== "string") return { code: "invalid_cell" };
-  if (
-    fieldType === "number" ||
-    fieldType === "rating" ||
-    fieldType === "duration"
-  ) {
-    if (context.decimalMark === undefined && isAmbiguousNumber(raw)) {
-      return { code: "ambiguous_number" };
+  return (
+    cellRuleOf(column.fieldType)?.refusal?.(
+      raw,
+      candidate,
+      column,
+      context,
+    ) ?? {
+      code: "invalid_cell",
     }
-    if (context.decimalMark === "," && isAmbiguousPoint(raw)) {
-      return { code: "ambiguous_point" };
-    }
-  }
-  if (
-    (fieldType === "date" || fieldType === "datetime") &&
-    dayOrderOf(column.config, context) === undefined &&
-    isAmbiguousDate(raw)
-  ) {
-    return { code: "ambiguous_date" };
-  }
-  return { code: "invalid_cell" };
+  );
 }
 
 /**
@@ -518,22 +677,17 @@ function coerceRaw(
   if (raw === null || raw === undefined) {
     return null;
   }
-  const { fieldType, config } = column;
+  const rule = cellRuleOf(column.fieldType);
   if (typeof raw === "number" && isRoundedInteger(raw)) {
     return undefined;
   }
   if (Array.isArray(raw)) {
     if (raw.some((item) => typeof item === "number" && isRoundedInteger(item)))
       return undefined;
-    // A list sent as such is the document itself.
-    if (fieldType === "json") {
+    if (rule?.readList === "document") {
       return parseJsonDocument(JSON.stringify(raw));
     }
-    if (
-      fieldType === "multi_select" ||
-      fieldType === "user" ||
-      fieldType === "attachment"
-    ) {
+    if (rule?.readList === "items") {
       const items = raw.flatMap((item) =>
         typeof item === "string" ? [item.trim()] : [],
       );
@@ -542,16 +696,9 @@ function coerceRaw(
     return coerceRaw(column, raw.map(String).join(", "), context);
   }
   if (typeof raw === "number" || typeof raw === "boolean") {
-    if (fieldType === "number") {
-      return typeof raw === "number" ? numberToDecimal(raw) : raw ? "1" : "0";
-    }
-    if (fieldType === "rating" || fieldType === "duration") {
-      return typeof raw === "number" ? raw : raw ? 1 : 0;
-    }
-    if (fieldType === "boolean") {
-      return typeof raw === "boolean" ? raw : raw !== 0;
-    }
-    return coerceRaw(column, String(raw), context);
+    return rule?.readScalar
+      ? rule.readScalar(raw)
+      : coerceRaw(column, String(raw), context);
   }
   if (typeof raw !== "string") {
     return undefined;
@@ -560,94 +707,8 @@ function coerceRaw(
   if (holdsUnwritableText(raw)) return undefined;
   const text = raw.replace(/\r\n/g, "\n");
   const trimmed = text.trim();
-  if (trimmed === "" && fieldType !== "boolean") {
+  if (trimmed === "" && !rule?.readsEmpty) {
     return null;
   }
-  switch (fieldType) {
-    case "text":
-      return text.replace(/\n/g, " ");
-    case "long_text":
-      return text;
-    case "email":
-    case "url":
-    case "phone":
-      return trimmed;
-    case "color":
-      return parseColor(trimmed);
-    case "place": {
-      const place = parsePlace(trimmed);
-      return place ? formatPlace(place) : undefined;
-    }
-    case "json": {
-      const document = parseJsonDocument(trimmed);
-      return document !== undefined && spellsUnwritableText(document)
-        ? undefined
-        : document;
-    }
-    case "number":
-      return readNumberText(trimmed, context.decimalMark);
-    case "rating":
-      // Only stars, or a number: a whole one, which the check asks.
-      return /^[★⭐]+$/u.test(trimmed)
-        ? (trimmed.match(/[★⭐]/gu)?.length ?? 0)
-        : readFloat(trimmed, context.decimalMark);
-    case "duration":
-      return parseDuration(trimmed, context.decimalMark);
-    case "boolean": {
-      const lower = trimmed.toLowerCase();
-      if (TRUE_WORDS.has(lower)) return true;
-      if (FALSE_WORDS.has(lower)) return false;
-      return undefined;
-    }
-    case "date":
-      return readDayText(trimmed, dayOrderOf(config, context));
-    case "datetime":
-      return readInstantText(trimmed, {
-        order: dayOrderOf(config, context),
-        timeZone: fieldZone(config, context),
-        digits: column.instantDigits,
-      });
-    case "single_select": {
-      const names = selectOptionNames(config);
-      return (
-        names.find((name) => name === trimmed) ??
-        names.find((name) => name.toLowerCase() === trimmed.toLowerCase())
-      );
-    }
-    case "multi_select": {
-      const names = selectOptionNames(config);
-      const picked: string[] = [];
-      for (const item of splitList(trimmed)) {
-        const match =
-          names.find((name) => name === item) ??
-          names.find((name) => name.toLowerCase() === item.toLowerCase());
-        if (!match) {
-          return undefined;
-        }
-        if (!picked.includes(match)) {
-          picked.push(match);
-        }
-      }
-      return picked;
-    }
-    case "user": {
-      const ids: string[] = [];
-      for (const item of splitList(trimmed)) {
-        const id = UUID.test(item)
-          ? item.toLowerCase()
-          : context.resolveUser?.(item);
-        if (!id) {
-          return undefined;
-        }
-        if (!ids.includes(id)) {
-          ids.push(id);
-        }
-      }
-      return ids;
-    }
-    case "attachment":
-      return splitList(trimmed);
-    default:
-      return undefined;
-  }
+  return rule?.read({ text, trimmed }, column, context);
 }
