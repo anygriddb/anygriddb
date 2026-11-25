@@ -8,12 +8,14 @@ first.
 
 ## Unreleased
 
-### Fixed
+### Security
 
-- A base could lose its last owner through a group: a member taken out of a
-  group that owned it, the group's role changed or taken back, or the group
-  deleted. Each is now refused when it would leave a base that had an owner
-  with none, as a change to a person's own role already was.
+- A daily or weekly digest listed what waited for a person even when they
+  no longer read its table: a notice queued before their role was taken
+  away, or before the table or its base went to the trash, was mailed up
+  to a week later with the table's name and what happened. A digest now
+  asks again, when it is sent, whether the person reads each table it
+  names, and drops what they no longer do.
 
 ## 0.10.0 - 2026-11-25
 
