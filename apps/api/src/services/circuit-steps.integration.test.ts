@@ -34,6 +34,30 @@ import {
   signUpProved,
   type TestBrowser,
 } from "../trpc/caller.test-helpers.js";
+import { definitionOf } from "@anygriddb/core";
+
+/**
+ * Saves a shipped template's circuit on a table, as the editor does when
+ * it starts from one.
+ */
+async function applyTemplate(
+  who: TestBrowser,
+  input: {
+    tableId: string;
+    templateKey: string;
+    remap?: Record<string, string>;
+  },
+) {
+  const template = (await who.call().catalog.listCircuitTemplates({})).find(
+    (circuit) => circuit.key === input.templateKey,
+  );
+  if (!template) throw new Error(`no template ${input.templateKey}`);
+  return who.call().catalog.saveCircuit({
+    tableId: input.tableId,
+    circuit: definitionOf(template),
+    remap: input.remap,
+  });
+}
 
 const suffix = randomBytes(6).toString("hex");
 const PASSWORD = "correct horse battery staple";
@@ -260,9 +284,7 @@ describe("the steps of a table's circuit", () => {
 
   it("asks a second person after the first, with four eyes", async () => {
     const tableId = await newTable("Approvals");
-    await owner
-      .call()
-      .catalog.applyCircuitTemplate({ tableId, templateKey: "dual_approval" });
+    await applyTemplate(owner, { tableId, templateKey: "dual_approval" });
     const row = await addRow(tableId, "A");
     await step(editor, tableId, row, "submit");
     await step(owner, tableId, row, "approve_first");

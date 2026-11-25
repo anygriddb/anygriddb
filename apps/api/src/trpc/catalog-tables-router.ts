@@ -3,18 +3,21 @@
  */
 import {
   AppError,
-  applyCircuitTemplateInputSchema,
   createTableInputSchema,
   deleteTableInputSchema,
   duplicateTableInputSchema,
+  type FieldType,
   getTableCircuitInputSchema,
+  isWritableType,
   listCircuitTemplatesInputSchema,
+  saveCircuitInputSchema,
   reorderTablesInputSchema,
   updateTableInputSchema,
 } from "@anygriddb/core";
 import {
-  applyCircuitTemplate,
+  circuitCounts,
   listCircuitTemplates,
+  saveTableCircuit,
   loadTableCircuit,
 } from "../data/status-circuits.js";
 import { enqueueJob } from "../jobs.js";
@@ -247,8 +250,25 @@ export const catalogTableProcedures = {
         return listCircuitTemplates(ctx.db);
       }),
     ),
-  applyCircuitTemplate: procedure
-    .input(applyCircuitTemplateInputSchema)
+  /** Rows of each state, for the editor to ask where those of a removed one go. */
+  circuitCounts: procedure
+    .input(getTableCircuitInputSchema)
+    .query(({ ctx, input }) =>
+      handle(ctx, async () => {
+        const { table } = await guardTable(ctx, input.tableId, "schema.manage");
+        return circuitCounts(ctx.db, {
+          tableId: table.id,
+          physicalName: table.physicalName,
+        });
+      }),
+    ),
+  /**
+   * Saves a table's circuit as its editor drew it, a template's included:
+   * the fields it names are the table's own stored ones, the made roles
+   * its steps name exist.
+   */
+  saveCircuit: procedure
+    .input(saveCircuitInputSchema)
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
         const { table, user } = await guardTable(
@@ -256,10 +276,44 @@ export const catalogTableProcedures = {
           input.tableId,
           "schema.manage",
         );
-        const circuit = await applyCircuitTemplate(ctx.db, {
+        const named = [
+          ...input.circuit.states.flatMap(
+            (state) => state.writableFields ?? [],
+          ),
+          ...input.circuit.steps.flatMap((step) => step.fields),
+        ];
+        if (named.length > 0) {
+          const stored = new Set(
+            (
+              await ctx.db
+                .selectFrom("dataColumns")
+                .select(["name", "fieldType"])
+                .where("tableId", "=", table.id)
+                .where("deletedAt", "is", null)
+                .execute()
+            )
+              .filter((column) => isWritableType(column.fieldType as FieldType))
+              .map((column) => column.name),
+          );
+          if (named.some((name) => !stored.has(name))) {
+            throw new AppError("invalid_column");
+          }
+        }
+        const made = [
+          ...new Set(input.circuit.steps.flatMap((step) => step.madeRoles)),
+        ];
+        if (made.length > 0) {
+          const found = await ctx.db
+            .selectFrom("madeRoles")
+            .select("id")
+            .where("id", "in", made)
+            .execute();
+          if (found.length !== made.length) throw new AppError("unknown_role");
+        }
+        const circuit = await saveTableCircuit(ctx.db, {
           userId: user.id,
           tableId: table.id,
-          templateKey: input.templateKey,
+          circuit: input.circuit,
           remap: input.remap,
           physicalName: table.physicalName,
           storage: table.storage === "external" ? "external" : "native",

@@ -98,6 +98,70 @@ export function stepBetween(
   );
 }
 
+/**
+ * A circuit as its editor holds it (`circuitDefinitionSchema`): states and
+ * steps in their order, each step with the roles it names. Its name is the
+ * one given, for a template its own.
+ */
+export function definitionOf(
+  circuit: StatusCircuit,
+  name: string = circuit.name,
+): {
+  name: string;
+  states: Array<{
+    key: string;
+    label: string;
+    initial: boolean;
+    writable: boolean;
+    writableFields: string[] | null;
+    delete: boolean;
+    seal: boolean;
+  }>;
+  steps: Array<{
+    key: string;
+    label: string;
+    from: string;
+    to: string;
+    reason: boolean;
+    fields: string[];
+    signature: TransitionSignature;
+    fourEyes: boolean;
+    roles: Role[];
+    madeRoles: string[];
+  }>;
+} {
+  return {
+    name,
+    states: [...circuit.states]
+      .sort((a, b) => a.position - b.position)
+      .map((state) => ({
+        key: state.key,
+        label: state.label,
+        initial: state.isInitial,
+        writable: state.rowWritable,
+        writableFields: state.writableFields,
+        delete: state.allowDelete,
+        seal: state.seal,
+      })),
+    steps: [...circuit.transitions]
+      .sort((a, b) => a.position - b.position)
+      .map((step) => ({
+        key: step.key,
+        label: step.label,
+        from: step.fromStateKey,
+        to: step.toStateKey,
+        reason: step.requireReason,
+        fields: [...step.requireFields],
+        signature: step.signature,
+        fourEyes: step.fourEyes,
+        roles: step.roleKeys.filter((key): key is Role =>
+          (ROLES as readonly string[]).includes(key),
+        ),
+        madeRoles: [...step.madeRoleIds],
+      })),
+  };
+}
+
 export function transitionsFrom(
   circuit: StatusCircuit,
   fromKey: string,

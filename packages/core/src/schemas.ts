@@ -424,11 +424,94 @@ export const getTableCircuitInputSchema = z.object({
 
 export const listCircuitTemplatesInputSchema = z.object({});
 
-export const applyCircuitTemplateInputSchema = z.object({
+/** A key a circuit's state or step is stored under. */
+const circuitKeySchema = z.string().regex(/^[a-z][a-z0-9_]{0,63}$/);
+
+/**
+ * A table's circuit as its editor saves it (ADR 0124, ADR 0130): its
+ * states, one of them the first, and its steps between them, with what
+ * each asks and whom it names. A sealed state neither writes nor deletes.
+ */
+export const circuitDefinitionSchema = z
+  .object({
+    name: z.string().trim().min(1).max(60),
+    states: z
+      .array(
+        z
+          .object({
+            key: circuitKeySchema,
+            label: z.string().trim().min(1).max(100),
+            initial: z.boolean(),
+            writable: z.boolean(),
+            /** Null: every field the person may write; else these alone. */
+            writableFields: z.array(columnNameSchema).max(200).nullable(),
+            delete: z.boolean(),
+            seal: z.boolean(),
+          })
+          .strict(),
+      )
+      .min(1)
+      .max(30),
+    steps: z
+      .array(
+        z
+          .object({
+            key: circuitKeySchema,
+            label: z.string().trim().min(1).max(100),
+            from: circuitKeySchema,
+            to: circuitKeySchema,
+            reason: z.boolean(),
+            fields: z.array(columnNameSchema).max(50),
+            signature: z.enum(["none", "password", "step_up"]),
+            fourEyes: z.boolean(),
+            roles: z.array(z.enum(ROLES)).max(ROLES.length),
+            madeRoles: z.array(z.uuid()).max(20),
+          })
+          .strict(),
+      )
+      .max(60),
+  })
+  .strict()
+  .superRefine((circuit, context) => {
+    const refuse = () =>
+      context.addIssue({ code: "custom", message: "Invalid circuit" });
+    const keys = circuit.states.map((state) => state.key);
+    if (new Set(keys).size !== keys.length) refuse();
+    if (circuit.states.filter((state) => state.initial).length !== 1) {
+      refuse();
+    }
+    if (
+      circuit.states.some(
+        (state) => state.seal && (state.writable || state.delete),
+      )
+    ) {
+      refuse();
+    }
+    const known = new Set(keys);
+    const leaving = new Set<string>();
+    for (const step of circuit.steps) {
+      if (
+        !known.has(step.from) ||
+        !known.has(step.to) ||
+        step.from === step.to
+      ) {
+        refuse();
+      }
+      const named = `${step.from} ${step.key}`;
+      if (leaving.has(named)) refuse();
+      leaving.add(named);
+      if (new Set(step.roles).size !== step.roles.length) refuse();
+      if (new Set(step.madeRoles).size !== step.madeRoles.length) refuse();
+    }
+  });
+
+export type CircuitDefinition = z.infer<typeof circuitDefinitionSchema>;
+
+export const saveCircuitInputSchema = z.object({
   tableId: z.uuid(),
-  templateKey: z.enum(["compliance", "simple_review", "dual_approval"]),
-  /** When the new circuit lacks a key a row holds, map that key to one it has. */
-  remap: z.record(z.string(), z.string()).optional(),
+  circuit: circuitDefinitionSchema,
+  /** Where the rows of each state that goes are moved: its key to a kept one. */
+  remap: z.record(circuitKeySchema, circuitKeySchema).optional(),
 });
 
 export const auditReadInputSchema = z.object({

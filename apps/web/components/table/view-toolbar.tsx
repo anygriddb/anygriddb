@@ -23,8 +23,8 @@ import {
   Tooltip,
 } from "@anygriddb/ui";
 import {
-  ArrowDownUp,
   AlertCircle,
+  ArrowDownUp,
   Check,
   ChevronDown,
   Download,
@@ -42,6 +42,7 @@ import {
   Trash2,
   Undo2,
   Upload,
+  Workflow,
   X,
   Zap,
 } from "lucide-react";
@@ -113,6 +114,8 @@ export function ViewToolbar(props: {
   onTrash?: (() => void) | undefined;
   /** Shown to those who manage the table's automations. */
   onAutomations?: (() => void) | undefined;
+  /** Opens the table's status circuit, for whoever manages its structure. */
+  onCircuit?: (() => void) | undefined;
   /** Opens the dialog that adds a field; unset when the person may not. */
   onAddField?: (() => void) | undefined;
   /** Shown to those who may add rows. */
@@ -134,7 +137,7 @@ export function ViewToolbar(props: {
   const { config, allColumns } = props;
   const exportTo = props.onExport;
   const importFile = props.onImport;
-  const toolsOfRows = props.onAutomations ?? props.onTrash;
+  const toolsOfRows = props.onAutomations ?? props.onCircuit ?? props.onTrash;
   const [draft, setDraft] = useState<FilterGroup>(
     config.filter ?? { conjunction: "and", conditions: [] },
   );
@@ -748,6 +751,12 @@ export function ViewToolbar(props: {
                       <DropdownMenuItem onSelect={props.onAutomations}>
                         <Zap className="h-4 w-4" aria-hidden />
                         {t`Automations`}
+                      </DropdownMenuItem>
+                    ) : null}
+                    {props.onCircuit ? (
+                      <DropdownMenuItem onSelect={props.onCircuit}>
+                        <Workflow className="h-4 w-4" aria-hidden />
+                        {t`Status circuit`}
                       </DropdownMenuItem>
                     ) : null}
                     {props.onTrash ? (

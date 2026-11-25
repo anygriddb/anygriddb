@@ -4,13 +4,19 @@
  * on the trail, played as that role, on a real database.
  */
 import { randomBytes, randomUUID } from "node:crypto";
-import { buildCreateTable, buildInsert } from "@anygriddb/core";
+import {
+  buildCreateTable,
+  buildInsert,
+  type CircuitDefinition,
+  definitionOf,
+} from "@anygriddb/core";
 import { grantRuntimeRole, type Database } from "@anygriddb/db";
 import { sql } from "kysely";
 import type pg from "pg";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createTestDatabase, RUNTIME_ROLE } from "../test-database.js";
 import { runRows, withAudit } from "./audit-context.js";
+import { listCircuitTemplates } from "./status-circuits.js";
 
 const table = `t_${randomBytes(16).toString("hex")}`;
 const columns = [{ name: "amount", fieldType: "number" as const, config: {} }];
@@ -165,12 +171,29 @@ describe("the role the application signs in as", () => {
       `select set_config('anygrid.user_id', '${userId}', true),
               set_config('anygrid.table_id', '${tableId}', true),
               set_config('anygrid.action', '${action}', true)`;
-    const replace = (template: string, remap: Record<string, string>) =>
-      withAudit(db, { userId, tableId }, (tx) =>
-        sql`select ag_replace_status_circuit(
-              ${tableId}::uuid, ${template}, ${JSON.stringify(remap)}::jsonb
+    /**
+     * Saves a template's circuit on the table, as its editor does, changed
+     * first if asked: the one way the role has to change a circuit.
+     */
+    const replace = async (
+      template: string,
+      remap: Record<string, string>,
+      change: (circuit: CircuitDefinition) => void = () => undefined,
+    ) => {
+      const shipped = (await listCircuitTemplates(db)).find(
+        (circuit) => circuit.key === template,
+      );
+      if (!shipped) throw new Error(`no template ${template}`);
+      const circuit = definitionOf(shipped);
+      change(circuit);
+      return withAudit(db, { userId, tableId }, (tx) =>
+        sql`select ag_save_status_circuit(
+              ${tableId}::uuid,
+              ${JSON.stringify(circuit)}::jsonb,
+              ${JSON.stringify(remap)}::jsonb
             )`.execute(tx),
       );
+    };
     const circuitEvents = async () =>
       (
         await ownerPool.query<{ n: number }>(
@@ -219,6 +242,23 @@ describe("the role the application signs in as", () => {
         ),
       ).rejects.toThrow(/Invalid status|Row locked/);
       expect(await held()).toEqual({ amount: "10", status: "signed" });
+    });
+
+    it("cannot free a signed row with a circuit whose signed state writes", async () => {
+      const before = await circuitEvents();
+      await expect(
+        replace("compliance", {}, (circuit) => {
+          for (const state of circuit.states) {
+            if (state.key === "signed") {
+              state.seal = false;
+              state.writable = true;
+              state.delete = true;
+            }
+          }
+        }),
+      ).rejects.toThrow(/Row locked/);
+      expect(await held()).toEqual({ amount: "10", status: "signed" });
+      expect(await circuitEvents()).toBe(before);
     });
 
     it.each([

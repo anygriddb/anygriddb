@@ -3,7 +3,7 @@
  * rows moved along its transitions by the roles it names, rows of a state
  * it drops moved on the trail, and a sealed row that no change frees.
  */
-import { randomBytes } from "node:crypto";
+import { randomBytes, randomUUID } from "node:crypto";
 import type { Database } from "@anygriddb/db";
 import { sql } from "kysely";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -16,7 +16,32 @@ import {
   errorCode,
   joinBase,
   signUpProved,
+  type TestBrowser,
 } from "../trpc/caller.test-helpers.js";
+import { type CircuitDefinition, definitionOf } from "@anygriddb/core";
+
+/**
+ * Saves a shipped template's circuit on a table, as the editor does when
+ * it starts from one.
+ */
+async function applyTemplate(
+  who: TestBrowser,
+  input: {
+    tableId: string;
+    templateKey: string;
+    remap?: Record<string, string>;
+  },
+) {
+  const template = (await who.call().catalog.listCircuitTemplates({})).find(
+    (circuit) => circuit.key === input.templateKey,
+  );
+  if (!template) throw new Error(`no template ${input.templateKey}`);
+  return who.call().catalog.saveCircuit({
+    tableId: input.tableId,
+    circuit: definitionOf(template),
+    remap: input.remap,
+  });
+}
 
 const suffix = randomBytes(6).toString("hex");
 const PASSWORD = "correct horse battery staple";
@@ -90,25 +115,27 @@ describe("a table's status circuit", () => {
     expect((await owner.call().catalog.getCircuit({ tableId })).key).toBe(
       "compliance",
     );
-    const circuit = await owner
-      .call()
-      .catalog.applyCircuitTemplate({ tableId, templateKey: "simple_review" });
-    expect(circuit.key).toBe("simple_review");
+    const circuit = await applyTemplate(owner, {
+      tableId,
+      templateKey: "simple_review",
+    });
+    expect(circuit.states.map((state) => state.key)).toEqual([
+      "draft",
+      "in_review",
+      "approved",
+    ]);
+    expect(circuit.name).toBe("Simple review");
     // An editor may not change it.
     expect(
       await errorCode(
-        editor
-          .call()
-          .catalog.applyCircuitTemplate({ tableId, templateKey: "compliance" }),
+        applyTemplate(editor, { tableId, templateKey: "compliance" }),
       ),
     ).toBe("access_denied");
   });
 
   it("moves a row along the circuit, each step by the roles it names", async () => {
     const tableId = await newTable("Reports");
-    await owner
-      .call()
-      .catalog.applyCircuitTemplate({ tableId, templateKey: "simple_review" });
+    await applyTemplate(owner, { tableId, templateKey: "simple_review" });
     const rowId = await addRow(tableId, "R-1");
 
     await editor
@@ -151,13 +178,13 @@ describe("a table's status circuit", () => {
     // Submitted is not a state of simple review: it must be said where to.
     expect(
       await errorCode(
-        owner.call().catalog.applyCircuitTemplate({
+        applyTemplate(owner, {
           tableId,
           templateKey: "simple_review",
         }),
       ),
     ).toBe("invalid_status");
-    await owner.call().catalog.applyCircuitTemplate({
+    await applyTemplate(owner, {
       tableId,
       templateKey: "simple_review",
       remap: { submitted: "in_review" },
@@ -175,9 +202,7 @@ describe("a table's status circuit", () => {
 
   it("frees no sealed row, whatever the circuit or the remap", async () => {
     const tableId = await newTable("Contracts");
-    await owner
-      .call()
-      .catalog.applyCircuitTemplate({ tableId, templateKey: "simple_review" });
+    await applyTemplate(owner, { tableId, templateKey: "simple_review" });
     const rowId = await addRow(tableId, "K-1");
     await owner
       .call()
@@ -189,7 +214,7 @@ describe("a table's status circuit", () => {
     for (const remap of [{ approved: "draft" }, { approved: "signed" }]) {
       expect(
         await errorCode(
-          owner.call().catalog.applyCircuitTemplate({
+          applyTemplate(owner, {
             tableId,
             templateKey: "compliance",
             remap,
@@ -198,8 +223,125 @@ describe("a table's status circuit", () => {
       ).toBe("row_locked");
     }
     expect(await statusOf(tableId, rowId)).toBe("approved");
-    expect((await owner.call().catalog.getCircuit({ tableId })).key).toBe(
-      "simple_review",
+    // The circuit stayed as it was: its approved state, sealed.
+    const kept = await owner.call().catalog.getCircuit({ tableId });
+    expect(kept.name).toBe("Simple review");
+    expect(kept.states.find((state) => state.key === "approved")?.seal).toBe(
+      true,
     );
+  });
+
+  it("saves a circuit its manager drew, checked against the table", async () => {
+    const tableId = await newTable("Drawn");
+    const drawn: CircuitDefinition = {
+      name: "Checks",
+      states: [
+        {
+          key: "draft",
+          label: "Draft",
+          initial: true,
+          writable: true,
+          writableFields: null,
+          delete: true,
+          seal: false,
+        },
+        {
+          key: "checked",
+          label: "Checked",
+          initial: false,
+          writable: false,
+          writableFields: null,
+          delete: false,
+          seal: false,
+        },
+        {
+          key: "done",
+          label: "Done",
+          initial: false,
+          writable: false,
+          writableFields: null,
+          delete: false,
+          seal: true,
+        },
+      ],
+      steps: [
+        {
+          key: "check",
+          label: "Check",
+          from: "draft",
+          to: "checked",
+          reason: true,
+          fields: ["ref"],
+          signature: "none",
+          fourEyes: false,
+          roles: ["editor", "owner"],
+          madeRoles: [],
+        },
+        {
+          key: "close",
+          label: "Close",
+          from: "checked",
+          to: "done",
+          reason: false,
+          fields: [],
+          signature: "none",
+          fourEyes: true,
+          roles: ["owner"],
+          madeRoles: [],
+        },
+      ],
+    };
+    const save = (
+      who: TestBrowser,
+      circuit: CircuitDefinition,
+      remap?: Record<string, string>,
+    ) => who.call().catalog.saveCircuit({ tableId, circuit, remap });
+    expect(await errorCode(save(editor, drawn))).toBe("access_denied");
+    const [check, close] = drawn.steps;
+    if (!check || !close) throw new Error("two steps");
+    expect(
+      await errorCode(
+        save(owner, {
+          ...drawn,
+          steps: [{ ...check, fields: ["nope"] }, close],
+        }),
+      ),
+    ).toBe("invalid_column");
+    expect(
+      await errorCode(
+        save(owner, {
+          ...drawn,
+          steps: [{ ...check, madeRoles: [randomUUID()] }, close],
+        }),
+      ),
+    ).toBe("unknown_role");
+
+    // A row in a state that goes: the editor is told how many, and where
+    // they go is asked.
+    const rowId = await addRow(tableId, "D-1");
+    await owner.call().rows.setStatus({ tableId, rowId, status: "submitted" });
+    expect(await owner.call().catalog.circuitCounts({ tableId })).toMatchObject(
+      { submitted: 1 },
+    );
+    expect(await errorCode(save(owner, drawn))).toBe("invalid_status");
+    const saved = await save(owner, drawn, { submitted: "draft" });
+    expect(saved.name).toBe("Checks");
+    expect(await statusOf(tableId, rowId)).toBe("draft");
+
+    // Its steps ask what they were drawn to.
+    expect(
+      await errorCode(
+        editor
+          .call()
+          .rows.transition({ tableId, rowId, transitionKey: "check" }),
+      ),
+    ).toBe("reason_required");
+    await editor.call().rows.transition({
+      tableId,
+      rowId,
+      transitionKey: "check",
+      reason: "Seen",
+    });
+    expect(await statusOf(tableId, rowId)).toBe("checked");
   });
 });

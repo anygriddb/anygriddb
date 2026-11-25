@@ -1,6 +1,7 @@
 import {
   AppError,
   assertCircuitEdit,
+  type CircuitDefinition,
   type StatusCircuit,
   type StatusState,
   type StatusTransition,
@@ -200,18 +201,18 @@ export async function listCircuitTemplates(db: Db): Promise<StatusCircuit[]> {
 }
 
 /**
- * Replace the table's circuit with a duplicate of a shipped template.
- * Rows whose status key is missing from the new circuit need `remap`. The
- * database's owner does the change (`ag_replace_status_circuit`): it keeps
- * a sealed row sealed and writes the change, and each row moved, on the
- * trail. What is checked here first only says what is wrong in words.
+ * Saves a table's circuit as its editor drew it, a template's included
+ * (ADR 0124, 0130). Rows whose state goes need `remap`. The database's
+ * owner does the change (`ag_save_status_circuit`): it keeps a sealed row
+ * sealed and writes the change, and each row moved, on the trail. What is
+ * checked here first only says what is wrong in words.
  */
-export async function applyCircuitTemplate(
+export async function saveTableCircuit(
   db: Database,
   input: {
     userId: string;
     tableId: string;
-    templateKey: string;
+    circuit: CircuitDefinition;
     remap?: Record<string, string>;
     physicalName: string;
     storage: "native" | "external";
@@ -219,56 +220,45 @@ export async function applyCircuitTemplate(
 ): Promise<StatusCircuit> {
   // A client's table keeps its statuses beside its rows in the compliance
   // circuit's words (ADR 0033): another circuit's states would not be read.
-  if (input.storage === "external" && input.templateKey !== "compliance") {
+  if (input.storage === "external") {
     throw new AppError("circuit_fixed_on_source");
   }
-  const template = await db
-    .selectFrom("statusCircuits")
-    .select("id")
-    .where("tableId", "is", null)
-    .where("key", "=", input.templateKey)
-    .executeTakeFirst();
-  if (!template) {
-    throw new AppError("no_row");
-  }
-
   return withAudit(
     db,
     { userId: input.userId, tableId: input.tableId, source: "web" },
     async (tx) => {
       const current = await loadTableCircuit(tx, input.tableId);
-      const nextStates = await tx
-        .selectFrom("statusStates")
-        .select(["key", "isInitial"])
-        .where("circuitId", "=", template.id)
-        .execute();
-      const remainingKeys = nextStates.map((item) => item.key);
-      const initial = nextStates.find((item) => item.isInitial)?.key;
-      if (!initial) {
-        throw new AppError("invalid_status");
-      }
-      const counts = await statusCounts(tx, input);
-      const removedKeys = current.states
-        .map((item) => item.key)
-        .filter((key) => !remainingKeys.includes(key));
+      const remainingKeys = input.circuit.states.map((state) => state.key);
+      const initial = input.circuit.states.find((state) => state.initial)?.key;
+      if (!initial) throw new AppError("invalid_status");
       const remap = input.remap ?? {};
       assertCircuitEdit({
         remainingStateKeys: remainingKeys,
         initialKey: initial,
-        rowStatusCounts: counts,
-        removedKeys,
+        rowStatusCounts: await statusCounts(tx, input),
+        removedKeys: current.states
+          .map((state) => state.key)
+          .filter((key) => !remainingKeys.includes(key)),
         remap,
       });
       await sql`
-        select ag_replace_status_circuit(
+        select ag_save_status_circuit(
           ${input.tableId}::uuid,
-          ${input.templateKey},
+          ${JSON.stringify(input.circuit)}::jsonb,
           ${JSON.stringify(remap)}::jsonb
         )
       `.execute(tx);
       return loadTableCircuit(tx, input.tableId);
     },
   );
+}
+
+/** How many rows of a native table each state holds, for the editor. */
+export function circuitCounts(
+  db: Db,
+  table: { tableId: string; physicalName: string },
+): Promise<Record<string, number>> {
+  return statusCounts(db, { ...table, storage: "native" });
 }
 
 /** How many rows of the table each status holds. */
