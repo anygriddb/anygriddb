@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { AppError } from "./errors.js";
+import { assertCircuitDefinition } from "./schemas.js";
 import {
   assertCircuitEdit,
+  definitionOf,
   findAllowedTransition,
   initialState,
   takesTransition,
@@ -156,5 +158,60 @@ describe("takesTransition", () => {
     expect(takesTransition(to(["owner"], ["m"]), made(["rows.read"]))).toBe(
       false,
     );
+  });
+});
+
+describe("a circuit as its editor saves it", () => {
+  it("holds a circuit read back, its steps with whom they name", () => {
+    const drawn = definitionOf(compliance);
+    expect(() => assertCircuitDefinition(drawn)).not.toThrow();
+    expect(drawn.steps.find((step) => step.key === "lock")).toMatchObject({
+      from: "submitted",
+      to: "locked",
+      roles: ["owner"],
+      madeRoles: [],
+    });
+  });
+
+  it("refuses a circuit with no first state or two, a sealed state that writes, or a step to nowhere", () => {
+    const drawn = definitionOf(compliance);
+    const refused = (change: (copy: typeof drawn) => void) => {
+      const copy = structuredClone(drawn);
+      change(copy);
+      try {
+        assertCircuitDefinition(copy);
+        return true;
+      } catch {
+        return false;
+      }
+    };
+    expect(
+      refused((copy) => {
+        for (const state of copy.states) state.initial = true;
+      }),
+    ).toBe(false);
+    expect(
+      refused((copy) => {
+        for (const state of copy.states) state.initial = false;
+      }),
+    ).toBe(false);
+    expect(
+      refused((copy) => {
+        const sealed = copy.states.find((state) => state.seal);
+        if (sealed) sealed.writable = true;
+      }),
+    ).toBe(false);
+    expect(
+      refused((copy) => {
+        const first = copy.steps[0];
+        if (first) first.to = "nowhere";
+      }),
+    ).toBe(false);
+    expect(
+      refused((copy) => {
+        const first = copy.steps[0];
+        if (first) copy.steps.push({ ...first });
+      }),
+    ).toBe(false);
   });
 });

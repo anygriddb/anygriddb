@@ -15,14 +15,6 @@ msgstr " La plus ancienne encore gardée est {time}."
 msgid "-1, 0, or 1, by its sign."
 msgstr "-1, 0 ou 1, selon le signe."
 
-#: components/settings/status-circuit-panel.tsx
-msgid "· initial"
-msgstr "· initial"
-
-#: components/settings/status-circuit-panel.tsx
-msgid "· sealed"
-msgstr "· scellé"
-
 #: components/views/form-date.tsx
 msgid "“{date}” does not exist."
 msgstr "« {date} » n’existe pas."
@@ -2024,6 +2016,14 @@ msgstr "Ajouter un tri"
 msgid "Add a source"
 msgstr "Ajouter une source"
 
+#: components/table/circuit-editor.tsx
+msgid "Add a state"
+msgstr "Ajouter un état"
+
+#: components/table/circuit-editor.tsx
+msgid "Add a step"
+msgstr "Ajouter une étape"
+
 #: components/shell/sidebar.tsx
 msgid "Add a table"
 msgstr "Ajouter une table"
@@ -2480,10 +2480,6 @@ msgstr "Une autre application modifie cette ligne : réessayez dans un instant"
 msgid "Another row already holds this value, in a field of unique values"
 msgstr "Une autre ligne contient déjà cette valeur, dans un champ à valeurs uniques"
 
-#: components/settings/status-circuit-panel.tsx
-msgid "Another template replaces this table's circuit. It is refused while a row is in a state the template does not have, and always while a row is sealed in one."
-msgstr "Un autre modèle remplace le circuit de cette table. Il est refusé tant qu’une ligne est dans un état que le modèle n’a pas, et toujours tant qu’une ligne y est scellée."
-
 #: components/admin/security-tab.tsx
 msgid "Any address"
 msgstr "Toute adresse"
@@ -2617,10 +2613,6 @@ msgstr "Applications"
 msgid "Apply"
 msgstr "Appliquer"
 
-#: components/settings/status-circuit-panel.tsx
-msgid "Apply template"
-msgstr "Appliquer le modèle"
-
 #: components/record/circuit-labels.ts
 msgid "Approve"
 msgstr "Approuver"
@@ -2660,6 +2652,10 @@ msgstr "Demander aussi le second facteur d’AnyGridDB"
 #: components/admin/sign-in-trail.tsx
 msgid "Asked by the person"
 msgstr "Demandé par la personne"
+
+#: components/table/circuit-editor.tsx
+msgid "Asks a reason"
+msgstr "Demande un motif"
 
 #: components/settings/person-event-labels.ts
 msgid "Assigned to a row"
@@ -3108,6 +3104,7 @@ msgstr "Appelle l’adresse push d’un moniteur Uptime Kuma, avec l’état up 
 #: components/shell/new-base-dialog.tsx
 #: components/shell/new-table-dialog.tsx
 #: components/table/automations-dialog.tsx
+#: components/table/circuit-editor.tsx
 #: components/table/color-rules-editor.tsx
 #: components/table/new-row-dialog.tsx
 #: components/table/use-row-writes.ts
@@ -3327,10 +3324,6 @@ msgstr "Choisir un fichier"
 msgid "Choose a new password"
 msgstr "Choisir un nouveau mot de passe"
 
-#: components/settings/status-circuit-panel.tsx
-msgid "Choose a template…"
-msgstr "Choisir un modèle…"
-
 #: components/admin/identity-tab.tsx
 msgid "Choose an image"
 msgstr "Choisir une image"
@@ -3375,6 +3368,10 @@ msgstr "Comptes choisis"
 #: components/table/new-row-dialog.tsx
 msgid "Chosen: {label}"
 msgstr "Choisie : {label}"
+
+#: components/table/circuit-editor.tsx
+msgid "Circuit saved"
+msgstr "Circuit enregistré"
 
 #: lib/errors.ts
 msgid "Circular formula: it depends on itself"
@@ -3878,10 +3875,6 @@ msgstr "Impossible de charger les lignes à remplir"
 #: components/grid/grid-view.tsx
 msgid "Could not load the rows to paste into"
 msgstr "Impossible de charger les lignes où coller"
-
-#: components/settings/status-circuit-panel.tsx
-msgid "Could not load the status circuit."
-msgstr "Impossible de charger le circuit d’état."
 
 #: lib/errors.ts
 msgid "Could not reach the release feed"
@@ -4749,6 +4742,10 @@ msgstr "Modification"
 msgid "Editor"
 msgstr "Éditeur"
 
+#: components/table/circuit-editor.tsx
+msgid "Editors"
+msgstr "Éditeurs"
+
 #: components/admin/account-actions.tsx
 #: components/admin/accounts-tab.tsx
 #: components/admin/invitations-panel.tsx
@@ -5367,6 +5364,10 @@ msgstr "Champs"
 msgid "Fields are kept in this side schema: it cannot change while they exist"
 msgstr "Des champs sont conservés dans ce schéma latéral : il ne peut pas changer tant qu’ils existent"
 
+#: components/table/circuit-editor.tsx
+msgid "Fields it needs filled"
+msgstr "Champs à remplir"
+
 #: components/table/new-row-dialog.tsx
 msgid "Fields marked with an asterisk need a value before the row is added."
 msgstr "Les champs marqués d’un astérisque doivent être remplis avant l’ajout de la ligne."
@@ -5499,6 +5500,10 @@ msgstr "Trouver un compte"
 #: components/fields/field-settings.tsx
 msgid "Fire"
 msgstr "Feu"
+
+#: components/table/circuit-editor.tsx
+msgid "First"
+msgstr "Premier"
 
 #: components/record/circuit-labels.ts
 msgid "First approval"
@@ -5634,6 +5639,10 @@ msgstr "Constaté le {date}. Un propriétaire peut la déverrouiller, la vérifi
 msgid "found the locked values back"
 msgstr "a constaté le retour aux valeurs verrouillées"
 
+#: components/table/circuit-editor.tsx
+msgid "Four eyes"
+msgstr "Quatre yeux"
+
 #: components/grid/grid-header.tsx
 msgid "Freeze up to here"
 msgstr "Figer jusqu’ici"
@@ -5647,6 +5656,7 @@ msgid "Friday"
 msgstr "Vendredi"
 
 #: components/admin/instant-range.tsx
+#: components/table/circuit-editor.tsx
 #: components/table/filter-builder.tsx
 msgid "From"
 msgstr "À partir de"
@@ -7656,12 +7666,21 @@ msgstr "il y a N jours"
 #: components/settings/webhooks-panel.tsx
 #: components/shell/new-table-dialog.tsx
 #: components/table/automations-dialog.tsx
+#: components/table/circuit-editor.tsx
 msgid "Name"
 msgstr "Nom"
 
 #: components/admin/admin-sections.ts
 msgid "Name and logo"
 msgstr "Nom et logo"
+
+#: components/table/circuit-editor.tsx
+msgid "Name of state {n}"
+msgstr "Nom de l’état {n}"
+
+#: components/table/circuit-editor.tsx
+msgid "Name of step {n}"
+msgstr "Nom de l’étape {n}"
 
 #: components/admin/sign-in-trail.tsx
 msgid "Name of the instance"
@@ -7786,6 +7805,14 @@ msgstr "Nouveau rôle"
 #: components/table/new-row-dialog.tsx
 msgid "New row"
 msgstr "Nouvelle ligne"
+
+#: components/table/circuit-editor.tsx
+msgid "New state"
+msgstr "Nouvel état"
+
+#: components/table/circuit-editor.tsx
+msgid "New step"
+msgstr "Nouvelle étape"
 
 #: components/shell/base-home.tsx
 #: components/shell/sidebar.tsx
@@ -8223,6 +8250,10 @@ msgstr "Aucun événement de connexion pour l’instant."
 #: components/admin/security-tab.tsx
 msgid "No sign-up domains are set (Instance, Settings): until some are, any address can be invited."
 msgstr "Aucun domaine d’inscription n’est défini (Instance, Réglages) : tant qu’il n’y en a pas, n’importe quelle adresse peut être invitée."
+
+#: components/table/circuit-editor.tsx
+msgid "No signature"
+msgstr "Sans signature"
 
 #: components/admin/health-tab.tsx
 msgid "No source operations recorded in this period."
@@ -8816,6 +8847,7 @@ msgid "Owner"
 msgstr "Propriétaire"
 
 #: components/admin/bases-tab.tsx
+#: components/table/circuit-editor.tsx
 msgid "Owners"
 msgstr "Propriétaires"
 
@@ -9721,6 +9753,14 @@ msgstr "Retirer le collecteur enregistré ?"
 msgid "Remove the source manager role"
 msgstr "Retirer le rôle de gestionnaire des sources"
 
+#: components/table/circuit-editor.tsx
+msgid "Remove the state {state}"
+msgstr "Retirer l’état {state}"
+
+#: components/table/circuit-editor.tsx
+msgid "Remove the step {step}"
+msgstr "Retirer l’étape {step}"
+
 #: components/admin/account-actions.tsx
 msgid "Remove the support role"
 msgstr "Retirer le rôle de support"
@@ -10261,9 +10301,25 @@ msgstr "Les lignes déjà vides ici le restent jusqu’à ce que quelqu’un mod
 msgid "Rows are dated ahead of the source's clock: each is told once, and later changes still show"
 msgstr "Des lignes sont datées après l’horloge de la source : chacune est signalée une fois, et les changements suivants restent visibles"
 
+#: components/table/circuit-editor.tsx
+msgid "Rows are deleted"
+msgstr "Lignes supprimables"
+
+#: components/table/circuit-editor.tsx
+msgid "Rows change"
+msgstr "Lignes modifiables"
+
+#: components/table/circuit-editor.tsx
+msgid "Rows in “{state}” ({count}) move to"
+msgstr "Les lignes de « {state} » ({count}) vont vers"
+
 #: components/fields/field-meta.tsx
 msgid "Rows of another table"
 msgstr "Des lignes d’une autre table"
+
+#: components/table/circuit-editor.tsx
+msgid "Rows of the states that go"
+msgstr "Lignes des états retirés"
 
 #: components/fields/link-selection.tsx
 msgid "Rows offered"
@@ -10364,6 +10420,7 @@ msgstr "Samedi"
 #: components/settings/table-rules-panel.tsx
 #: components/shell/dialogs.tsx
 #: components/table/automations-dialog.tsx
+#: components/table/circuit-editor.tsx
 #: components/table/color-rules-editor.tsx
 msgid "Save"
 msgstr "Enregistrer"
@@ -10525,6 +10582,10 @@ msgstr "Les scripts dans les automatisations sont désactivés sur cette instanc
 #: components/admin/settings-tab.tsx
 msgid "Scripts that start with #!"
 msgstr "Scripts qui commencent par #!"
+
+#: components/table/circuit-editor.tsx
+msgid "Sealed"
+msgstr "Scellé"
 
 #: components/admin/sources-tab.tsx
 #: components/public/public-view.tsx
@@ -10959,10 +11020,6 @@ msgctxt "keyboard key"
 msgid "Shift"
 msgstr "Maj"
 
-#: components/settings/status-circuit-panel.tsx
-msgid "Shipped template"
-msgstr "Modèle livré"
-
 #: components/table/view-toolbar.tsx
 msgid "Short"
 msgstr "Compacte"
@@ -11174,6 +11231,7 @@ msgid "Sign-ups"
 msgstr "Inscriptions"
 
 #: components/admin/change-labels.ts
+#: components/table/circuit-editor.tsx
 msgid "Signature"
 msgstr "Signature"
 
@@ -11218,6 +11276,14 @@ msgstr "Déconnexion"
 #: components/admin/sign-in-trail.tsx
 msgid "Signed out at the identity provider"
 msgstr "Déconnecté chez le fournisseur d’identité"
+
+#: components/table/circuit-editor.tsx
+msgid "Signed with the password"
+msgstr "Signée avec le mot de passe"
+
+#: components/table/circuit-editor.tsx
+msgid "Signed with the password or a second factor"
+msgstr "Signée avec le mot de passe ou un second facteur"
 
 #: components/admin/notifications-tab.tsx
 msgid "Signing secret"
@@ -11438,6 +11504,10 @@ msgstr "Début"
 msgid "Start address"
 msgstr "Adresse de démarrage"
 
+#: components/table/circuit-editor.tsx
+msgid "Start from"
+msgstr "Partir de"
+
 #: components/shell/shortcuts-dialog.tsx
 msgid "Start or end of the row ({mod}: of the grid)"
 msgstr "Début ou fin de la ligne ({mod} : de la grille)"
@@ -11471,7 +11541,7 @@ msgstr "commence par"
 msgid "State"
 msgstr "État"
 
-#: components/settings/status-circuit-panel.tsx
+#: components/table/circuit-editor.tsx
 msgid "States"
 msgstr "États"
 
@@ -11491,19 +11561,17 @@ msgstr "Changement de statut"
 msgid "Status change refused"
 msgstr "Changement de statut refusé"
 
-#: components/settings/status-circuit-panel.tsx
+#: components/table/circuit-editor.tsx
+#: components/table/view-toolbar.tsx
 msgid "Status circuit"
 msgstr "Circuit d’état"
-
-#: components/settings/status-circuit-panel.tsx
-msgid "Status circuit updated"
-msgstr "Circuit d’état mis à jour"
 
 #: components/table/automations-dialog.tsx
 msgid "Step"
 msgstr "Étape"
 
 #: components/shell/welcome-page.tsx
+#: components/table/circuit-editor.tsx
 msgid "Steps"
 msgstr "Étapes"
 
@@ -12045,6 +12113,10 @@ msgstr "Les caractères à partir d’une position, 1 pour le premier."
 #: components/fields/link-selection.tsx
 msgid "The chosen view no longer exists or is no longer shared: every row is offered. Pick another one."
 msgstr "La vue choisie n’existe plus ou n’est plus partagée : toutes les lignes sont proposées. Choisissez-en une autre."
+
+#: components/table/circuit-editor.tsx
+msgid "The circuit in place"
+msgstr "Le circuit actuel"
 
 #: lib/errors.ts
 msgid "The client's database cannot find the linked row"
@@ -12599,6 +12671,10 @@ msgstr "Certificat de la source non reconnu, ou qui ne nomme pas cet hôte : co
 #: components/admin/instant-range.tsx
 msgid "The start is after the end."
 msgstr "Le début est après la fin."
+
+#: components/table/circuit-editor.tsx
+msgid "The states a row goes through and the steps between them: what each step asks, and who takes it."
+msgstr "Les états par lesquels passe une ligne et les étapes entre eux : ce que demande chaque étape, et qui la franchit."
 
 #: lib/errors.ts
 msgid "The syslog collector did not take the event: check its address, its port, and the certificate it presents"
@@ -13491,11 +13567,8 @@ msgstr "Titre (facultatif)"
 msgid "TLS error"
 msgstr "Erreur TLS"
 
-#: components/settings/status-circuit-panel.tsx
-msgid "to"
-msgstr "vers"
-
 #: components/admin/instant-range.tsx
+#: components/table/circuit-editor.tsx
 #: components/table/filter-builder.tsx
 msgid "To"
 msgstr "Jusqu’à"
@@ -13627,10 +13700,6 @@ msgstr "Les traces sont envoyées."
 #: components/admin/admin-sections.ts
 msgid "Trails"
 msgstr "Journaux"
-
-#: components/settings/status-circuit-panel.tsx
-msgid "Transitions"
-msgstr "Transitions"
 
 #: components/admin/security-tab.tsx
 #: components/shell/sidebar.tsx
@@ -14439,6 +14508,10 @@ msgstr "Qui peut se connecter avec un mot de passe"
 #: components/admin/sign-in-trail.tsx
 msgid "Who needs a second factor"
 msgstr "Qui doit avoir un second facteur"
+
+#: components/table/circuit-editor.tsx
+msgid "Who takes it"
+msgstr "Qui la franchit"
 
 #: components/admin/account-handoff.tsx
 msgid "Who takes over"

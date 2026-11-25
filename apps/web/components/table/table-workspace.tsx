@@ -31,6 +31,7 @@ import { MapView } from "../views/map-view";
 import { RowCards } from "../views/row-cards";
 import { TimelineView } from "../views/timeline-view";
 import { AutomationsDialog } from "./automations-dialog";
+import { CircuitEditor } from "./circuit-editor";
 import { DEFAULT_FROZEN, orderColumns, visibleColumns } from "./column-layout";
 import { DeleteFieldDialog } from "./delete-field-dialog";
 import { EmptyTableHint } from "./empty-table-hint";
@@ -285,6 +286,7 @@ function OpenTable({ baseId, tableId, viewId, rowId }: TableWorkspaceProps) {
   const [filterOpen, setFilterOpen] = useState(false);
   const [trashOpen, setTrashOpen] = useState(false);
   const [automationsOpen, setAutomationsOpen] = useState(false);
+  const [circuitOpen, setCircuitOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const fields = useFieldChanges({ tableId, refreshRows: rows.refresh });
   const exportView = useViewExport({
@@ -439,6 +441,12 @@ function OpenTable({ baseId, tableId, viewId, rowId }: TableWorkspaceProps) {
           onAutomations={
             !external && may("automations.manage")
               ? () => setAutomationsOpen(true)
+              : undefined
+          }
+          // A client's table keeps the compliance circuit (ADR 0130).
+          onCircuit={
+            !external && may("schema.manage")
+              ? () => setCircuitOpen(true)
               : undefined
           }
           onAddField={
@@ -630,6 +638,12 @@ function OpenTable({ baseId, tableId, viewId, rowId }: TableWorkspaceProps) {
         />
       ) : null}
       {reason.asking ? <ReasonDialog onAnswer={reason.answer} /> : null}
+      {circuitOpen ? (
+        <CircuitEditor
+          tableId={table.id}
+          onClose={() => setCircuitOpen(false)}
+        />
+      ) : null}
       {automationsOpen ? (
         <AutomationsDialog onClose={() => setAutomationsOpen(false)} />
       ) : null}

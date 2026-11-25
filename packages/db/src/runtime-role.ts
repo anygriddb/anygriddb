@@ -12,7 +12,7 @@ const TRAILS = [
 /**
  * What the row trigger takes its rules from (a table's status circuit, ADR
  * 0124): the application reads it, and changes it only through the owner's
- * `ag_replace_status_circuit`, which keeps a sealed row sealed.
+ * `ag_save_status_circuit`, which keeps a sealed row sealed.
  */
 const RULES = [
   "status_circuits",

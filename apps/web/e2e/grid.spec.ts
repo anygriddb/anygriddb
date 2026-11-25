@@ -1664,9 +1664,9 @@ async function pasteAndSettle(page: Page) {
   await saved;
 }
 
-// A table takes another validation circuit (ADR 0124), chosen in its
-// base's settings, and its row moves along it from the row's panel, in
-// the words of the circuit.
+// A table's circuit is edited from its own menu (ADR 0124, 0130): it
+// starts from a shipped one, is named, saved, and its row moves along it
+// from the row's panel, in the words of the circuit.
 test("a table takes another status circuit, and a row moves along it", async ({
   page,
 }) => {
@@ -1675,13 +1675,18 @@ test("a table takes another status circuit, and a row moves along it", async ({
   const [, base = "", tableId = ""] =
     /^(.*\/b\/[^/]+)\/t\/([^/?]+)/.exec(page.url()) ?? [];
 
-  await page.goto(`${base}/settings`);
-  await page.getByLabel("Shipped template").selectOption("simple_review");
-  await page.getByRole("button", { name: "Apply template" }).click();
-  await expect(
-    page.getByText("In review", { exact: true }).first(),
-  ).toBeVisible();
+  await page.getByRole("button", { name: "More actions" }).click();
+  await page.getByRole("menuitem", { name: "Status circuit" }).click();
+  const editor = page.getByRole("dialog", { name: "Status circuit" });
+  await editor.getByLabel("Start from").selectOption("simple_review");
+  await expect(editor.getByLabel("Name of state 2")).toHaveValue("In review");
+  await editor
+    .getByRole("textbox", { name: "Name", exact: true })
+    .fill("Reviews");
   expect(await accessibilityViolations(page)).toEqual([]);
+  await editor.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(page.getByText("Circuit saved", { exact: true })).toBeVisible();
+  await expect(editor).toBeHidden();
 
   await page.goto(`${base}/t/${tableId}`);
   await page.getByRole("button", { name: "Add a row and open it" }).click();

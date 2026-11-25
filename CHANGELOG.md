@@ -29,6 +29,11 @@ ticked in Administration › People › Roles. Migration 0141.
 
 - "May validate" without editing or locking: a circuit's step can name a
   made role, and a role of reading and taking steps then takes it (ADR 0130).
+- A table's status circuit is edited from the table's menu (**Status
+  circuit**), by whoever manages its structure: its states, its steps, what
+  each step asks and who takes it, starting from the circuit in place or a
+  shipped one; rows of a state that goes are moved where the editor says.
+  It replaces the template picker of the base's settings (migration 0142).
 - A step through the REST API (`POST …/records/:id/transition`) and MCP
   (`transition_record`); the API's document names each table's states and
   steps. A step that asks a signature is taken in the application.

@@ -55,11 +55,20 @@ the shipped packs. The code that landed did otherwise:
 - `contributor` grants are removed; the old `assertStatusTransition`, which
   nothing called, is gone.
 
+- **A table's circuit is edited** from the table's own menu, by whoever
+  manages its structure (`schema.manage`): it starts from the circuit in
+  place or a shipped one; states (first, writable, deletable, sealed) and
+  steps (from, to, reason, fields, signature, four eyes, who takes it:
+  owners, editors, made roles that take steps). It is saved by the
+  database's owner (`ag_save_status_circuit`, migration 0142) under the
+  rules a template's application kept: no row leaves a sealed state, a
+  state rows are sealed in stays sealed, rows of a state that goes move
+  where the editor says, and the change is on the trail. A shipped circuit
+  is applied the same way, from its definition: the function that copied a
+  template (`ag_replace_status_circuit`) is gone.
+
 ## Still to do from ADR 0124
 
-- The circuit's editor in the table's settings: states, steps, what each
-  asks and whom it names, saved by the database's owner as a template is
-  applied today (`ag_replace_status_circuit`).
 - A row's state as a field filters, sorts and groups read: ROADMAP 114.
 
 ## Consequences
