@@ -1,3 +1,4 @@
+import { apiValueExample, takesApiWrites } from "@anygriddb/core";
 import { Button, cn } from "@anygriddb/ui";
 import { Copy, ExternalLink } from "lucide-react";
 import { Link } from "@tanstack/react-router";
@@ -17,47 +18,17 @@ type Tab = "guide" | "try" | "mcp";
 
 /** A value a field takes, as the guide shows it; `text` in the reader's language. */
 function example(column: CatalogColumn, text: string): unknown {
-  const options =
-    (column.config as { options?: Array<{ name: string }> }).options ?? [];
-  switch (column.fieldType) {
-    case "number":
-      return 42.5;
-    case "rating":
-      return 4;
-    case "duration":
-      return 5400;
-    case "boolean":
-      return true;
-    case "date":
-      return "2026-11-07";
-    case "datetime":
-      return "2026-11-07T09:30:00Z";
-    case "single_select":
-      return options[0]?.name ?? "Option";
-    case "multi_select":
-      return options.slice(0, 2).map((option) => option.name);
-    case "email":
-      return "ada@example.org";
-    case "url":
-      return "https://example.org";
-    case "phone":
-      return "+33 1 23 45 67 89";
-    case "color":
-      return "#1f3fae";
-    case "place":
-      return "48.8566,2.3522";
-    case "json":
-      return '{"key": "value"}';
-    case "user":
-      return ["<user id>"];
-    case "attachment":
-      return ["<attachment key>"];
-    case "relation_one_to_many":
-    case "relation_many_to_many":
-      return ["<record id>"];
-    default:
-      return text;
-  }
+  const options = (
+    column.config as { options?: Array<{ name: string }> }
+  ).options?.map((option) => option.name);
+  return apiValueExample(
+    {
+      fieldType: column.fieldType,
+      kind: column.kind,
+      ...(options ? { options } : {}),
+    },
+    text,
+  );
 }
 
 function Code({ text }: { text: string }) {
@@ -85,29 +56,6 @@ function Code({ text }: { text: string }) {
   );
 }
 
-const WRITABLE = new Set([
-  "text",
-  "long_text",
-  "number",
-  "boolean",
-  "date",
-  "datetime",
-  "single_select",
-  "multi_select",
-  "email",
-  "url",
-  "phone",
-  "color",
-  "place",
-  "json",
-  "rating",
-  "duration",
-  "user",
-  "attachment",
-  "relation_one_to_many",
-  "relation_many_to_many",
-]);
-
 export function ApiDocs({ baseId }: { baseId: string }) {
   const { t } = useLingui();
   const catalog = useCatalog();
@@ -134,7 +82,7 @@ export function ApiDocs({ baseId }: { baseId: string }) {
       if (key === "key") return column.name;
       if (key === "label") return column.label;
       if (key === "type") return column.fieldType;
-      if (key === "write") return WRITABLE.has(column.fieldType) ? 1 : 0;
+      if (key === "write") return takesApiWrites(column.fieldType) ? 1 : 0;
       const sample = example(column, text);
       if (
         sample === null ||
@@ -150,7 +98,7 @@ export function ApiDocs({ baseId }: { baseId: string }) {
     (column) => column.name,
   );
   const writable =
-    table?.columns.filter((column) => WRITABLE.has(column.fieldType)) ?? [];
+    table?.columns.filter((column) => takesApiWrites(column.fieldType)) ?? [];
   const sample = Object.fromEntries(
     writable.slice(0, 4).map((column) => [column.name, example(column, text)]),
   );
@@ -235,10 +183,10 @@ export function ApiDocs({ baseId }: { baseId: string }) {
                       </span>
                     </td>
                     <td>
-                      {WRITABLE.has(column.fieldType) ? t`yes` : t`computed`}
+                      {takesApiWrites(column.fieldType) ? t`yes` : t`computed`}
                     </td>
                     <td className="font-mono text-xs">
-                      {WRITABLE.has(column.fieldType)
+                      {takesApiWrites(column.fieldType)
                         ? JSON.stringify(example(column, text))
                         : "—"}
                     </td>
