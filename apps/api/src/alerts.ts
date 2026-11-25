@@ -197,7 +197,7 @@ async function alertFacts(deps: AlertProbes, now: Date): Promise<AlertFacts> {
       .where("createdAt", ">", since)
       .executeTakeFirst(),
     deps.db
-      .selectFrom("webhookDeliveries")
+      .selectFrom("deliveries")
       .select(count)
       .where("status", "=", "failed")
       .where("createdAt", ">", since)

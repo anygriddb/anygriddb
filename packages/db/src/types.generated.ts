@@ -52,8 +52,6 @@ export type ColumnAccess = "hide" | "read" | "write";
 
 export type DashboardWidgetKind = "chart" | "metric" | "view_embed";
 
-export type DeliveryStatus = "failed" | "pending" | "success";
-
 export type EmailOtpPurpose = "enroll" | "login";
 
 export type ExternalWatchMethod = "change_tracking" | "column";
@@ -430,6 +428,25 @@ export interface DataTables {
   trailReads: Generated<boolean>;
 }
 
+export interface Deliveries {
+  attempts: Generated<number>;
+  createdAt: Generated<Timestamp>;
+  error: string | null;
+  event: string;
+  eventId: string | null;
+  finishedAt: Timestamp | null;
+  id: Generated<string>;
+  integrationId: string | null;
+  nextAttemptAt: Timestamp | null;
+  origin: ColumnType<"integration" | "webhook", never, never>;
+  payload: unknown;
+  responseStatus: number | null;
+  rowId: string | null;
+  status: Generated<"failed" | "pending" | "success">;
+  subject: Generated<string>;
+  webhookId: string | null;
+}
+
 export interface EmailFactors {
   confirmedAt: Generated<Timestamp>;
   userId: string;
@@ -691,21 +708,6 @@ export interface InstanceSyslog {
   port: number;
   updatedAt: Generated<Timestamp>;
   updatedBy: string | null;
-}
-
-export interface IntegrationDeliveries {
-  attempts: Generated<number>;
-  createdAt: Generated<Timestamp>;
-  error: string | null;
-  event: string;
-  eventId: string;
-  fields: Generated<Json>;
-  finishedAt: Timestamp | null;
-  id: Generated<string>;
-  integrationId: string;
-  responseStatus: number | null;
-  status: Generated<string>;
-  subject: Generated<string>;
 }
 
 export interface IntegrationSchedules {
@@ -1211,21 +1213,6 @@ export interface WebauthnCredentials {
   userId: string;
 }
 
-export interface WebhookDeliveries {
-  attempts: Generated<number>;
-  createdAt: Generated<Timestamp>;
-  error: string | null;
-  event: string;
-  finishedAt: Timestamp | null;
-  id: Generated<string>;
-  nextAttemptAt: Timestamp | null;
-  payload: unknown;
-  responseStatus: number | null;
-  rowId: string | null;
-  status: Generated<DeliveryStatus>;
-  webhookId: string;
-}
-
 export interface Webhooks {
   active: Generated<boolean>;
   createdAt: Generated<Timestamp>;
@@ -1268,6 +1255,7 @@ export interface DB {
   dashboardWidgets: DashboardWidgets;
   dataColumns: DataColumns;
   dataTables: DataTables;
+  deliveries: Deliveries;
   emailFactors: EmailFactors;
   emailOtpCodes: EmailOtpCodes;
   emergencyAccess: EmergencyAccess;
@@ -1293,7 +1281,6 @@ export interface DB {
   instanceSiem: InstanceSiem;
   instanceSmtp: InstanceSmtp;
   instanceSyslog: InstanceSyslog;
-  integrationDeliveries: IntegrationDeliveries;
   integrationSchedules: IntegrationSchedules;
   invitations: Invitations;
   jobs: Jobs;
@@ -1338,6 +1325,5 @@ export interface DB {
   views: Views;
   webauthnChallenges: WebauthnChallenges;
   webauthnCredentials: WebauthnCredentials;
-  webhookDeliveries: WebhookDeliveries;
   webhooks: Webhooks;
 }

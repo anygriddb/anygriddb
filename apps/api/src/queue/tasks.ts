@@ -40,11 +40,15 @@ import {
 } from "../notifications.js";
 import {
   handleWebhookEvent,
-  purgeDeliveries,
-  runDeliveryAttempt,
-  sweepDeliveries,
+  webhookDestination,
   type HookDeps,
 } from "../webhooks.js";
+import {
+  purgeDeliveries,
+  runDelivery,
+  sweepDeliveries,
+  type Destinations,
+} from "../outbound/deliveries.js";
 import {
   addJobs,
   eventPayloadSchema,
@@ -79,10 +83,7 @@ import {
 import { announceRows } from "../data/announce.js";
 import { liveColumn } from "../data/live.js";
 import { resolveSmtp } from "../integrations/smtp.js";
-import {
-  purgeIntegrationDeliveries,
-  runIntegrationDelivery,
-} from "../notify/dispatch.js";
+import { channelDestination } from "../notify/dispatch.js";
 import { sendDigests } from "../notify/digest.js";
 import {
   deliverOperatorMail,
@@ -289,6 +290,21 @@ export function taskGroups(deps: TaskDeps): WorkerGroup[] {
         notify(await notifyDeps(), items),
     };
   }
+  async function destinations(): Promise<Destinations> {
+    return {
+      webhook: webhookDestination(await hookDeps()),
+      integration: channelDestination({
+        db: deps.db,
+        key: deps.env.AUTH_ENCRYPTION_KEY,
+        log: deps.log,
+        env: deps.env,
+      }),
+    };
+  }
+  const deliveryAttempt: Task = async (payload) => {
+    const { deliveryId } = deliveryPayloadSchema.parse(payload);
+    await runDelivery(deps.db, await destinations(), deliveryId);
+  };
   async function automationDeps(): Promise<AutomationDeps> {
     return {
       db: deps.db,
@@ -347,22 +363,9 @@ export function taskGroups(deps: TaskDeps): WorkerGroup[] {
     [TASKS.webhooksEvent]: consumer(async (event) =>
       handleWebhookEvent(await hookDeps(), event),
     ),
-    [TASKS.webhookAttempt]: async (payload) => {
-      const { deliveryId } = deliveryPayloadSchema.parse(payload);
-      await runDeliveryAttempt(await hookDeps(), deliveryId);
-    },
-    [TASKS.integrationDelivery]: async (payload) => {
-      const { deliveryId } = deliveryPayloadSchema.parse(payload);
-      await runIntegrationDelivery(
-        {
-          db: deps.db,
-          key: deps.env.AUTH_ENCRYPTION_KEY,
-          log: deps.log,
-          env: deps.env,
-        },
-        deliveryId,
-      );
-    },
+    [TASKS.deliveryAttempt]: deliveryAttempt,
+    [TASKS.webhookAttempt]: deliveryAttempt,
+    [TASKS.integrationDelivery]: deliveryAttempt,
     [TASKS.assignmentsEvent]: consumer(async (event) =>
       handleAssignments(await notifyDeps(), event),
     ),
@@ -379,7 +382,7 @@ export function taskGroups(deps: TaskDeps): WorkerGroup[] {
     [TASKS.jobsRecover]: async () => {
       await recoverJobs(queueDeps);
     },
-    [TASKS.webhookSweep]: async () => {
+    [TASKS.deliverySweep]: async () => {
       await sweepDeliveries(deps.db);
     },
     [TASKS.alerts]: async () => {
@@ -426,7 +429,6 @@ export function taskGroups(deps: TaskDeps): WorkerGroup[] {
     [TASKS.purge]: () =>
       withPulse(deps, "purge", async () => {
         await purgeDeliveries(deps.db);
-        await purgeIntegrationDeliveries(deps.db);
         await purgeAuthEvents(
           deps.db,
           (await readSettings(deps.db)).authRetentionDays,
@@ -570,10 +572,10 @@ export function taskGroups(deps: TaskDeps): WorkerGroup[] {
           identifier: "jobs_recover",
         },
         {
-          task: TASKS.webhookSweep,
+          task: TASKS.deliverySweep,
           match: "*/10 * * * *",
           options: once,
-          identifier: "webhook_sweep",
+          identifier: "delivery_sweep",
         },
         {
           task: TASKS.purge,

@@ -16,16 +16,32 @@ import {
   errorCode,
   signUpProved,
 } from "../trpc/caller.test-helpers.js";
+import { runDelivery } from "../outbound/deliveries.js";
 import {
+  channelDestination,
   notifyJobOutcome,
-  runIntegrationDelivery,
   testIntegration,
+  type NotifyRuntime,
 } from "./dispatch.js";
 import { savedTracing } from "./tracing.js";
 
 const suffix = randomBytes(6).toString("hex");
 const PASSWORD = "correct horse battery staple";
 const SECRET = "a-long-enough-secret";
+
+/** One attempt of a channel's delivery, as the queue's task makes it. */
+function runIntegrationDelivery(runtime: NotifyRuntime, deliveryId: string) {
+  return runDelivery(
+    runtime.db,
+    {
+      integration: channelDestination(runtime),
+      webhook: {
+        attempt: () => Promise.reject(new Error("no webhook in this test")),
+      },
+    },
+    deliveryId,
+  );
+}
 
 describe("notification channels", () => {
   let db: Database;
@@ -198,7 +214,7 @@ describe("notification channels", () => {
     await notifyJobOutcome(db, () => undefined, failed);
     await notifyJobOutcome(db, () => undefined, failed);
     const queued = await db
-      .selectFrom("integrationDeliveries")
+      .selectFrom("deliveries")
       .selectAll()
       .where("integrationId", "=", saved.id)
       .execute();
@@ -223,7 +239,7 @@ describe("notification channels", () => {
     expect(seen.body).toContain("job.failed");
     expect(seen.signature).toMatch(/^sha256=[0-9a-f]{64}$/);
     const done = await db
-      .selectFrom("integrationDeliveries")
+      .selectFrom("deliveries")
       .select("status")
       .where("id", "=", queuedDelivery.id)
       .executeTakeFirstOrThrow();
@@ -235,18 +251,18 @@ describe("notification channels", () => {
       .where("id", "=", saved.id)
       .execute();
     await db
-      .insertInto("integrationDeliveries")
+      .insertInto("deliveries")
       .values({
         integrationId: saved.id,
         eventId: "22222222-2222-4222-8222-222222222222",
         event: "job.failed",
         subject: "22222222-2222-4222-8222-222222222222",
-        fields: { kind: "export", code: "internal_error" },
+        payload: { kind: "export", code: "internal_error" },
         attempts: 3,
       })
       .execute();
     const failing = await db
-      .selectFrom("integrationDeliveries")
+      .selectFrom("deliveries")
       .select("id")
       .where("eventId", "=", "22222222-2222-4222-8222-222222222222")
       .executeTakeFirstOrThrow();

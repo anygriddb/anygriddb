@@ -32,11 +32,11 @@ import {
   listWebhooks,
   deliveryWebhookId,
   listDeliveries,
-  retryDelivery,
   testWebhook,
   updateWebhook,
   webhookTableId,
 } from "../webhooks.js";
+import { retryDelivery } from "../outbound/deliveries.js";
 import type { Context } from "./context.js";
 import {
   assertGrants,
@@ -325,7 +325,7 @@ export const catalogSharingProcedures = {
           await webhookTableId(ctx.db, webhookId),
           "webhooks.manage",
         );
-        await retryDelivery(ctx.db, input.deliveryId);
+        await retryDelivery(ctx.db, input.deliveryId, { webhookId });
         return { ok: true as const };
       }),
     ),

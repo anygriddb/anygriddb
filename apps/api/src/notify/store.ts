@@ -381,7 +381,7 @@ export async function integrationDeliveries(
   id: string,
 ): Promise<PublicDelivery[]> {
   const rows = await db
-    .selectFrom("integrationDeliveries")
+    .selectFrom("deliveries")
     .select([
       "id",
       "event",
