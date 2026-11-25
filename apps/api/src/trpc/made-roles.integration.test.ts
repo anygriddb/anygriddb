@@ -177,6 +177,9 @@ describe("made roles", () => {
     await member
       .call()
       .rows.insert({ tableId: ids.table, values: { ref: "B" } });
+    expect(
+      (await member.call().rows.read({ tableId: ids.table, limit: 10 })).rows,
+    ).toHaveLength(2);
   });
 
   it("are given by nobody beyond what they hold", async () => {

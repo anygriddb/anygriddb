@@ -223,7 +223,8 @@ function snapshotRoleOf(given: Given | null): SnapshotRole | null {
 }
 
 function madeKey(role: { name: string; permissions: readonly string[] }) {
-  return `${role.name.toLowerCase()}|${[...role.permissions].sort().join(",")}`;
+  const acts = [...role.permissions].sort((a, b) => a.localeCompare(b));
+  return `${role.name.toLowerCase()}|${acts.join(",")}`;
 }
 
 /**
