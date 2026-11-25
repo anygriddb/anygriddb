@@ -1,7 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { MAX_AUTOMATION_ACTIONS } from "./automation";
 import { MAX_ACTIVE_JOBS } from "./jobs";
-import { ceilingOf, LIMITS } from "./limits";
+import {
+  ceilingOf,
+  limitIn,
+  LIMITS,
+  limitValuesSchema,
+  SETTABLE_LIMITS,
+} from "./limits";
+import { parseInstanceSettings } from "./instance";
 import { MAX_READ_LIMIT } from "./query/read";
 
 describe("the catalogue of limits", () => {
@@ -69,5 +76,41 @@ describe("the catalogue of limits", () => {
     expect(MAX_AUTOMATION_ACTIONS).toBe(ceilingOf("automation.max_actions"));
     // A ceiling the catalogue does not hold is no ceiling.
     expect(() => ceilingOf("nonsense" as never)).toThrow();
+  });
+});
+
+describe("the limits an administrator sets", () => {
+  it("are the rates, each set within its bounds, the shipped value among them", () => {
+    expect(SETTABLE_LIMITS.every((id) => id.startsWith("rate."))).toBe(true);
+    expect(SETTABLE_LIMITS).toHaveLength(9);
+    for (const id of SETTABLE_LIMITS) {
+      const [floor, top] = LIMITS[id].bounds;
+      expect(floor <= LIMITS[id].value && LIMITS[id].value <= top, id).toBe(
+        true,
+      );
+    }
+    expect(
+      limitValuesSchema.parse({ "rate.auth": 5, "rate.app": 30_000 }),
+    ).toEqual({ "rate.auth": 5, "rate.app": 30_000 });
+    expect(limitIn("rate.auth", { "rate.auth": 40 })).toBe(40);
+    expect(limitIn("rate.auth", {})).toBe(20);
+  });
+
+  it("refuses a value past its bounds, a part of one, and a limit set elsewhere", () => {
+    for (const values of [
+      { "rate.auth": 4 },
+      { "rate.auth": 121 },
+      { "rate.api": 600.5 },
+      { "read.rows_per_page": 500 },
+    ]) {
+      expect(
+        limitValuesSchema.safeParse(values).success,
+        JSON.stringify(values),
+      ).toBe(false);
+    }
+    // A value stored past its bounds is not read: the limit keeps its own.
+    expect(
+      parseInstanceSettings({ limits: { "rate.auth": 1 } }).limits,
+    ).toEqual({});
   });
 });

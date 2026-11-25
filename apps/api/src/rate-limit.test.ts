@@ -1,3 +1,4 @@
+import type { LimitValues } from "@anygriddb/core";
 import Fastify from "fastify";
 import { describe, expect, it } from "vitest";
 import {
@@ -5,6 +6,7 @@ import {
   credentialCalls,
   RATE_LIMITS,
   rateBucket,
+  probe,
   registerRateLimit,
   tooManyShareCalls,
 } from "./rate-limit.js";
@@ -131,6 +133,18 @@ describe("credentialCalls", () => {
   });
 });
 
+describe("probe", () => {
+  it("names the probes, with or without a query", () => {
+    expect(probe("/health")).toBe(true);
+    expect(probe("/readyz?full=1")).toBe(true);
+  });
+
+  it("names nothing else", () => {
+    expect(probe("/healthy")).toBe(false);
+    expect(probe("/api/v1/health")).toBe(false);
+  });
+});
+
 describe("registerRateLimit", () => {
   async function app() {
     const server = Fastify();
@@ -194,6 +208,42 @@ describe("registerRateLimit", () => {
     expect(over.statusCode).toBe(429);
     expect(over.json()).toMatchObject({ error: "Too many requests" });
     await server.close();
+  });
+});
+
+describe("a limit Administration set", () => {
+  async function server(values: () => Promise<LimitValues>) {
+    const app = Fastify();
+    await registerRateLimit(app, {
+      store: undefined,
+      prune: async () => undefined,
+      values,
+    });
+    app.post("/api/client-errors", () => ({ ok: true }));
+    await app.ready();
+    return app;
+  }
+  const send = (app: Awaited<ReturnType<typeof server>>) =>
+    app.inject({ method: "POST", url: "/api/client-errors" });
+
+  it("is the one a request is held to", async () => {
+    const app = await server(async () => ({ "rate.report": 5 }));
+    for (let sent = 0; sent < 5; sent += 1) {
+      expect((await send(app)).statusCode).toBe(200);
+    }
+    expect((await send(app)).statusCode).toBe(429);
+    await app.close();
+  });
+
+  it("leaves the limit as shipped when the settings cannot be read", async () => {
+    const app = await server(async () => {
+      throw new Error("settings unreadable");
+    });
+    for (let sent = 0; sent < RATE_LIMITS.report; sent += 1) {
+      expect((await send(app)).statusCode).toBe(200);
+    }
+    expect((await send(app)).statusCode).toBe(429);
+    await app.close();
   });
 });
 

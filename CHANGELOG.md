@@ -8,6 +8,23 @@ first.
 
 ## Unreleased
 
+### Added
+
+- Administration › Instance › **Limits and usage**: every limit the instance
+  keeps, where it is set, and what is used of it where it is counted (the
+  most one address sent, how many were refused, the most jobs one account
+  holds); counts only, never an address or an account. The requests a
+  minute, per address, are set there, each within its bounds.
+
+### Changed
+
+- Rate limits hold across processes: requests are counted in PostgreSQL, a
+  minute at a time, so an instance served by several processes refuses at
+  the same number as one served by a single process (migration 0143, an
+  unlogged table). The probes (`/health`, `/ready`) are not counted, and a
+  count the database does not give within two seconds lets the request
+  through, said in the log once a minute.
+
 ### Security
 
 - A daily or weekly digest listed what waited for a person even when they

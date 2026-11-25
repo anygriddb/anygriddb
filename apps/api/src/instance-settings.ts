@@ -23,6 +23,7 @@ export async function saveInstanceSettings(
     env: Env;
     /** Ends the live connections of an account signed out. */
     closeUser: (userId: string) => void;
+    log?: { info: (fields: object, message: string) => void };
   },
   actor: {
     id: string;
@@ -62,7 +63,17 @@ export async function saveInstanceSettings(
       throw new AppError("sign_in_address_left_out", actor.ip);
     }
   }
+  // The trail says who changed the limits (ADR 0043); the values, which
+  // tell nobody's secret, go to the log beside it (ADR 0132).
+  const limitsBefore =
+    patch.limits === undefined ? null : (await readSettings(deps.db)).limits;
   await writeSettings(deps.db, actor.id, patch, actor.ip, actor.method);
+  if (limitsBefore !== null && patch.limits !== undefined) {
+    deps.log?.info(
+      { actor: actor.id, before: limitsBefore, after: patch.limits },
+      "limits changed",
+    );
+  }
   if (patch.ssoOnly === true) {
     // A sign-in begun with a password may not finish any more.
     await dropPasswordChallenges(deps.db);

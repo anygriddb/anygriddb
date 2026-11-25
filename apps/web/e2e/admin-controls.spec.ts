@@ -479,6 +479,35 @@ test("an administrator ends a session, reads the sign-ins, and exports access", 
     expect(await accessibilityViolations(page)).toEqual([]);
     expect(await accessibilityViolations(page)).toEqual([]);
 
+    // Every limit, where it is set, and what is used of it (ADR 0132): a
+    // rate is refused past its bounds, kept within them, and put back.
+    await openAdmin(page, "Instance", "Limits and usage");
+    const reports = page.getByLabel("Failures pages report", { exact: true });
+    await expect(reports).toHaveValue("30");
+    await expect(page.getByText("Rows imported at once")).toBeVisible();
+    expect(await accessibilityViolations(page)).toEqual([]);
+    const saveLimits = page.getByRole("button", { name: "Save", exact: true });
+    await reports.fill("1");
+    await saveLimits.click();
+    await expect(
+      page.getByText("Each limit takes a whole number within its bounds."),
+    ).toBeVisible();
+    await reports.fill("60");
+    await saveLimits.click();
+    await expect(page.getByText("Limits saved")).toBeVisible();
+    await page.reload();
+    await expect(reports).toHaveValue("60");
+    await reports.fill("30");
+    // Disabled while it saves too: the answer says it is done.
+    const putBack = page.waitForResponse(
+      (response) =>
+        response.url().includes("admin.updateSettings") && response.ok(),
+    );
+    await saveLimits.click();
+    await putBack;
+    await page.reload();
+    await expect(reports).toHaveValue("30");
+
     // Recent lines of this process (ADR 0087). Every kept line by default;
     // the setting just saved is an ordinary message of the process. The
     // choice survives leaving the page.

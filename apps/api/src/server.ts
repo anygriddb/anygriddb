@@ -25,6 +25,7 @@ import { registerTextGuard } from "./text-guard.js";
 import { authorizeGrid, gridChannelRights } from "./auth/access.js";
 import { passkeysEligible } from "./auth/relying-party.js";
 import { rateBucket, registerRateLimit } from "./rate-limit.js";
+import { pruneRateWindows, rateStoreIn } from "./rate-store.js";
 import { metricsBearer } from "./notify/metrics-token.js";
 import { registerWebsocketGauge } from "./observability.js";
 import { migrationsCurrent, readinessProbe } from "./readiness.js";
@@ -233,7 +234,15 @@ export async function createApp(deps: {
     await queue.stop();
   });
   await registerCompression(app);
-  await registerRateLimit(app);
+  await registerRateLimit(app, {
+    store: rateStoreIn(deps.db, {
+      warn: (error) => {
+        app.log.warn({ err: error }, "requests not counted");
+      },
+    }),
+    prune: (timeWindow) => pruneRateWindows(deps.db, timeWindow),
+    values: async () => (await readGateSettings(deps.db)).limits,
+  });
   await app.register(cookie);
   await app.register(websocket, SOCKET_OPTIONS);
   // Uploads read at once, whatever they are: each is written to local

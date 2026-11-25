@@ -975,11 +975,16 @@ export {
 } from "./people-file";
 export {
   LIMITS,
+  SETTABLE_LIMITS,
   ceilingOf,
+  limitIn,
+  limitValuesSchema,
   type LimitEntry,
   type LimitId,
   type LimitKind,
   type LimitScope,
   type LimitSetBy,
   type LimitUnit,
+  type LimitValues,
+  type SettableLimitId,
 } from "./limits";

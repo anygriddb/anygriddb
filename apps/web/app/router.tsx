@@ -162,6 +162,9 @@ const IdentityTab = page(() =>
 const HealthTab = page(() =>
   import("../components/admin/health-tab").then((module) => module.HealthTab),
 );
+const LimitsTab = page(() =>
+  import("../components/admin/limits-tab").then((module) => module.LimitsTab),
+);
 const LogsTab = page(() =>
   import("../components/admin/logs-tab").then((module) => module.LogsTab),
 );
@@ -557,6 +560,7 @@ const adminRoutes = [
   adminPage("instance", SettingsTab),
   adminPage("instance/identity", IdentityTab),
   adminPage("instance/health", HealthTab),
+  adminPage("instance/limits", LimitsTab),
   adminLogsRoute,
   adminPage("instance/support", SupportTab),
 ];

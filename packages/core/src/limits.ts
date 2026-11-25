@@ -1,3 +1,5 @@
+import { z } from "zod";
+
 /**
  * Every ceiling the product keeps or shows, declared once (ADR 0132): what
  * it counts, how much by default, over what (an instance, an account, a
@@ -54,6 +56,12 @@ export type LimitEntry = {
   scope: LimitScope;
   kind: LimitKind;
   setBy: LimitSetBy;
+  /**
+   * The least and the most an administrator may set, for a limit set in
+   * Administration's "Limits and usage" (`setBy: "settings"`): the floor
+   * still protects the instance, the top still protects the database.
+   */
+  bounds?: readonly [number, number];
 };
 
 const MIB = 1024 * 1024;
@@ -67,21 +75,40 @@ function enforce(
   return { unit, value, scope, kind: "enforce", setBy };
 }
 
+/** A limit an administrator sets, between its bounds. */
+type SettableEntry = LimitEntry & {
+  setBy: "settings";
+  bounds: readonly [number, number];
+};
+
+/** A rate an administrator may set, between its floor and its top. */
+function rate(value: number, floor: number, top: number): SettableEntry {
+  return {
+    unit: "requests per minute",
+    value,
+    scope: "address",
+    kind: "enforce",
+    setBy: "settings",
+    bounds: [floor, top],
+  };
+}
+
 function display(unit: LimitUnit, value: number): LimitEntry {
   return { unit, value, scope: "view", kind: "display", setBy: "code" };
 }
 
 export const LIMITS = {
   // Requests a client's address may send a minute, by kind (ADR 0009).
-  "rate.auth": enforce("requests per minute", 20, "address"),
-  "rate.oauth": enforce("requests per minute", 120, "address"),
-  "rate.sign_on": enforce("requests per minute", 300, "address"),
-  "rate.share": enforce("requests per minute", 240, "address"),
-  "rate.api": enforce("requests per minute", 600, "address"),
-  "rate.upload": enforce("requests per minute", 120, "address"),
-  "rate.form_upload": enforce("requests per minute", 30, "address"),
-  "rate.report": enforce("requests per minute", 30, "address"),
-  "rate.app": enforce("requests per minute", 3_000, "address"),
+  // Set in Administration, between the bounds ADR 0132 records.
+  "rate.auth": rate(20, 5, 120),
+  "rate.oauth": rate(120, 30, 1_200),
+  "rate.sign_on": rate(300, 60, 3_000),
+  "rate.share": rate(240, 60, 3_000),
+  "rate.api": rate(600, 60, 6_000),
+  "rate.upload": rate(120, 30, 1_200),
+  "rate.form_upload": rate(30, 5, 300),
+  "rate.report": rate(30, 5, 300),
+  "rate.app": rate(3_000, 300, 30_000),
   // Jobs, sockets, an automation's pace.
   "jobs.active_per_account": enforce("jobs", 5, "account"),
   "jobs.retention_days": enforce("days", 7, "instance"),
@@ -126,4 +153,37 @@ export type LimitId = keyof typeof LIMITS;
 export function ceilingOf(id: LimitId): number {
   if (!Object.hasOwn(LIMITS, id)) throw new Error(`no limit ${id}`);
   return LIMITS[id].value;
+}
+
+/** The limits an administrator sets, in Administration's "Limits and usage". */
+export type SettableLimitId = {
+  [Id in LimitId]: (typeof LIMITS)[Id] extends { setBy: "settings" }
+    ? Id
+    : never;
+}[LimitId];
+
+export const SETTABLE_LIMITS = (Object.keys(LIMITS) as LimitId[]).filter(
+  (id): id is SettableLimitId => LIMITS[id].bounds !== undefined,
+);
+
+/**
+ * What an administrator set, each value a whole number within its limit's
+ * bounds; a limit left out keeps the catalogue's value.
+ */
+export const limitValuesSchema = z
+  .object(
+    Object.fromEntries(
+      SETTABLE_LIMITS.map((id) => {
+        const [floor, top] = LIMITS[id].bounds;
+        return [id, z.int().min(floor).max(top).optional()];
+      }),
+    ) as Record<SettableLimitId, z.ZodOptional<z.ZodInt>>,
+  )
+  .strict();
+
+export type LimitValues = z.output<typeof limitValuesSchema>;
+
+/** A limit as the instance keeps it: as set, else the catalogue's value. */
+export function limitIn(id: SettableLimitId, values: LimitValues): number {
+  return values[id] ?? ceilingOf(id);
 }

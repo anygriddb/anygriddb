@@ -1,9 +1,14 @@
 import rateLimit from "@fastify/rate-limit";
 import type { FastifyInstance } from "fastify";
 import { publicErrorBody } from "./http.js";
-import { ceilingOf } from "@anygriddb/core";
+import {
+  ceilingOf,
+  limitIn,
+  type LimitValues,
+  type SettableLimitId,
+} from "@anygriddb/core";
 
-type RateBucket =
+export type RateBucket =
   | "auth"
   | "oauth"
   | "signOn"
@@ -14,7 +19,20 @@ type RateBucket =
   | "report"
   | "app";
 
-/** Requests allowed per minute and per client address, by bucket. */
+/** The limit of the catalogue each bucket is counted against (ADR 0132). */
+export const BUCKET_LIMITS = {
+  auth: "rate.auth",
+  oauth: "rate.oauth",
+  signOn: "rate.sign_on",
+  share: "rate.share",
+  api: "rate.api",
+  upload: "rate.upload",
+  formUpload: "rate.form_upload",
+  report: "rate.report",
+  app: "rate.app",
+} as const satisfies Record<RateBucket, SettableLimitId>;
+
+/** Requests allowed per minute and per client address, by bucket, as shipped. */
 export const RATE_LIMITS: Record<RateBucket, number> = {
   auth: ceilingOf("rate.auth"),
   // An application's backend, which renews the grants of all its people
@@ -138,17 +156,71 @@ export function buildFile(method: string, url: string): boolean {
   );
 }
 
+/** The probes that say whether the process runs and the database answers. */
+const PROBES = new Set(["/health", "/healthz", "/ready", "/readyz"]);
+
 /**
- * Counts in memory, per process (ADR 0009): with several API processes the
- * limits add up, which suits the instances AnyGridDB targets.
+ * Whether a request asks whether the instance runs. Not counted: counting
+ * asks the database, and `/health` must answer while it does not, or the
+ * container is restarted for the database's fault.
  */
-export async function registerRateLimit(app: FastifyInstance): Promise<void> {
+export function probe(url: string): boolean {
+  return PROBES.has(url.split("?")[0] ?? url);
+}
+
+/** One window of counting: a minute. */
+const RATE_WINDOW_MS = 60_000;
+
+/**
+ * Counts each address's requests by kind, a minute at a time. Given a
+ * store, in it: the instance's is PostgreSQL (ADR 0132), so every process
+ * counts the same requests and a limit holds however many serve; and the
+ * windows that ended are removed each minute. A test's server counts in
+ * its own memory.
+ */
+export async function registerRateLimit(
+  app: FastifyInstance,
+  shared?: {
+    store: NonNullable<Parameters<typeof rateLimit>[1]>["store"];
+    prune: (timeWindow: number) => Promise<void>;
+    /** What Administration set ("Limits and usage"), read through a cache. */
+    values: () => Promise<LimitValues>;
+  },
+): Promise<void> {
+  if (shared) {
+    let pruning: ReturnType<typeof setInterval> | undefined;
+    app.addHook("onReady", (done) => {
+      pruning = setInterval(() => {
+        shared.prune(RATE_WINDOW_MS).catch((error: unknown) => {
+          app.log.warn({ err: error }, "rate windows not pruned");
+        });
+      }, RATE_WINDOW_MS);
+      pruning.unref();
+      done();
+    });
+    app.addHook("onClose", (_instance, done) => {
+      clearInterval(pruning);
+      done();
+    });
+  }
   await app.register(rateLimit, {
-    timeWindow: 60_000,
-    allowList: (request) => buildFile(request.method, request.url),
+    ...(shared ? { store: shared.store } : {}),
+    timeWindow: RATE_WINDOW_MS,
+    allowList: (request) =>
+      buildFile(request.method, request.url) || probe(request.url),
+    // A count the database could not take lets the request through: what
+    // it asks then meets the same database, and is refused there if need
+    // be (the store says it once a minute, `rate-store.ts`).
+    skipOnError: true,
     keyGenerator: (request) =>
       `${request.ip}:${rateBucket(request.method, request.url)}`,
-    max: (request) => RATE_LIMITS[rateBucket(request.method, request.url)],
+    max: async (request) => {
+      const bucket = rateBucket(request.method, request.url);
+      if (!shared) return RATE_LIMITS[bucket];
+      // Settings that cannot be read leave the limits as shipped.
+      const values = await shared.values().catch(() => ({}));
+      return limitIn(BUCKET_LIMITS[bucket], values);
+    },
     errorResponseBuilder: (_request, context) => ({
       statusCode: 429,
       error: "Too many requests",

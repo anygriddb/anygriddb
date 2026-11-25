@@ -8,12 +8,16 @@
  *   beside it;
  * - dependencies are pinned to exact versions;
  * - the root package.json holds the product's version, in SemVer
- *   (ADR 0048).
+ *   (ADR 0048);
+ * - no text file holds a line a merge left unresolved
+ *   (`conflict-markers.mjs`): Prettier moves such a line into a list, a
+ *   table or a quote, where it passes the format check.
  * Only files Git tracks are read. Exits 1 with one line per problem.
  */
 import { execFileSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { basename } from "node:path";
+import { conflictMarkers } from "./conflict-markers.mjs";
 
 const SCOPES = ["apps/", "packages/", "scripts/", "docker/", "docs/"];
 const KEBAB = /^[a-z0-9]+(-[a-z0-9]+)*(\.[a-z0-9]+(-[a-z0-9]+)*)*$/;
@@ -86,6 +90,16 @@ for (const path of tracked.filter(
         problems.push(`${path}: ${name} "${version}" is not an exact version`);
       }
     }
+  }
+}
+
+const TEXT =
+  /\.(?:md|mdx|ts|tsx|js|mjs|cjs|json|ya?ml|sql|css|html|sh|po|toml|txt)$/;
+for (const path of tracked.filter(
+  (file) => TEXT.test(file) && existsSync(file),
+)) {
+  for (const line of conflictMarkers(readFileSync(path, "utf8"))) {
+    problems.push(`${path}:${line}: a merge's conflict marker`);
   }
 }
 
