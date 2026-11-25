@@ -7,6 +7,7 @@ import {
   filterGroupSchema,
   roleGrantsAll,
   type RowEvent,
+  stepBetween,
   touchesWatched,
   WEBHOOK_FAILURE_LIMIT,
 } from "@anygriddb/core";
@@ -14,6 +15,7 @@ import type { Database, NewRow, WebhookRow } from "@anygriddb/db";
 import { sql as sqlTag } from "kysely";
 import { authorBindings } from "./auth/access.js";
 import { readerEngine } from "./data/acl.js";
+import { loadTableCircuit } from "./data/status-circuits.js";
 import { withAudit } from "./data/audit-context.js";
 import { ERASED_USER_ID } from "./data/erasure.js";
 import { decryptSecret, encryptSecret } from "./auth/crypto.js";
@@ -344,6 +346,8 @@ type WebhookPayload = {
   changed: string[] | null;
   source: string | null;
   count?: number;
+  /** A step of the circuit: the states it moved between, and its key. */
+  step?: { from: string; to: string; transition: string | null };
   row: {
     id: string;
     status: string | null;
@@ -437,6 +441,19 @@ async function payloadFor(
     changed: event.columns ?? null,
     source: event.source ?? null,
     ...(event.count === undefined ? {} : { count: event.count }),
+    ...(event.status
+      ? {
+          step: {
+            ...event.status,
+            transition:
+              stepBetween(
+                await loadTableCircuit(deps.db, event.tableId),
+                event.status.from,
+                event.status.to,
+              )?.key ?? null,
+          },
+        }
+      : {}),
     row,
   };
 }

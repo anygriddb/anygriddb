@@ -27,6 +27,8 @@ import {
 import type { Database } from "@anygriddb/db";
 import { assertAttachmentKeys } from "../attachments.js";
 import { DUMMY_PASSWORD_HASH, verifyPassword } from "../auth/argon2.js";
+import type { KeyRing } from "../auth/key-ring.js";
+import { proveStepUp } from "../auth/step-up.js";
 import { readerEngine } from "../data/acl.js";
 import { announceRows, type AnnounceDeps } from "../data/announce.js";
 import type { CatalogRows, TableRow } from "../data/engine.js";
@@ -66,7 +68,11 @@ import {
 } from "../sources/writes.js";
 import { assertLinksInSelection } from "../data/link-selection.js";
 
-export type RowServiceDeps = AnnounceDeps & { db: Database };
+export type RowServiceDeps = AnnounceDeps & {
+  db: Database;
+  /** Opens an account's second factor, for a step signed with it. */
+  key?: KeyRing;
+};
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -1042,8 +1048,43 @@ export async function replaceLinks(
 }
 
 /**
- * Takes a named transition on the table's status circuit (ADR 0124).
- * Password / step-up proof is checked here when the transition asks for it.
+ * Whoever signs a step proves it is them: with their password, or for a
+ * step signed `step_up` their password or second factor. A wrong or
+ * missing proof is `invalid_credentials`.
+ */
+async function assertSignatureProof(
+  deps: RowServiceDeps,
+  userId: string,
+  signature: "password" | "step_up",
+  proof: { password?: string; factorCode?: string },
+): Promise<void> {
+  if (signature === "step_up" && deps.key) {
+    const proved = await proveStepUp(deps.db, deps.key, {
+      userId,
+      startedAt: null,
+      proof,
+    });
+    if (proved !== "ok") throw new AppError("invalid_credentials");
+    return;
+  }
+  if (!proof.password) throw new AppError("invalid_credentials");
+  const stored = await deps.db
+    .selectFrom("passwordHashes")
+    .select("hash")
+    .where("userId", "=", userId)
+    .executeTakeFirst();
+  const verified = await verifyPassword(
+    stored?.hash ?? DUMMY_PASSWORD_HASH,
+    proof.password,
+  );
+  if (!stored || !verified) throw new AppError("invalid_credentials");
+}
+
+/**
+ * Takes a named transition on the table's status circuit (ADR 0124). The
+ * proof a signed step asks is checked here; a caller that cannot give one
+ * (a token, an automation) says it never signs, and a signed step is
+ * refused to it.
  */
 export async function transitionRowAs(
   deps: RowServiceDeps,
@@ -1054,31 +1095,34 @@ export async function transitionRowAs(
     reason?: string;
     meaning?: string;
     password?: string;
+    factorCode?: string;
+    signs: "with_proof" | "never";
   },
   meta: WriteMeta,
 ): Promise<{ from: string; to: string; transitionKey: string }> {
   await assertRowsInScope(deps.db, scope.engine, [input.rowId]);
-  if (isExternal(scope)) return clientTransition(deps, scope, input, meta);
+  if (isExternal(scope)) {
+    if (input.transitionKey === "sign" && input.signs === "never") {
+      throw new AppError("signature_in_app");
+    }
+    return clientTransition(deps, scope, input, meta);
+  }
   if (!UUID.test(input.rowId)) throw new AppError("invalid_row_id");
   const circuit = await loadTableCircuit(deps.db, scope.table.id);
-  const needsProof = circuit.transitions.some(
-    (item) =>
-      item.key === input.transitionKey &&
-      takesTransition(item.roleKeys, scope.role) &&
-      item.signature !== "none",
-  );
-  if (needsProof) {
-    if (!input.password) throw new AppError("invalid_credentials");
-    const stored = await deps.db
-      .selectFrom("passwordHashes")
-      .select("hash")
-      .where("userId", "=", scope.actorId)
-      .executeTakeFirst();
-    const verified = await verifyPassword(
-      stored?.hash ?? DUMMY_PASSWORD_HASH,
-      input.password,
-    );
-    if (!stored || !verified) throw new AppError("invalid_credentials");
+  const asked = circuit.transitions
+    .filter(
+      (item) =>
+        item.key === input.transitionKey && takesTransition(item, scope.role),
+    )
+    .map((item) => item.signature);
+  const signature = asked.includes("step_up")
+    ? "step_up"
+    : asked.includes("password")
+      ? "password"
+      : "none";
+  if (signature !== "none") {
+    if (input.signs === "never") throw new AppError("signature_in_app");
+    await assertSignatureProof(deps, scope.actorId, signature, input);
   }
   const outcome = await transitionRow(deps.db, {
     userId: scope.actorId,

@@ -1643,7 +1643,6 @@ export async function transitionRow(
     meaning?: string;
     source?: string;
     depth?: number;
-    values?: Readonly<Record<string, unknown>>;
   },
 ): Promise<{ from: string; to: string; transitionKey: string }> {
   const circuit = await loadTableCircuit(db, input.table.id);
@@ -1674,11 +1673,26 @@ export async function transitionRow(
         }
       }
       if (transition.requireFields.length > 0) {
-        const values = input.values ?? {};
-        for (const field of transition.requireFields) {
-          if (isBlankCell(values[field])) {
-            throw new AppError("value_required", field);
-          }
+        // What the row holds now, under its lock: the step's fields are
+        // filled there, or the step waits for them.
+        const { rows: held } = await sql<{ row: Record<string, unknown> }>`
+          select to_jsonb(t) as row from ${sql.table(input.table.physicalName)} t
+           where t.id = ${input.rowId}
+        `.execute(tx);
+        const values = held[0]?.row ?? {};
+        const blank = transition.requireFields.filter((field) =>
+          isBlankCell(values[field]),
+        );
+        if (blank.length > 0) {
+          const named = await tx
+            .selectFrom("dataColumns")
+            .select(["name", "label"])
+            .where("tableId", "=", input.table.id)
+            .where("name", "in", blank)
+            .execute();
+          const label = (field: string) =>
+            named.find((column) => column.name === field)?.label ?? field;
+          throw new AppError("value_required", label(blank[0] ?? ""));
         }
       }
       if (transition.fourEyes) {
@@ -1697,12 +1711,12 @@ export async function transitionRow(
           .orderBy("id", "desc")
           .executeTakeFirst();
         if (previous && previous.userId === input.userId) {
-          throw new AppError("invalid_status");
+          throw new AppError("four_eyes");
         }
       }
       if (transition.signature !== "none") {
         if (!input.meaning || input.meaning.trim() === "") {
-          throw new AppError("invalid_status");
+          throw new AppError("meaning_required");
         }
         const named = await tx
           .selectFrom("users")

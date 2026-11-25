@@ -43,6 +43,11 @@ export function usePermissionFamilies(): ReadonlyArray<{
           label: t`Lock and sign rows`,
           hint: t`Lock, sign and unlock rows, and take the steps a status circuit gives owners.`,
         },
+        {
+          permission: "rows.transition",
+          label: t`Take a circuit's steps`,
+          hint: t`Take the steps of a table's circuit that name this role, or the role of owners or editors it stands for. Validating needs no right to edit or lock.`,
+        },
       ],
     },
     {

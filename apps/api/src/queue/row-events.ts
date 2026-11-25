@@ -52,6 +52,15 @@ export function changedColumns(
   );
 }
 
+/** The states a step moved a row between, as the trail kept the row. */
+function stepOf(entry: AuditEntry): Pick<RowEvent, "status"> {
+  const from = entry.old_value?.["ag_status"];
+  const to = entry.new_value?.["ag_status"];
+  return typeof from === "string" && typeof to === "string"
+    ? { status: { from: from.slice(0, 64), to: to.slice(0, 64) } }
+    : {};
+}
+
 export function eventOf(entry: AuditEntry, depth: number): RowEvent {
   const event = EVENT_OF[entry.action];
   const at =
@@ -70,6 +79,7 @@ export function eventOf(entry: AuditEntry, depth: number): RowEvent {
           ),
         }
       : {}),
+    ...(event === "status" ? stepOf(entry) : {}),
     actorId: entry.user_id,
     ...(entry.source ? { source: entry.source.slice(0, 100) } : {}),
     ...(depth > 0 ? { depth } : {}),

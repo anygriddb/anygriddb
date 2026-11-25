@@ -1,4 +1,5 @@
 import type {
+  Permission,
   StatusCircuit,
   StatusState,
   StatusTransition,
@@ -44,6 +45,7 @@ function move(
     fourEyes: false,
     position: 0,
     roleKeys,
+    madeRoleIds: [],
   };
 }
 
@@ -111,6 +113,24 @@ describe("allowedTransitions", () => {
       ),
     ).toEqual(["lock"]);
     expect(allowedTransitions(compliance, "submitted", "editor")).toEqual([]);
+  });
+
+  it("offers a step to a made role it names, which neither writes nor locks", () => {
+    const named: StatusCircuit = {
+      ...compliance,
+      transitions: compliance.transitions.map((item) =>
+        item.key === "lock" ? { ...item, madeRoleIds: ["v"] } : item,
+      ),
+    };
+    const validator = {
+      role: null,
+      made: [{ id: "v", name: "Validator" }],
+      permissions: ["rows.read", "rows.transition"] as Permission[],
+    };
+    expect(
+      allowedTransitions(named, "submitted", validator).map((item) => item.key),
+    ).toEqual(["lock"]);
+    expect(allowedTransitions(compliance, "submitted", validator)).toEqual([]);
   });
 });
 

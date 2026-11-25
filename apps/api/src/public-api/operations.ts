@@ -35,6 +35,7 @@ import {
   type RowRecord,
 } from "../data/rows.js";
 import { loadView } from "../data/views.js";
+import { circuitKeysOf } from "../data/status-circuits.js";
 import { liveBase, liveTable } from "../data/live.js";
 import { attachExternalStatuses } from "../sources/statuses.js";
 import { publicColumns } from "../trpc/catalog-shared.js";
@@ -43,6 +44,7 @@ import {
   deleteRows,
   findLiveTable,
   loadRowScope,
+  transitionRowAs,
   updateRows,
   type RowScope,
   type RowServiceDeps,
@@ -427,6 +429,10 @@ export async function openApiDocument(
   if (!base || (list.length === 0 && !roleFor(actor.bindings, "base", baseId)))
     throw new AppError("not_found");
   const { engineOf, rows, index } = await enginesFor(deps, actor, list);
+  const circuits = await circuitKeysOf(
+    deps.db,
+    list.map((table) => table.id),
+  );
   const described = [];
   for (const table of list) {
     const engine = engineOf(table.id);
@@ -435,6 +441,7 @@ export async function openApiDocument(
       name: table.name,
       external: table.storage === "external",
       columns: publicColumns(engine, rows, index),
+      circuit: circuits.get(table.id),
     });
   }
   return buildOpenApi(base, described, deps.publicUrl);
@@ -608,6 +615,53 @@ export async function updateRecords(
   });
   await updateRows(serviceDeps(deps), scope, updates, meta);
   return { records: updates.map((update) => ({ id: update.rowId })) };
+}
+
+/** A step of a record's circuit, as the API and MCP take it. */
+export const transitionBodySchema = z.object({
+  transition: z
+    .string()
+    .trim()
+    .regex(/^[a-z][a-z0-9_]{0,63}$/),
+  reason: z.string().trim().min(1).max(500).optional(),
+});
+
+/**
+ * Takes a step of the table's circuit for one record (ADR 0130), with the
+ * caller's roles, as the row's panel does. A step that asks a signature
+ * is taken in the application: a token proves nothing of its holder.
+ */
+export async function transitionRecord(
+  deps: PublicApiDeps,
+  actor: Actor,
+  tableId: string,
+  recordId: string,
+  bodyInput: unknown,
+  origin?: WriteOrigin,
+) {
+  const body = transitionBodySchema.safeParse(bodyInput);
+  if (!body.success) throw new AppError("invalid_body");
+  const table = await tableFor(deps, actor, tableId, "rows.transition");
+  const role = effectiveTableRole(actor.bindings, table.id, table.baseId);
+  if (!role) throw new AppError("access_denied");
+  const scope = await scopeFor(deps, actor, table);
+  const outcome = await transitionRowAs(
+    serviceDeps(deps),
+    { ...scope, role },
+    {
+      rowId: recordId,
+      transitionKey: body.data.transition,
+      reason: body.data.reason,
+      signs: "never",
+    },
+    origin ?? { source: "api" },
+  );
+  return {
+    id: recordId,
+    from: outcome.from,
+    to: outcome.to,
+    transition: outcome.transitionKey,
+  };
 }
 
 export async function deleteRecords(

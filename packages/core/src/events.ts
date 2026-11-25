@@ -21,6 +21,10 @@ export const rowEventSchema = z.object({
   at: z.string().max(40).optional(),
   /** The audit entry the event comes from, when it comes from one. */
   auditId: z.uuid().optional(),
+  /** A step of the circuit: the state the row left and the one it took. */
+  status: z
+    .object({ from: z.string().max(64), to: z.string().max(64) })
+    .optional(),
 });
 
 export type RowEvent = z.infer<typeof rowEventSchema>;

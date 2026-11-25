@@ -52,6 +52,7 @@ const compliance: StatusCircuit = {
     fourEyes: false,
     position,
     roleKeys: [...roleKeys],
+    madeRoleIds: [],
   })),
 };
 
@@ -119,23 +120,41 @@ describe("takesTransition", () => {
     made: [{ id: "m", name: "Made" }],
     permissions,
   });
-
-  it("opens a transition to the roles it names, as before", () => {
-    expect(takesTransition(["owner", "editor"], "editor")).toBe(true);
-    expect(takesTransition(["owner"], "editor")).toBe(false);
-    expect(takesTransition(["owner"], null)).toBe(false);
+  const to = (roleKeys: string[], madeRoleIds: string[] = []) => ({
+    roleKeys,
+    madeRoleIds,
   });
 
-  it("opens it to a made role by the act each of the four stands for", () => {
-    expect(takesTransition(["editor"], made(["rows.read", "rows.write"]))).toBe(
-      true,
-    );
-    expect(takesTransition(["owner"], made(["rows.read", "rows.write"]))).toBe(
+  it("opens a step to the roles it names, as before", () => {
+    expect(takesTransition(to(["owner", "editor"]), "editor")).toBe(true);
+    expect(takesTransition(to(["owner"]), "editor")).toBe(false);
+    expect(takesTransition(to(["owner"]), null)).toBe(false);
+    // A viewer takes no step, even one given to viewers: it takes none.
+    expect(takesTransition(to(["viewer"]), "viewer")).toBe(false);
+  });
+
+  it("opens it to a made role that takes steps, by the act each of the four stands for", () => {
+    const writes = made(["rows.read", "rows.write", "rows.transition"]);
+    expect(takesTransition(to(["editor"]), writes)).toBe(true);
+    expect(takesTransition(to(["owner"]), writes)).toBe(false);
+    expect(
+      takesTransition(
+        to(["owner"]),
+        made(["rows.read", "rows.lock", "rows.transition"]),
+      ),
+    ).toBe(true);
+    // Writing without taking steps is not enough.
+    expect(
+      takesTransition(to(["editor"]), made(["rows.read", "rows.write"])),
+    ).toBe(false);
+  });
+
+  it("opens it to a made role the step names, which neither writes nor locks", () => {
+    const validates = made(["rows.read", "rows.transition"]);
+    expect(takesTransition(to(["owner"], ["m"]), validates)).toBe(true);
+    expect(takesTransition(to(["owner"], ["other"]), validates)).toBe(false);
+    expect(takesTransition(to(["owner"], ["m"]), made(["rows.read"]))).toBe(
       false,
     );
-    expect(takesTransition(["owner"], made(["rows.read", "rows.lock"]))).toBe(
-      true,
-    );
-    expect(takesTransition(["reviewer"], made(["rows.read"]))).toBe(false);
   });
 });

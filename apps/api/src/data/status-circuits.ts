@@ -57,11 +57,15 @@ async function loadCircuitById(
             transitions.map((item) => item.id),
           )
           .execute();
-  const byTransition = new Map<string, string[]>();
+  const byTransition = new Map<string, { roles: string[]; made: string[] }>();
   for (const grant of grants) {
-    const list = byTransition.get(grant.transitionId) ?? [];
-    list.push(grant.roleKey);
-    byTransition.set(grant.transitionId, list);
+    const given = byTransition.get(grant.transitionId) ?? {
+      roles: [],
+      made: [],
+    };
+    if (grant.roleKey !== null) given.roles.push(grant.roleKey);
+    if (grant.madeRoleId !== null) given.made.push(grant.madeRoleId);
+    byTransition.set(grant.transitionId, given);
   }
   const stateKey = new Map(states.map((item) => [item.id, item.key]));
   return {
@@ -98,7 +102,8 @@ async function loadCircuitById(
         signature: asSignature(item.signature),
         fourEyes: item.fourEyes,
         position: item.position,
-        roleKeys: byTransition.get(item.id) ?? [],
+        roleKeys: byTransition.get(item.id)?.roles ?? [],
+        madeRoleIds: byTransition.get(item.id)?.made ?? [],
       };
     }),
   };
@@ -118,6 +123,65 @@ export async function loadTableCircuit(
     throw new AppError("no_row");
   }
   return loadCircuitById(db, row.id);
+}
+
+/**
+ * The state keys and step keys of each table's circuit, in two reads for
+ * any number of tables: what the API's document names. A table with no
+ * circuit of its own follows compliance, as the database does.
+ */
+export async function circuitKeysOf(
+  db: Db,
+  tableIds: readonly string[],
+): Promise<Map<string, { states: string[]; steps: string[] }>> {
+  const keys = new Map<string, { states: string[]; steps: string[] }>();
+  if (tableIds.length === 0) return keys;
+  const circuits = await db
+    .selectFrom("statusCircuits")
+    .select(["id", "tableId"])
+    .where((eb) =>
+      eb.or([
+        eb("tableId", "in", [...tableIds]),
+        eb.and([eb("tableId", "is", null), eb("key", "=", "compliance")]),
+      ]),
+    )
+    .execute();
+  const ids = circuits.map((circuit) => circuit.id);
+  const [states, steps] = await Promise.all([
+    db
+      .selectFrom("statusStates")
+      .select(["circuitId", "key"])
+      .where("circuitId", "in", ids)
+      .orderBy("position")
+      .orderBy("key")
+      .execute(),
+    db
+      .selectFrom("statusTransitions")
+      .select(["circuitId", "key"])
+      .where("circuitId", "in", ids)
+      .orderBy("position")
+      .orderBy("key")
+      .execute(),
+  ]);
+  const of = (circuitId: string) => ({
+    states: states
+      .filter((state) => state.circuitId === circuitId)
+      .map((state) => state.key),
+    steps: [
+      ...new Set(
+        steps
+          .filter((step) => step.circuitId === circuitId)
+          .map((step) => step.key),
+      ),
+    ],
+  });
+  const shipped = circuits.find((circuit) => circuit.tableId === null);
+  for (const tableId of tableIds) {
+    const own = circuits.find((circuit) => circuit.tableId === tableId);
+    const circuit = own ?? shipped;
+    if (circuit) keys.set(tableId, of(circuit.id));
+  }
+  return keys;
 }
 
 export async function listCircuitTemplates(db: Db): Promise<StatusCircuit[]> {
@@ -153,6 +217,11 @@ export async function applyCircuitTemplate(
     storage: "native" | "external";
   },
 ): Promise<StatusCircuit> {
+  // A client's table keeps its statuses beside its rows in the compliance
+  // circuit's words (ADR 0033): another circuit's states would not be read.
+  if (input.storage === "external" && input.templateKey !== "compliance") {
+    throw new AppError("circuit_fixed_on_source");
+  }
   const template = await db
     .selectFrom("statusCircuits")
     .select("id")

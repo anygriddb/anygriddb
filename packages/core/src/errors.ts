@@ -147,6 +147,20 @@ export const ERRORS = {
   no_row: [BAD, "No row"],
   row_locked: [409, "Row locked"],
   row_outside_rule: [403, "This would put the row outside what you can reach"],
+  /** A client's table keeps the compliance circuit (ADR 0033). */
+  circuit_fixed_on_source: [
+    BAD,
+    "A table of a client's database keeps the compliance circuit",
+  ],
+  /** A step with four eyes is taken by someone else than the last one. */
+  four_eyes: [
+    409,
+    "Someone other than who took the last step must take this one",
+  ],
+  /** A signature says what it commits its signer to. */
+  meaning_required: [BAD, "A signature needs its meaning"],
+  /** A signed step asks its signer's proof, which no token gives. */
+  signature_in_app: [403, "Sign this step in the application"],
   /** A copy with its rows would carry what the copier's rules hide. */
   copy_under_rules: [
     403,

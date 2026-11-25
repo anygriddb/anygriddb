@@ -134,6 +134,7 @@ function serviceDeps(ctx: Context): RowServiceDeps {
     db: ctx.db,
     bus: ctx.bus,
     log: (error, message) => ctx.req.log.error({ err: error }, message),
+    key: ctx.env.AUTH_ENCRYPTION_KEY,
   };
 }
 
@@ -517,11 +518,8 @@ export const rowsRouter = t.router({
     ),
   setStatus: procedure.input(setStatusInputSchema).mutation(({ ctx, input }) =>
     handle(ctx, async () => {
-      const access = await guardTable(
-        ctx,
-        input.tableId,
-        input.status === "submitted" ? "rows.write" : "rows.lock",
-      );
+      // Each move is a step of the circuit, given to whom the step names.
+      const access = await guardTable(ctx, input.tableId, "rows.transition");
       const scope = await scopeOf(ctx, access);
       await changeStatus(
         serviceDeps(ctx),
@@ -537,19 +535,21 @@ export const rowsRouter = t.router({
     .input(transitionRowInputSchema)
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
-        const access = await guardTable(ctx, input.tableId, "rows.write");
+        const access = await guardTable(ctx, input.tableId, "rows.transition");
         const scope = await scopeOf(ctx, access);
         return transitionRowAs(
           serviceDeps(ctx),
           { ...scope, role: access.role },
-          input,
+          { ...input, signs: ctx.tokenScope ? "never" : "with_proof" },
           { source: "web" },
         );
       }),
     ),
   sign: procedure.input(signRowInputSchema).mutation(({ ctx, input }) =>
     handle(ctx, async () => {
-      const access = await guardTable(ctx, input.tableId, "rows.lock");
+      // A token signs nothing: a signature is its signer's proof.
+      if (ctx.tokenScope) throw new AppError("signature_in_app");
+      const access = await guardTable(ctx, input.tableId, "rows.transition");
       await signRowAs(
         serviceDeps(ctx),
         { ...(await scopeOf(ctx, access)), role: access.role },
