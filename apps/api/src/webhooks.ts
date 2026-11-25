@@ -5,14 +5,14 @@ import {
   effectiveTableRole,
   type EngineCatalog,
   filterGroupSchema,
-  roleGrants,
+  roleGrantsAll,
   type RowEvent,
   touchesWatched,
   WEBHOOK_FAILURE_LIMIT,
 } from "@anygriddb/core";
 import type { Database, NewRow, WebhookRow } from "@anygriddb/db";
 import { sql as sqlTag } from "kysely";
-import { loadBindings } from "./auth/access.js";
+import { authorBindings } from "./auth/access.js";
 import { readerEngine } from "./data/acl.js";
 import { withAudit } from "./data/audit-context.js";
 import { ERASED_USER_ID } from "./data/erasure.js";
@@ -367,22 +367,24 @@ export function payloadRow(row: RowRecord): WebhookPayload["row"] {
 
 /**
  * The webhook creator's view of the table, or null when they can no longer
- * read it: a webhook never sends what its creator could not see.
+ * read it and export it, or their account is disabled: a webhook never
+ * sends what its creator could not take out themselves. It stays, and
+ * sends again once they may.
  */
 async function creatorEngine(
   db: Database,
   userId: string,
   tableId: string,
 ): Promise<EngineCatalog | null> {
-  const bindings = await loadBindings(db, userId);
+  const bindings = await authorBindings(db, userId);
   const loaded = await loadEngine(db, tableId, () => true);
   const table = loaded.rows.tables.find((item) => item.id === tableId);
   if (
     !table ||
-    !roleGrants(
-      effectiveTableRole(bindings, tableId, table.baseId),
+    !roleGrantsAll(effectiveTableRole(bindings, tableId, table.baseId), [
       "rows.read",
-    )
+      "data.export",
+    ])
   ) {
     return null;
   }

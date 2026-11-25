@@ -15,8 +15,18 @@ export const PERMISSIONS = [
   "rows.delete",
   /** Lock, sign and unlock rows. */
   "rows.lock",
-  /** Files of rows, calendar feeds, a base's snapshot. */
+  /**
+   * Rows taken out of the base: files of rows, calendar feeds, a base's
+   * snapshot and copies, links that show rows, webhooks, and automations
+   * that send values elsewhere.
+   */
   "data.export",
+  /**
+   * A token's way in: the REST API, MCP, and the applications given
+   * access. A token reaches nothing on a base or a table whose role does
+   * not give it.
+   */
+  "api.access",
   /** Files into a table, a workbook into a base. */
   "data.import",
   /** Public links to a view, a form or a base. */
@@ -38,7 +48,11 @@ export type Permission = (typeof PERMISSIONS)[number];
 export const ROLES = ["owner", "editor", "commenter", "viewer"] as const;
 export type Role = (typeof ROLES)[number];
 
-const VIEWER: readonly Permission[] = ["rows.read", "data.export"];
+const VIEWER: readonly Permission[] = [
+  "rows.read",
+  "data.export",
+  "api.access",
+];
 const COMMENTER: readonly Permission[] = [...VIEWER, "rows.comment"];
 const EDITOR: readonly Permission[] = [
   ...COMMENTER,
@@ -119,6 +133,14 @@ export function roleGrants(
   return role.permissions.includes(permission);
 }
 
+/** Whether what applies, if anything, gives every permission asked. */
+export function roleGrantsAll(
+  role: Role | MadeRole | Held | null | undefined,
+  permissions: readonly Permission[],
+): boolean {
+  return permissions.every((permission) => roleGrants(role, permission));
+}
+
 /**
  * Whoever holds `giver` may give `given`: one of the four up to their own
  * reach, the owner's only by an owner, and a made role only when they hold
@@ -146,6 +168,31 @@ export function readOnlyGiven(given: Given): Given {
     ),
   };
 }
+
+/**
+ * What a role gives through a token: all it gives when it gives a token's
+ * way in (`api.access`, which each of the four gives), nothing otherwise.
+ */
+export function tokenGiven(given: Given): Given {
+  if (typeof given === "string" || roleGrants(given, "api.access")) {
+    return given;
+  }
+  return { ...given, permissions: [] };
+}
+
+/** A public link: a form takes answers in; a view's or a base's shows rows. */
+export type LinkKind = "form" | "view" | "base";
+
+/**
+ * What a public link asks of its creator's role on its table or its base,
+ * when it is made and each time it is opened: a link that shows rows to
+ * whoever holds it is an export.
+ */
+export const LINK_PERMISSIONS: Record<LinkKind, readonly Permission[]> = {
+  form: ["publish"],
+  view: ["publish", "data.export"],
+  base: ["base.manage", "publish", "data.export"],
+};
 
 /** Whether a made role's permissions are a set it can be: read first. */
 export function madePermissions(

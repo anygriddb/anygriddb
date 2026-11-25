@@ -33,6 +33,7 @@ import {
   updateFolderInputSchema,
 } from "../data/folders.js";
 import { insertTable, reorderTables, updateTable } from "../data/schema-ops.js";
+import { assertMayCopyRows } from "../data/data-ops.js";
 import { trashTable } from "../data/trash.js";
 import { publishCatalog } from "../realtime/channels.js";
 import {
@@ -65,12 +66,15 @@ export const catalogTableProcedures = {
     .input(duplicateTableInputSchema)
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
-        const { user, table } = await guardTable(
+        const { user, bindings, table } = await guardTable(
           ctx,
           input.tableId,
           "schema.manage",
         );
         await guardBase(ctx, table.baseId, "schema.manage");
+        if (input.withData) {
+          await assertMayCopyRows(ctx.db, { userId: user.id, bindings }, table);
+        }
         const job = await enqueueJob(queueDeps(ctx), {
           kind: "duplicate_table",
           userId: user.id,

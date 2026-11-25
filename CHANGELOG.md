@@ -8,6 +8,34 @@ first.
 
 ## Unreleased
 
+**Roles an administrator made: check them after the upgrade.** A token
+(an API token, MCP, an application given access) now reaches a base or a
+table only through a role that gives **Reach by a token**, and every way
+rows leave a base asks **Export**. Each of the four shipped roles gives
+both, so nobody holding one of them loses anything. A role made in
+Administration gives them only when they are ticked: in Administration ›
+People › Roles, tick **Reach by a token** for each made role whose holders
+use tokens or applications. A made role that gives access gives one of the
+four only while it holds all that role gives, so it needs **Reach by a
+token** too before it can give a viewer, a commenter or an editor.
+Migration 0140; nothing to do before.
+
+### Security
+
+- A role without Export could still take rows out: its tokens read every
+  row it read, and it could make a view's or a base's public link, a
+  webhook, an automation that mails, calls, posts, runs a script or copies
+  rows into another table, a copy of a table or a base with its rows, or
+  read a restore point back as a new base. Each now asks Export, and a
+  table is copied with its rows only by someone no field or row rule binds
+  on it (`docs/operations.md`, "What takes rows out of a base").
+- A link, a webhook, an automation or a calendar feed acts by its maker's
+  roles as they are when it runs, and does nothing while its maker no
+  longer holds what making it asked, or their account is disabled: it
+  stays, and works again once they do. Before, a link kept showing rows,
+  and a webhook kept sending them, after their maker lost the right to
+  make them.
+
 ## 0.9.3 - 2026-11-25
 
 **Upgrade with this release's Compose files and its pin, as usual. No

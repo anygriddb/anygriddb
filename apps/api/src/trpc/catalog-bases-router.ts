@@ -620,7 +620,14 @@ export const catalogBaseProcedures = {
     .input(duplicateBaseInputSchema)
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
-        const { user } = await guardBase(ctx, input.baseId, "base.manage");
+        const { user, role } = await guardBase(
+          ctx,
+          input.baseId,
+          "base.manage",
+        );
+        // A copy with its rows is the base's and an export, as its
+        // snapshot is.
+        if (input.withData) assertGrants(role, "data.export");
         await authorize(ctx, true);
         const base = await ctx.db
           .selectFrom("bases")
@@ -682,12 +689,14 @@ export const catalogBaseProcedures = {
       handle(ctx, async () => {
         const actor = await authorize(ctx);
         const point = await findRestorePoint(ctx.db, input.restorePointId);
-        const { user } = await baseAccess(
+        const { user, role } = await baseAccess(
           ctx,
           actor,
           point.baseId,
           "base.manage",
         );
+        // Its rows come back in a new base its author owns: an export.
+        assertGrants(role, "data.export");
         await authorize(ctx, true);
         const base = await ctx.db
           .selectFrom("bases")

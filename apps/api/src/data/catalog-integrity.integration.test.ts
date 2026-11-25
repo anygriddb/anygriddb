@@ -1189,7 +1189,7 @@ describe("one journal of deliveries on a catalog that kept two", () => {
         [told, channel.id, event],
       );
 
-      expect(await migrateDb(pool)).toEqual(["0139_deliveries"]);
+      expect((await migrateDb(pool))[0]).toBe("0139_deliveries");
       const moved = await db
         .selectFrom("deliveries")
         .selectAll()

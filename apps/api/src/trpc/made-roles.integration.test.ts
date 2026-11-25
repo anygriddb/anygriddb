@@ -89,7 +89,13 @@ describe("made roles", () => {
     ids.keeper = (
       await admin.call().admin.roles.create({
         name: "Keeper",
-        permissions: ["rows.read", "data.export", "members.manage"],
+        // Reaching by a token too: so it gives a viewer what one holds.
+        permissions: [
+          "rows.read",
+          "data.export",
+          "api.access",
+          "members.manage",
+        ],
       })
     ).id;
     expect(

@@ -1,3 +1,4 @@
+import { LINK_PERMISSIONS } from "@anygriddb/core";
 import { Avatar, Button, Input, Label, Select, Tooltip } from "@anygriddb/ui";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Download, Trash2 } from "lucide-react";
@@ -320,7 +321,7 @@ export function BaseSettings({ baseId }: { baseId: string }) {
           </p>
         )}
       </RuledSection>
-      {manage && may("publish") ? <BaseLinks baseId={baseId} /> : null}
+      {LINK_PERMISSIONS.base.every(may) ? <BaseLinks baseId={baseId} /> : null}
       {manageMembers ? (
         <RuledSection
           title={t`Groups`}
@@ -361,7 +362,11 @@ export function BaseSettings({ baseId }: { baseId: string }) {
         </RuledSection>
       ) : null}
       {manage ? (
-        <RestorePoints baseId={baseId} hasTables={base.tables.length > 0} />
+        <RestorePoints
+          baseId={baseId}
+          hasTables={base.tables.length > 0}
+          restores={may("data.export")}
+        />
       ) : null}
       {manageMembers ? (
         <RuledSection
@@ -379,7 +384,7 @@ export function BaseSettings({ baseId }: { baseId: string }) {
           ))}
         </RuledSection>
       ) : null}
-      {may("webhooks.manage") ? (
+      {may("webhooks.manage") && may("data.export") ? (
         <RuledSection
           title={t`Webhooks`}
           description={t`Signed HTTPS POST (HMAC-SHA256) or email, on every write.`}

@@ -353,6 +353,50 @@ export function hasScript(actions: readonly AutomationAction[]): boolean {
   });
 }
 
+/** Steps that send what they hold outside the instance. */
+const SENDS_OUT = new Set<AutomationStep["type"]>([
+  "send_email",
+  "call_webhook",
+  "send_slack",
+  "send_teams",
+  "run_script",
+]);
+
+/**
+ * The tables an automation takes values out of, if it does: a step that
+ * sends them outside the instance (a mail, a call, a channel's message, a
+ * script), a row made in another table, or a loop over another table's
+ * rows. Its author needs `data.export` on each, to save it and to run it.
+ * Empty when its values stay where they are.
+ */
+export function tablesTakenOut(
+  actions: readonly AutomationAction[],
+  tableId: string,
+): string[] {
+  const loops = new Set<string>();
+  let out = false;
+  const visit = (list: readonly AutomationStep[]) => {
+    for (const step of list) {
+      if (SENDS_OUT.has(step.type)) out = true;
+      if (step.type === "create_record" && step.tableId !== tableId) {
+        out = true;
+      }
+    }
+  };
+  for (const action of actions) {
+    if (action.type === "branch") {
+      visit([...action.then, ...(action.otherwise ?? [])]);
+    } else if (action.type === "for_each") {
+      if (action.tableId !== tableId) {
+        loops.add(action.tableId);
+        out = true;
+      }
+      visit(action.actions);
+    } else visit([action]);
+  }
+  return out ? [tableId, ...[...loops].filter((id) => id !== tableId)] : [];
+}
+
 /**
  * What a script returned, as template values for the actions after it:
  * `script_<key>` for each key of an object, `script_result` for anything

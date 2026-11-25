@@ -25,6 +25,7 @@ import {
   roleGrants,
   type RowEvent,
   scriptTemplateValues,
+  tablesTakenOut,
   touchesWatched,
   webhookTemplateValues,
   writeSlackMessage,
@@ -34,7 +35,7 @@ import {
 import type { AutomationRow, Database } from "@anygriddb/db";
 import type { Bus } from "./realtime/bus.js";
 import { z } from "zod";
-import { loadBindings } from "./auth/access.js";
+import { authorBindings } from "./auth/access.js";
 import { decryptSecret, encryptSecret } from "./auth/crypto.js";
 import type { KeyRing } from "./auth/key-ring.js";
 import { type ScriptSecret, scriptHost } from "./automation-scripts/host.js";
@@ -685,13 +686,17 @@ export async function listRuns(
 /* Running                                                             */
 /* ------------------------------------------------------------------ */
 
-/** The creator's view of a table, or null when they may no longer write it. */
+/**
+ * The creator's view of a table, or null when they may no longer write it
+ * or their account is disabled: the automation then does nothing, and
+ * stays.
+ */
 async function creatorEngine(
   db: Database,
   userId: string,
   tableId: string,
 ): Promise<RowScope | null> {
-  const bindings = await loadBindings(db, userId);
+  const bindings = await authorBindings(db, userId);
   const table = await findLiveTable(db, tableId);
   if (
     !table ||
@@ -725,8 +730,36 @@ async function authorActor(db: Database, userId: string): Promise<Actor> {
       isAuditor: false,
       instanceRoles: [],
     },
-    bindings: await loadBindings(db, userId),
+    bindings: await authorBindings(db, userId),
   };
+}
+
+/**
+ * Whether the author may still export each table their automation takes
+ * values out of (`tablesTakenOut`): asked when it is saved, and at each
+ * run, of their roles as they are then.
+ */
+async function authorExports(
+  db: Database,
+  userId: string,
+  tableIds: readonly string[],
+): Promise<boolean> {
+  if (tableIds.length === 0) return true;
+  const bindings = await authorBindings(db, userId);
+  const tables = await db
+    .selectFrom("dataTables")
+    .select(["id", "baseId"])
+    .where("id", "in", [...tableIds])
+    .execute();
+  return (
+    tables.length === new Set(tableIds).size &&
+    tables.every((table) =>
+      roleGrants(
+        effectiveTableRole(bindings, table.id, table.baseId),
+        "data.export",
+      ),
+    )
+  );
 }
 
 /** Template values: every column as display text, plus the run's own keys. */
@@ -910,6 +943,15 @@ export async function runAutomation(
   const creatorId = automation.createdBy;
   const own = await creatorEngine(deps.db, creatorId, automation.tableId);
   if (!own) return log("failed", [], "Access denied");
+  if (
+    !(await authorExports(
+      deps.db,
+      creatorId,
+      tablesTakenOut(parsed.actions, automation.tableId),
+    ))
+  ) {
+    return log("failed", [], "Access denied");
+  }
   let row: RowRecord | null = null;
   if (context.rowId && !context.deleted) {
     const page = await readPage(

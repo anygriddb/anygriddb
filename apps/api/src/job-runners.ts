@@ -25,6 +25,7 @@ import {
   type Grant,
   roleFor,
   roleGrants,
+  roleGrantsAll,
   trashPurgeJobInputSchema,
 } from "@anygriddb/core";
 import type { Database } from "@anygriddb/db";
@@ -43,7 +44,11 @@ import {
   readSnapshotLines,
   writeBaseSnapshot,
 } from "./data/base-snapshot.js";
-import { duplicateTable, MAX_COPY_ROWS } from "./data/data-ops.js";
+import {
+  assertMayCopyRows,
+  duplicateTable,
+  MAX_COPY_ROWS,
+} from "./data/data-ops.js";
 import type { TableRow } from "./data/engine.js";
 import {
   copyStagedImport,
@@ -354,6 +359,9 @@ const runDuplicate =
     if (!roleGrants(roleFor(bindings, "base", table.baseId), "schema.manage")) {
       throw new AppError("access_denied");
     }
+    if (input.withData) {
+      await assertMayCopyRows(deps.db, { userId, bindings }, table);
+    }
     let copyId: string | undefined;
     try {
       const created = await duplicateTable(deps.db, userId, table, {
@@ -497,7 +505,13 @@ const runRestoreBase =
     const input = restoreBaseJobInputSchema.parse(job.input);
     const { userId, bindings } = await activeAuthor(deps.db, job);
     const point = await findRestorePoint(deps.db, input.restorePointId);
-    if (!roleGrants(roleFor(bindings, "base", point.baseId), "base.manage")) {
+    // Its rows come back in a new base its author owns: an export.
+    if (
+      !roleGrantsAll(roleFor(bindings, "base", point.baseId), [
+        "base.manage",
+        "data.export",
+      ])
+    ) {
       throw new AppError("access_denied");
     }
     let baseId: string | undefined;
@@ -806,7 +820,13 @@ const runDuplicateBase =
   async ({ job, progress }) => {
     const input = duplicateBaseJobInputSchema.parse(job.input);
     const { userId, bindings } = await activeAuthor(deps.db, job);
-    if (!roleGrants(roleFor(bindings, "base", input.baseId), "base.manage")) {
+    // A copy with its rows is the base's and an export, as its snapshot is.
+    if (
+      !roleGrantsAll(
+        roleFor(bindings, "base", input.baseId),
+        input.withData ? ["base.manage", "data.export"] : ["base.manage"],
+      )
+    ) {
       throw new AppError("access_denied");
     }
     // Reading the base is the first half of the work, writing the copy

@@ -625,6 +625,39 @@ made before version 0.5.0 holds none of this: its rows come back as
 drafts. A file of a point damaged since is left out and counted, so that
 the rest of the base can still be restored.
 
+### What takes rows out of a base
+
+Reading rows and taking them out are two permissions (ADR 0129). A role
+that reads without **Export** (`data.export`) sees the rows in the
+application and takes none out; a role without **Reach by a token**
+(`api.access`) gives a token nothing. Each of the four shipped roles holds
+both. A role an administrator makes holds them only when they are chosen:
+a permission a version adds goes to no made role.
+
+What is made in someone's name (a link, a webhook, an automation, a feed,
+a copy's job) acts by that person's roles **as they are when it runs**. It
+stops while they no longer hold what it asks, or their account is
+disabled, and works again if they do: it is never deleted for it.
+
+| Way out                                                                                                                                       | Asks of its maker, when made and when used                                                                           |
+| --------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| The REST API, MCP, an application given access (any token)                                                                                    | `api.access` on the base or table; then what each call asks                                                          |
+| A file of a view, a calendar feed, a base's snapshot                                                                                          | `data.export` (a snapshot: and `base.manage`)                                                                        |
+| A view's public link (not a form's)                                                                                                           | `publish` and `data.export`                                                                                          |
+| A base's public link                                                                                                                          | `base.manage`, `publish` and `data.export`                                                                           |
+| A webhook                                                                                                                                     | `webhooks.manage` and `data.export`; it sends nothing while its maker may not                                        |
+| An automation that sends values out: a mail, a call, a message to a channel, a script, a row made in another table, a loop over another table | `automations.manage` and `data.export` on each table it takes values from; a run is refused while its author may not |
+| A table copied with its rows                                                                                                                  | `schema.manage` and `data.export`, and no field or row rule binding its maker on that table: the copy carries none   |
+| A base copied, or a restore point read back as a new base                                                                                     | `base.manage` and `data.export`: its maker owns the new base                                                         |
+
+Kept within the reader's own reach, on purpose: what the grid copies to
+the clipboard (the rows the screen holds), a row printed, a field copied
+with its values (in the same table, and a new field stays hidden under
+column rules until a manager opens it), the API console of the
+application (the person's session, which reads what the grid reads), a
+dashboard's figures, a notification's mail (one row). A form's public link
+takes answers in and shows no row: publishing is enough.
+
 ## When no administrator can sign in
 
 A password forgotten where no email goes out, a second factor lost with

@@ -14,6 +14,7 @@ import {
   rolePermissions,
   ROLES,
   roleRank,
+  tokenGiven,
   type Binding,
 } from "./rbac";
 
@@ -31,6 +32,8 @@ const bindings: Binding[] = [
 const RANK_BEFORE: Record<Permission, number> = {
   "rows.read": 1,
   "data.export": 1,
+  // A token reached all its owner's role read before it was named.
+  "api.access": 1,
   "rows.comment": 2,
   "rows.write": 3,
   "rows.delete": 3,
@@ -65,11 +68,16 @@ describe("roleGrants", () => {
   });
 
   it("lists a pack in the catalogue's order, the owner's whole", () => {
-    expect(rolePermissions("viewer")).toEqual(["rows.read", "data.export"]);
+    expect(rolePermissions("viewer")).toEqual([
+      "rows.read",
+      "data.export",
+      "api.access",
+    ]);
     expect(rolePermissions("commenter")).toEqual([
       "rows.read",
       "rows.comment",
       "data.export",
+      "api.access",
     ]);
     expect(rolePermissions("owner")).toEqual([...PERMISSIONS]);
   });
@@ -205,7 +213,13 @@ describe("made roles", () => {
     expect(held).toEqual({
       role: "viewer",
       made: [{ id: "made-1", name: "Reviewer" }],
-      permissions: ["rows.read", "rows.comment", "rows.lock", "data.export"],
+      permissions: [
+        "rows.read",
+        "rows.comment",
+        "rows.lock",
+        "data.export",
+        "api.access",
+      ],
     });
     expect(
       roleFor(
@@ -239,6 +253,19 @@ describe("made roles", () => {
     ).toBe(true);
     expect(mayGive("editor", "viewer")).toBe(false);
     expect(mayGive(null, "viewer")).toBe(false);
+    // A viewer reaches by a token: a made role that does not, gives none.
+    const keeper: MadeRole = {
+      id: "made-3",
+      name: "Keeper",
+      permissions: ["rows.read", "data.export", "members.manage"],
+    };
+    expect(mayGive(keeper, "viewer")).toBe(false);
+    expect(
+      mayGive(
+        { ...keeper, permissions: [...keeper.permissions, "api.access"] },
+        "viewer",
+      ),
+    ).toBe(true);
   });
 
   it("leave a read-only token a viewer's part of them", () => {
@@ -247,6 +274,25 @@ describe("made roles", () => {
       ...REVIEWER,
       permissions: ["rows.read"],
     });
+  });
+
+  it("give a token what they give only when they give it a way in", () => {
+    for (const role of ROLES) expect(tokenGiven(role)).toBe(role);
+    // Read in the application, never through a token.
+    expect(tokenGiven(REVIEWER)).toEqual({ ...REVIEWER, permissions: [] });
+    const reached: MadeRole = {
+      ...REVIEWER,
+      permissions: [...REVIEWER.permissions, "api.access"],
+    };
+    expect(tokenGiven(reached)).toBe(reached);
+    // A table's role that gives a token nothing still stands over the
+    // base's, so the table stays out of the token's reach.
+    const bindings: Binding[] = [
+      { role: "editor", scope: "base", scopeId: "b" },
+      { role: tokenGiven(REVIEWER), scope: "table", scopeId: "t" },
+    ];
+    expect(can(bindings, "rows.read", "table", "t", "b")).toBe(false);
+    expect(can(bindings, "rows.read", "table", "other", "b")).toBe(true);
   });
 
   it("read rows, and hold only the catalogue's permissions", () => {
