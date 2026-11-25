@@ -8,7 +8,7 @@ export type ViewConfig = ViewItem["config"];
 export type RowItem = RouterOutputs["rows"]["read"]["rows"][number];
 export type Collaborator =
   RouterOutputs["catalog"]["collaborators"]["users"][number];
-export type { Given, Grant, Permission, Role } from "@anygriddb/core";
+export type { Given, Grant, Permission } from "@anygriddb/core";
 
 /**
  * Whether a role on a base or a table gives an act: the server's own rule

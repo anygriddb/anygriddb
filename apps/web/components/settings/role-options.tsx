@@ -5,7 +5,7 @@ import { useTRPC } from "../../lib/trpc";
 import { useRoleLabel } from "./role-label";
 
 /** The roles an administrator made (ADR 0128), which a base gives too. */
-export function useMadeRoles() {
+function useMadeRoles() {
   const api = useTRPC();
   return useQuery(api.catalog.madeRoles.queryOptions());
 }
