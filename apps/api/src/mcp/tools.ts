@@ -97,7 +97,8 @@ export function registerPublicApiTools(
     "list_bases",
     {
       title: "List bases",
-      description: "List bases the API token can see (id, name, role).",
+      description:
+        "List bases the API token can see (id, name, role, and the permissions it gives).",
       inputSchema: z.object({}),
       annotations: reads,
     },

@@ -1513,6 +1513,10 @@ msgstr "Un rôle porte déjà ce nom"
 msgid "A role reads rows, and gives only the permissions listed"
 msgstr "Un rôle lit les lignes, et ne donne que les permissions de la liste"
 
+#: components/admin/rights-at.tsx
+msgid "A role since deleted"
+msgstr "Un rôle supprimé depuis"
+
 #: lib/errors.ts
 msgid "A row cannot be placed next to itself"
 msgstr "Une ligne ne peut pas être placée à côté d’elle-même"

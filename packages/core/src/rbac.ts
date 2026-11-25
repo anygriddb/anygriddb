@@ -91,6 +91,19 @@ export type Held = {
  */
 export type Grant = Role | Held;
 
+/**
+ * What applies, as one word an API answers with: one of the four by its
+ * key, or the made roles by their names (after the four's key), joined.
+ */
+export function grantName(grant: Grant | null): string | null {
+  if (grant === null) return null;
+  if (typeof grant === "string") return grant;
+  return [
+    ...(grant.role ? [grant.role] : []),
+    ...grant.made.map((made) => made.name),
+  ].join(" + ");
+}
+
 /** The permissions a role, a made role or roles held together give. */
 export function rolePermissions(role: Role | MadeRole | Held): Permission[] {
   return PERMISSIONS.filter((permission) => roleGrants(role, permission));

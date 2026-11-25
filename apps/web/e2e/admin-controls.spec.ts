@@ -1461,3 +1461,98 @@ test("an administrator allows scripts, and an automation runs one", async ({
     await control.end();
   }
 });
+
+test("an administrator makes a role, and whoever holds it does what it gives", async ({
+  page,
+  browser,
+}) => {
+  const blocked = watchPolicy(page);
+  const control = new pg.Client({ connectionString: controlUrl });
+  await control.connect();
+  try {
+    const { email: adminEmail } = await signUpWithTable(page, "Role Maker");
+    await control.query("update users set is_admin = true where email = $1", [
+      adminEmail,
+    ]);
+    const tablePath = new URL(page.url()).pathname;
+    const base = /\/b\/[^/]+/.exec(page.url())?.[0] ?? "";
+    const added = await page.request.post("/trpc/rows.insertMany", {
+      data: {
+        tableId: /\/t\/([0-9a-f-]{36})/.exec(page.url())?.[1] ?? "",
+        rows: [{ name: "Chair" }],
+      },
+    });
+    expect(added.ok(), await added.text()).toBe(true);
+    const theirs = await browser.newContext(from("198.51.100.37"));
+    const holder = await theirs.newPage();
+    const stamp = uniqueStamp();
+    const holderEmail = `e2e-holder-${stamp}@example.com`;
+    await signUp(holder, {
+      email: holderEmail,
+      name: `Holder ${stamp}`,
+      password: "correct-horse-battery",
+    });
+    const name = `Reader ${stamp}`;
+
+    // A role made of the base's permissions: reading, and nothing else.
+    await page.goto("/admin");
+    await openAdmin(page, "People", "Roles");
+    await expect(page.getByText("Viewer", { exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "New role" }).click();
+    await page.getByLabel("Name", { exact: true }).fill(name);
+    await expect(page.getByLabel("Read rows")).toBeChecked();
+    await expect(page.getByLabel("Read rows")).toBeDisabled();
+    expect(await accessibilityViolations(page)).toEqual([]);
+    await page.getByRole("button", { name: "Create", exact: true }).click();
+    await proveItIsYou(page);
+    await expect(page.getByText("Role made")).toBeVisible();
+    await expect(page.getByText(name, { exact: true })).toBeVisible();
+
+    // Given as the four are: by invitation, from the base's settings.
+    await page.goto(`${base}/settings`);
+    await page.getByLabel("Invite by email").fill(holderEmail);
+    await page
+      .locator("form", { has: page.getByLabel("Invite by email") })
+      .getByRole("combobox", { name: "Role" })
+      .selectOption({ label: name });
+    await page.getByRole("button", { name: "Invite", exact: true }).click();
+    await expect(
+      page.getByText(/^Invitation (emailed|created)$/),
+    ).toBeVisible();
+    await holder.goto("/");
+    const invitations = holder.getByRole("region", { name: "Invitations" });
+    await expect(
+      invitations.getByText(`Role Maker invites you to Lab as ${name}`),
+    ).toBeVisible();
+    await invitations.getByRole("button", { name: "Accept" }).click();
+    await expect(holder.getByText("You joined Lab")).toBeVisible();
+
+    // It reads the rows, and has nothing to export, import or delete.
+    await holder.goto(tablePath);
+    await expect(holder.getByRole("gridcell", { name: "Chair" })).toBeVisible();
+    await expect(
+      holder.getByRole("button", { name: "More actions" }),
+    ).toHaveCount(0);
+
+    // Changed, the role is everyone's at once: now it exports.
+    await page.goto("/admin/people/roles");
+    await page.getByRole("button", { name: `Change the role ${name}` }).click();
+    await page.getByLabel("Export", { exact: true }).check();
+    await page.getByRole("button", { name: "Save", exact: true }).click();
+    await expect(page.getByText("Role changed")).toBeVisible();
+    await holder.reload();
+    await expect(holder.getByRole("gridcell", { name: "Chair" })).toBeVisible();
+    await holder.getByRole("button", { name: "More actions" }).click();
+    await expect(
+      holder.getByRole("menuitem", { name: "Export view as CSV" }),
+    ).toBeVisible();
+    await expect(
+      holder.getByRole("menuitem", { name: "Import a file" }),
+    ).toHaveCount(0);
+    expect(await accessibilityViolations(holder)).toEqual([]);
+    await theirs.close();
+    expect(blocked).toEqual([]);
+  } finally {
+    await control.end();
+  }
+});

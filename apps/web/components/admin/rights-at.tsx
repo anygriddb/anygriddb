@@ -153,7 +153,9 @@ export function RightsAt({ userId }: { userId: string }) {
                   ) : null}
                 </span>
                 <span className="text-muted-foreground">
-                  {roleLabel(line.role)}
+                  {line.role
+                    ? roleLabel(line.role)
+                    : (line.madeRole?.name ?? t`A role since deleted`)}
                   {line.occurredAt ? ` · ${when.instant(line.occurredAt)}` : ""}
                 </span>
               </li>
