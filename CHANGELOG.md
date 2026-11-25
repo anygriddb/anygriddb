@@ -8,8 +8,12 @@ first.
 
 ## Unreleased
 
-One migration runs as the instance starts (`0138_made_roles`); nothing to
-do before or after.
+## 0.9.1 - 2026-11-25
+
+**Upgrade with this release's Compose files and its pin, as usual. One
+migration runs as the instance starts (`0138_made_roles`); nothing to do
+before or after. Nobody's access changes on upgrade: the four roles give
+exactly what they gave.**
 
 ### Added
 
