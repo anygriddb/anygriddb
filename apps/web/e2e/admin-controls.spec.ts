@@ -498,8 +498,13 @@ test("an administrator ends a session, reads the sign-ins, and exports access", 
     await page.reload();
     await expect(reports).toHaveValue("60");
     await reports.fill("30");
+    // Disabled while it saves too: the answer says it is done.
+    const putBack = page.waitForResponse(
+      (response) =>
+        response.url().includes("admin.updateSettings") && response.ok(),
+    );
     await saveLimits.click();
-    await expect(saveLimits).toBeDisabled();
+    await putBack;
     await page.reload();
     await expect(reports).toHaveValue("30");
 
