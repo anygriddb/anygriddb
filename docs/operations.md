@@ -1,7 +1,8 @@
 # Operating AnyGridDB
 
-This guide covers running AnyGridDB with Docker Compose. Every procedure
-here was tried on a stack of its own before it was written down.
+Runbook for Docker Compose. Procedures were tried on a stack of their own
+before they were written down. Assumes Docker Engine, Compose, TLS, and a
+collector of your own are known.
 
 | Task                                     | Section                                                                                   |
 | ---------------------------------------- | ----------------------------------------------------------------------------------------- |
@@ -33,14 +34,11 @@ here was tried on a stack of its own before it was written down.
 
 ## Install
 
-Install a release, never `main`: each release is a Git tag `vX.Y.Z`
-(ADR 0048). It needs a host with Docker Engine and its Compose plugin
-(the releases are tried on Compose 2.26 and later), `curl` and `openssl`,
-and port 3000 free on that host, or another one you publish it on
-([below](#address-people-open-public_url)). The scripts under `scripts/`
-are run from a checkout, and so need `git`.
+Release tag `vX.Y.Z` only, never `main` (ADR 0048). Needs Docker Engine +
+Compose plugin (2.26+), `curl`, `openssl`, and a free host port (3000 by
+default). Scripts under `scripts/` need a checkout (`git`).
 
-Prefer the published image, pinned by version and digest:
+Published image, pinned by version and digest:
 
 ```sh
 version=X.Y.Z   # the release to install, from GitHub Releases
@@ -50,62 +48,39 @@ curl -fsSLO "$files/compose.yml"
 curl -fsSLO "$files/compose.release.yml"
 curl -fsSL -o .env "$files/.env.example"
 curl -fsSLO "https://github.com/anygriddb/anygriddb/releases/download/v$version/image-pin.env"
-# In .env, before the first start: POSTGRES_USER, POSTGRES_PASSWORD,
-# POSTGRES_DB, PUBLIC_URL, and AUTH_ENCRYPTION_KEY, which is what
-# `openssl rand -base64 32` prints. Keep that key safe, apart.
+# .env before first start: POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_DB,
+# PUBLIC_URL, AUTH_ENCRYPTION_KEY (`openssl rand -base64 32`). Keep the key apart.
 docker compose -f compose.yml -f compose.release.yml \
   --env-file .env --env-file image-pin.env up -d
 ```
 
-**Further on, this guide writes its commands as from a checkout's
-`docker/` folder: `docker compose …`. On an install made as above, run
-each with the release's files and its pin, as the command above is:**
+Further commands in this guide are written as from a checkout's `docker/`.
+On an install as above, always pass the release files and pin:
 
 ```sh
 docker compose -f compose.yml -f compose.release.yml \
   --env-file .env --env-file image-pin.env …
 ```
 
-Without them Compose looks for an image built on this host: it finds
-none and stops, or starts one that is not the release. A file a later
-section adds (`compose.s3.yml`, `compose.proxy.yml`,
-`compose.secrets.yml`) is fetched first, as the two above were
-(`curl -fsSLO "$files/compose.s3.yml"`), and named after them with a
-`-f` of its own.
+Without them Compose builds or starts the wrong image. Extra overlays
+(`compose.s3.yml`, `compose.proxy.yml`, `compose.secrets.yml`) are fetched
+the same way and added with their own `-f`.
 
-Choose `POSTGRES_PASSWORD` before the first start, of letters and
-digits (`openssl rand -hex 24`). It is written into the database's
-address. A `/`, `?` or `#` would be read as part of the address:
-AnyGridDB says so and does not start. A `%` followed by two hexadecimal
-digits is read as the character they encode, so PostgreSQL refuses the
-password, and the start says why. The database keeps the password it was
-made with, so on an install that holds nothing yet, start again on empty
-volumes: the same command with `down -v`, then `up -d`.
+**Product constraints on first start**
 
-`POSTGRES_USER` is any name but `postgres`, the cluster's own superuser:
-a new stack refuses it before it creates anything.
-
-The instance has no account yet. Its first account administers it, and
-is made with a token that only this command gives, to this terminal and
-nowhere else (ADR 0080). It works once, for an hour; asking again
-replaces it:
+- `POSTGRES_PASSWORD`: letters and digits (`openssl rand -hex 24`). `/`, `?`,
+  `#` break the DB URL; `%` + two hex digits is URL-decoded. Wrong password
+  on empty volumes: `down -v` then `up -d`.
+- `POSTGRES_USER`: any name but `postgres` (refused before create).
+- First account: one-shot token (ADR 0080), once, one hour:
 
 ```sh
 docker compose -f compose.yml -f compose.release.yml \
   --env-file .env --env-file image-pin.env exec app anygriddb install-token
 ```
 
-Open `PUBLIC_URL`, create the account, and type the token where the form
-asks for it. With the certificate the instance makes for itself, the
-browser warns until its authority is installed
-([below](#address-people-open-public_url)).
-
-`image-pin.env`, attached to each release, names the image and its
-digest. Give Compose both files: the second one alone would hide `.env`.
-The image is published for `linux/amd64` and `linux/arm64`: the digest
-names both, and Docker pulls the one of the host. To check that it is the
-one this repository's Release workflow built, from which commit, before
-installing it (GitHub CLI):
+- Give Compose **both** `.env` and `image-pin.env` (pin alone hides `.env`).
+  Image is multi-arch; digest covers both. Verify before install:
 
 ```sh
 . ./image-pin.env
@@ -113,171 +88,67 @@ gh attestation verify "oci://$ANYGRIDDB_IMAGE@$ANYGRIDDB_DIGEST" \
   --repo anygriddb/anygriddb
 ```
 
-It takes a recent GitHub CLI, signed in (`gh auth login`): an older one
-has no `attestation` command.
+SPDX SBOMs ship per arch on the release
+(`anygriddb-amd64.spdx.json`, `anygriddb-arm64.spdx.json`).
 
-Each release also lists the packages its images hold, in SPDX, one file
-per architecture (`anygriddb-amd64.spdx.json`,
-`anygriddb-arm64.spdx.json`): the system's and Node.js's, for a scanner
-or an inventory of your own.
+Managed PostgreSQL (`compose.managed.yml`): build from a checkout.
 
-On a PostgreSQL of your own (`compose.managed.yml`), build from a
-checkout.
-
-To build from a checkout instead:
+From a checkout instead:
 
 ```sh
 git clone https://github.com/anygriddb/anygriddb.git && cd anygriddb
-git checkout "$(git tag --list 'v*' --sort=-v:refname | head -n 1)"   # the latest release
-cd docker
-cp .env.example .env
-# In .env, before the first start: POSTGRES_USER, POSTGRES_PASSWORD,
-# POSTGRES_DB, PUBLIC_URL, and AUTH_ENCRYPTION_KEY, which is what
-# `openssl rand -base64 32` prints. Keep that key safe, apart.
+git checkout "$(git tag --list 'v*' --sort=-v:refname | head -n 1)"
+cd docker && cp .env.example .env
+# fill POSTGRES_*, PUBLIC_URL, AUTH_ENCRYPTION_KEY
 ../scripts/build-image.sh
 docker compose up -d
 ```
 
-`scripts/build-image.sh` builds the image with the version, commit, and
-date it was built from; `docker compose up -d --build` works too, without
-the commit.
+HTTPS only on `PUBLIC_URL` (ADR 0029). Without your cert, the instance
+makes its own authority; fingerprint in the start log and Administration >
+Health. `AUTH_ENCRYPTION_KEY` seals source passwords, second factors, and
+TLS keys — lose it and they stay closed. Leave disk room under `/tmp` for
+the largest upload/import/export/snapshot.
 
-The stack has four services:
-
-- `certs` runs once and issues PostgreSQL its certificate.
-- `postgres-upgrade-check` runs once and refuses to start an empty
-  PostgreSQL 18 on top of 17's data, or to make a new cluster with
-  `POSTGRES_USER=postgres`.
-- `db` is PostgreSQL 18, which only takes connections over TLS.
-  AnyGridDB signs in as `POSTGRES_USER`, a role that owns its database
-  and is no superuser; the cluster's superuser is `postgres`, which
-  nothing uses once the volume is made.
-- `app` is AnyGridDB itself.
-
-Each container takes no new privilege, drops every Linux capability but
-the few its start needs, and keeps its log to three files of 10 MB.
-AnyGridDB's image is read-only: what the instance keeps is on its
-volumes, and what comes in or goes out (an upload, an import, an export,
-a snapshot) is written whole to `/tmp` on its way, a volume of its own
-on the host's disk, emptied when the container is replaced. Leave the
-disk room for the largest file the instance takes in or gives out.
-
-AnyGridDB serves HTTPS only on `PUBLIC_URL` (ADR 0029). Without a
-certificate of yours, it makes its own authority; its log and
-Administration > Health give the fingerprint to check before people
-install it.
-
-"About AnyGridDB", in the account menu, on the sign-in page and on
-public links' pages, shows
-the license, that the software comes without warranty, where its source
-is, and the licenses of the libraries it is built with
-(`/license.txt`, `/third-party-licenses.txt`). The license asks whoever
-runs a version they changed to offer its source to the people who use
-it: name your repository in `SOURCE_URL`
-(`apps/web/components/shell/about-dialog.tsx`) before you build.
-
-`AUTH_ENCRYPTION_KEY` seals the sources' passwords, second factors, and
-TLS keys. Lose it and they cannot be read again. To change it, follow
-"Changing the encryption key" below: changed alone, it opens nothing of
-what the earlier key sealed.
+A modified build that must offer its source: set `SOURCE_URL` before build
+(shown in About).
 
 ### Secrets from files
 
-Each secret AnyGridDB reads from its environment can come from a file
-instead: set `NAME_FILE` to the file's path in the container, and leave
-`NAME` unset. That is how a container's secret store hands a value over
-(Docker and Podman secrets under `/run/secrets`, a Kubernetes secret
-mounted as a volume), and it keeps the value out of `docker inspect`
-and of the process's environment. It holds for `DATABASE_URL`,
-`AUTH_ENCRYPTION_KEY`, `AUTH_ENCRYPTION_PREVIOUS_KEYS`, `S3_ACCESS_KEY`,
-`S3_SECRET_KEY`, `SMTP_PASSWORD`, `OIDC_CLIENT_SECRET`, `METRICS_TOKEN`,
-and `OTEL_EXPORTER_OTLP_HEADERS`, for the application and for the
-`anygriddb` commands alike. A line break at the file's end is ignored.
-Setting both `NAME` and `NAME_FILE` is refused at start: one of them
-would be ignored without a word.
+Any of `DATABASE_URL`, `AUTH_ENCRYPTION_KEY`,
+`AUTH_ENCRYPTION_PREVIOUS_KEYS`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`,
+`SMTP_PASSWORD`, `OIDC_CLIENT_SECRET`, `METRICS_TOKEN`,
+`OTEL_EXPORTER_OTLP_HEADERS` may use `NAME_FILE` instead of `NAME`. Both set
+is refused at start. Trailing newline ignored. App user is 1000.
 
-With the database this stack runs, the two secrets `compose.yml` needs,
-`POSTGRES_PASSWORD` and `AUTH_ENCRYPTION_KEY`, can leave `.env` too:
+Bundled DB secrets out of `.env`:
 
 ```sh
-scripts/install.sh            # docker/ of this checkout, or a folder named
-scripts/compose.sh up -d      # every compose command goes through it
+scripts/install.sh
+scripts/compose.sh up -d
 ```
 
-`scripts/install.sh` keeps each in a file of `secrets/`, beside `.env`
-(the folder is the owner's alone; PostgreSQL and the application read
-their files as accounts of their own, inside their containers), and the
-database's address made from the password. On an install that already
-runs, it moves the values `.env` holds into their files, as Compose reads
-them: a new key would leave everything sealed with the old one unread. It
-changes nothing when the folder has no `compose.secrets.yml`, or when the
-password would not open the database of a stack running from that folder.
-Run again, it changes nothing. `scripts/compose.sh` reads the files so Compose can fill
-`compose.yml` in, which still refuses to start without them, and adds
-`compose.secrets.yml`, which mounts the files and leaves the variables
-empty in the containers: `docker inspect` shows neither. Options before
-the command go to `docker compose` after those two files
-(`scripts/compose.sh -f compose.release.yml --env-file image-pin.env up -d`).
-`scripts/backup.sh`, `scripts/restore.sh` and
-`scripts/upgrade-postgres.sh` read the same files: give them
-`-f compose.yml -f compose.secrets.yml` and the other files the stack runs
-with. All of them read `.env` through Compose, so a value means there what
-it means to Compose, a variable set in the shell wins over the file, and
-nothing in the file is ever run. On a PostgreSQL of your own, `DATABASE_URL` is handed over as below.
-
-The other secrets (`S3_ACCESS_KEY` and `S3_SECRET_KEY` of a store of your
-own, `METRICS_TOKEN`, `OTEL_EXPORTER_OTLP_HEADERS`, `DATABASE_URL` on a
-PostgreSQL of your own) can come from a file through a Compose file of
-your own, given after the others, that mounts the file and names it. The
-application runs as user 1000, who must be able to read it:
-
-```yaml
-# compose.local-secrets.yml
-services:
-  app:
-    environment:
-      METRICS_TOKEN_FILE: /run/secrets/metrics_token
-    secrets:
-      - metrics_token
-
-secrets:
-  metrics_token:
-    file: ./metrics_token
-```
+`install.sh` writes `secrets/` beside `.env` and mounts via
+`compose.secrets.yml`. `compose.sh`, `backup.sh`, `restore.sh`,
+`upgrade-postgres.sh` read the same files. Pass the same `-f` set the stack
+runs with.
 
 ### Email and single sign-on: Administration, or the environment
 
-Email (SMTP) and single sign-on (OIDC, SAML) are set in Administration,
-Connections, once the first account exists. To hold them where the
-instance is installed instead, give the application their variables
-through a Compose file of your own: `SMTP_HOST` and `SMTP_FROM`, with
-`SMTP_PORT`, `SMTP_USER` and `SMTP_PASSWORD`; the four `OIDC_*`; the four
-`SAML_*`, with `SAML_TRUST_ADDRESSES`. What the environment sets wins:
-Administration shows it, without its secrets, and cannot change it (ADR
-0083). Half a configuration there is none, and Administration's applies.
-The same holds for `ATTACHMENT_MAX_BYTES`, the largest attachment.
+SMTP / OIDC / SAML: Administration → Connections after the first account, or
+env vars (`SMTP_*`, `OIDC_*`, `SAML_*`, `SAML_TRUST_ADDRESSES`,
+`ATTACHMENT_MAX_BYTES`). Environment wins; Administration shows it without
+secrets and cannot change it (ADR 0083). Half a config is none.
 
-A SAML assertion does not say whether its address was verified, so a first
-sign-in through SAML does not reach an account that already exists. Turn on
-**This identity provider verifies addresses** (`SAML_TRUST_ADDRESSES=true`)
-only if nobody can change their address at the provider without proving it:
-with it, whoever holds an address there signs in as the account of that
-address, unless the account has a second factor here, which they must prove
-first. An account already bound to a persistent NameID is not concerned.
+**SAML address trust.** A first SAML sign-in does not bind an existing
+account by address alone unless **This identity provider verifies
+addresses** (`SAML_TRUST_ADDRESSES=true`) — only if the provider proves
+address changes. Then the address maps to that account (second factor here
+still required when set). Bound accounts are found by subject afterwards.
+Transient/address NameIDs bind nothing. Email notifies when an existing
+account is bound.
 
-Once bound, an account is found by the provider's subject, whatever address
-the provider sends later. A first sign-in never reaches an account another
-subject holds. On an account with a second factor of its own, it asks for that
-factor whatever the setting below says, and binds only once it is proved. The
-person is told by email when an account that existed is bound. A provider that
-sends no lasting subject (a transient or address NameID) binds nothing: such an
-account is asked for its factor at every sign-in.
-
-**Review the bindings made before 0.4.0.** Until then a first SAML sign-in
-could bind an existing account by its address alone, and a binding survives an
-upgrade. Nothing removes them, since that would sign out legitimate people.
-List what was bound to accounts older than their binding, and check each
-against your provider:
+**Bindings before 0.4.0** may be address-only; they survive upgrades. Audit:
 
 ```sql
 SELECT u.email, i.provider, i.issuer, i.subject, i.created_at, i.last_seen_at
@@ -286,384 +157,175 @@ WHERE i.provider = 'saml' AND i.created_at > u.created_at
 ORDER BY u.is_admin DESC, i.created_at;
 ```
 
-To undo one, use **Unlink single sign-on** on the account's page in
-Administration, then end its sessions.
+Unlink in Administration, then end sessions.
 
-**Second factor.** An administrator always keeps a factor of their own, even
-with **Trust the identity provider's second factor**: one who signs in through
-the provider without one is asked to enrol it. For anyone else, a provider that
-says it asked a single factor (OIDC `amr` or `acr`, the SAML authentication
-class) does not replace the factor the account has here.
+**Second factor.** Administrators always keep their own factor, even with
+**Trust the identity provider's second factor**. Others: provider `amr`/`acr`
+or SAML auth class can replace the local factor when that setting is on.
 
-**How long a session lasts.** A session never outlives the
-`SessionNotOnOrAfter` of the SAML assertion that opened it. Disabling someone
-at the provider does not by itself end a session open here, nor their API
-tokens. To cut access at once, disable the account here, or deprovision it with
-SCIM. With OIDC, give the provider this instance's **Back-channel logout URL**
-(shown under Connections): ending the person's sessions at the provider then
-ends them here. A provider may send nothing when a person is only disabled, so
-end their sessions there too. Signing out here leaves the provider's session
-open, for the person's other applications; the next sign-on from that browser
-asks the provider to authenticate them again.
+**Sessions.** SAML sessions never outlive `SessionNotOnOrAfter`. Disabling at
+the IdP does not end sessions or API tokens here — disable/deprovision here,
+or OIDC back-channel logout URL under Connections. Sign-out here leaves the
+IdP session for other apps.
 
-**Single sign-on only.** Turning it on offers to end the sessions opened with a
-password and to revoke the API tokens of everyone but administrators. Scripts
-that use those tokens stop working, so it is your choice. While it is on, the
-last provider and the last administrator with a password cannot be removed.
+**SSO-only** offers to end password sessions and revoke non-admin API tokens.
+Last provider and last admin with a password cannot be removed while on.
 
-**Rotating a SAML certificate.** The certificate field takes several PEM
-certificates: paste the new one beside the old one, switch the provider, then
-remove the old one. An OIDC provider must sign its ID tokens with a key it
-publishes.
+**SAML cert rotation:** paste new PEM beside old, switch, remove old. OIDC
+must sign ID tokens with a published key.
 
 ### Encryption at rest
 
-What `AUTH_ENCRYPTION_KEY` seals stays sealed wherever it is copied. The
-rows, the change trail, and the files are written as they are: at rest,
-they are as safe as the storage they are on. Put the PostgreSQL volume
-(`postgres_18`) and the files (the `files` volume, or the bucket) on
-encrypted storage, such as an encrypted disk or cloud volume, whose key
-is kept apart from the host and its backups.
+`AUTH_ENCRYPTION_KEY` ciphertext stays sealed wherever copied. Rows, trail,
+and files are as safe as their storage: put `postgres_18` and files
+(`files` volume or bucket) on encrypted storage with a key kept apart.
 
-With files in an S3 service, ask it to encrypt each object it stores:
-`S3_SERVER_SIDE_ENCRYPTION=AES256` with the service's own keys, or
-`aws:kms` with a key of its key service, `S3_KMS_KEY_ID` (empty: the
-bucket's default key). Check first that the service accepts it: one
-that does not refuses every upload. A bucket that encrypts every object
-by default needs neither.
+S3 object encryption optional: `S3_SERVER_SIDE_ENCRYPTION=AES256` or
+`aws:kms` (+ `S3_KMS_KEY_ID`). Service must accept it or uploads fail.
 
 ### Changing the encryption key
 
-Change the key when it may have been read by someone who should not hold
-it, or on the schedule your policy sets. Nothing is lost on the way: the
-earlier key stays beside the new one until everything it sealed has been
-sealed again.
+1. `docker compose exec app anygriddb keys new` → `20261113:Jm0…=`
+2. Move old key to `AUTH_ENCRYPTION_PREVIOUS_KEYS` (prefix `0:` if it had no
+   id); put new key in `AUTH_ENCRYPTION_KEY`.
+3. `docker compose up -d`
+4. `docker compose exec app anygriddb keys rotate` then `keys status`
+5. When status shows only the new key, drop the old from
+   `AUTH_ENCRYPTION_PREVIOUS_KEYS` but keep it with backups made under it.
 
-1. Make a new key. It comes with an identifier, today's date unless you
-   give one:
-
-   ```bash
-   docker compose exec app anygriddb keys new
-   # 20261113:Jm0…=
-   ```
-
-2. In `docker/.env`, move the key in use to `AUTH_ENCRYPTION_PREVIOUS_KEYS`,
-   with its identifier in front, and put the new one in its place. A key
-   that was given without an identifier is named `0`:
-
-   ```
-   AUTH_ENCRYPTION_KEY=20261113:Jm0…=
-   AUTH_ENCRYPTION_PREVIOUS_KEYS=0:the-key-in-use-until-now=
-   ```
-
-3. Start the stack again (`docker compose up -d`). Everything still opens,
-   what is sealed from now on is sealed with the new key, and the keys of
-   the stack's certificates are sealed again with it at this start.
-
-4. Seal again what the earlier key sealed, then check that nothing is left
-   under it:
-
-   ```bash
-   docker compose exec app anygriddb keys rotate
-   docker compose exec app anygriddb keys status
-   ```
-
-   `rotate` can be run again at any time, beside the running instance. If
-   it names values no key opens, a key is missing from
-   `AUTH_ENCRYPTION_PREVIOUS_KEYS`: add it and run the command again.
-
-5. Once `status` shows only the new key, the earlier one can leave
-   `AUTH_ENCRYPTION_PREVIOUS_KEYS`. Keep it with the backups made while it
-   was in use: a backup restored later holds what that key sealed, and
-   needs it beside the current one.
-
-Backup codes are stored as hashes under the key, so they cannot be sealed
-again: the codes people made before the change work while the earlier key
-is kept, and stop once it is removed. Tell people to make new ones first
-(Account > Security). A sign-in under way and a queued import's token,
-which live minutes, are not rewritten either.
+Backup codes are hashes: tell people to remake them (Account > Security)
+before removing the previous key.
 
 ### Uploads
 
-An attachment, a file to import, or a base snapshot is written to the
-system's temporary folder as it arrives, checked there, then copied to
-the files' store: the process never holds a file whole in memory. Leave
-room in that folder for as many of the largest files as are sent at
-once. `UPLOAD_CONCURRENCY` (1 to 64, 8 by default) caps how many each
-process reads at once; one more is refused with 503 and `Retry-After`,
-and people are told to try again in a moment.
-
-A public form takes files from people without an account: each counts
-in the files' store as soon as it is sent, 30 a minute at most per
-address. One that no answer claims within a day is removed by the hourly
-purge (ADR 0062).
+Written to system temp, then to the files store — never whole in memory.
+`UPLOAD_CONCURRENCY` 1–64 (default 8); over → 503 + `Retry-After`. Public
+forms: 30 files/min/address; unclaimed after a day purged hourly (ADR 0062).
 
 ### Where files are kept
 
-Files live on the `files` volume. To keep them in an S3-compatible store
-instead, start the stack with `compose.s3.yml`, which adds RustFS
-(`docker compose -f compose.yml -f compose.s3.yml up -d`), or set
-`STORAGE_DRIVER=s3` and the `S3_*` values of a service of your own.
-`compose.s3.yml` asks `.env` for `RUSTFS_ACCESS_KEY` and
-`RUSTFS_SECRET_KEY`, the name and the password its store is made with:
-without them the stack does not start, and says which is missing.
+Default: `files` volume. S3: `compose.s3.yml` (needs `RUSTFS_ACCESS_KEY` /
+`RUSTFS_SECRET_KEY`) or `STORAGE_DRIVER=s3` + `S3_*`.
 
-To move an instance's files from one to the other, with both stores
-set in the environment and `STORAGE_DRIVER` naming the one in use
-(`disk` must be written: with `S3_*` set and no driver, the instance
-uses S3):
+Migrate with both stores configured (`STORAGE_DRIVER` must be `disk` when
+S3 vars are set but you still use disk):
 
-1. Copy every file the target lacks. Nothing is deleted, and
-   `--dry-run` counts first:
+```bash
+docker compose exec app anygriddb storage migrate --from disk --to s3
+# switch STORAGE_DRIVER, up -d, migrate again for files written meanwhile
+```
 
-   ```bash
-   docker compose exec app anygriddb storage migrate --from disk --to s3
-   ```
-
-2. Switch `STORAGE_DRIVER` and start the stack again.
-3. Run the command again, for the files written meanwhile.
-
-A file is stored before the row that names it, so an upload that died
-on the way leaves a file no row names. A daily sweep deletes those
-older than a day: `anygriddb storage sweep --dry-run` lists what it
-would delete, and without the flag deletes them now. A folder or a
-bucket therefore belongs to one instance, and a database restored from
-a backup comes with the files of the same moment.
+`anygriddb storage sweep [--dry-run]` removes orphan uploads older than a
+day. One store per instance; restore DB with files of the same moment.
 
 ### When the key does not open the certificates
 
-The private keys of the instance's two authorities are sealed with
-`AUTH_ENCRYPTION_KEY`, on the `tls` volume. Started under a key that does
-not open them, the stack stops: `certs` exits, or `app` on a PostgreSQL of
-your own, naming the file and writing nothing. Workstations keep their
-trust. Put back the key that sealed them, or add it to
-`AUTH_ENCRYPTION_PREVIOUS_KEYS`, and start again.
-
-Only if that key is lost for good, give up those authorities:
+Authority keys on `tls` are sealed with `AUTH_ENCRYPTION_KEY`. Wrong key →
+`certs` or managed `app` exits. Put the sealing key back (or in
+`AUTH_ENCRYPTION_PREVIOUS_KEYS`). If lost for good:
 
 ```bash
 docker compose down
 docker compose run --rm certs anygriddb tls reset --yes
 docker compose up -d
-# compose.managed.yml: run --rm app anygriddb tls reset --yes
+# managed: run --rm app anygriddb tls reset --yes
 ```
 
-The files are moved to a `replaced-…` folder in the volume, and the next
-start issues new authorities. Every workstation then installs the new one
-(Administration > Health), and a client database that trusted the old one
-must be told of the new one. What the lost key sealed in the database
-(second factors, saved secrets) stays closed: this brings back the
-certificates, and nothing else.
+Workstations and client DBs that trusted the old authority must take the
+new one. Sealed DB secrets stay closed.
 
 ### Replacing your own certificate
 
-With `TLS_CERT_FILE` and `TLS_KEY_FILE`, replace the two files where they
-are mounted. The server looks at them every minute and serves the new
-pair without a restart. Write the key and the certificate together: a pair
-that does not match is refused, logged as `TLS certificate check failed`,
-and the certificate in service stays until the two agree.
+Replace `TLS_CERT_FILE` / `TLS_KEY_FILE` together; reloaded every minute.
+Mismatched pair refused (`TLS certificate check failed`); old pair stays.
 
 ### Address people open (`PUBLIC_URL`)
 
-`PUBLIC_URL` is the HTTPS origin people type: links in emails, cookies,
-API documents, the certificate's primary name, and passkeys. Set it to
-that address and open AnyGridDB there. `TLS_NAMES` only adds other names
-or IP addresses to the certificate; it does not change the passkey
-identity. A change made from a page at another address than `PUBLIC_URL`
-is taken only when that address is the one the request reached AnyGridDB
-under: behind a proxy that forwards under another name, people open
-`PUBLIC_URL`.
+HTTPS origin for mail links, cookies, API docs, cert CN, passkeys.
+`TLS_NAMES` adds SAN names/IPs only.
 
-| How people reach the instance                                                                               | What works                                                                                                 |
-| ----------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| Hostname in `PUBLIC_URL` (`https://grid.example.org`, `https://grid.lan:3000`, or `https://localhost:3000`) | HTTPS, TOTP, and passkeys once the authority is installed (or your own certificate is trusted)             |
-| IP alone in `PUBLIC_URL` (`https://192.168.1.10:3000`)                                                      | HTTPS and TOTP; passkeys do not (browsers refuse an IP as WebAuthn RP ID). Health and the start log say so |
+| `PUBLIC_URL`                          | Works                                   |
+| ------------------------------------- | --------------------------------------- |
+| Hostname (`https://grid.example.org`) | HTTPS, TOTP, passkeys (once CA trusted) |
+| IP alone                              | HTTPS, TOTP; no passkeys (WebAuthn)     |
 
-LAN example with passkeys: give the host a name every workstation resolves
-(DNS, mDNS, or `/etc/hosts`), set
-`PUBLIC_URL=https://grid.lan:3000`, and put the IP in
-`TLS_NAMES=192.168.1.10` so the certificate still covers the address.
-People open `https://grid.lan:3000`, install the authority, then enroll a
-passkey. Until then, or with an IP-only `PUBLIC_URL`, use a TOTP app.
+LAN + passkeys: name in DNS/`/etc/hosts`, `PUBLIC_URL=https://grid.lan:3000`,
+IP in `TLS_NAMES`.
 
 ### Behind a reverse proxy
 
-AnyGridDB serves HTTPS itself. A proxy in front of it must forward to
-HTTPS (to `https://app:4000` on the stack network, or
-`https://127.0.0.1:3000` on the host), pass the WebSocket upgrade on
-`/ws`, and keep an idle connection open for at least 30 seconds
-(AnyGridDB sends something every 25). Otherwise the app still works, but
-changes made by others do not show until a page is read again, and it
-says "Connection lost" after 10 seconds.
+Forward to HTTPS (`https://app:4000` on the stack network, or
+`https://127.0.0.1:3000`), upgrade `/ws`, idle ≥ 30 s (ping every 25). Else
+live updates stall ("Connection lost" after 10 s).
 
-On the same host, publish only the loopback so the proxy alone is
-reachable from other machines:
-
-```sh
-docker compose -f compose.yml -f compose.proxy.yml up -d
-```
-
-Set `ANYGRIDDB_TRUSTED_PROXIES` in `.env` to the proxy's address or its
-Docker network (for example `172.18.0.0/16`). The client address is the
-TCP peer; `X-Forwarded-For` is used only when that peer is named there.
-Leave it empty when the API is published directly: a client cannot
-choose the address stored in the sign-in trail or used for rate limits.
-Behind a proxy that is not named there, every request carries the
-proxy's address, and the sign-in rate limit counts everyone together.
+Loopback-only publish: `compose.proxy.yml`. Set `ANYGRIDDB_TRUSTED_PROXIES`
+to the proxy CIDR; empty when published directly. Untrusted proxy → all
+clients share one rate-limit/sign-in address.
 
 ### Offline
 
-AnyGridDB calls no outside service at run time, except when a person
-imports an Airtable base (`api.airtable.com` over HTTPS with the token
-they give, sealed and dropped when the job ends), or when an
-administrator turns on the release check (Health may look up the
-latest GitHub Release on demand, and a daily job does the same while
-the opt-in stays on). Without internet access, those two fail and say
-so; everything else works. On a machine with internet access:
+No outbound calls at runtime except Airtable import (token-scoped) and
+optional release check (Health / daily job). Offline, those two fail; rest
+works.
 
 ```sh
 ../scripts/build-image.sh
 docker save anygriddb:local postgres:18 | gzip > anygriddb-images.tar.gz
+# copy + docker load; compose up -d (no --build)
 ```
 
-Copy that file, `docker/`, and `scripts/` to the target machine, then:
+Add `rustfs/rustfs` when using `compose.s3.yml`.
 
-```sh
-docker load < anygriddb-images.tar.gz
-docker compose up -d          # no --build: the images are there
-```
+### Imports / exports / snapshots / restore points
 
-Add `rustfs/rustfs` to the `docker save` command when you use
-`compose.s3.yml`.
+| Limit             | Default                   | Range          | Notes                                               |
+| ----------------- | ------------------------- | -------------- | --------------------------------------------------- |
+| `IMPORT_MAX_ROWS` | 1_000_000                 | 100k–10M       | CSV/TSV 256 MiB, Excel 64, JSON 20; file kept ≤ 2 h |
+| `EXPORT_MAX_ROWS` | 1_000_000                 | 100k–10M       | export kept 24 h                                    |
+| Snapshot rows     | min of import/export caps | —              | archive ≤ 2 GiB; kept 24 h                          |
+| Restore points    | 20/base, 30 days (≤ 365)  | Admin Security | live with instance                                  |
 
-### Imports
-
-An uploaded file is written to the system's temporary folder as it
-arrives (256 MiB for CSV and TSV, 64 MiB for Excel, 20 MiB for JSON), read
-once for its columns and its row count, then kept in the files' store
-until its import runs, at most two hours. The import job copies it back
-to the temporary folder and writes its rows as it reads them, 500 at a
-time. `IMPORT_MAX_ROWS` (100,000 to 10,000,000, 1,000,000 by default) is
-the most rows one file may hold: a larger one is refused when it is
-uploaded, before anything is kept. Leave room in the temporary folder
-for the largest file, once per upload and once per import running at
-once (`UPLOAD_CONCURRENCY`, `JOB_CONCURRENCY`).
+Imported snapshot history is not trusted: rows come back as drafts; claimed
+status/date refused. Restore points / base&table copies keep dates, authors,
+status, comments (ADR 0122); downloaded files do not. Signed rows restore
+locked without signature. Points before 0.5.0 → drafts.
 
 ### Scripts in automations
 
-Off until an administrator allows them (Administration, Security). A
-script never runs in the application's process: each automation run
-that holds one starts a process of its own, which reads its own code
-and nothing else, writes nowhere, opens no connection, and is given
-nothing of the environment. Four scripts run at once at most, the
-others wait; each may take 128 MiB of memory for its process and 64 MiB
-for the script itself, and is ended after 10 seconds; the scripts of
-one automation run share a minute. Leave the
-container that much memory beside what the application uses, or leave
-scripts off.
-
-A script's calls to addresses leave from the application, never from
-the script's process, and only to public HTTPS addresses, as webhooks
-do: an instance with no way out makes none. The secrets those calls
-carry are sealed with `AUTH_ENCRYPTION_KEY`, and `anygriddb keys rotate`
-seals them again with the rest.
-
-Where the instance is installed must let that process start. This says
-whether it does, without reading or writing anything of the instance:
+Off until Administration → Security allows. Isolated process: no env, no
+network, no disk write; max 4 concurrent; 128 MiB process / 64 MiB script;
+10 s; share a minute per automation. Calls to URLs leave from the app
+(public HTTPS only). Secrets sealed with `AUTH_ENCRYPTION_KEY`.
 
 ```bash
 docker compose exec app anygriddb scripts check
 ```
 
-### Exports
-
-An export job writes its file to the system's temporary folder as the
-rows are read, a page at a time, then copies it to the files' store,
-where it is kept 24 hours. `EXPORT_MAX_ROWS` (100,000 to 10,000,000,
-1,000,000 by default) is the most rows one export writes: a larger view
-is refused before anything is written, and people are asked to filter
-it. Leave room in the temporary folder for the largest file, once per
-export running at once (`JOB_CONCURRENCY`).
-
-### Base snapshots
-
-A base's snapshot with its rows is an archive written to the temporary
-folder as each table is read, a thousand rows at a time, then copied to
-the files' store, where it is kept 24 hours. `EXPORT_MAX_ROWS` is the
-most rows one snapshot writes and `IMPORT_MAX_ROWS` the most one import
-reads, all tables together; a copy of a base takes the smaller of the
-two. An uploaded snapshot is read through once, to check it, before it is
-kept. Its import job first reads the whole file again, every attachment
-against its checksum and every row, and refuses a damaged file before it
-makes a base; it then reads it a batch at a time as it writes. Leave room
-in the temporary folder for the largest archive, its attachments
-included (2 GiB at most), once per snapshot job running at once.
-
-A file imported this way is not believed about its rows' history: they
-come back as drafts, dated from the import, and a file that claims a
-status or a date is refused.
-
-### Restore points
-
-A base's manager keeps the whole base on the instance before a risky
-change, and restores it as a new base if it goes wrong. Each point is a
-snapshot archive in the files' store, under `restore-points/`, kept for
-the days set on Administration's Security page (30 by default, 365 at
-most), 20 per base at most; a shorter length ends the points already made
-sooner, and the nightly purge deletes those that have ended. They count in the store's size and in its backups: a point lives
-and ends with the instance, and a file to keep elsewhere is still the
-base's export.
-
-A restore point, a copy of a base, and a copy of a table with its rows keep
-each row's dates, authors, and status, and its comments with their replies,
-authors and dates (ADR 0122); a comment by an account erased since is the
-erased account's. A file downloaded or brought from elsewhere carries no
-comments. A locked row stays locked; a signed
-row comes back locked, without its signature, and the job says how many did. Each status is put back
-through the usual steps, which the new base's history records. A point
-made before version 0.5.0 holds none of this: its rows come back as
-drafts. A file of a point damaged since is left out and counted, so that
-the rest of the base can still be restored.
-
 ### What takes rows out of a base
 
-Reading rows and taking them out are two permissions (ADR 0129). A role
-that reads without **Export** (`data.export`) sees the rows in the
-application and takes none out; a role without **Reach by a token**
-(`api.access`) gives a token nothing. Each of the four shipped roles holds
-both. A role an administrator makes holds them only when they are chosen:
-a permission a version adds goes to no made role.
+Reading rows and taking them out are two permissions (ADR 0129). The four
+shipped roles give both **Export** (`data.export`) and **Reach by a token**
+(`api.access`); a made role gives them only when ticked, since a permission
+a version adds goes to no made role. What is made in someone's name acts by
+their roles when it runs: it pauses while they lack what it asks or are
+disabled, and is never deleted for it.
 
-What is made in someone's name (a link, a webhook, an automation, a feed,
-a copy's job) acts by that person's roles **as they are when it runs**. It
-stops while they no longer hold what it asks, or their account is
-disabled, and works again if they do: it is never deleted for it.
+| Way out                                                               | Asks of its maker, when made and when used                     |
+| --------------------------------------------------------------------- | -------------------------------------------------------------- |
+| A token: REST API, MCP, an application                                | `api.access`, then what each call asks                         |
+| A view's file, a calendar feed, a base's snapshot                     | `data.export` (snapshot: and `base.manage`)                    |
+| A view's public link (a form's asks `publish` alone)                  | `publish`, `data.export`                                       |
+| A base's public link                                                  | `base.manage`, `publish`, `data.export`                        |
+| A webhook                                                             | `webhooks.manage`, `data.export`                               |
+| An automation that mails, calls, posts, runs a script, or copies rows | `automations.manage`, `data.export` on each table it reads     |
+| A table copied with its rows                                          | `schema.manage`, `data.export`, and no field or row rule there |
+| A base copied, or a restore point read back as a new base             | `base.manage`, `data.export`                                   |
 
-| Way out                                                                                                                                       | Asks of its maker, when made and when used                                                                           |
-| --------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| The REST API, MCP, an application given access (any token)                                                                                    | `api.access` on the base or table; then what each call asks                                                          |
-| A file of a view, a calendar feed, a base's snapshot                                                                                          | `data.export` (a snapshot: and `base.manage`)                                                                        |
-| A view's public link (not a form's)                                                                                                           | `publish` and `data.export`                                                                                          |
-| A base's public link                                                                                                                          | `base.manage`, `publish` and `data.export`                                                                           |
-| A webhook                                                                                                                                     | `webhooks.manage` and `data.export`; it sends nothing while its maker may not                                        |
-| An automation that sends values out: a mail, a call, a message to a channel, a script, a row made in another table, a loop over another table | `automations.manage` and `data.export` on each table it takes values from; a run is refused while its author may not |
-| A table copied with its rows                                                                                                                  | `schema.manage` and `data.export`, and no field or row rule binding its maker on that table: the copy carries none   |
-| A base copied, or a restore point read back as a new base                                                                                     | `base.manage` and `data.export`: its maker owns the new base                                                         |
-
-Kept within the reader's own reach, on purpose: what the grid copies to
-the clipboard (the rows the screen holds), a row printed, a field copied
-with its values (in the same table, and a new field stays hidden under
-column rules until a manager opens it), the API console of the
-application (the person's session, which reads what the grid reads), a
-dashboard's figures, a notification's mail (one row). A form's public link
-takes answers in and shows no row: publishing is enough.
+Within the reader's own reach on purpose: the grid's copy, a printed row, a
+field copied with its values (hidden under column rules until opened), the
+application's API console, dashboards, a notification's mail.
 
 ## When no administrator can sign in
-
-A password forgotten where no email goes out, a second factor lost with
-its backup codes, an identity provider out of reach, a list of sign-in
-addresses that leaves your network out: Administration cannot help, since
-nobody can open it. Run this where the instance runs (ADR 0082):
 
 ```sh
 docker compose -f compose.yml -f compose.release.yml \
@@ -671,27 +333,22 @@ docker compose -f compose.yml -f compose.release.yml \
   anygriddb admin recover --email ada@example.org
 ```
 
-The account of that address becomes an active administrator, and the
-command prints a link that sets its password, once, within the hour, to
-this terminal and nowhere else. Add what the case calls for:
+Prints a one-hour password-set link (ADR 0082). Options:
 
-| Flag                      | When                                                                                                                                                                                                                              |
-| ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--clear-factors`         | The second factor is lost too. The account's factors and sessions are removed, and it enrols a factor again. Without the flag they stay: the link alone does not open an account that has one.                                    |
-| `--create "Ada Lovelace"` | The address has no account, or its account signs in through the identity provider and keeps no password: name another address, and an account is made for it under that name. Without the flag, an address nobody has is refused. |
-| `--any-address`           | The list of sign-in addresses (Administration, Security) leaves you out. It is emptied: set it again once signed in.                                                                                                              |
+| Flag                      | When                                                   |
+| ------------------------- | ------------------------------------------------------ |
+| `--clear-factors`         | Lost second factor                                     |
+| `--create "Ada Lovelace"` | No account / SSO-only account needs a password account |
+| `--any-address`           | Sign-in address list blocks you (empties it)           |
 
-Each change is on the sign-in trail as made from the command line, and
-reaches your collector if the trail is shipped to one. Running the command
-again changes nothing more and replaces the link.
+On the sign-in trail as CLI. Re-run replaces the link only.
 
 ## Update AnyGridDB
 
-Back up first (below). With the published image, read the release's
-notes on GitHub, then take its Compose files and pin:
+Back up first. Published image:
 
 ```sh
-version=X.Y.Z   # the release to install
+version=X.Y.Z
 files="https://raw.githubusercontent.com/anygriddb/anygriddb/v$version/docker"
 curl -fsSLO "$files/compose.yml"
 curl -fsSLO "$files/compose.release.yml"
@@ -700,139 +357,75 @@ docker compose -f compose.yml -f compose.release.yml \
   --env-file .env --env-file image-pin.env up -d
 ```
 
-From a repository checkout instead:
+Checkout: `git checkout v$version` → `scripts/build-image.sh` → `compose up -d`.
 
-```sh
-version=X.Y.Z   # the release to install
-git fetch --tags
-git tag -n20 "v$version"         # its notes
-git checkout "v$version"
-scripts/build-image.sh
-cd docker && docker compose up -d
-```
+Read notes before major (or minor before 1.0). Migrations run in one-shot
+`prepare` under a lock; failure → app does not start
+(`docker compose logs prepare`). A release that needs a pre-step refuses
+with "Upgrade refused" and changes nothing (ADR 0106): start the previous
+version, do the step, upgrade again.
 
-Read the notes before a release that changes the first number of the
-version, or the second before 1.0: it may ask for a step of its own.
-
-Migrations run at each start in the one-shot service `prepare`, under a
-lock, before the application starts. When it fails, the application does
-not start, and `docker compose logs prepare` says why.
-
-A release that asks for a step before the upgrade looks for it before
-its first migration runs. When the step was not done, AnyGridDB does not
-start, and the log of `prepare` says "Upgrade refused" and what to do. Nothing was changed: start the version before again,
-with the Compose files and the pin it was installed from, do the step,
-then upgrade (ADR 0106).
-
-Administration > Health then shows the version and the commit running.
-An administrator may opt in there to check GitHub for a newer release;
-the default makes no outbound call. When a newer release is found, a
-dismissible notice appears in Administration until that version is
-dismissed or the instance is upgraded.
-`docker compose exec app anygriddb version` says the same, and so do the
-image's labels: `docker compose images app`, then `docker image inspect`
-on that image.
+Version: Administration → Health, or
+`docker compose exec app anygriddb version`.
 
 ### Links of rows already in the trash
 
-A row deleted by a version before this command existed comes back without
-the links other rows held to it through a one-to-many field: the keys were
-cleared, and only the change trail remembers them. To have a restore bring
-them back, run this once after updating:
+Rows trashed before link recovery existed come back without one-to-many
+keys. Once after upgrade:
 
 ```bash
 docker compose exec app anygriddb trash recover-links --dry-run
 docker compose exec app anygriddb trash recover-links
 ```
 
-It only adds to the change trail, changes no row, and running it again adds
-nothing. A link set again since stays as it is, and a row locked or signed
-since is left alone and counted when the restore is made.
+Adds trail entries only; idempotent; skips locked/signed since.
 
 ## The application's database role
 
-A Compose stack uses two PostgreSQL roles. `POSTGRES_USER` owns the tables,
-and only the one-shot service `prepare` signs in with it: at each start it
-runs the migrations, gives the second role its rights, and exits. The
-application signs in as `anygriddb_app`, which owns no table. Its password
-is made once and kept on the `service_certs` volume, readable by PostgreSQL
-and the application alone: nobody has to choose or keep it.
+Compose: `POSTGRES_USER` owns tables — only `prepare` uses it. App signs
+in as `anygriddb_app` (password on `service_certs`, no table ownership).
+That role cannot rewrite trails or locked/signed values.
 
-That role cannot rewrite the change trail, the signatures, or the sign-in
-trail, or change or remove a value a locked or signed row holds. A field
-such a row holds a value in stays in the trash until the row is unlocked.
+Stolen app credentials can still forge events/signatures, unlock, drop
+tables, erase accounts, or purge past a year — each leaves an irremovable
+event. Ship the sign-in trail out, keep backups out of reach, guard
+`POSTGRES_PASSWORD`.
 
-The application remains the authority on who acts: someone who steals its
-account could still add an event or a signature in another person's name.
-They could also unlock a row, drop a table, erase an account, or purge
-events past a year, and each of these leaves an event they cannot remove.
-Send the sign-in trail to a collector of your own
-(see [Sign-in events to a collector](#sign-in-events-to-a-collector)), keep
-backups out of the instance's reach, and guard `POSTGRES_PASSWORD` as you
-guard the data.
-
-If `prepare` stops on `role "anygriddb_app" does not exist`, PostgreSQL
-started before the role's password was made: it makes the role when it
-starts. A stack with its files in an object store was in that case from
-0.7.0 to 0.7.4. Restart it once, then start the stack again, with the same
-Compose files as `up`:
+If `prepare` stops on `role "anygriddb_app" does not exist` (seen 0.7.0–0.7.4
+with object-store overlay):
 
 ```sh
 docker compose restart db
 docker compose up -d
 ```
 
-An index on a file field is built when the field is added. One that is
-missing, on an instance from before 0.4.1 or after a build cut short, is
-named in the application's start log. Files are served correctly meanwhile,
-more slowly. To build it, beside the writes, with the same Compose files as
-`up`:
-
-```sh
-docker compose run --rm indexes
-```
+Missing file-field index (pre-0.4.1 / interrupted build): named in start log;
+`docker compose run --rm indexes`.
 
 ## A stack made before the role was limited
 
-A stack whose PostgreSQL volume was made by an earlier file has
-`POSTGRES_USER` as the cluster's first role, which PostgreSQL keeps a
-superuser. It works as before, with a warning in the start log and in
-Administration > Health. To see which you have:
+Older volumes may still have `POSTGRES_USER` as superuser (warning in log /
+Health). Check:
 
 ```sh
 docker compose exec db psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -tAc \
   "select rolsuper from pg_roles where rolname = current_user"
 ```
 
-`f` is the limited role. `t` is the earlier one; to change it, the data
-moves to a new volume: back up (`scripts/backup.sh`), stop the stack,
-remove the volume `<project>_postgres_18` alone, start the stack, which
-makes the volume and the role anew, and restore (`scripts/restore.sh`).
+`t` → migrate: backup, stop, remove `<project>_postgres_18` only, start,
+restore.
 
 ## PostgreSQL 17 to 18
 
-The stack runs PostgreSQL 18 on the `postgres_18` volume. PostgreSQL 18
-does not open a 17 cluster, and its image keeps its data elsewhere, so an
-existing stack's data, in `postgres_data`, must be moved.
-
-Until it is moved, `docker compose up` stops at `postgres-upgrade-check`,
-which says so. It never starts an empty database in front of your data.
+Data lives on `postgres_18`. Unmoved 17 data (`postgres_data`) →
+`postgres-upgrade-check` stops the stack (never starts empty over data).
 
 ```sh
 scripts/upgrade-postgres.sh
 ```
 
-The script:
-
-1. stops AnyGridDB;
-2. dumps the database with a PostgreSQL 17 of its own, run on the old
-   volume without a network;
-3. starts PostgreSQL 18 on the new volume and restores the dump;
-4. starts AnyGridDB again.
-
-The old volume and the dump stay until you drop them; the script prints
-how. To go back to 17, check out the previous compose file. Its volume is
-untouched.
+Stops app → dump with PG17 on old volume → restore to PG18 → start app.
+Old volume and dump kept until you drop them.
 
 ## Backups
 
@@ -840,186 +433,72 @@ untouched.
 scripts/backup.sh
 ```
 
-This writes one dated folder under `data/backups/` (or `BACKUP_DIR`)
-while the stack keeps serving. The folder holds:
+Writes `data/backups/<dated>/`: `database.dump`, `files_data.tar.gz`,
+`tls_data.tar.gz`, optional `rustfs_data.tar.gz`, `SHA256SUMS`. External S3
+is not included (script says so). Failed/stopped runs leave no partial
+folder. Owner-only perms. `AUTH_ENCRYPTION_KEY` is **not** in the backup —
+keep it elsewhere.
 
-- `database.dump`, from `pg_dump` in custom format;
-- `files_data.tar.gz`, the attachments, imports, and exports;
-- `tls_data.tar.gz`, the instance's authorities, whose keys stay sealed;
-- `rustfs_data.tar.gz`, with `compose.s3.yml`: the object store that
-  runs beside the stack, where the files then are;
-- `SHA256SUMS`.
-
-Files kept in an object store outside the stack (`STORAGE_DRIVER=s3`
-toward a service of your own) are not in the backup, and the script says
-so each time: keep that bucket with its service's own means, versioning
-or replication.
-
-A run that fails, or that is stopped, keeps nothing of what it had
-written: a folder is a whole backup, with its sums, or is not there.
-
-The folder and its files are readable by their owner only. Emails,
-names, and cell values are in them, while secrets sealed with
-`AUTH_ENCRYPTION_KEY` stay ciphertext because the backup leaves that key
-out: keep the key in another place than the backups.
-
-Encrypt each backup as it is written with [age](https://age-encryption.org)
-(BSD licence, in most distributions' packages). Make a key pair on a
-machine other than the host, keep its identity (the private key) there,
-and give the host only the public key:
+Optional [age](https://age-encryption.org) encryption:
 
 ```sh
-age-keygen -o anygriddb-backup.key   # prints "Public key: age1…"
-```
-
-```sh
-# docker/.env on the host
+# docker/.env
 BACKUP_AGE_RECIPIENT=age1…
-# Optional: remove this stack's backups older than 30 days.
-BACKUP_KEEP_DAYS=30
+BACKUP_KEEP_DAYS=30   # optional; this stack's folders only
 ```
-
-Each file then ends in `.age` and nothing readable touches the disk: the
-host cannot read its own backups back. `BACKUP_KEEP_DAYS` removes only
-folders this script named for this stack, once the new backup has
-succeeded.
-
-Run it from cron, for example nightly:
 
 ```cron
 15 2 * * * cd /srv/anygriddb && scripts/backup.sh >> data/backups/backup.log 2>&1
 ```
 
-Each run tells the instance how it ended. Administration > Health shows
-the last ones, and administrators are told, there and by email, when the
-last backup failed or when none has succeeded for 36 hours (they choose
-the delay, or turn the alert off). Nothing is said about late backups
-before a first one is reported. A backup made by other means, such as a
-managed PostgreSQL's own, reports itself the same way when it ends:
+Health shows last runs; admins alerted after failure or 36 h without success
+(configurable). External backups can report:
 
 ```sh
 docker compose exec app anygriddb backups record \
-  --name nightly-2026-11-13 --started 2026-11-13T02:15:00Z   # add --failed when it failed
+  --name nightly-2026-11-13 --started 2026-11-13T02:15:00Z
 ```
 
-To restore one, into a stack with the same `AUTH_ENCRYPTION_KEY`:
+Restore (same `AUTH_ENCRYPTION_KEY`):
 
 ```sh
 scripts/restore.sh data/backups/anygriddb-20261108T021500Z
-# An encrypted backup: the identity, brought for the restore.
 BACKUP_AGE_IDENTITY=/path/to/anygriddb-backup.key \
   scripts/restore.sh data/backups/anygriddb-20261108T021500Z
 ```
 
-The script replaces nothing until the backup has proved itself, while
-AnyGridDB keeps serving:
+Checks sums → decrypt → room for two copies → restore to temp DB →
+`keys status` → cut over; previous data removed only when healthy. Exit 3 =
+key mismatch, 4 = no room, 1 = other. `--in-place` when disk cannot hold two
+copies (failure not undoable). `--keep-store-files` for backups without
+object-store files. `RESTORE_START_SECONDS` default 600.
 
-1. `SHA256SUMS` must list every file of the backup, and each must match.
-2. Every file is decrypted if it is encrypted, and every archive and the
-   dump are read to their end.
-3. There must be room for a second copy of the database and the files.
-4. The dump is restored whole into a temporary database.
-5. `anygriddb keys status` must open what the backup sealed, with the key
-   in place or one of `AUTH_ENCRYPTION_PREVIOUS_KEYS`.
+Pass the same `-f` / `ENV_FILE` the stack uses. Published-image installs:
+checkout the tag beside the install and point scripts at its compose files
+(see script headers).
 
-It then stops AnyGridDB, puts the restored database and files in place by
-renaming, and starts AnyGridDB again with service certificates issued
-from the restored authority, so a spare stack serves too. The previous
-data is removed only once AnyGridDB is healthy. If anything fails before
-that, what was there comes back and AnyGridDB starts again on it. A
-restore stopped by force (a power cut, `kill -9`) is put back by the next
-run of the script. `RESTORE_START_SECONDS` is how long AnyGridDB is given
-to start healthy (600 by default): raise it when a restore must also run
-long migrations.
-
-The script exits 3 when the key in place does not open the backup, 4 when
-there is no room for two copies, and 1 on any other refusal or failure.
-
-Two options, right after the folder:
-
-- `--in-place`, when the disk cannot hold two copies: the same checks of
-  the files, then the data is replaced directly. **A failure then cannot
-  be undone**: AnyGridDB stays stopped until a sound backup is restored.
-- `--keep-store-files`, for a backup that holds none of the object
-  store's files, on a stack that runs one: the rest is restored and the
-  store keeps the files it has, which may no longer match the database.
-  Without it, such a backup is refused.
-
-Try a restore on a spare stack now and then: an untested backup is a
-hope.
-
-The scripts take `docker compose` options after their arguments
-(`-p name -f compose.yml -f other.yml`) and read `ENV_FILE` instead of
-`docker/.env` when it is set. Give both the options the stack runs with:
-a backup made with `-f compose.yml -f compose.s3.yml` is restored with
-them, into a stack that runs the object store.
-
-An install from the published image holds no script: they are in the
-repository, at the release's tag. Take a checkout of it beside the
-install's folder, and name the files the stack runs with, by their full
-paths:
-
-```sh
-git clone --depth 1 --branch "v$version" \
-  https://github.com/anygriddb/anygriddb.git checkout
-cd anygriddb   # the folder of compose.yml and .env
-ENV_FILE="$PWD/.env" BACKUP_DIR="$PWD/backups" \
-  ../checkout/scripts/backup.sh \
-  -f "$PWD/compose.yml" -f "$PWD/compose.release.yml" \
-  --env-file "$PWD/image-pin.env"
-```
-
-`scripts/restore.sh` takes the backup's folder, then the same options,
-with the same `ENV_FILE`.
-
-A base's owner can also save one base, from its settings: a
-`.anygriddb.json` file, or a `.anygriddb.zip` archive with its
-attachments (ADR 0039), imported again from "New base", on this
-instance or another. While an archive is written or read, the API keeps
-a copy in the system's temporary folder: allow for the largest base's
-files there.
+Per-base export: Settings → `.anygriddb.json` / `.anygriddb.zip` (ADR 0039).
 
 ## A PostgreSQL of your own
 
-To use a managed service or a server you already run, use
-`compose.managed.yml`. It runs AnyGridDB alone:
-
 ```sh
-# In docker/.env:
+# docker/.env
 DATABASE_URL=postgres://anygriddb:…@pg.example.net:5432/anygriddb?sslmode=verify-full&sslrootcert=/managed-ca/ca.pem
-# The provider's certificate authority, if your system does not trust it:
-mkdir -p docker/managed-ca
-cp provider-ca.pem docker/managed-ca/ca.pem
+mkdir -p docker/managed-ca && cp provider-ca.pem docker/managed-ca/ca.pem
 docker compose -f compose.managed.yml up -d --build
 ```
 
-- **Version.** PostgreSQL 16 or later is required, and an older server is
-  refused at the start, before anything is written; 17 or 18 is
-  recommended. No extension is needed.
-- **TLS.** The address must verify the server's certificate and its
-  name: `sslmode=verify-full`. `verify-ca`, `require` and `ssl=true` are
-  taken too, since the driver checks the name under each of them, but
-  not with `uselibpqcompat=true`, which makes them stop checking it.
-  AnyGridDB refuses to start otherwise (ADR 0030).
-- **Rights.** The account owns its database. AnyGridDB creates its
-  tables and the `graphile_worker` and `ag_sync` schemas there. Used alone,
-  it also signs the application in as the owner of those tables: the
-  instance works, and says in its start log and in Administration > Health
-  that this account could rewrite the trails. The next section removes that.
-- **Connections.** With the default concurrency, one AnyGridDB process
-  opens at most about 22 connections: 10 for requests, 10 for background
-  work, and 1 to listen for realtime messages. Size the service's limit
-  for the processes you run. `DATABASE_POOL_MAX` (4 to 64, 10 by default)
-  sets the connections for requests; raise it when
-  `anygriddb_db_pool_connections{state="waiting"}` stays above zero.
-- **Backups.** Back up with the provider's own tools. `scripts/backup.sh`
-  covers the bundled PostgreSQL only; copy `files_data` and `tls_data`
-  the same way it does.
+- PostgreSQL ≥ 16 (17/18 recommended); no extension.
+- TLS: `sslmode=verify-full` (or `verify-ca` / `require` / `ssl=true`
+  without `uselibpqcompat=true`). Refused otherwise (ADR 0030).
+- Account owns the DB; creates tables + `graphile_worker` / `ag_sync`. Alone
+  it signs the app in as table owner (warned in log/Health).
+- ~22 connections per process default (`DATABASE_POOL_MAX` 4–64, default 10).
+- Backups: provider tools + copy `files_data` / `tls_data` yourself.
 
 ### A role of its own for the application
 
-Once, as an administrator of the server, with the name of the role that
-owns the database in place of `anygriddb`:
+Once, as server admin (replace `anygriddb` with the owner role):
 
 ```sql
 CREATE ROLE anygriddb_app LOGIN PASSWORD '…'
@@ -1027,411 +506,206 @@ CREATE ROLE anygriddb_app LOGIN PASSWORD '…'
 GRANT anygriddb_app TO anygriddb WITH INHERIT FALSE, SET TRUE;
 ```
 
-Then, now and before starting each new version, run the migrations with the
-owner's address. It is read from the environment, so that it never shows on
-a command line:
+Before each new version, migrate as owner:
 
 ```sh
-read -rs DATABASE_URL && export DATABASE_URL   # the owner's address
+read -rs DATABASE_URL && export DATABASE_URL
 docker compose -f compose.managed.yml run --rm --no-deps -T \
   -e DATABASE_URL app anygriddb database prepare
 unset DATABASE_URL
 ```
 
-In `docker/.env`, `DATABASE_URL` is now the address of `anygriddb_app`, and
-the owner's password stays out of the instance. A new version signed in as
-this role refuses to start until `prepare` has run, and says so.
+Then `.env` `DATABASE_URL` is `anygriddb_app`. App refuses start until
+`prepare` ran.
 
 ## Provisioning with SCIM
 
-An identity provider can create, change, and deactivate accounts, and
-keep groups, through SCIM 2.0 (ADR 0038).
+1. Administration → People → Provisioning (SCIM): create token (shown once;
+   works while maker is active admin).
+2. IdP SCIM 2.0 app: base `https://<address>/scim/v2`, bearer token.
+   Okta: "SCIM 2.0 Test App (Header Auth)", push users/groups,
+   `userName` = email. Entra: Automatic provisioning; map UPN/mail →
+   `userName` / `emails[type eq "work"].value`.
+3. Assign groups roles on bases (or Administration → People → Groups).
 
-1. In **Administration → People → Provisioning (SCIM)**, create a token.
-   Copy it at once: it is not shown again. It works while its maker is an
-   active administrator.
-2. In the provider, add a SCIM 2.0 application:
-   - **Base URL**: `https://<your address>/scim/v2`, shown on the same
-     page.
-   - **Authentication**: HTTP header, bearer token: the token.
-   - **Okta**: "SCIM 2.0 Test App (Header Auth)". Enable push of new
-     users, profile updates, deactivation, and groups. The unique
-     identifier is `userName`, an email.
-   - **Microsoft Entra ID**: an enterprise application, provisioning
-     mode "Automatic", tenant URL the base URL, secret token the token.
-     Map `userPrincipalName` or `mail` to `userName`, and `mail` to
-     `emails[type eq "work"].value` when they differ.
-3. Give each group a role in the settings of the bases it should reach,
-   or on the group's page under **Administration → People → Groups**.
-
-What to know:
-
-- Accounts are keyed by email. A provisioned user whose email already
-  has an account takes it over.
-- A group can also be made in Administration, without a provider: its
-  name and members are kept there (ADR 0070). The provider neither sees
-  nor changes it, and a group it sends under the same name is refused
-  until one of the two is renamed. A provider's group shows its members
-  in Administration, where they cannot be changed.
-- Deactivating a user disables the account and ends its sessions;
-  deleting it also takes it out of its groups. Its email, display
-  name, and history stay, and creating it again brings it back. That
-  is not account erasure.
-- When someone leaves: disable the account in Administration. Erase
-  only when the identity must leave the instance (Settings for the
-  person, or Delete on the account in Administration, typing the email:
-  an enabled account is disabled first, in the same step). Erase refuses an account still managed by SCIM. A base the
-  account alone owns keeps an owner: the person grants one before
-  erasing their own account; an administrator types the email of the
-  active account that takes those bases, their own if they wish, and
-  the bases' audit records it. The only active administrator cannot
-  erase their own account. Audit history
-  and comments stay under the erased-account placeholder; row values
-  still need a manager to trash or edit them.
-- The last active administrator cannot be deactivated through SCIM.
-- Provisioned people sign in through OIDC or SAML: SCIM sets no
-  password.
-- Requests count in the API's rate limit, 600 a minute per address.
+- Accounts keyed by email; provisioned user takes existing account.
+- Local groups (ADR 0070) are invisible to IdP; same name → refused.
+- Deactivate ≠ erase. Erase refuses SCIM-managed accounts; last active
+  admin cannot deactivate via SCIM or erase self.
+- SCIM sets no password (OIDC/SAML sign-in). Rate limit 600/min/address.
 
 ## The administration API
 
-What a script of yours asks of Administration, without a browser
-(ADR 0086): list and make accounts, list the invitations that wait,
-read the settings, and change the ones of the instance's running.
+ADR 0086. Token under Administration → Connections → Administration API
+(name, TTL, scopes `accounts` / `invitations` / `settings`; proof required
+to create). OpenAPI: `/api/v1/admin/openapi.json` (no token).
 
-1. In **Administration → Connections → Administration API**, make a
-   token: a name, how many days it lives, and what it may do
-   (`accounts`, `invitations`, `settings`). Making one asks for your
-   password or second factor. The token is shown once.
-2. Call the API with it:
+```bash
+curl -sS -X PATCH https://<address>/api/v1/admin/settings \
+  -H "Authorization: Bearer $ANYGRIDDB_ADMIN_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"maintenance": true, "banner": "Back at noon"}'
+```
 
-   ```bash
-   # Maintenance on before an upgrade, with a word for those who open the app.
-   curl -sS -X PATCH https://<your address>/api/v1/admin/settings \
-     -H "Authorization: Bearer $ANYGRIDDB_ADMIN_TOKEN" \
-     -H "Content-Type: application/json" \
-     -d '{"maintenance": true, "banner": "Back at noon"}'
-   ```
-
-   `https://<your address>/api/v1/admin/openapi.json` describes every
-   request in OpenAPI 3.1, and needs no token.
-
-What to know:
-
-- A token works while the administrator who made it is one. What it
-  does is on the trails under their name, as done with a token. Any
-  administrator revokes it from the same page, at once.
-- A token cannot give the proof Administration asks for a change, so it
-  does nothing that proof guards. An account it makes is never an
-  administrator and has no role on a base. The settings it changes are
-  those of the instance's running: `maintenance`, `banner`,
-  `defaultLocale`, `attachmentMaxBytes`, `releaseCheck`, the alerts'
-  thresholds, and the map's tiles. Security, who may sign up, and the
-  instance's name and mail are changed in Administration.
-- A new account gets a link that sets its first password: mailed to
-  its address where mail is set up, handed back in the answer where it
-  is not.
-- A setting the instance's environment holds is refused, as on screen.
-- The tokens people hold for their bases, provisioning tokens and
-  sessions do not open this API.
-- Requests count in the API's rate limit, 600 a minute per address.
+Token dies with maker's admin role; trails under their name. Cannot do
+proof-guarded acts; new accounts are never admins / have no base role.
+Writable settings: `maintenance`, `banner`, `defaultLocale`,
+`attachmentMaxBytes`, `releaseCheck`, alert thresholds, map tiles. Env-held
+settings refused. Base/API/SCIM tokens and sessions do not open this API.
+Rate limit 600/min/address.
 
 ## Several API processes
 
-The supported production shape is **one API process** with the Compose
-stack in this repository (or an equivalent single instance against a
-managed PostgreSQL). Several API processes behind a load balancer work
-for reads and writes, with these limits:
+Supported shape: **one** API process. Multiple behind a balancer:
 
-- **Rate limits** are counted in each process's memory. Put the
-  balancer's addresses in `ANYGRIDDB_TRUSTED_PROXIES`, so clients are
-  keyed by their real address, and enforce an overall limit on the
-  proxy: otherwise N replicas multiply every bucket.
-- **WebSocket presence** is per process. Fan-out uses PostgreSQL
-  `LISTEN`/`NOTIFY`, so other browsers see row changes, but presence and
-  some in-memory gates are not shared.
+- Rate limits are per-process memory → set `ANYGRIDDB_TRUSTED_PROXIES` and
+  enforce a global limit on the proxy.
+- WebSocket presence per process; row fan-out via `LISTEN`/`NOTIFY`.
 
-The balancer asks each process `/ready`: it answers 200 while PostgreSQL
-answers within two seconds, and 503 otherwise, so requests go to a
-process that can serve them. `/health` only says the process is up.
-`/healthz` answers the same as `/health`. `/readyz` answers the same as
-`/ready`, and also 503 when a migration this process knows is not applied.
-See [Health](integrations/health.md).
-
-Helm charts and multi-region active-active stay outside this repository.
+Balancer: `/ready` (Postgres ≤ 2 s) / `/readyz` (+ migrations). `/health` /
+`/healthz` = process up. See [Health](integrations/health.md).
 
 ## How much a read may hold
 
-One request holds at most 64 MiB of rows, all its calls together, and one
-process holds at most a quarter of its heap for all of them (ADR 0110).
-
-- Past the first, the read answers `page_too_large` (400): ask for fewer rows
-  or fields. The app's own pages of 100 rows are far below it.
-- Past the second, it answers `reads_busy` (503): try again in a moment. If it
-  comes often, give the container more memory or add a process.
-- A read whose client went away (a page left, a tab closed) stops there, and
-  is logged at the `info` level as `request_closed` (499): it says nothing of
-  the instance's capacity.
-
-Exports, snapshots and automations run in the background and are not counted.
+≤ 64 MiB rows per request; ≤ ¼ heap for all reads (ADR 0110).
+Over → `page_too_large` (400) or `reads_busy` (503). Client gone →
+`request_closed` (499) at info. Exports/snapshots/automations not counted.
 
 ## Recovery objectives (RPO / RTO)
 
-With the nightly cron example under [Backups](#backups):
+| Objective | With the scripts                                                                                 |
+| --------- | ------------------------------------------------------------------------------------------------ |
+| **RPO**   | Time since last successful `scripts/backup.sh` (~24 h on sample cron); WAL archiving shortens it |
+| **RTO**   | `scripts/restore.sh` on a spare + DNS/LB cutover; measure once                                   |
 
-| Objective | Typical with the scripts                                                                                                                                       |
-| --------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **RPO**   | Up to the time since the last successful `scripts/backup.sh` (about 24 hours on the sample cron). Continuous WAL archiving on your PostgreSQL shortens it.     |
-| **RTO**   | The time to run `scripts/restore.sh` on a spare host with the same `AUTH_ENCRYPTION_KEY`, plus DNS or load-balancer cutover. Measure it once on a spare stack. |
-
-Restore onto a spare stack after every major upgrade.
+Restore onto a spare after every major upgrade.
 
 ## Shipping logs to a collector
 
-API logs are structured JSON (pino). Point your collector (for example
-Grafana Loki via Promtail or Alloy) at the container's stdout. Do not
-enable a third-party telemetry SDK inside AnyGridDB; metrics and OTEL stay
-opt-in as below.
+JSON on stdout (pino). Point your collector at it. No third-party SDK;
+metrics/OTEL opt-in below.
 
-An error is logged as its kind (`type`), its `code`, the `constraint`
-PostgreSQL names, and its `stack`, with the same of its cause. Its message
-is left out on purpose, since a message quotes the value that failed (an
-address, a row): `message` repeats the kind and the code. To find a
-failure, search by `code` and read the first frame of `stack`.
-
-Administration shows the recent warnings, failures, and the process's own
-messages under Instance, Logs (ADR 0087). A word typed there keeps the
-lines of the chosen level that contain it: the message, the path, the
-code, the address. Successful requests stay on the
-container's output. The page keeps a line's time, level, message, the
-request's method, path and address, and a failure's kind, code and frames.
-The lines live in the process's memory and disappear when it stops. The
-database and the file store log where they run. A collector pointed at the
-container's output keeps the full copy, including lines from before the
-last start.
+Errors log `type`, `code`, PostgreSQL `constraint`, `stack` — not the
+message (it may quote values). Search by `code`. Administration → Instance
+→ Logs keeps recent lines in process memory (ADR 0087); full history is
+stdout.
 
 ## Sign-in events to a collector
 
-Apart from its logs, the instance can send the events of its sign-in trail
-that a watch cares about, as they happen: failed sign-ins, locks, accounts
-made, changed, disabled or deleted, the roles of Administration, settings,
-second factors removed, tokens. Each carries ids, codes and the client's
-address, never an email or a secret. Two ways, alone or together:
+Failed sign-ins, locks, account/role/settings/token events: ids and codes,
+never email/secret.
 
-- **Over HTTPS**, to a public address, set and tried in Administration,
-  Connections: each event is posted as JSON, signed with a secret you give
-  (ADR 0056).
-- **As syslog over TLS** (RFC 5425), to a collector of your network
-  (ADR 0084), set and tried in Administration, Connections: its host, its
-  port (6514 unless you give another), and, when an authority of your
-  own signed its certificate, that authority's certificate (PEM). It is
-  saved once it took a test event. A collector on a private network
-  needs private networks allowed, under Notifications; the machine
-  itself and a cloud's metadata address are never a collector (ADR 0105).
+- **HTTPS webhook** (ADR 0056): Administration → Connections.
+- **Syslog over TLS** RFC 5425 (ADR 0084): host/port (default 6514), optional
+  CA PEM. Private nets need Notifications allow-list; loopback/cloud
+  metadata never accepted (ADR 0105). Or pin in env (wins, ADR 0083):
 
-  An operator may name the collector where the instance is installed
-  instead. It then holds whatever Administration saved, and
-  Administration shows it and cannot change it (ADR 0083). In `.env`:
+```sh
+SYSLOG_HOST=logs.internal
+SYSLOG_PORT=6514
+SYSLOG_CA_FILE=/run/secrets/syslog_ca
+```
 
-  ```sh
-  SYSLOG_HOST=logs.internal
-  SYSLOG_PORT=6514
-  ```
-
-  with the authority's certificate mounted in the application's
-  container through a Compose file of your own, and named:
-  `SYSLOG_CA_FILE=/run/secrets/syslog_ca`. The instance does not start
-  on a value that names no collector.
-
-  Either way the collector's certificate is verified for its name. Each
-  event is one RFC 5424 line (facility `local0`, application
-  `anygriddb`, message id `auth`) whose message is the event as JSON. It
-  leaves from the queue, and is tried again when the collector is away.
-  Nothing is sent in clear text.
+Facility `local0`, app `anygriddb`, msgid `auth`; queued and retried. No
+cleartext.
 
 ## The change trail to a collector
 
-The change trail stays in the database, and whoever holds the credentials
-of the role that owns the tables can rewrite it. To keep a copy out of its
-reach, turn on Administration, Security, Change trail, "Send to the
-collectors". The collectors above then also get the whole trail, oldest
-change first, then each change within a minute: what it is, never what it
-held (ADRs 0120, 0121):
-
-```json
-{
-  "source": "anygriddb",
-  "action": "trail_batch",
-  "batch": 42,
-  "previous": "<sha-256 of batch 41>",
-  "key": "0",
-  "events": [
-    {
-      "id": "…",
-      "order": "1234",
-      "at": "2026-11-24T10:00:00.123456Z",
-      "action": "update",
-      "userId": "…",
-      "actedAs": null,
-      "fingerprint": "<hmac>"
-    }
-  ],
-  "digest": "<sha-256 of this batch>"
-}
-```
-
-Up to 25 events a batch, so a syslog line (message id `trail`) stays under
-8 KiB. Batches are numbered from 1 and chained: keep them all, in a store
-the instance's own accounts cannot write to. A batch may arrive twice, with
-the same number and content, when a collector was away. The events written
-before 0.6.1 carry no write order (`"order": null`) and go first, by date. A
-long trail takes a while to send: each batch is one request, and
-Administration says how many events still wait, counting up to 100,000.
-
-A long trail first needs the two indexes the batches are read by. An instance
-whose application owns the tables builds it at its start; under Compose,
-where it does not, run `docker compose run --rm indexes`. Administration
-shows the copy's state: the last batch, what waits, a failure.
-
-To check the trail, export what a collector kept, one batch a line (a
-syslog line or the JSON alone), and give it to the instance's own command,
-which reads the database and the encryption keys of the running service:
+DB trail is rewritable by the table-owning role. Administration → Security →
+Change trail → **Send to the collectors** ships batches (ADRs 0120, 0121):
+metadata only, ≤ 25 events / ≤ 8 KiB syslog msgid `trail`, chained digests.
+Needs indexes: `docker compose run --rm indexes` when the app does not own
+tables. Admin shows last batch / waiting count (caps at 100k).
 
 ```sh
 docker compose exec -T app anygriddb trail verify < trail.jsonl
 ```
 
-It exits 0 when the trail holds each event as it was sent, and 1 when it
-finds a batch changed, missing or given twice with other contents, or an
-event changed, deleted though no purge could take it, given another author,
-or never sent. A purge and an account's erasure change the trail as they
-should, and are counted apart. A file may hold any run of batches, a day's or a
-month's, in any order: the check covers the events from its first to its last.
-It reads the file a line at a time and keeps 24 bytes an event: 6 million
-events take about a minute and under 1 GiB. Batches
-made under an earlier key are read while that key is in
-`AUTH_ENCRYPTION_PREVIOUS_KEYS`. Two batches of one number also come from a
-restore of an older backup: the instance numbers again from what it holds.
+Exit 0 = intact; 1 = tampered/missing/duplicate contents. Keep previous keys
+in `AUTH_ENCRYPTION_PREVIOUS_KEYS` for older batches. ~24 B/event in memory.
 
 ## Metrics and traces
 
-Both are off until you turn them on (ADR 0018).
+Off until enabled (ADR 0018).
 
-- **Metrics.** Set `METRICS_TOKEN` (32 characters or more), or save a
-  token under Administration, Connections, Notifications. The
-  environment wins when it is set. Without either, `/metrics` answers 404. Prometheus reads `/metrics` on AnyGridDB's HTTPS port with that
-  token:
+**Metrics.** `METRICS_TOKEN` (≥ 32 chars) or Administration → Connections →
+Notifications (env wins). Without token, `/metrics` → 404.
 
-  ```yaml
-  scrape_configs:
-    - job_name: anygriddb
-      scheme: https
-      authorization:
-        credentials: "<METRICS_TOKEN>"
-      tls_config:
-        ca_file: /etc/prometheus/anygriddb-authority.crt # /tls/authority.crt
-      static_configs:
-        - targets: ["anygriddb.example.net:3000"]
-  ```
+```yaml
+scrape_configs:
+  - job_name: anygriddb
+    scheme: https
+    authorization:
+      credentials: "<METRICS_TOKEN>"
+    tls_config:
+      ca_file: /etc/prometheus/anygriddb-authority.crt # /tls/authority.crt
+    static_configs:
+      - targets: ["anygriddb.example.net:3000"]
+```
 
-  The series, beside the process's own (`anygriddb_process_*`,
-  `anygriddb_nodejs_*`):
-  `anygriddb_http_requests_total` and
-  `anygriddb_http_request_duration_seconds` (requests, by route
-  pattern),
-  `anygriddb_trpc_procedure_duration_seconds` (by procedure and
-  outcome),
-  `anygriddb_db_pool_connections` (the pool every request goes through:
-  open, idle, waited for),
-  `anygriddb_source_operation_duration_seconds` and
-  `anygriddb_source_operations_in_flight` (a read or a write in a
-  client's database, and those under way: its connections in use),
-  `anygriddb_job_duration_seconds` (a background task, by task and
-  outcome),
-  `anygriddb_queue_jobs` (the job queue, by state),
-  `anygriddb_client_errors_total` (failures pages report from browsers),
-  `anygriddb_acting_as_total` (an administrator started or stopped
-  acting as someone, or was refused),
-  `anygriddb_build_info` (the version and the commit running),
-  `anygriddb_db_query_duration_seconds` (how long a query on
-  AnyGridDB's own database took; the statement is not a label),
-  `anygriddb_database_size_bytes`,
-  `anygriddb_database_reachable` (0 while that database answers no
-  scrape; `/metrics` keeps answering),
-  `anygriddb_websocket_connections` (browser sockets on this process),
-  `anygriddb_websocket_refused_total` (sockets closed or refused for
-  what they cost, by reason: `slow_reader`, `too_many_messages`,
-  `too_many_sockets`),
-  `anygriddb_automation_scripts_total` (scripts automations ran, by
-  how each ended: `success`, `error`, `timeout`, `memory`, `stopped`),
-  and `anygriddb_automation_runs_paced_total` (runs past their
-  automation's 300 a minute: `delayed` to a later minute, or `dropped`
-  after a day of waiting, which also tells the automation's author).
-  Rules to start from:
+| Series                                                     | Meaning                                       |
+| ---------------------------------------------------------- | --------------------------------------------- |
+| `anygriddb_http_requests_total` / `_duration_seconds`      | HTTP by route                                 |
+| `anygriddb_trpc_procedure_duration_seconds`                | tRPC by procedure/outcome                     |
+| `anygriddb_db_pool_connections`                            | pool open/idle/waiting                        |
+| `anygriddb_db_query_duration_seconds`                      | own-DB query time (no statement label)        |
+| `anygriddb_database_size_bytes` / `_reachable`             | size; 0 if DB down (`/metrics` still answers) |
+| `anygriddb_source_operation_*`                             | client-DB ops                                 |
+| `anygriddb_job_duration_seconds` / `anygriddb_queue_jobs`  | jobs                                          |
+| `anygriddb_client_errors_total`                            | browser-reported failures                     |
+| `anygriddb_websocket_*`                                    | sockets / refusals                            |
+| `anygriddb_automation_scripts_total` / `_runs_paced_total` | scripts / pacing                              |
+| `anygriddb_acting_as_total` / `anygriddb_build_info`       | acting-as / version                           |
 
-  ```yaml
-  groups:
-    - name: anygriddb
-      rules:
-        - alert: AnyGridDBDown
-          expr: up{job="anygriddb"} == 0
-          for: 2m
-        - alert: AnyGridDBDatabaseUnreachable
-          expr: anygriddb_database_reachable == 0
-          for: 1m
-        - alert: AnyGridDBServerErrors
-          expr: |
-            sum(rate(anygriddb_http_requests_total{status="5xx"}[5m]))
-              / sum(rate(anygriddb_http_requests_total[5m])) > 0.02
-          for: 10m
-        - alert: AnyGridDBSlowRequests
-          expr: |
-            histogram_quantile(0.95, sum by (le)
-              (rate(anygriddb_http_request_duration_seconds_bucket[5m]))) > 2
-          for: 10m
-        - alert: AnyGridDBRequestsWaitForTheDatabase
-          expr: anygriddb_db_pool_connections{state="waiting"} > 0
-          for: 5m
-        - alert: AnyGridDBBackgroundWorkBehind
-          expr: anygriddb_queue_jobs{state="ready"} > 1000
-          for: 15m
-        - alert: AnyGridDBPagesFail
-          expr: sum(increase(anygriddb_client_errors_total[15m])) > 5
-  ```
+Plus process/node defaults. Starter alerts:
 
-- **Traces.** Set `OTEL_EXPORTER_OTLP_ENDPOINT` to your OTLP/HTTP
-  collector, over HTTPS. Set `OTEL_EXPORTER_OTLP_HEADERS` for its
-  credentials, and `OTEL_SERVICE_NAME` if `anygriddb` does not suit.
-  When the environment does not name a collector, an administrator can
-  save one under Notifications; saving it replaces the exporter that is
-  running. Spans cover requests, the procedures under them, transactions
-  in client databases, and background tasks. Errors can go to a
-  Sentry-compatible store from that same page. See
-  [Errors and traces](integrations/errors.md).
+```yaml
+groups:
+  - name: anygriddb
+    rules:
+      - alert: AnyGridDBDown
+        expr: up{job="anygriddb"} == 0
+        for: 2m
+      - alert: AnyGridDBDatabaseUnreachable
+        expr: anygriddb_database_reachable == 0
+        for: 1m
+      - alert: AnyGridDBServerErrors
+        expr: |
+          sum(rate(anygriddb_http_requests_total{status="5xx"}[5m]))
+            / sum(rate(anygriddb_http_requests_total[5m])) > 0.02
+        for: 10m
+      - alert: AnyGridDBSlowRequests
+        expr: |
+          histogram_quantile(0.95, sum by (le)
+            (rate(anygriddb_http_request_duration_seconds_bucket[5m]))) > 2
+        for: 10m
+      - alert: AnyGridDBRequestsWaitForTheDatabase
+        expr: anygriddb_db_pool_connections{state="waiting"} > 0
+        for: 5m
+      - alert: AnyGridDBBackgroundWorkBehind
+        expr: anygriddb_queue_jobs{state="ready"} > 1000
+        for: 15m
+      - alert: AnyGridDBPagesFail
+        expr: sum(increase(anygriddb_client_errors_total[15m])) > 5
+```
+
+**Traces.** `OTEL_EXPORTER_OTLP_ENDPOINT` (HTTPS) + optional
+`OTEL_EXPORTER_OTLP_HEADERS` / `OTEL_SERVICE_NAME`. Or save under
+Notifications. See [Errors and traces](integrations/errors.md).
 
 ## Acceptance checklist
 
 Before opening the instance to users:
 
-1. Install a release image pinned by digest; set `PUBLIC_URL` and
-   `AUTH_ENCRYPTION_KEY`; confirm Health shows a trusted certificate path.
-2. Put the database and the files on encrypted storage (Encryption at
-   rest).
-3. Configure SMTP; send a test email from Support. Without email, people
-   join only by an invitation's link or an account an administrator
-   creates: a sign-up proves its address by a mailed link (ADR 0058).
-4. Configure OIDC or SAML; use **Test issuer** / **Test certificate**, then
-   complete one real sign-in.
-5. Optionally turn on **SSO-only** (administrators keep a password).
-6. Optionally set the addresses people may sign in from
-   (Administration, Security, **Sign-in addresses**) and
-   `ANYGRIDDB_TRUSTED_PROXIES`.
-7. Create a SCIM token and push one user and one group from the identity
-   provider; assign the group a role on a base.
-8. Set MFA scope to everyone (or your policy); confirm an enrollment gate.
-9. Turn maintenance on briefly; confirm non-admins are signed out.
-10. Run `scripts/backup.sh` and `scripts/restore.sh` on a spare stack.
-11. If you use a SIEM, save the webhook, or your syslog collector,
-    send a test event, and confirm it arrives (with a valid signature,
-    over HTTPS).
+1. Release image pinned by digest; `PUBLIC_URL` + `AUTH_ENCRYPTION_KEY`; Health shows trusted cert path.
+2. DB + files on encrypted storage.
+3. SMTP test from Support (or invite/admin-created accounts only).
+4. OIDC or SAML: Test issuer/certificate, then one real sign-in.
+5. Optional SSO-only (admins keep a password).
+6. Optional sign-in addresses + `ANYGRIDDB_TRUSTED_PROXIES`.
+7. SCIM: push one user + group; assign a base role.
+8. MFA scope; confirm enrollment gate.
+9. Maintenance on briefly; non-admins signed out.
+10. `scripts/backup.sh` + `scripts/restore.sh` on a spare.
+11. SIEM webhook or syslog: test event arrives.
 12. Scrape `/metrics` with `METRICS_TOKEN` over HTTPS.

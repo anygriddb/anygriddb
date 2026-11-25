@@ -11,7 +11,6 @@ challenged every piece of the stack on its merits, regardless of the code
 already written. A second review the same day measured the code instead of
 asserting: it superseded 0001 and added 0021 to 0026. The later records were
 accepted as the work they decide was done; each carries its own date.
-[`../history/migration-plan.md`](../history/migration-plan.md) records the phases that carried the work; every one is done.
 
 | #                                                            | Decision                                                                                | Status                                                                      |
 | ------------------------------------------------------------ | --------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |

@@ -36,6 +36,12 @@ Migration 0140; nothing to do before.
   and a webhook kept sending them, after their maker lost the right to
   make them.
 
+### Changed
+
+- Operator documentation is a runbook again: the historical migration plan is
+  gone, and README, operations, sources, and MCP assume Docker and TLS are
+  known.
+
 ## 0.9.3 - 2026-11-25
 
 **Upgrade with this release's Compose files and its pin, as usual. No
