@@ -1509,7 +1509,8 @@ test("an administrator makes a role, and whoever holds it does what it gives", a
   expect(await accessibilityViolations(page)).toEqual([]);
   await page.getByRole("button", { name: "Create", exact: true }).click();
   await proveItIsYou(page);
-  await expect(page.getByText("Role made")).toBeVisible();
+  // The toast itself: the list may still say "No role made here yet."
+  await expect(page.getByText("Role made", { exact: true })).toBeVisible();
   await expect(page.getByText(name, { exact: true })).toBeVisible();
 
   // Given as the four are: by invitation, from the base's settings.
@@ -1541,7 +1542,7 @@ test("an administrator makes a role, and whoever holds it does what it gives", a
   await page.getByRole("button", { name: `Change the role ${name}` }).click();
   await page.getByLabel("Export", { exact: true }).check();
   await page.getByRole("button", { name: "Save", exact: true }).click();
-  await expect(page.getByText("Role changed")).toBeVisible();
+  await expect(page.getByText("Role changed", { exact: true })).toBeVisible();
   await holder.reload();
   await expect(holder.getByRole("gridcell", { name: "Chair" })).toBeVisible();
   await holder.getByRole("button", { name: "More actions" }).click();

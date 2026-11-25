@@ -81,6 +81,16 @@ export type ValueKind =
   | "files"
   | "links";
 
+/**
+ * How two values of a field are told apart, when a write is compared with
+ * what its writer saw (ADR 0103): a text to the character, a document
+ * whatever the order of its keys, an instant to the tenth of a microsecond,
+ * a checkbox ticked or not, files by their keys, anything else as the value
+ * it is.
+ */
+export type ComparedAs =
+  "text" | "document" | "instant" | "checkbox" | "files" | "value";
+
 type PhysicalRole =
   | { role: "writable"; sqlType: string }
   | { role: "relation_fk"; sqlType: "uuid" }
@@ -100,11 +110,13 @@ export type FieldTypeDefinition = {
   requiredAllowed: boolean;
   /** Fields AnyGridDB may keep in a client's side table (ADR 0032). */
   sideEligible: boolean;
+  comparedAs: ComparedAs;
 };
 
 function writable(
   sqlType: string,
   kind: ValueKind,
+  comparedAs: ComparedAs,
   extras: Partial<
     Pick<
       FieldTypeDefinition,
@@ -118,6 +130,7 @@ function writable(
     primaryEligible: extras.primaryEligible ?? false,
     requiredAllowed: extras.requiredAllowed ?? true,
     sideEligible: extras.sideEligible ?? false,
+    comparedAs,
   };
 }
 
@@ -128,6 +141,7 @@ function system(column: string, kind: ValueKind): FieldTypeDefinition {
     primaryEligible: column === "ag_seq" || column === "id",
     requiredAllowed: false,
     sideEligible: false,
+    comparedAs: "value",
   };
 }
 
@@ -137,61 +151,62 @@ function system(column: string, kind: ValueKind): FieldTypeDefinition {
  * to fill it in.
  */
 export const FIELD_DEFINITIONS = {
-  text: writable("text", "text", {
+  text: writable("text", "text", "text", {
     primaryEligible: true,
     sideEligible: true,
   }),
-  long_text: writable("text", "text", {
+  long_text: writable("text", "text", "text", {
     primaryEligible: true,
     sideEligible: true,
   }),
-  number: writable("numeric", "number", {
+  number: writable("numeric", "number", "value", {
     primaryEligible: true,
     sideEligible: true,
   }),
-  boolean: writable("boolean", "boolean", {
+  boolean: writable("boolean", "boolean", "checkbox", {
     requiredAllowed: false,
     sideEligible: true,
   }),
-  date: writable("date", "date", {
+  date: writable("date", "date", "instant", {
     primaryEligible: true,
     sideEligible: true,
   }),
-  datetime: writable("timestamptz", "datetime", {
+  datetime: writable("timestamptz", "datetime", "instant", {
     primaryEligible: true,
     sideEligible: true,
   }),
-  single_select: writable("text", "text", {
+  single_select: writable("text", "text", "text", {
     primaryEligible: true,
     sideEligible: true,
   }),
-  multi_select: writable("text[]", "options"),
-  email: writable("text", "text", {
+  multi_select: writable("text[]", "options", "value"),
+  email: writable("text", "text", "text", {
     primaryEligible: true,
     sideEligible: true,
   }),
-  url: writable("text", "text", {
+  url: writable("text", "text", "text", {
     primaryEligible: true,
     sideEligible: true,
   }),
-  phone: writable("text", "text", {
+  phone: writable("text", "text", "text", {
     primaryEligible: true,
     sideEligible: true,
   }),
-  color: writable("text", "text", { sideEligible: true }),
-  place: writable("text", "text", { sideEligible: true }),
+  color: writable("text", "text", "text", { sideEligible: true }),
+  place: writable("text", "text", "text", { sideEligible: true }),
   // Read as its text: a filter, a sort and a formula take it as one.
-  json: writable("jsonb", "text", { sideEligible: true }),
-  rating: writable("numeric", "number", { sideEligible: true }),
-  duration: writable("numeric", "number"),
-  user: writable("uuid[]", "users", { requiredAllowed: false }),
-  attachment: writable("text[]", "files", { requiredAllowed: false }),
+  json: writable("jsonb", "text", "document", { sideEligible: true }),
+  rating: writable("numeric", "number", "value", { sideEligible: true }),
+  duration: writable("numeric", "number", "value"),
+  user: writable("uuid[]", "users", "value", { requiredAllowed: false }),
+  attachment: writable("text[]", "files", "files", { requiredAllowed: false }),
   relation_one_to_many: {
     physical: { role: "relation_fk", sqlType: "uuid" },
     storedValueKind: "links",
     primaryEligible: false,
     requiredAllowed: false,
     sideEligible: false,
+    comparedAs: "value",
   },
   relation_many_to_many: {
     physical: { role: "relation_virtual" },
@@ -199,6 +214,7 @@ export const FIELD_DEFINITIONS = {
     primaryEligible: false,
     requiredAllowed: false,
     sideEligible: false,
+    comparedAs: "value",
   },
   formula: {
     physical: { role: "computed" },
@@ -206,6 +222,7 @@ export const FIELD_DEFINITIONS = {
     primaryEligible: true,
     requiredAllowed: false,
     sideEligible: false,
+    comparedAs: "value",
   },
   lookup: {
     physical: { role: "computed" },
@@ -213,6 +230,7 @@ export const FIELD_DEFINITIONS = {
     primaryEligible: false,
     requiredAllowed: false,
     sideEligible: false,
+    comparedAs: "value",
   },
   rollup: {
     physical: { role: "computed" },
@@ -220,6 +238,7 @@ export const FIELD_DEFINITIONS = {
     primaryEligible: false,
     requiredAllowed: false,
     sideEligible: false,
+    comparedAs: "value",
   },
   created_time: system("ag_created_at", "datetime"),
   last_modified_time: system("ag_updated_at", "datetime"),
@@ -234,6 +253,7 @@ export const FIELD_DEFINITIONS = {
     primaryEligible: false,
     requiredAllowed: false,
     sideEligible: false,
+    comparedAs: "value",
   },
 } satisfies Record<FieldType, FieldTypeDefinition>;
 
@@ -280,6 +300,13 @@ function definitionOf(fieldType: string): FieldTypeDefinition | undefined {
   return Object.hasOwn(FIELD_DEFINITIONS, fieldType)
     ? FIELD_DEFINITIONS[fieldType as FieldType]
     : undefined;
+}
+
+/** How values of a field are compared as seen; any unknown type as values. */
+export function comparedAs(fieldType: string | undefined): ComparedAs {
+  return fieldType === undefined
+    ? "value"
+    : (definitionOf(fieldType)?.comparedAs ?? "value");
 }
 
 export function isPrimaryType(fieldType: FieldType): boolean {
