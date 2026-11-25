@@ -1,4 +1,3 @@
-import type { Role } from "@anygriddb/core";
 import { useLingui } from "@lingui/react/macro";
 import { useState, type ReactNode } from "react";
 import { useSession } from "../../lib/session";
@@ -16,7 +15,8 @@ export function useGiveBaseRole(): {
   give: (input: {
     userId: string;
     baseId: string;
-    role: Role;
+    /** One of the four by its key, or a made role by its id. */
+    role: string;
   }) => Promise<boolean>;
   dialogs: ReactNode;
 } {
@@ -26,7 +26,7 @@ export function useGiveBaseRole(): {
     answer: (reason: string | null) => void;
   } | null>(null);
 
-  async function give(input: { userId: string; baseId: string; role: Role }) {
+  async function give(input: { userId: string; baseId: string; role: string }) {
     if (input.userId !== session.data?.id) {
       await trpc.admin.setBaseRole.mutate(input);
       return true;

@@ -5,13 +5,14 @@
  * the same transaction. A null provider is a local group Administration
  * keeps; `scim` means an identity provider owns the membership.
  */
-import { AppError, labelSchema, type Role } from "@anygriddb/core";
+import { AppError, type Given, labelSchema } from "@anygriddb/core";
 import type { Database } from "@anygriddb/db";
 import { sql } from "kysely";
 import { z } from "zod";
 import { type AuditTx, withAudit } from "../data/audit-context.js";
 import { ERASED_USER_ID } from "../data/erasure.js";
 import { liveBase } from "../data/live.js";
+import { givenColumns, givenOf, MADE_COLUMNS } from "../data/made-roles.js";
 import { postgresCode } from "../data/pg-error.js";
 
 const descriptionSchema = z.string().trim().max(500).nullable().optional();
@@ -82,12 +83,13 @@ export async function syncGroupBindings(
           and m.user_id = b.user_id
           and b.scope = 'base'
           and r.base_id = b.scope_id
-          and r.role = b.role
+          and r.role is not distinct from b.role
+          and r.made_role_id is not distinct from b.made_role_id
       )
   `.execute(tx);
   await sql`
-    insert into role_bindings (user_id, role, scope, scope_id, group_id)
-    select m.user_id, r.role, 'base', r.base_id, r.group_id
+    insert into role_bindings (user_id, role, made_role_id, scope, scope_id, group_id)
+    select m.user_id, r.role, r.made_role_id, 'base', r.base_id, r.group_id
     from group_roles r
     join group_members m on m.group_id = r.group_id
     where r.group_id = ${groupId}
@@ -97,7 +99,8 @@ export async function syncGroupBindings(
           and b.user_id = m.user_id
           and b.scope = 'base'
           and b.scope_id = r.base_id
-          and b.role = r.role
+          and b.role is not distinct from r.role
+          and b.made_role_id is not distinct from r.made_role_id
       )
     -- Two changes to the group at once may both find a binding missing.
     on conflict do nothing
@@ -155,31 +158,55 @@ export async function getGroup(db: Database, groupId: string) {
     db
       .selectFrom("groupRoles as r")
       .innerJoin("bases as b", "b.id", "r.baseId")
-      .select(["r.baseId", "b.name as baseName", "r.role"])
+      .leftJoin("madeRoles as made", "made.id", "r.madeRoleId")
+      .select([
+        "r.baseId",
+        "b.name as baseName",
+        "r.role",
+        "made.id as madeId",
+        "made.name as madeName",
+        "made.permissions as madePermissions",
+      ])
       .where("r.groupId", "=", groupId)
       .where(liveBase("b"))
       .orderBy(sql`lower(b.name)`)
       .execute(),
   ]);
-  return { ...group, members, roles };
+  return {
+    ...group,
+    members,
+    roles: roles.map((row) => ({
+      baseId: row.baseId,
+      baseName: row.baseName,
+      role: givenOf(row),
+    })),
+  };
 }
 
 /** The groups a base gives a role to, with their member counts. */
 export async function listGroupRoles(db: Database, baseId: string) {
-  return db
+  const rows = await db
     .selectFrom("groupRoles as r")
     .innerJoin("groups as g", "g.id", "r.groupId")
+    .leftJoin("madeRoles as m", "m.id", "r.madeRoleId")
     .select([
       "r.groupId",
       "g.displayName",
       "r.role",
-      sql<number>`(select count(*)::int from group_members m where m.group_id = g.id)`.as(
+      ...MADE_COLUMNS,
+      sql<number>`(select count(*)::int from group_members gm where gm.group_id = g.id)`.as(
         "members",
       ),
     ])
     .where("r.baseId", "=", baseId)
     .orderBy(sql`lower(g.display_name)`)
     .execute();
+  return rows.map((row) => ({
+    groupId: row.groupId,
+    displayName: row.displayName,
+    members: row.members,
+    role: givenOf(row),
+  }));
 }
 
 /**
@@ -189,8 +216,8 @@ export async function listGroupRoles(db: Database, baseId: string) {
 export async function setGroupRole(
   db: Database,
   actorId: string,
-  input: { baseId: string; groupId: string; role: Role | null },
-): Promise<{ previous: Role | null }> {
+  input: { baseId: string; groupId: string; role: Given | null },
+): Promise<{ previous: Given | null }> {
   const base = await db
     .selectFrom("bases")
     .select("id")
@@ -206,23 +233,19 @@ export async function setGroupRole(
     throw new AppError(base ? "unknown_group" : "unknown_base");
   return withAudit(db, { userId: actorId, source: "web" }, async (tx) => {
     const before = await tx
-      .selectFrom("groupRoles")
-      .select("role")
-      .where("groupId", "=", input.groupId)
-      .where("baseId", "=", input.baseId)
+      .selectFrom("groupRoles as r")
+      .leftJoin("madeRoles as m", "m.id", "r.madeRoleId")
+      .select(["r.role", ...MADE_COLUMNS])
+      .where("r.groupId", "=", input.groupId)
+      .where("r.baseId", "=", input.baseId)
       .executeTakeFirst();
     if (input.role) {
+      const given = givenColumns(input.role);
       await tx
         .insertInto("groupRoles")
-        .values({
-          groupId: input.groupId,
-          baseId: input.baseId,
-          role: input.role,
-        })
+        .values({ groupId: input.groupId, baseId: input.baseId, ...given })
         .onConflict((conflict) =>
-          conflict
-            .columns(["groupId", "baseId"])
-            .doUpdateSet({ role: input.role ?? "viewer" }),
+          conflict.columns(["groupId", "baseId"]).doUpdateSet(given),
         )
         .execute();
     } else {
@@ -233,7 +256,7 @@ export async function setGroupRole(
         .execute();
     }
     await syncGroupBindings(tx, input.groupId);
-    return { previous: before?.role ?? null };
+    return { previous: before ? givenOf(before) : null };
   });
 }
 
@@ -343,7 +366,7 @@ export async function addLocalGroupMember(
   db: Database,
   actorId: string,
   input: { groupId: string; userId: string },
-): Promise<{ roles: { baseId: string; role: Role }[] }> {
+): Promise<{ roles: { baseId: string; role: Given }[] }> {
   return withAudit(db, { userId: actorId, source: "web" }, async (tx) => {
     await requireLocalGroup(tx, input.groupId);
     await requireActiveAccount(tx, input.userId);
@@ -359,12 +382,17 @@ export async function addLocalGroupMember(
     // The roles the group holds, which the new member now has; none for
     // someone who was a member already.
     if (!added) return { roles: [] };
+    const roles = await tx
+      .selectFrom("groupRoles as r")
+      .leftJoin("madeRoles as m", "m.id", "r.madeRoleId")
+      .select(["r.baseId", "r.role", ...MADE_COLUMNS])
+      .where("r.groupId", "=", input.groupId)
+      .execute();
     return {
-      roles: await tx
-        .selectFrom("groupRoles")
-        .select(["baseId", "role"])
-        .where("groupId", "=", input.groupId)
-        .execute(),
+      roles: roles.flatMap((row) => {
+        const role = givenOf(row);
+        return role ? [{ baseId: row.baseId, role }] : [];
+      }),
     };
   });
 }

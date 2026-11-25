@@ -9,6 +9,8 @@ import {
 } from "./notify/deliver-person.js";
 import type { Publisher } from "./realtime/bus.js";
 import { liveColumn, liveTable } from "./data/live.js";
+import { bindingsFrom, MADE_COLUMNS } from "./data/made-roles.js";
+import { loadBindings } from "./auth/access.js";
 import type { SmtpConfig } from "./mail.js";
 
 export type NotificationKind = BellKind;
@@ -43,14 +45,17 @@ async function readersOf(
 ): Promise<Set<string>> {
   if (userIds.length === 0) return new Set();
   const bindings = await db
-    .selectFrom("roleBindings")
-    .select(["userId", "role", "scope", "scopeId"])
-    .where("userId", "in", [...userIds])
-    .where("scopeId", "in", [table.id, table.baseId])
+    .selectFrom("roleBindings as b")
+    .leftJoin("madeRoles as m", "m.id", "b.madeRoleId")
+    .select(["b.userId", "b.role", "b.scope", "b.scopeId", ...MADE_COLUMNS])
+    .where("b.userId", "in", [...userIds])
+    .where("b.scopeId", "in", [table.id, table.baseId])
     .execute();
   const readers = new Set<string>();
   for (const userId of userIds) {
-    const own = bindings.filter((binding) => binding.userId === userId);
+    const own = bindingsFrom(
+      bindings.filter((binding) => binding.userId === userId),
+    );
     if (
       roleGrants(effectiveTableRole(own, table.id, table.baseId), "rows.read")
     ) {
@@ -161,11 +166,7 @@ export async function listNotifications(
     .orderBy("n.createdAt", "desc")
     .limit(options.limit)
     .execute();
-  const bindings = await db
-    .selectFrom("roleBindings")
-    .select(["role", "scope", "scopeId"])
-    .where("userId", "=", userId)
-    .execute();
+  const bindings = await loadBindings(db, userId);
   return rows
     .filter(
       (row) =>

@@ -4,7 +4,7 @@
  * and those who answer for the base learn of it in the app, whoever the
  * role went to and by whichever way. One notice for one gesture.
  */
-import { trimEndRun, type Role } from "@anygriddb/core";
+import { type Given, trimEndRun } from "@anygriddb/core";
 import type { Database } from "@anygriddb/db";
 import type { KeyRing } from "../auth/key-ring.js";
 import type { SmtpConfig } from "../mail.js";
@@ -13,10 +13,10 @@ import type { Publisher } from "../realtime/bus.js";
 
 /** What was given: to a person, to several at once, to a group, or to a group's new member. */
 type RoleGift =
-  | { to: "person"; userId: string; role: Role }
+  | { to: "person"; userId: string; role: Given }
   | { to: "people"; count: number }
-  | { to: "group"; groupId: string; role: Role }
-  | { to: "member"; userId: string; groupId: string; role: Role };
+  | { to: "group"; groupId: string; role: Given }
+  | { to: "member"; userId: string; groupId: string; role: Given };
 
 export type RoleNoticeDeps = {
   db: Database;
@@ -99,7 +99,10 @@ async function tell(
   if (person) data.name = person.displayName;
   if (!named) {
     if (group) data.group = group.displayName;
-    if ("role" in gift) data.role = gift.role;
+    // One of the four by its key, a made role by its name (ADR 0128).
+    if ("role" in gift) {
+      data.role = typeof gift.role === "string" ? gift.role : gift.role.name;
+    }
     if (gift.to === "people") data.count = String(gift.count);
   }
   const kind = named ? ("owner_named" as const) : ("role_given" as const);

@@ -3,6 +3,7 @@ import {
   type Binding,
   can,
   enrollmentGate,
+  readOnlyGiven,
   roleFor,
 } from "@anygriddb/core";
 import type { Database } from "@anygriddb/db";
@@ -20,19 +21,24 @@ import {
   withOpenBases,
 } from "../data/emergency-access.js";
 import { liveBase, liveTable } from "../data/live.js";
+import { bindingsFrom, MADE_COLUMNS } from "../data/made-roles.js";
 
 export type FactorMethod = "totp" | "webauthn" | "email";
 type GridDecision = "ok" | "denied" | "enroll";
 
+/** An account's bindings, a made role's with what it gives now (ADR 0128). */
 export async function loadBindings(
-  db: Database,
+  db: Pick<Database, "selectFrom">,
   userId: string,
 ): Promise<Binding[]> {
-  return db
-    .selectFrom("roleBindings")
-    .select(["role", "scope", "scopeId"])
-    .where("userId", "=", userId)
-    .execute();
+  return bindingsFrom(
+    await db
+      .selectFrom("roleBindings as b")
+      .leftJoin("madeRoles as m", "m.id", "b.madeRoleId")
+      .select(["b.role", "b.scope", "b.scopeId", ...MADE_COLUMNS])
+      .where("b.userId", "=", userId)
+      .execute(),
+  );
 }
 
 /**
@@ -301,9 +307,10 @@ export async function gridChannelRights(
       .where("id", "in", userIds)
       .execute(),
     db
-      .selectFrom("roleBindings")
-      .select(["userId", "role", "scope", "scopeId"])
-      .where("userId", "in", userIds)
+      .selectFrom("roleBindings as b")
+      .leftJoin("madeRoles as m", "m.id", "b.madeRoleId")
+      .select(["b.userId", "b.role", "b.scope", "b.scopeId", ...MADE_COLUMNS])
+      .where("b.userId", "in", userIds)
       .execute(),
     channels.length === 0
       ? Promise.resolve([])
@@ -325,10 +332,11 @@ export async function gridChannelRights(
   ]);
   if (accounts.length === 0) return answers;
   const held = new Map<string, Binding[]>();
-  for (const { userId, role, scope, scopeId } of bindings) {
-    const list = held.get(userId) ?? [];
-    list.push({ role, scope, scopeId });
-    held.set(userId, list);
+  for (const row of bindings) {
+    held.set(row.userId, [
+      ...(held.get(row.userId) ?? []),
+      ...bindingsFrom([row]),
+    ]);
   }
   const tableIds = tables.map((table) => table.id);
   const [refused, open, rowRules, fieldRules] = await Promise.all([
@@ -408,7 +416,8 @@ export async function gridChannelRights(
 
 /**
  * Narrows bindings to what an API token allows: its bases only, and
- * viewer rights when it is read-only. Session requests pass through.
+ * viewer rights when it is read-only (of a made role, those it gives).
+ * Session requests pass through.
  */
 export async function scopeBindings(
   db: Database,
@@ -444,7 +453,11 @@ export async function scopeBindings(
     );
   }
   if (scope.readOnly) {
-    list = list.map((binding) => ({ ...binding, role: "viewer" as const }));
+    // A viewer's reach, and never more than the role gave.
+    list = list.map((binding) => ({
+      ...binding,
+      role: readOnlyGiven(binding.role),
+    }));
   }
   return list;
 }

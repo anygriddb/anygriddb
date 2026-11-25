@@ -276,6 +276,7 @@ describe("snapshots with files and people", () => {
         members: 1,
         membersMissing: 1,
         membersLeft: 0,
+        membersRoleMissing: 0,
         widgetsLeft: 0,
       });
       const role = await db

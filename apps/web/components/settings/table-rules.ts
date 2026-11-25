@@ -1,4 +1,4 @@
-import { type FilterGroup, type Role, roleGrants } from "@anygriddb/core";
+import { type FilterGroup, type Grant, roleGrants } from "@anygriddb/core";
 
 export type FieldAccess = "hide" | "read" | "write";
 
@@ -13,7 +13,7 @@ export type StoredRule = {
  * reads and changes every row and every field, whatever is kept for them.
  */
 export function ruledMembers<
-  Person extends { baseRole: Role | null; tableRole: Role | null },
+  Person extends { baseRole: Grant | null; tableRole: Grant | null },
 >(people: readonly Person[]): Person[] {
   return people.filter(
     (person) =>

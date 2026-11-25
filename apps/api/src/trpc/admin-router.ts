@@ -1,6 +1,7 @@
 import { adminAccountProcedures } from "./admin-accounts-router.js";
 import { adminBaseProcedures } from "./admin-bases-router.js";
 import { groupsRouter } from "./admin-groups-router.js";
+import { rolesRouter } from "./admin-roles-router.js";
 import { adminInstanceProcedures } from "./admin-instance-router.js";
 import {
   apiTokensRouter,
@@ -24,6 +25,7 @@ import { t } from "./init.js";
  */
 export const adminRouter = t.router({
   groups: groupsRouter,
+  roles: rolesRouter,
   scim: scimRouter,
   apiTokens: apiTokensRouter,
   oauthClients: oauthClientsRouter,

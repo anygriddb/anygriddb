@@ -18,7 +18,6 @@ import { useLingui } from "@lingui/react/macro";
 import { formatClock, intlLocale } from "../../lib/format";
 import { useLocale } from "../../lib/i18n";
 import { trpc, useTRPC, type RouterOutputs } from "../../lib/trpc";
-import type { Role } from "../../lib/types";
 import { useRoleLabel } from "../settings/role-label";
 
 export type NotificationItem =
@@ -89,7 +88,7 @@ export function useDescribeNotification() {
           const until = formatClock(item.data.until, locale);
           return t`${actor}, an administrator, opened ${base} to read it until ${until}. Their reason: ${reason}`;
         }
-        const role = roleLabel((item.data?.role ?? "viewer") as Role);
+        const role = roleLabel(item.data?.role ?? "viewer");
         return t`${actor}, an administrator, gave themselves a role on ${base} (${role}). Their reason: ${reason}`;
       }
       case "role_given": {
@@ -98,7 +97,7 @@ export function useDescribeNotification() {
         const base = item.data?.base ?? "—";
         const name = item.data?.name ?? "—";
         const group = item.data?.group;
-        const role = roleLabel(item.data?.role as Role | undefined);
+        const role = roleLabel(item.data?.role);
         if (item.data?.count) {
           return t`${actor}, an administrator, gave ${plural(item.data.count, { one: "# person", other: "# people" })} a role on ${base}`;
         }

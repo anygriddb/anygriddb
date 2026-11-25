@@ -4,9 +4,11 @@ import {
   assertCircuitEdit,
   findAllowedTransition,
   initialState,
+  takesTransition,
   transitionKeyForStatus,
   type StatusCircuit,
 } from "./status-circuit.js";
+import type { Permission } from "./rbac.js";
 
 /** Compliance's first three states, the last one sealed. */
 const compliance: StatusCircuit = {
@@ -108,5 +110,32 @@ describe("status circuit", () => {
         remap: {},
       }),
     ).toThrow(AppError);
+  });
+});
+
+describe("takesTransition", () => {
+  const made = (permissions: Permission[]) => ({
+    role: null,
+    made: [{ id: "m", name: "Made" }],
+    permissions,
+  });
+
+  it("opens a transition to the roles it names, as before", () => {
+    expect(takesTransition(["owner", "editor"], "editor")).toBe(true);
+    expect(takesTransition(["owner"], "editor")).toBe(false);
+    expect(takesTransition(["owner"], null)).toBe(false);
+  });
+
+  it("opens it to a made role by the act each of the four stands for", () => {
+    expect(takesTransition(["editor"], made(["rows.read", "rows.write"]))).toBe(
+      true,
+    );
+    expect(takesTransition(["owner"], made(["rows.read", "rows.write"]))).toBe(
+      false,
+    );
+    expect(takesTransition(["owner"], made(["rows.read", "rows.lock"]))).toBe(
+      true,
+    );
+    expect(takesTransition(["reviewer"], made(["rows.read"]))).toBe(false);
   });
 });

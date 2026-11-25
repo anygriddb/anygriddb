@@ -6,20 +6,19 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { useErrorText } from "../../lib/errors";
 import { trpc, useTRPC } from "../../lib/trpc";
-import type { Role } from "../../lib/types";
-import { useRoleLabel } from "../settings/role-label";
+import type { Given } from "../../lib/types";
+import { givenValue, useRoleLabel } from "../settings/role-label";
+import { RoleOptions } from "../settings/role-options";
 import { ConfirmDialog } from "../shell/dialogs";
 import { useGiveBaseRole } from "./give-base-role";
 import { BaseName, useBaseChoices, type BaseChoice } from "./base-choices";
 import { EffectiveRights } from "./effective-rights";
 import { useStepUp } from "./step-up";
 
-const ROLES: readonly Role[] = ["owner", "editor", "commenter", "viewer"];
-
 type Membership = {
   id: string;
   name: string;
-  role: Role;
+  role: Given | null;
   /** The group that gives the role; null for the person's own. */
   viaGroup: string | null;
 };
@@ -51,7 +50,7 @@ export function AccountBases({
   const [picking, setPicking] = useState(false);
   const [typed, setTyped] = useState("");
   const [chosen, setChosen] = useState<BaseChoice | null>(null);
-  const [role, setRole] = useState<Role>("viewer");
+  const [role, setRole] = useState<string>("viewer");
   const [busy, setBusy] = useState(false);
   const [openRights, setOpenRights] = useState<string | null>(null);
   const choices = useBaseChoices(typed, picking);
@@ -66,7 +65,7 @@ export function AccountBases({
       queryClient.invalidateQueries({ queryKey: api.admin.account.queryKey() }),
       queryClient.invalidateQueries({ queryKey: api.admin.users.queryKey() }),
     ]);
-  async function setOn(baseId: string, next: Role): Promise<boolean> {
+  async function setOn(baseId: string, next: string): Promise<boolean> {
     setBusy(true);
     try {
       if (!(await stepUp.ensure())) return false;
@@ -134,20 +133,16 @@ export function AccountBases({
                       <Select
                         aria-label={t`Role on ${{ base: base.name }}`}
                         className="w-36"
-                        value={base.role}
+                        value={givenValue(base.role)}
                         disabled={busy}
                         onChange={(event) => {
-                          const next = event.target.value as Role;
+                          const next = event.target.value;
                           void setOn(base.id, next).then((done) => {
                             if (done) toast.success(t`Role changed`);
                           });
                         }}
                       >
-                        {ROLES.map((option) => (
-                          <option key={option} value={option}>
-                            {roleLabel(option)}
-                          </option>
-                        ))}
+                        <RoleOptions />
                       </Select>
                       <Button
                         size="sm"
@@ -198,13 +193,9 @@ export function AccountBases({
                 aria-label={t`Role on ${{ base: chosen.name }}`}
                 className="w-36"
                 value={role}
-                onChange={(event) => setRole(event.target.value as Role)}
+                onChange={(event) => setRole(event.target.value)}
               >
-                {ROLES.map((option) => (
-                  <option key={option} value={option}>
-                    {roleLabel(option)}
-                  </option>
-                ))}
+                <RoleOptions />
               </Select>
             </div>
           ) : (

@@ -1,7 +1,8 @@
 /**
  * Groups, local or kept by the identity provider.
  */
-import { ROLES } from "@anygriddb/core";
+import { givenRoleSchema } from "@anygriddb/core";
+import { givenKey, resolveGiven } from "../data/made-roles.js";
 import { z } from "zod";
 import {
   addLocalGroupMember,
@@ -120,18 +121,22 @@ export const groupsRouter = t.router({
       z.object({
         groupId: z.uuid(),
         baseId: z.uuid(),
-        role: z.enum(ROLES).nullable(),
+        role: givenRoleSchema.nullable(),
       }),
     )
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
         const admin = await requireAdmin(ctx);
-        const { previous } = await setGroupRole(ctx.db, admin.id, input);
-        if (input.role && input.role !== previous) {
+        const role = input.role ? await resolveGiven(ctx.db, input.role) : null;
+        const { previous } = await setGroupRole(ctx.db, admin.id, {
+          ...input,
+          role,
+        });
+        if (role && input.role !== givenKey(previous)) {
           await tellOwnersOfRole(await roleNoticeDeps(ctx), {
             baseId: input.baseId,
             actorId: admin.id,
-            gift: { to: "group", groupId: input.groupId, role: input.role },
+            gift: { to: "group", groupId: input.groupId, role },
           });
         }
         ctx.req.log.info(

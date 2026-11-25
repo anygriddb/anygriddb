@@ -24,7 +24,7 @@ In short; [`ROADMAP.md`](ROADMAP.md#done) says what works, area by area.
 - **Fields**: 30 types, with links, lookups, rollups, and formulas (94 functions) computed by the database that holds the rows.
 - **Views**: grid, form, kanban, gallery, list, calendar, timeline, and map; personal and locked views; nested filters.
 - **Collaboration**: live updates and presence, comments and @mentions, notifications, row history, and a trash that keeps what was deleted for 30 days.
-- **Sharing**: owner, editor, commenter, and viewer roles per base or per table, with field and row rules; public views, forms, and read-only bases, with a password and an expiry.
+- **Sharing**: owner, editor, commenter, and viewer roles per base or per table, and roles an administrator makes of their permissions (export, import, publish, delete apart), with field and row rules; public views, forms, and read-only bases, with a password and an expiry.
 - **Data**: import of CSV, TSV, JSON, and Excel, and export to CSV, JSON, and Excel; an Airtable base or a workbook made a base; base backups, restore points, and templates.
 - **Integrations**: a REST API with an OpenAPI 3.1 document per base, an [MCP server](docs/mcp.md) for the AI you run, scoped tokens, OAuth for applications, webhooks, and automations that run scripts of your own.
 - **Dashboards**: metrics, charts, and a view's rows, computed by the database under each reader's rights.

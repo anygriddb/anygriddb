@@ -375,6 +375,11 @@ msgstr "{0, plural, one {# grouped condition} other {# grouped conditions}}"
 msgid "{0, plural, one {# hidden field} other {# hidden fields}}"
 msgstr "{0, plural, one {# hidden field} other {# hidden fields}}"
 
+#. placeholder {0}: role.holders
+#: components/admin/roles-tab.tsx
+msgid "{0, plural, one {# holder} other {# holders}}"
+msgstr "{0, plural, one {# holder} other {# holders}}"
+
 #. placeholder {0}: resultNumber(job, "purged")
 #: components/shell/jobs-menu.tsx
 msgid "{0, plural, one {# item deleted} other {# items deleted}}"
@@ -1501,6 +1506,14 @@ msgid "A restore point of the base, kept on the instance"
 msgstr "A restore point of the base, kept on the instance"
 
 #: lib/errors.ts
+msgid "A role already has this name"
+msgstr "A role already has this name"
+
+#: lib/errors.ts
+msgid "A role reads rows, and gives only the permissions listed"
+msgstr "A role reads rows, and gives only the permissions listed"
+
+#: lib/errors.ts
 msgid "A row cannot be placed next to itself"
 msgstr "A row cannot be placed next to itself"
 
@@ -2013,6 +2026,10 @@ msgstr "Add a widget"
 #: components/table/automations-dialog.tsx
 msgid "Add an action"
 msgstr "Add an action"
+
+#: components/admin/permission-labels.ts
+msgid "Add and change rows, submit a draft, press a button."
+msgstr "Add and change rows, submit a draft, press a button."
 
 #: components/settings/second-factor.tsx
 msgid "Add another passkey"
@@ -2696,6 +2713,7 @@ msgstr "Author"
 msgid "Auto"
 msgstr "Auto"
 
+#: components/admin/permission-labels.ts
 #: components/admin/trails.tsx
 #: components/shell/notification-items.ts
 msgid "Automation"
@@ -2711,6 +2729,7 @@ msgstr "Automation you authored failed"
 
 #: components/admin/access-tab.tsx
 #: components/admin/account-handoff.tsx
+#: components/admin/permission-labels.ts
 #: components/admin/security-tab.tsx
 #: components/table/view-toolbar.tsx
 msgid "Automations"
@@ -3057,6 +3076,7 @@ msgstr "Calls the push address of an Uptime Kuma monitor, with status up or down
 #: components/admin/groups-tab.tsx
 #: components/admin/notifications-tab.tsx
 #: components/admin/people-file-dialog.tsx
+#: components/admin/roles-tab.tsx
 #: components/admin/sources-tab.tsx
 #: components/admin/step-up.tsx
 #: components/admin/support-tab.tsx
@@ -3160,6 +3180,10 @@ msgstr "Change column"
 #: components/settings/account-settings.tsx
 msgid "Change the password"
 msgstr "Change the password"
+
+#: components/admin/roles-tab.tsx
+msgid "Change the role {name}"
+msgstr "Change the role {name}"
 
 #: lib/errors.ts
 msgid "Change Tracking is off on this table, or the account lacks VIEW CHANGE TRACKING"
@@ -3542,6 +3566,7 @@ msgstr "Columns by"
 msgid "Command line"
 msgstr "Command line"
 
+#: components/admin/permission-labels.ts
 #: components/record/record-panel.tsx
 msgid "Comment"
 msgstr "Comment"
@@ -3549,6 +3574,10 @@ msgstr "Comment"
 #: components/record/record-panel.tsx
 msgid "Comment deleted"
 msgstr "Comment deleted"
+
+#: components/admin/permission-labels.ts
+msgid "Comment on rows and answer comments."
+msgstr "Comment on rows and answer comments."
 
 #: components/settings/role-label.ts
 msgid "Commenter"
@@ -3854,6 +3883,7 @@ msgid "Cover"
 msgstr "Cover"
 
 #: components/admin/groups-tab.tsx
+#: components/admin/roles-tab.tsx
 #: components/dashboards/dashboard-list.tsx
 #: components/settings/account-settings.tsx
 #: components/shell/new-base-dialog.tsx
@@ -4037,6 +4067,7 @@ msgstr "Dashboard not found"
 msgid "Dashboard widget"
 msgstr "Dashboard widget"
 
+#: components/admin/permission-labels.ts
 #: components/shell/base-home.tsx
 #: components/shell/sidebar-dashboards.tsx
 msgid "Dashboards"
@@ -4046,6 +4077,10 @@ msgstr "Dashboards"
 #: components/shell/command-palette.tsx
 msgid "Dashboards of {name}"
 msgstr "Dashboards of {name}"
+
+#: components/admin/permission-labels.ts
+msgid "Data"
+msgstr "Data"
 
 #: components/admin/health-tab.tsx
 #: components/admin/sources-tab.tsx
@@ -4143,6 +4178,7 @@ msgstr "delete"
 #: components/admin/account-actions.tsx
 #: components/admin/change-labels.ts
 #: components/admin/group-page.tsx
+#: components/admin/roles-tab.tsx
 #: components/admin/sources-tab.tsx
 #: components/dashboards/dashboard-board.tsx
 #: components/dashboards/dashboard-list.tsx
@@ -4213,6 +4249,7 @@ msgstr "Delete permanently"
 msgid "Delete row"
 msgstr "Delete row"
 
+#: components/admin/permission-labels.ts
 #: components/admin/sources-tab.tsx
 #: components/grid/grid-menu.tsx
 msgid "Delete rows"
@@ -4257,6 +4294,14 @@ msgstr "Delete the folder “{name}”?"
 #: components/settings/restore-points.tsx
 msgid "Delete the restore point of {date}"
 msgstr "Delete the restore point of {date}"
+
+#: components/admin/roles-tab.tsx
+msgid "Delete the role {name}"
+msgstr "Delete the role {name}"
+
+#: components/admin/roles-tab.tsx
+msgid "Delete the role {name}?"
+msgstr "Delete the role {name}?"
 
 #: components/admin/sources-tab.tsx
 msgid "Delete the source {name}?"
@@ -4648,6 +4693,7 @@ msgstr "Edit field"
 msgid "Edit name and email"
 msgstr "Edit name and email"
 
+#: components/admin/permission-labels.ts
 #: components/admin/sources-tab.tsx
 msgid "Edit rows"
 msgstr "Edit rows"
@@ -5036,6 +5082,10 @@ msgstr "Everyone else"
 msgid "Everyone else is signed out"
 msgstr "Everyone else is signed out"
 
+#: components/admin/roles-tab.tsx
+msgid "Everyone who holds a role gets what it gives now: a change takes effect at once. A role somebody holds, or that an invitation waits with, cannot be deleted."
+msgstr "Everyone who holds a role gets what it gives now: a change takes effect at once. A role somebody holds, or that an invitation waits with, cannot be deleted."
+
 #: components/shell/shortcuts-dialog.tsx
 msgid "Everywhere"
 msgstr "Everywhere"
@@ -5096,6 +5146,7 @@ msgid "Exponential: e to the power of the number."
 msgstr "Exponential: e to the power of the number."
 
 #: components/admin/change-labels.ts
+#: components/admin/permission-labels.ts
 #: components/admin/support-tab.tsx
 msgid "Export"
 msgstr "Export"
@@ -5357,6 +5408,14 @@ msgstr "Files"
 #: components/fields/field-meta.tsx
 msgid "Files and images"
 msgstr "Files and images"
+
+#: components/admin/permission-labels.ts
+msgid "Files into a table, and a workbook as new tables."
+msgstr "Files into a table, and a workbook as new tables."
+
+#: components/admin/permission-labels.ts
+msgid "Files of rows, calendar feeds, and a base's backup."
+msgstr "Files of rows, calendar feeds, and a base's backup."
 
 #: components/shell/shortcuts-dialog.tsx
 msgid "Fill down"
@@ -5654,6 +5713,10 @@ msgstr "Give at least one recipient."
 #: components/admin/give-base-role.tsx
 msgid "Give myself the role"
 msgstr "Give myself the role"
+
+#: components/admin/permission-labels.ts
+msgid "Give roles no wider than this one, invite, and set each member's field and row rules."
+msgstr "Give roles no wider than this one, invite, and set each member's field and row rules."
 
 #: components/admin/account-actions.tsx
 msgid "Give the account manager role"
@@ -6039,6 +6102,7 @@ msgstr "If the row matches:"
 msgid "If… then… otherwise…"
 msgstr "If… then… otherwise…"
 
+#: components/admin/permission-labels.ts
 #: components/admin/support-tab.tsx
 #: components/settings/webhooks-panel.tsx
 #: components/shell/new-base-dialog.tsx
@@ -6601,6 +6665,10 @@ msgstr "Its link takes answers until"
 msgid "Its members lose it at once. It stays in the trash for {days} days with its data, then is deleted permanently."
 msgstr "Its members lose it at once. It stays in the trash for {days} days with its data, then is deleted permanently."
 
+#: components/admin/permission-labels.ts
+msgid "Its name, its trash, its copies, restore points and backups."
+msgstr "Its name, its trash, its copies, restore points and backups."
+
 #: components/admin/integrations-tab.tsx
 #: components/admin/notifications-tab.tsx
 msgid "Its operator changes it where the instance is installed."
@@ -7033,6 +7101,10 @@ msgstr "Lock"
 msgid "Lock an account after"
 msgstr "Lock an account after"
 
+#: components/admin/permission-labels.ts
+msgid "Lock and sign rows"
+msgstr "Lock and sign rows"
+
 #: components/admin/sign-in-trail.tsx
 msgid "Lock duration"
 msgstr "Lock duration"
@@ -7040,6 +7112,10 @@ msgstr "Lock duration"
 #: components/table/view-tabs.tsx
 msgid "Lock view"
 msgstr "Lock view"
+
+#: components/admin/permission-labels.ts
+msgid "Lock, sign and unlock rows, and take the steps a status circuit gives owners."
+msgstr "Lock, sign and unlock rows, and take the steps a status circuit gives owners."
 
 #: components/record/record-panel.tsx
 msgid "locked"
@@ -7181,6 +7257,14 @@ msgstr "Make a token"
 msgid "Make administrator"
 msgstr "Make administrator"
 
+#: components/admin/permission-labels.ts
+msgid "Make and change dashboards and their widgets."
+msgstr "Make and change dashboards and their widgets."
+
+#: components/admin/permission-labels.ts
+msgid "Make, change and run a table's automations."
+msgstr "Make, change and run a table's automations."
+
 #: components/settings/restore-points.tsx
 msgid "Making a restore point…"
 msgstr "Making a restore point…"
@@ -7293,6 +7377,7 @@ msgstr "Member whose permissions are set"
 #: components/admin/base-admin-members.tsx
 #: components/admin/bases-tab.tsx
 #: components/admin/group-page.tsx
+#: components/admin/permission-labels.ts
 #: components/settings/base-settings.tsx
 msgid "Members"
 msgstr "Members"
@@ -7461,6 +7546,10 @@ msgstr "Move out of folder"
 msgid "Move right"
 msgstr "Move right"
 
+#: components/admin/permission-labels.ts
+msgid "Move rows to the trash and bring them back."
+msgstr "Move rows to the trash and bring them back."
+
 #: components/views/map-view.tsx
 msgid "Move south"
 msgstr "Move south"
@@ -7537,6 +7626,7 @@ msgstr "N days ago"
 #: components/admin/identity-tab.tsx
 #: components/admin/notifications-tab.tsx
 #: components/admin/oauth-clients-tab.tsx
+#: components/admin/roles-tab.tsx
 #: components/admin/scim-tab.tsx
 #: components/admin/sources-tab.tsx
 #: components/dashboards/dashboard-board.tsx
@@ -7666,6 +7756,10 @@ msgstr "New password, again"
 #: components/table/view-tabs.tsx
 msgid "New personal view"
 msgstr "New personal view"
+
+#: components/admin/roles-tab.tsx
+msgid "New role"
+msgstr "New role"
 
 #: components/table/new-row-dialog.tsx
 msgid "New row"
@@ -8047,6 +8141,10 @@ msgstr "No restore point yet."
 msgid "No results"
 msgstr "No results"
 
+#: components/admin/roles-tab.tsx
+msgid "No role made here yet."
+msgstr "No role made here yet."
+
 #: components/admin/rights-at.tsx
 msgid "No role on the trail for this person at that date."
 msgstr "No role on the trail for this person at that date."
@@ -8156,6 +8254,10 @@ msgstr "No write yet."
 #: components/admin/admin-overview.tsx
 msgid "Nobody can manage them: every owner's account is disabled, or there is none."
 msgstr "Nobody can manage them: every owner's account is disabled, or there is none."
+
+#: components/admin/roles-tab.tsx
+msgid "Nobody holds it. Invitations already answered or expired that named it go with it."
+msgstr "Nobody holds it. Invitations already answered or expired that named it go with it."
 
 #: components/admin/health-tab.tsx
 msgid "Node.js, up for"
@@ -9117,6 +9219,10 @@ msgstr "Public links are turned off on this instance"
 msgid "Public links let anyone with the address read a view or fill a form; a calendar feed gives its owner's calendar program the view's dates. Revoking one stops it at once."
 msgstr "Public links let anyone with the address read a view or fill a form; a calendar feed gives its owner's calendar program the view's dates. Revoking one stops it at once."
 
+#: components/admin/permission-labels.ts
+msgid "Public links to a view, a form or a whole base."
+msgstr "Public links to a view, a form or a whole base."
+
 #: components/admin/security-tab.tsx
 msgid "Public links to views and forms"
 msgstr "Public links to views and forms"
@@ -9125,6 +9231,7 @@ msgstr "Public links to views and forms"
 msgid "PUBLIC_URL is an IP address: HTTPS and TOTP work; passkeys need a DNS hostname (or localhost) in PUBLIC_URL that people open. Put the IP in TLS_NAMES if it must stay on the certificate."
 msgstr "PUBLIC_URL is an IP address: HTTPS and TOTP work; passkeys need a DNS hostname (or localhost) in PUBLIC_URL that people open. Put the IP in TLS_NAMES if it must stay on the certificate."
 
+#: components/admin/permission-labels.ts
 #: components/admin/settings-tab.tsx
 msgid "Publish"
 msgstr "Publish"
@@ -9250,6 +9357,7 @@ msgstr "Read only"
 msgid "Read replica host (optional)"
 msgstr "Read replica host (optional)"
 
+#: components/admin/permission-labels.ts
 #: components/settings/api-docs.tsx
 msgid "Read rows"
 msgstr "Read rows"
@@ -9933,8 +10041,13 @@ msgstr "Role"
 #: components/admin/account-bases.tsx
 #: components/admin/base-admin-members.tsx
 #: components/admin/group-page.tsx
+#: components/admin/roles-tab.tsx
 msgid "Role changed"
 msgstr "Role changed"
+
+#: components/admin/roles-tab.tsx
+msgid "Role deleted"
+msgstr "Role deleted"
 
 #: components/admin/base-admin-members.tsx
 msgid "Role for {name}"
@@ -9952,6 +10065,10 @@ msgstr "Role given on a base you own"
 #: components/admin/base-admin-members.tsx
 msgid "Role given to {name}"
 msgstr "Role given to {name}"
+
+#: components/admin/roles-tab.tsx
+msgid "Role made"
+msgstr "Role made"
 
 #: components/admin/trails.tsx
 msgid "Role of a group"
@@ -9975,9 +10092,22 @@ msgstr "Role on {table}"
 msgid "Role removed"
 msgstr "Role removed"
 
+#: components/admin/admin-sections.ts
+#: components/admin/roles-tab.tsx
+msgid "Roles"
+msgstr "Roles"
+
 #: components/admin/people-file-dialog.tsx
 msgid "Roles are limited to the instance's domains, and this address is outside them"
 msgstr "Roles are limited to the instance's domains, and this address is outside them"
+
+#: components/admin/roles-tab.tsx
+msgid "Roles made here"
+msgstr "Roles made here"
+
+#: components/settings/role-options.tsx
+msgid "Roles made in Administration"
+msgstr "Roles made in Administration"
 
 #: components/admin/group-page.tsx
 msgid "Roles on bases"
@@ -10076,6 +10206,7 @@ msgstr "Row values"
 msgid "rows"
 msgstr "rows"
 
+#: components/admin/permission-labels.ts
 #: components/public/public-view.tsx
 #: components/settings/table-rules-panel.tsx
 #: components/views/list-view.tsx
@@ -10123,6 +10254,10 @@ msgstr "Rows under"
 #: components/admin/bases-tab.tsx
 msgid "Rows, about"
 msgstr "Rows, about"
+
+#: components/admin/permission-labels.ts
+msgid "Rows, their history and comments, and views of one's own. Every role reads."
+msgstr "Rows, their history and comments, and views of one's own. Every role reads."
 
 #: components/table/automations-dialog.tsx
 msgid "Run a script"
@@ -10175,6 +10310,7 @@ msgstr "Saturday"
 
 #: components/admin/account-actions.tsx
 #: components/admin/group-page.tsx
+#: components/admin/roles-tab.tsx
 #: components/admin/settings-tab.tsx
 #: components/admin/sources-tab.tsx
 #: components/dashboards/dashboard-board.tsx
@@ -10518,6 +10654,10 @@ msgstr "Send a password reset link"
 msgid "Send a reset link"
 msgstr "Send a reset link"
 
+#: components/admin/permission-labels.ts
+msgid "Send a table's changes to an address outside the instance."
+msgstr "Send a table's changes to an address outside the instance."
+
 #: components/admin/notifications-tab.tsx
 #: components/settings/webhooks-panel.tsx
 msgid "Send a test"
@@ -10742,6 +10882,10 @@ msgstr "Share not found"
 #: components/table/view-tabs.tsx
 msgid "Share view"
 msgstr "Share view"
+
+#: components/admin/permission-labels.ts
+msgid "Shared views"
+msgstr "Shared views"
 
 #: components/dashboards/dashboard-board.tsx
 msgid "Shares of the total"
@@ -11105,6 +11249,10 @@ msgstr "Someone"
 msgid "Someone changed this value while you were changing it: the current value now shows, make your change again if needed"
 msgstr "Someone changed this value while you were changing it: the current value now shows, make your change again if needed"
 
+#: lib/errors.ts
+msgid "Someone holds this role, or an invitation waits with it: give them another role first"
+msgstr "Someone holds this role, or an invitation waits with it: give them another role first"
+
 #: components/settings/person-event-labels.ts
 msgid "Someone made an owner"
 msgstr "Someone made an owner"
@@ -11333,6 +11481,7 @@ msgid "Storage nearly full"
 msgstr "Storage nearly full"
 
 #: components/admin/change-labels.ts
+#: components/admin/permission-labels.ts
 #: components/admin/trails.tsx
 msgid "Structure"
 msgstr "Structure"
@@ -11559,6 +11708,10 @@ msgstr "Table, base, or action"
 msgid "Tables"
 msgstr "Tables"
 
+#: components/admin/permission-labels.ts
+msgid "Tables and fields"
+msgstr "Tables and fields"
+
 #: components/admin/sources-tab.tsx
 msgid "Tables of {name}"
 msgstr "Tables of {name}"
@@ -11574,6 +11727,10 @@ msgstr "Tables stay in AnyGridDB. A source without SQL is not listed: it is read
 #: components/shell/new-base-dialog.tsx
 msgid "Tables you create, and the columns you add to them, are written in a schema of this source. Members, views, dashboards, files, and history stay in AnyGridDB."
 msgstr "Tables you create, and the columns you add to them, are written in a schema of this source. Members, views, dashboards, files, and history stay in AnyGridDB."
+
+#: components/admin/permission-labels.ts
+msgid "Tables, folders, fields, status circuits and locked views."
+msgstr "Tables, folders, fields, status circuits and locked views."
 
 #: components/table/view-toolbar.tsx
 msgid "Tall"
@@ -11726,6 +11883,10 @@ msgstr "The application can no longer get new tokens. Tokens it already holds st
 msgid "The automation acts with your access; every write is recorded in the audit trail."
 msgstr "The automation acts with your access; every write is recorded in the audit trail."
 
+#: components/admin/permission-labels.ts
+msgid "The base"
+msgstr "The base"
+
 #: components/shell/sidebar.tsx
 msgid "The base and its tables go to the trash: you can restore it from the home page for {days} days."
 msgstr "The base and its tables go to the trash: you can restore it from the home page for {days} days."
@@ -11753,6 +11914,10 @@ msgstr "The base is erased here. The audit history is kept. The schema {schema} 
 #: components/admin/open-base.tsx
 msgid "The base is open to you for an hour"
 msgstr "The base is open to you for an hour"
+
+#: components/admin/permission-labels.ts
+msgid "The base itself"
+msgstr "The base itself"
 
 #: components/fields/formula-docs.ts
 msgid "The base raised to the given power."
@@ -13004,6 +13169,10 @@ msgstr "This request took too long. Try again in a moment."
 msgid "This restore point no longer exists"
 msgstr "This restore point no longer exists"
 
+#: lib/errors.ts
+msgid "This role no longer exists"
+msgstr "This role no longer exists"
+
 #: components/record/row-status.tsx
 msgid "This row has disappeared from the client's database since it was locked."
 msgstr "This row has disappeared from the client's database since it was locked."
@@ -13892,6 +14061,10 @@ msgstr "Viewer"
 msgid "Views"
 msgstr "Views"
 
+#: components/admin/permission-labels.ts
+msgid "Views everyone with a role sees, and their order."
+msgstr "Views everyone with a role sees, and their order."
+
 #: components/admin/security-tab.tsx
 msgid "Waiting for the trail's index, which a long trail gets after the start: run anygriddb database indexes as the tables' owner."
 msgstr "Waiting for the trail's index, which a long trail gets after the start: run anygriddb database indexes as the tables' owner."
@@ -13961,6 +14134,7 @@ msgstr "Webhook you created was disabled"
 
 #: components/admin/access-tab.tsx
 #: components/admin/account-handoff.tsx
+#: components/admin/permission-labels.ts
 #: components/settings/base-settings.tsx
 msgid "Webhooks"
 msgstr "Webhooks"
@@ -13980,6 +14154,10 @@ msgstr "Weekly digest"
 #: components/admin/outbound-tab.tsx
 msgid "What"
 msgstr "What"
+
+#: components/admin/roles-tab.tsx
+msgid "What a role gives someone on a base or a table. The four below come with every instance. Make others from the same permissions, then give them as the four are, from a base's settings or from here."
+msgstr "What a role gives someone on a base or a table. The four below come with every instance. Make others from the same permissions, then give them as the four are, from a base's settings or from here."
 
 #: components/admin/api-tokens-tab.tsx
 msgid "What a script of yours asks of Administration: list and make accounts, list invitations, read the settings and change those of the instance's running. A token gives no proof that it is you, so it does nothing that asks for one here."
@@ -14366,6 +14544,10 @@ msgstr "You can close this window: the import goes on and stays in the jobs menu
 #: components/shell/welcome-page.tsx
 msgid "You can enable it later from your account settings."
 msgstr "You can enable it later from your account settings."
+
+#: lib/errors.ts
+msgid "You can give only a role that gives no more than yours"
+msgstr "You can give only a role that gives no more than yours"
 
 #: lib/errors.ts
 msgid "You cannot act as this person"

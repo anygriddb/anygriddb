@@ -3,12 +3,13 @@
  * and row rules of one member.
  */
 import {
-  ROLES,
   AppError,
   buildCountRows,
+  givenRoleSchema,
   clearTableAclInputSchema,
   effectiveTableRole,
   getTableAclInputSchema,
+  type Grant,
   setTableAclInputSchema,
   viewAsInputSchema,
 } from "@anygriddb/core";
@@ -46,10 +47,51 @@ import {
 import { listGroupRoles, listGroups, setGroupRole } from "../scim/groups.js";
 import { readPage, safeTimeZone, visibleFields } from "../data/rows.js";
 import { liveColumnNames } from "../data/live.js";
-import { guardBase, guardTable, handle } from "./guard.js";
+import {
+  assertMayTouch,
+  givenBy,
+  groupGiven,
+  madeRoleChoices,
+  ownGiven,
+} from "../data/made-roles.js";
+import { authorize, guardBase, guardTable, handle } from "./guard.js";
+import type { Context } from "./context.js";
 import { procedure } from "./init.js";
 
+/** A member whose own role is beyond the giver's keeps it (ADR 0128). */
+async function assertMayTouchMember(
+  ctx: Context,
+  giver: Grant,
+  baseId: string,
+  email: string,
+): Promise<void> {
+  const account = await ctx.db
+    .selectFrom("users")
+    .select("id")
+    .where("email", "=", email.toLowerCase())
+    .executeTakeFirst();
+  if (account) {
+    assertMayTouch(giver, await ownGiven(ctx.db, account.id, "base", baseId));
+  }
+}
+
 export const catalogAccessProcedures = {
+  /**
+   * The roles an administrator made (ADR 0128), which a base gives beside
+   * the four: their names and what each gives, to choose from.
+   */
+  madeRoles: procedure.query(({ ctx }) =>
+    handle(ctx, async () => {
+      await authorize(ctx);
+      return {
+        roles: (await madeRoleChoices(ctx.db)).map((role) => ({
+          id: role.id,
+          name: role.name,
+          permissions: [...role.permissions],
+        })),
+      };
+    }),
+  ),
   members: procedure.input(membersInputSchema).query(({ ctx, input }) =>
     handle(ctx, async () => {
       await guardBase(ctx, input.baseId, "members.manage");
@@ -80,18 +122,34 @@ export const catalogAccessProcedures = {
    */
   grant: procedure.input(grantInputSchema).mutation(({ ctx, input }) =>
     handle(ctx, async () => {
-      const { user } = await guardBase(ctx, input.baseId, "members.manage");
+      const { user, role } = await guardBase(
+        ctx,
+        input.baseId,
+        "members.manage",
+      );
       await assertMemberDomain(ctx.db, input.email);
       if (!(await isMember(ctx.db, input.baseId, input.email))) {
         throw new AppError("not_a_member");
       }
-      await grantMember(ctx.db, user.id, input);
+      await assertMayTouchMember(ctx, role, input.baseId, input.email);
+      await grantMember(ctx.db, user.id, {
+        ...input,
+        role: await givenBy(ctx.db, role, input.role),
+      });
       return { ok: true as const };
     }),
   ),
   revoke: procedure.input(revokeInputSchema).mutation(({ ctx, input }) =>
     handle(ctx, async () => {
-      const { user } = await guardBase(ctx, input.baseId, "members.manage");
+      const { user, role } = await guardBase(
+        ctx,
+        input.baseId,
+        "members.manage",
+      );
+      assertMayTouch(
+        role,
+        await ownGiven(ctx.db, input.userId, "base", input.baseId),
+      );
       await revokeMember(ctx.db, user.id, input);
       return { ok: true as const };
     }),
@@ -115,13 +173,24 @@ export const catalogAccessProcedures = {
       z.object({
         baseId: z.uuid(),
         groupId: z.uuid(),
-        role: z.enum(ROLES).nullable(),
+        role: givenRoleSchema.nullable(),
       }),
     )
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
-        const { user } = await guardBase(ctx, input.baseId, "members.manage");
-        await setGroupRole(ctx.db, user.id, input);
+        const { user, role } = await guardBase(
+          ctx,
+          input.baseId,
+          "members.manage",
+        );
+        assertMayTouch(
+          role,
+          await groupGiven(ctx.db, input.groupId, input.baseId),
+        );
+        await setGroupRole(ctx.db, user.id, {
+          ...input,
+          role: input.role ? await givenBy(ctx.db, role, input.role) : null,
+        });
         return { ok: true as const };
       }),
     ),
@@ -142,18 +211,28 @@ export const catalogAccessProcedures = {
       z.object({
         tableId: z.uuid(),
         userId: z.uuid(),
-        role: z.enum(["owner", "editor", "commenter", "viewer"]).nullable(),
+        role: givenRoleSchema.nullable(),
       }),
     )
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
-        const { user, table } = await guardTable(
+        const { user, table, role } = await guardTable(
           ctx,
           input.tableId,
           "members.manage",
         );
         await guardBase(ctx, table.baseId, "members.manage");
-        await setTableRole(ctx.db, user.id, table, input.userId, input.role);
+        assertMayTouch(
+          role,
+          await ownGiven(ctx.db, input.userId, "table", table.id),
+        );
+        await setTableRole(
+          ctx.db,
+          user.id,
+          table,
+          input.userId,
+          input.role ? await givenBy(ctx.db, role, input.role) : null,
+        );
         return { ok: true as const };
       }),
     ),
@@ -162,17 +241,23 @@ export const catalogAccessProcedures = {
       z.object({
         baseId: z.uuid(),
         email: z.email().max(254),
-        role: z.enum(["owner", "editor", "commenter", "viewer"]),
+        role: givenRoleSchema,
       }),
     )
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
-        const { user } = await guardBase(ctx, input.baseId, "members.manage");
+        const { user, role } = await guardBase(
+          ctx,
+          input.baseId,
+          "members.manage",
+        );
         await assertMemberDomain(ctx.db, input.email);
+        const given = await givenBy(ctx.db, role, input.role);
         // Someone already in the base changes role at once: the list of
         // members shows them to whoever manages it.
         if (await isMember(ctx.db, input.baseId, input.email)) {
-          await grantMember(ctx.db, user.id, input);
+          await assertMayTouchMember(ctx, role, input.baseId, input.email);
+          await grantMember(ctx.db, user.id, { ...input, role: given });
           return { status: "granted" as const, token: null, mailed: false };
         }
         // Anyone else is invited, with an account or without: the answer
@@ -181,6 +266,7 @@ export const catalogAccessProcedures = {
         // invitation on their home page, and the mail's link works too.
         const created = await createInvitation(ctx.db, {
           ...input,
+          role: given,
           invitedBy: user.id,
         });
         let mailed = false;

@@ -3,6 +3,8 @@ import { createHash, randomBytes } from "node:crypto";
 import {
   AppError,
   memberDomainAllowed,
+  type Given,
+  type Grant,
   normalizeEmbedOrigins,
   type Role,
   roleFor,
@@ -13,6 +15,12 @@ import { sql } from "kysely";
 import { hashPassword, verifyPassword } from "../auth/argon2.js";
 import { withAudit } from "./audit-context.js";
 import { liveBase, liveTable, liveView } from "./live.js";
+import {
+  bindingsFrom,
+  givenColumns,
+  givenOf,
+  MADE_COLUMNS,
+} from "./made-roles.js";
 import { readGateSettings } from "../settings.js";
 
 const INVITATION_TTL_MS = 14 * 24 * 60 * 60 * 1000;
@@ -42,6 +50,7 @@ export async function listTableAccess(
   const rows = await db
     .selectFrom("roleBindings as b")
     .innerJoin("users as u", "u.id", "b.userId")
+    .leftJoin("madeRoles as m", "m.id", "b.madeRoleId")
     .select([
       "u.id as userId",
       "u.displayName",
@@ -49,6 +58,8 @@ export async function listTableAccess(
       "b.role",
       "b.scope",
       "b.scopeId",
+      "b.groupId",
+      ...MADE_COLUMNS,
     ])
     .where((eb) =>
       eb.or([
@@ -66,8 +77,11 @@ export async function listTableAccess(
       userId: string;
       displayName: string;
       email: string;
-      baseRole: Role | null;
-      tableRole: Role | null;
+      baseRole: Grant | null;
+      tableRole: Grant | null;
+      /** Their own override, which the list changes: a key or an id. */
+      tableGiven: string | null;
+      bindings: ReturnType<typeof bindingsFrom>;
     }
   >();
   for (const row of rows) {
@@ -81,17 +95,21 @@ export async function listTableAccess(
       email: row.email,
       baseRole: null,
       tableRole: null,
+      tableGiven: null,
+      bindings: [],
     };
-    if (row.scope === "base")
-      current.baseRole = roleFor(
-        [{ role: row.role, scope: "base", scopeId: table.baseId }],
-        "base",
-        table.baseId,
-      );
-    else current.tableRole = row.role;
+    current.bindings = [...current.bindings, ...bindingsFrom([row])];
+    current.baseRole = roleFor(current.bindings, "base", table.baseId);
+    current.tableRole = roleFor(current.bindings, "table", table.id);
+    const own = givenOf(row);
+    if (row.scope === "table" && row.groupId === null && own !== null) {
+      current.tableGiven = typeof own === "string" ? own : own.id;
+    }
     people.set(row.userId, current);
   }
-  return [...people.values()];
+  return [...people.values()].map(
+    ({ bindings: _bindings, ...person }) => person,
+  );
 }
 
 /** Sets or clears (`role` null) a table override for one user. */
@@ -100,7 +118,7 @@ export async function setTableRole(
   actorId: string,
   table: { id: string; baseId: string },
   userId: string,
-  role: Role | null,
+  role: Given | null,
 ): Promise<void> {
   const user = await db
     .selectFrom("users")
@@ -124,7 +142,12 @@ export async function setTableRole(
       if (role) {
         await tx
           .insertInto("roleBindings")
-          .values({ userId, role, scope: "table", scopeId: table.id })
+          .values({
+            userId,
+            ...givenColumns(role),
+            scope: "table",
+            scopeId: table.id,
+          })
           .execute();
       }
     },
@@ -137,7 +160,7 @@ export async function setTableRole(
 
 export async function createInvitation(
   db: Database,
-  input: { baseId: string; email: string; role: Role; invitedBy: string },
+  input: { baseId: string; email: string; role: Given; invitedBy: string },
 ): Promise<{ token: string; expiresAt: Date }> {
   const token = newToken();
   const expiresAt = new Date(Date.now() + INVITATION_TTL_MS);
@@ -158,7 +181,7 @@ export async function createInvitation(
         .values({
           baseId: input.baseId,
           email,
-          role: input.role,
+          ...givenColumns(input.role),
           tokenHash: hashToken(token),
           invitedBy: input.invitedBy,
           expiresAt,
@@ -171,17 +194,18 @@ export async function createInvitation(
 
 export async function listInvitations(db: Database, baseId: string) {
   const rows = await db
-    .selectFrom("invitations")
-    .selectAll()
-    .where("baseId", "=", baseId)
-    .where("acceptedAt", "is", null)
-    .where("expiresAt", ">", new Date())
-    .orderBy("createdAt", "desc")
+    .selectFrom("invitations as i")
+    .leftJoin("madeRoles as m", "m.id", "i.madeRoleId")
+    .select(["i.id", "i.email", "i.role", "i.expiresAt", ...MADE_COLUMNS])
+    .where("i.baseId", "=", baseId)
+    .where("i.acceptedAt", "is", null)
+    .where("i.expiresAt", ">", new Date())
+    .orderBy("i.createdAt", "desc")
     .execute();
   return rows.map((row) => ({
     id: row.id,
     email: row.email,
-    role: row.role,
+    role: givenOf(row),
     expiresAt: row.expiresAt.toISOString(),
   }));
 }
@@ -254,7 +278,8 @@ type PendingInvitation = {
   id: string;
   baseId: string;
   email: string;
-  role: Role;
+  role: Role | null;
+  madeRoleId: string | null;
   invitedBy: string;
 };
 
@@ -294,6 +319,7 @@ async function joinBase(
           .values({
             userId: user.id,
             role: invitation.role,
+            madeRoleId: invitation.madeRoleId,
             scope: "base",
             scopeId: invitation.baseId,
           })
@@ -336,10 +362,11 @@ export async function acceptInvitation(
  * whether the address has an account.
  */
 export async function listInvitationsFor(db: Database, email: string) {
-  return db
+  const rows = await db
     .selectFrom("invitations as i")
     .innerJoin("bases as b", "b.id", "i.baseId")
     .leftJoin("users as u", "u.id", "i.invitedBy")
+    .leftJoin("madeRoles as m", "m.id", "i.madeRoleId")
     .select([
       "i.id",
       "i.role",
@@ -347,6 +374,7 @@ export async function listInvitationsFor(db: Database, email: string) {
       "b.id as baseId",
       "b.name as baseName",
       "u.displayName as invitedBy",
+      ...MADE_COLUMNS,
     ])
     .where("i.email", "=", email.toLowerCase())
     .where("i.acceptedAt", "is", null)
@@ -354,6 +382,17 @@ export async function listInvitationsFor(db: Database, email: string) {
     .where(liveBase("b"))
     .orderBy("i.createdAt", "desc")
     .execute();
+  return rows.map(
+    ({ madeId: _id, madeName: _name, madePermissions: _p, ...row }) => ({
+      ...row,
+      role: givenOf({
+        ...row,
+        madeId: _id,
+        madeName: _name,
+        madePermissions: _p,
+      }),
+    }),
+  );
 }
 
 /**
@@ -396,7 +435,14 @@ export async function invitationPreview(db: Database, token: string) {
   const row = await db
     .selectFrom("invitations as i")
     .innerJoin("bases as b", "b.id", "i.baseId")
-    .select(["i.email", "i.role", "b.name as baseName", "i.expiresAt"])
+    .leftJoin("madeRoles as m", "m.id", "i.madeRoleId")
+    .select([
+      "i.email",
+      "i.role",
+      "b.name as baseName",
+      "i.expiresAt",
+      ...MADE_COLUMNS,
+    ])
     .where("i.tokenHash", "=", hashToken(token))
     .where("i.acceptedAt", "is", null)
     .where("i.expiresAt", ">", new Date())
@@ -405,7 +451,7 @@ export async function invitationPreview(db: Database, token: string) {
   if (!row) {
     throw new AppError("invalid_invitation");
   }
-  return { email: row.email, role: row.role, baseName: row.baseName };
+  return { email: row.email, role: givenOf(row), baseName: row.baseName };
 }
 
 /**

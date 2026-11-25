@@ -569,7 +569,8 @@ export interface GroupRoles {
   createdAt: Generated<Timestamp>;
   groupId: string;
   id: Generated<string>;
-  role: Role;
+  madeRoleId: string | null;
+  role: Role | null;
 }
 
 export interface Groups {
@@ -721,7 +722,8 @@ export interface Invitations {
   expiresAt: Timestamp;
   id: Generated<string>;
   invitedBy: string;
-  role: Role;
+  madeRoleId: string | null;
+  role: Role | null;
   tokenHash: string;
 }
 
@@ -761,6 +763,15 @@ export interface LoginChallenges {
   signOnSid: string | null;
   tokenHash: string;
   userId: string;
+}
+
+export interface MadeRoles {
+  createdAt: Generated<Timestamp>;
+  createdBy: string | null;
+  id: Generated<string>;
+  name: string;
+  permissions: string[];
+  updatedAt: Generated<Timestamp>;
 }
 
 export interface NotificationDefaults {
@@ -923,7 +934,8 @@ export interface RoleBindings {
   createdAt: Generated<Timestamp>;
   groupId: string | null;
   id: Generated<string>;
-  role: Role;
+  madeRoleId: string | null;
+  role: Role | null;
   scope: Scope;
   scopeId: string;
   userId: string;
@@ -1286,6 +1298,7 @@ export interface DB {
   invitations: Invitations;
   jobs: Jobs;
   loginChallenges: LoginChallenges;
+  madeRoles: MadeRoles;
   notificationDefaults: NotificationDefaults;
   notificationDigestItems: NotificationDigestItems;
   notificationMutes: NotificationMutes;

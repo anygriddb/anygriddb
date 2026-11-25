@@ -5,7 +5,8 @@ import {
   type StatusCircuit,
   type StatusTransition,
 } from "@anygriddb/core";
-import { grants, type Role } from "../../lib/types";
+import { takesTransition } from "@anygriddb/core";
+import { grants, type Grant } from "../../lib/types";
 
 /** A row as these rules read it: its status column, when it has one. */
 type WithStatus = Readonly<Record<string, unknown>>;
@@ -33,18 +34,18 @@ export function statusShown(
 export function allowedTransitions(
   circuit: StatusCircuit,
   fromKey: string,
-  role: Role | null,
+  role: Grant | null,
 ): StatusTransition[] {
   if (!role || !grants(role, "rows.write")) return [];
   return transitionsFrom(circuit, fromKey)
-    .filter((item) => item.roleKeys.includes(role))
+    .filter((item) => takesTransition(item.roleKeys, role))
     .sort((a, b) => a.position - b.position);
 }
 
 /** Whether the row's panel offers to submit it, from its menu. */
 export function canSubmitRow(
   row: WithStatus,
-  role: Role | null,
+  role: Grant | null,
   circuit?: StatusCircuit | null,
 ): boolean {
   if (!grants(role, "rows.write")) return false;
@@ -60,7 +61,7 @@ export function canSubmitRow(
 /** The first transition an editor or owner may take from the initial state. */
 export function submitTransition(
   circuit: StatusCircuit,
-  role: Role | null,
+  role: Grant | null,
 ): StatusTransition | undefined {
   return allowedTransitions(circuit, initialState(circuit).key, role)[0];
 }

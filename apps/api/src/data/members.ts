@@ -1,13 +1,25 @@
-import { AppError, type Role, roleFor } from "@anygriddb/core";
+import {
+  AppError,
+  type Binding,
+  type Given,
+  givenRoleSchema,
+  roleFor,
+} from "@anygriddb/core";
 import type { Database } from "@anygriddb/db";
 import { z } from "zod";
 import { withAudit, type AuditTx } from "./audit-context.js";
 import { liveBase } from "./live.js";
+import {
+  bindingsFrom,
+  givenColumns,
+  givenOf,
+  MADE_COLUMNS,
+} from "./made-roles.js";
 
 export const grantInputSchema = z.object({
   baseId: z.uuid(),
   email: z.email().max(254),
-  role: z.enum(["owner", "editor", "commenter", "viewer"]),
+  role: givenRoleSchema,
 });
 
 export const revokeInputSchema = z.object({
@@ -83,7 +95,7 @@ export async function soleOwnerBases(
 export async function bindRole(
   tx: AuditTx,
   userId: string,
-  role: Role,
+  role: Given,
   baseId: string,
 ): Promise<void> {
   const ids = [baseId, ...(await tableIds(tx, baseId))];
@@ -96,7 +108,7 @@ export async function bindRole(
     .execute();
   await tx
     .insertInto("roleBindings")
-    .values({ userId, role, scope: "base", scopeId: baseId })
+    .values({ userId, ...givenColumns(role), scope: "base", scopeId: baseId })
     .execute();
 }
 
@@ -123,10 +135,10 @@ async function lockedOwners(tx: AuditTx, baseId: string): Promise<string[]> {
 export async function setMemberRole(
   db: Database,
   actorId: string,
-  input: { baseId: string; userId: string; role: Role },
+  input: { baseId: string; userId: string; role: Given },
   /** Kept on the change trail with the role given. */
   reason?: string,
-): Promise<{ owners: string[]; previous: Role | null }> {
+): Promise<{ owners: string[]; previous: Given | null }> {
   return withAudit(
     db,
     { userId: actorId, source: "web", reason },
@@ -141,15 +153,16 @@ export async function setMemberRole(
       }
       // The role of their own they had before: a role set again is no news.
       const before = await tx
-        .selectFrom("roleBindings")
-        .select("role")
-        .where("userId", "=", input.userId)
-        .where("scope", "=", "base")
-        .where("scopeId", "=", input.baseId)
-        .where("groupId", "is", null)
+        .selectFrom("roleBindings as b")
+        .leftJoin("madeRoles as m", "m.id", "b.madeRoleId")
+        .select(["b.role", ...MADE_COLUMNS])
+        .where("b.userId", "=", input.userId)
+        .where("b.scope", "=", "base")
+        .where("b.scopeId", "=", input.baseId)
+        .where("b.groupId", "is", null)
         .executeTakeFirst();
       await bindRole(tx, input.userId, input.role, input.baseId);
-      return { owners, previous: before?.role ?? null };
+      return { owners, previous: before ? givenOf(before) : null };
     },
   );
 }
@@ -164,12 +177,16 @@ export async function listMembers(db: Database, baseId: string) {
     .selectFrom("roleBindings as b")
     .innerJoin("users as u", "u.id", "b.userId")
     .leftJoin("groups as g", "g.id", "b.groupId")
+    .leftJoin("madeRoles as m", "m.id", "b.madeRoleId")
     .select([
       "u.id as userId",
       "u.displayName",
       "u.email",
       "b.role",
+      "b.scope",
+      "b.scopeId",
       "g.displayName as groupName",
+      ...MADE_COLUMNS,
     ])
     .where("b.scope", "=", "base")
     .where("b.scopeId", "=", baseId)
@@ -181,8 +198,9 @@ export async function listMembers(db: Database, baseId: string) {
       userId: string;
       displayName: string;
       email: string;
-      role: Role;
-      direct: boolean;
+      bindings: Binding[];
+      /** The role of their own, which the list changes: a key or an id. */
+      given: string | null;
       groups: string[];
     }
   >();
@@ -191,29 +209,32 @@ export async function listMembers(db: Database, baseId: string) {
       userId: row.userId,
       displayName: row.displayName,
       email: row.email,
-      role: row.role,
-      direct: false,
+      bindings: [],
+      given: null,
       groups: [],
     };
-    const role = roleFor(
-      [
-        { role: current.role, scope: "base", scopeId: baseId },
-        { role: row.role, scope: "base", scopeId: baseId },
-      ],
-      "base",
-      baseId,
-    );
+    const own = givenOf(row);
     grouped.set(row.userId, {
       ...current,
-      role: role ?? current.role,
-      direct: current.direct || row.groupName === null,
+      bindings: [...current.bindings, ...bindingsFrom([row])],
+      given:
+        row.groupName === null && own !== null
+          ? typeof own === "string"
+            ? own
+            : own.id
+          : current.given,
       groups:
         row.groupName === null
           ? current.groups
           : [...current.groups, row.groupName],
     });
   }
-  return [...grouped.values()];
+  return [...grouped.values()].flatMap(({ bindings, given, ...member }) => {
+    const role = roleFor(bindings, "base", baseId);
+    return role === null
+      ? []
+      : [{ ...member, role, given, direct: given !== null }];
+  });
 }
 
 /**
@@ -240,7 +261,7 @@ export async function isMember(
 export async function grantMember(
   db: Database,
   actorId: string,
-  input: { baseId: string; email: string; role: Role },
+  input: { baseId: string; email: string; role: Given },
 ): Promise<void> {
   const email = input.email.toLowerCase();
   const user = await db
