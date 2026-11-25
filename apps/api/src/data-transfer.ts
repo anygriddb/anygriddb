@@ -6,7 +6,7 @@ import { join } from "node:path";
 import type { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import {
-  type Action,
+  type Permission,
   andFilters,
   AppError,
   type Binding,
@@ -23,7 +23,7 @@ import {
   normalizeViewConfig,
   pruneViewConfig,
   type ReadSpec,
-  roleAllows,
+  roleGrants,
   roleFor,
   snapshotSummary,
   toCsv,
@@ -142,11 +142,11 @@ function deny(reply: FastifyReply, status: number, code?: ErrorCode) {
 function allowed(
   bindings: readonly Binding[],
   table: { id: string; baseId: string },
-  action: Action,
+  permission: Permission,
 ): boolean {
-  return roleAllows(
+  return roleGrants(
     effectiveTableRole(bindings, table.id, table.baseId),
-    action,
+    permission,
   );
 }
 
@@ -532,8 +532,9 @@ export function registerDataTransferRoutes(
   /**
    * Keeps an uploaded file for `rows.importCommit` (ADR 0064): written to
    * disk as it arrives, read once in a worker for its columns, its count,
-   * and a sample, then staged as it came. Adding rows needs write access
-   * to the table; a new table needs manage access to the base.
+   * and a sample, then staged as it came. Adding rows needs the right to
+   * import into the table; a new table needs it on the base, with the
+   * right to shape its tables.
    */
   app.post("/api/import/preview", async (request, reply) => {
     const query = previewQuery.safeParse(request.query);
@@ -542,11 +543,14 @@ export function registerDataTransferRoutes(
     if (!actor) return deny(reply, 401);
     if ("tableId" in query.data) {
       const table = await loadTable(deps.db, query.data.tableId);
-      if (!table || !allowed(actor.bindings, table, "write"))
+      if (!table || !allowed(actor.bindings, table, "data.import"))
         return deny(reply, 403);
     } else {
-      const baseId = query.data.baseId;
-      if (!roleAllows(roleFor(actor.bindings, "base", baseId), "manage")) {
+      const role = roleFor(actor.bindings, "base", query.data.baseId);
+      if (
+        !roleGrants(role, "schema.manage") ||
+        !roleGrants(role, "data.import")
+      ) {
         return deny(reply, 403);
       }
     }
@@ -721,8 +725,9 @@ export function registerDataTransferRoutes(
     const actor = await actorOf(deps.db, request);
     if (!actor) return deny(reply, 401);
     const table = await loadTable(deps.db, params.data.tableId);
-    if (!table || !allowed(actor.bindings, table, "read"))
+    if (!table || !allowed(actor.bindings, table, "rows.read"))
       return deny(reply, 404);
+    if (!allowed(actor.bindings, table, "data.export")) return deny(reply, 403);
     const folder = await localFolder("export");
     const path = join(folder.path, "export");
     let size: number;

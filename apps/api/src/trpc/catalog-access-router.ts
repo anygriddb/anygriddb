@@ -52,7 +52,7 @@ import { procedure } from "./init.js";
 export const catalogAccessProcedures = {
   members: procedure.input(membersInputSchema).query(({ ctx, input }) =>
     handle(ctx, async () => {
-      await guardBase(ctx, input.baseId, "manage");
+      await guardBase(ctx, input.baseId, "members.manage");
       return listMembers(ctx.db, input.baseId);
     }),
   ),
@@ -63,7 +63,7 @@ export const catalogAccessProcedures = {
    */
   openAccess: procedure.input(membersInputSchema).query(({ ctx, input }) =>
     handle(ctx, async () => {
-      await guardBase(ctx, input.baseId, "manage");
+      await guardBase(ctx, input.baseId, "members.manage");
       return (await listOpenAccess(ctx.db, input.baseId)).map((open) => ({
         userId: open.userId,
         displayName: open.displayName,
@@ -80,7 +80,7 @@ export const catalogAccessProcedures = {
    */
   grant: procedure.input(grantInputSchema).mutation(({ ctx, input }) =>
     handle(ctx, async () => {
-      const { user } = await guardBase(ctx, input.baseId, "manage");
+      const { user } = await guardBase(ctx, input.baseId, "members.manage");
       await assertMemberDomain(ctx.db, input.email);
       if (!(await isMember(ctx.db, input.baseId, input.email))) {
         throw new AppError("not_a_member");
@@ -91,7 +91,7 @@ export const catalogAccessProcedures = {
   ),
   revoke: procedure.input(revokeInputSchema).mutation(({ ctx, input }) =>
     handle(ctx, async () => {
-      const { user } = await guardBase(ctx, input.baseId, "manage");
+      const { user } = await guardBase(ctx, input.baseId, "members.manage");
       await revokeMember(ctx.db, user.id, input);
       return { ok: true as const };
     }),
@@ -99,7 +99,7 @@ export const catalogAccessProcedures = {
   /** The groups the base gives a role to, and those it could. */
   groupRoles: procedure.input(membersInputSchema).query(({ ctx, input }) =>
     handle(ctx, async () => {
-      await guardBase(ctx, input.baseId, "manage");
+      await guardBase(ctx, input.baseId, "members.manage");
       return {
         roles: await listGroupRoles(ctx.db, input.baseId),
         groups: (await listGroups(ctx.db)).map((group) => ({
@@ -120,7 +120,7 @@ export const catalogAccessProcedures = {
     )
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
-        const { user } = await guardBase(ctx, input.baseId, "manage");
+        const { user } = await guardBase(ctx, input.baseId, "members.manage");
         await setGroupRole(ctx.db, user.id, input);
         return { ok: true as const };
       }),
@@ -129,7 +129,11 @@ export const catalogAccessProcedures = {
     .input(z.object({ tableId: z.uuid() }))
     .query(({ ctx, input }) =>
       handle(ctx, async () => {
-        const { table } = await guardTable(ctx, input.tableId, "manage");
+        const { table } = await guardTable(
+          ctx,
+          input.tableId,
+          "members.manage",
+        );
         return { people: await listTableAccess(ctx.db, table) };
       }),
     ),
@@ -143,8 +147,12 @@ export const catalogAccessProcedures = {
     )
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
-        const { user, table } = await guardTable(ctx, input.tableId, "manage");
-        await guardBase(ctx, table.baseId, "manage");
+        const { user, table } = await guardTable(
+          ctx,
+          input.tableId,
+          "members.manage",
+        );
+        await guardBase(ctx, table.baseId, "members.manage");
         await setTableRole(ctx.db, user.id, table, input.userId, input.role);
         return { ok: true as const };
       }),
@@ -159,7 +167,7 @@ export const catalogAccessProcedures = {
     )
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
-        const { user } = await guardBase(ctx, input.baseId, "manage");
+        const { user } = await guardBase(ctx, input.baseId, "members.manage");
         await assertMemberDomain(ctx.db, input.email);
         // Someone already in the base changes role at once: the list of
         // members shows them to whoever manages it.
@@ -210,7 +218,7 @@ export const catalogAccessProcedures = {
     .input(z.object({ baseId: z.uuid() }))
     .query(({ ctx, input }) =>
       handle(ctx, async () => {
-        await guardBase(ctx, input.baseId, "manage");
+        await guardBase(ctx, input.baseId, "members.manage");
         return { invitations: await listInvitations(ctx.db, input.baseId) };
       }),
     ),
@@ -218,7 +226,7 @@ export const catalogAccessProcedures = {
     .input(z.object({ baseId: z.uuid(), invitationId: z.uuid() }))
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
-        const { user } = await guardBase(ctx, input.baseId, "manage");
+        const { user } = await guardBase(ctx, input.baseId, "members.manage");
         await revokeInvitation(
           ctx.db,
           user.id,
@@ -231,7 +239,7 @@ export const catalogAccessProcedures = {
   /** Field and row rules for every collaborator on a table. */
   tableAcl: procedure.input(getTableAclInputSchema).query(({ ctx, input }) =>
     handle(ctx, async () => {
-      await guardTable(ctx, input.tableId, "manage");
+      await guardTable(ctx, input.tableId, "members.manage");
       return { rules: await listTableAcls(ctx.db, input.tableId) };
     }),
   ),
@@ -239,7 +247,11 @@ export const catalogAccessProcedures = {
     .input(setTableAclInputSchema)
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
-        const { user, table } = await guardTable(ctx, input.tableId, "manage");
+        const { user, table } = await guardTable(
+          ctx,
+          input.tableId,
+          "members.manage",
+        );
         const bindings = await loadBindings(ctx.db, input.userId);
         if (!effectiveTableRole(bindings, table.id, table.baseId)) {
           throw new AppError("unknown_account");
@@ -261,7 +273,7 @@ export const catalogAccessProcedures = {
     .input(clearTableAclInputSchema)
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
-        const { user } = await guardTable(ctx, input.tableId, "manage");
+        const { user } = await guardTable(ctx, input.tableId, "members.manage");
         await clearTableAcl(ctx.db, user.id, input.tableId, input.userId);
         return { ok: true as const };
       }),
@@ -273,7 +285,7 @@ export const catalogAccessProcedures = {
    */
   viewAs: procedure.input(viewAsInputSchema).query(({ ctx, input }) =>
     handle(ctx, async () => {
-      const { table } = await guardTable(ctx, input.tableId, "manage");
+      const { table } = await guardTable(ctx, input.tableId, "members.manage");
       const target = await ctx.db
         .selectFrom("users")
         .select(["id", "displayName", "email"])

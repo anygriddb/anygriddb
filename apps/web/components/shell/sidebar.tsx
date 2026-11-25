@@ -67,7 +67,7 @@ import {
 } from "../../lib/sidebar-width";
 import { trpc, useTRPC } from "../../lib/trpc";
 import type { CatalogBase, CatalogTable } from "../../lib/types";
-import { canManage } from "../../lib/types";
+import { grants, type Permission } from "../../lib/types";
 import { InstanceMark, InstanceName } from "../brand/instance-mark";
 import { ImportDialog } from "../table/import-dialog";
 import { ConfirmDialog, PromptDialog } from "./dialogs";
@@ -972,7 +972,9 @@ function SidebarBase({
   // The base and table of the page shown, whichever page it is.
   const params = useParams({ strict: false });
   const open = !collapsed.has(base.id);
-  const manage = canManage(base.role);
+  const may = (permission: Permission) => grants(base.role, permission);
+  const shape = may("schema.manage");
+  const manage = may("base.manage");
   return (
     <li>
       <div
@@ -1026,7 +1028,7 @@ function SidebarBase({
             <MoreHorizontal className="h-4 w-4" />
           </DropdownMenuTrigger>
           <DropdownMenuContent>
-            {manage ? (
+            {shape ? (
               <DropdownMenuItem
                 onSelect={() => setDialog({ kind: "create-table", base })}
               >
@@ -1034,7 +1036,7 @@ function SidebarBase({
                 {t`New table`}
               </DropdownMenuItem>
             ) : null}
-            {manage ? (
+            {shape && may("data.import") ? (
               <DropdownMenuItem
                 onSelect={() => setDialog({ kind: "import", base })}
               >
@@ -1152,7 +1154,7 @@ function SidebarBase({
                   <span className="min-w-0 flex-1 truncate font-medium">
                     {folder.name}
                   </span>
-                  {manage ? (
+                  {shape ? (
                     <DropdownMenu>
                       <DropdownMenuTrigger
                         className="-my-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded text-muted-foreground opacity-0 group-hover:opacity-100 focus:opacity-100"
@@ -1214,7 +1216,7 @@ function SidebarBase({
                         table={table}
                         index={index}
                         siblings={inFolder}
-                        manage={manage}
+                        manage={shape}
                         active={params.tableId === table.id}
                         pinned={shortcuts.pinnedTables.has(table.id)}
                         onPin={() =>
@@ -1263,7 +1265,7 @@ function SidebarBase({
                 table={table}
                 index={index}
                 siblings={root}
-                manage={manage}
+                manage={shape}
                 active={params.tableId === table.id}
                 pinned={shortcuts.pinnedTables.has(table.id)}
                 onPin={() =>
@@ -1294,7 +1296,7 @@ function SidebarBase({
                 }
               />
             ))}
-          {manage ? (
+          {shape ? (
             <>
               <li>
                 <button

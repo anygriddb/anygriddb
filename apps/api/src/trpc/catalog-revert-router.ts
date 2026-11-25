@@ -28,7 +28,7 @@ async function guarded(
       ctx,
       actor,
       loaded.tableId,
-      "read",
+      "rows.read",
     );
     if (loaded.personal || !canEditView(loaded.view, user.id, role)) {
       throw new AppError("access_denied");
@@ -36,10 +36,15 @@ async function guarded(
     return { userId: user.id, loaded };
   }
   if (loaded.tableId) {
-    const { user } = await tableAccess(ctx, actor, loaded.tableId, "manage");
+    const { user } = await tableAccess(
+      ctx,
+      actor,
+      loaded.tableId,
+      "schema.manage",
+    );
     return { userId: user.id, loaded };
   }
-  const { user } = await baseAccess(ctx, actor, loaded.baseId, "manage");
+  const { user } = await baseAccess(ctx, actor, loaded.baseId, "schema.manage");
   return { userId: user.id, loaded };
 }
 

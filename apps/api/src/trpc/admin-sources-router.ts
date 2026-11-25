@@ -3,7 +3,7 @@
  */
 import {
   AppError,
-  roleAllows,
+  roleGrants,
   roleFor,
   sourceInputSchema,
   sourceUpdateSchema,
@@ -155,7 +155,9 @@ export const sourcesRouter = t.router({
             "base",
             input.baseId,
           );
-          if (!roleAllows(role, "manage")) throw new AppError("access_denied");
+          if (!roleGrants(role, "schema.manage")) {
+            throw new AppError("access_denied");
+          }
         }
         const result = await exposeTables(
           sourceDeps(ctx),

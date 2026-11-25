@@ -14,7 +14,7 @@ import {
   cellText,
   effectiveTableRole,
   type EngineAccess,
-  roleAllows,
+  roleGrants,
 } from "@anygriddb/core";
 import type { Database } from "@anygriddb/db";
 import { sql } from "kysely";
@@ -173,9 +173,9 @@ export async function baseActivity(
   ).map((row) => row.id);
   const catalog = await loadCatalogRows(db, ids);
   const readable = catalog.tables.filter((table) =>
-    roleAllows(
+    roleGrants(
       effectiveTableRole(reader.bindings, table.id, table.baseId),
-      "read",
+      "rows.read",
     ),
   );
   const access = await readerAccess(db, reader, readable);

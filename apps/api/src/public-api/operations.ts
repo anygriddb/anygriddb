@@ -1,6 +1,6 @@
 import { rulesOwner } from "../data/acting-context.js";
 import {
-  type Action,
+  type Permission,
   andFilters,
   AppError,
   type CellValue,
@@ -14,7 +14,7 @@ import {
   isWritableType,
   normalizeViewConfig,
   pruneViewConfig,
-  roleAllows,
+  roleGrants,
   roleFor,
   rowIdSchema,
   type RowSort,
@@ -98,24 +98,16 @@ async function tableFor(
   deps: PublicApiDeps,
   actor: Actor,
   tableId: string,
-  action: Action,
+  permission: Permission,
 ): Promise<TableRow> {
   const table = await findLiveTable(deps.db, tableId);
-  if (
-    !table ||
-    !roleAllows(
-      effectiveTableRole(actor.bindings, table.id, table.baseId),
-      "read",
-    )
-  ) {
+  const role = table
+    ? effectiveTableRole(actor.bindings, table.id, table.baseId)
+    : null;
+  if (!table || !roleGrants(role, "rows.read")) {
     throw new AppError("not_found");
   }
-  if (
-    !roleAllows(
-      effectiveTableRole(actor.bindings, table.id, table.baseId),
-      action,
-    )
-  ) {
+  if (!roleGrants(role, permission)) {
     throw new AppError("access_denied");
   }
   return table;
@@ -340,9 +332,9 @@ async function readableBaseTables(
     .where(liveBase("b"))
     .execute();
   return rows.filter((table) =>
-    roleAllows(
+    roleGrants(
       effectiveTableRole(actor.bindings, table.id, table.baseId),
-      "read",
+      "rows.read",
     ),
   );
 }
@@ -450,7 +442,7 @@ export async function listRecords(
 ) {
   const query = listQuerySchema.safeParse(queryInput);
   if (!query.success) throw new AppError("invalid_query");
-  const table = await tableFor(deps, actor, tableId, "read");
+  const table = await tableFor(deps, actor, tableId, "rows.read");
   const { engine } = await engineFor(deps, actor, table);
   const { fromKey } = keyMap(engine, query.data.fieldKey);
   let viewConfig = normalizeViewConfig({});
@@ -518,7 +510,7 @@ export async function getRecord(
   recordId: string,
   fieldKey: "name" | "label" = "name",
 ) {
-  const table = await tableFor(deps, actor, tableId, "read");
+  const table = await tableFor(deps, actor, tableId, "rows.read");
   const { engine } = await engineFor(deps, actor, table);
   const [row] = await readByIds(
     deps.db,
@@ -567,7 +559,7 @@ export async function createRecords(
 ) {
   const body = writeBodySchema.safeParse(bodyInput);
   if (!body.success) throw new AppError("invalid_body");
-  const table = await tableFor(deps, actor, tableId, "write");
+  const table = await tableFor(deps, actor, tableId, "rows.write");
   const scope = await scopeFor(deps, actor, table);
   const prepared = await prepareWrites(deps, scope.engine, table, body.data);
   const meta = origin ?? { reason, source: "api" as const };
@@ -592,7 +584,7 @@ export async function updateRecords(
 ) {
   const body = writeBodySchema.safeParse(bodyInput);
   if (!body.success) throw new AppError("invalid_body");
-  const table = await tableFor(deps, actor, tableId, "write");
+  const table = await tableFor(deps, actor, tableId, "rows.write");
   const scope = await scopeFor(deps, actor, table);
   const prepared = await prepareWrites(deps, scope.engine, table, body.data);
   const meta = origin ?? { reason, source: "api" as const };
@@ -620,7 +612,7 @@ export async function deleteRecords(
   reason?: string,
   origin?: WriteOrigin,
 ) {
-  const table = await tableFor(deps, actor, tableId, "write");
+  const table = await tableFor(deps, actor, tableId, "rows.delete");
   const deleted = await deleteRows(
     serviceDeps(deps),
     await scopeFor(deps, actor, table),

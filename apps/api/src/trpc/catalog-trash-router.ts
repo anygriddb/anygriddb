@@ -6,7 +6,7 @@ import {
   effectiveTableRole,
   purgeTrashInputSchema,
   restoreInputSchema,
-  roleAllows,
+  roleGrants,
   roleFor,
   trashListInputSchema,
 } from "@anygriddb/core";
@@ -38,21 +38,21 @@ export const catalogTrashProcedures = {
       const { user, bindings, role } = await guardBase(
         ctx,
         input.baseId,
-        "read",
+        "rows.read",
       );
-      const manageBase = roleAllows(role, "manage");
+      const shapeBase = roleGrants(role, "schema.manage");
       const items = await listTrash(ctx.db, input.baseId, user.id);
       const tableRole = (tableId: string | null) =>
         tableId ? effectiveTableRole(bindings, tableId, input.baseId) : null;
       return {
         items: items.filter((item) => {
-          if (item.kind === "table") return manageBase;
+          if (item.kind === "table") return shapeBase;
           if (item.kind === "column") {
-            return roleAllows(tableRole(item.tableId), "manage");
+            return roleGrants(tableRole(item.tableId), "schema.manage");
           }
-          return roleAllows(tableRole(item.tableId), "write");
+          return roleGrants(tableRole(item.tableId), "views.manage");
         }),
-        canPurge: manageBase,
+        canPurge: roleGrants(role, "base.manage"),
       };
     }),
   ),
@@ -63,7 +63,7 @@ export const catalogTrashProcedures = {
       const managed = bindings
         .filter(
           (binding) =>
-            binding.scope === "base" && roleAllows(binding.role, "manage"),
+            binding.scope === "base" && roleGrants(binding.role, "base.manage"),
         )
         .map((binding) => binding.scopeId);
       return { items: await listTrashedBases(ctx.db, managed) };
@@ -74,7 +74,7 @@ export const catalogTrashProcedures = {
       switch (input.kind) {
         case "base": {
           const { user, bindings } = await authorize(ctx);
-          if (!roleAllows(roleFor(bindings, "base", input.id), "manage")) {
+          if (!roleGrants(roleFor(bindings, "base", input.id), "base.manage")) {
             throw new AppError("access_denied");
           }
           await restoreBase(ctx.db, user.id, input.id);
@@ -83,14 +83,18 @@ export const catalogTrashProcedures = {
         }
         case "table": {
           const table = await loadTrashedTable(ctx.db, input.id);
-          const { user } = await guardBase(ctx, table.baseId, "manage");
+          const { user } = await guardBase(ctx, table.baseId, "schema.manage");
           await restoreTable(ctx.db, user.id, table.id);
           await publishCatalog(ctx.bus, table.baseId, logPublish(ctx));
           return { baseId: table.baseId, tableId: table.id };
         }
         case "column": {
           const owner = await trashedColumnTable(ctx.db, input.id);
-          const { user } = await guardTable(ctx, owner.tableId, "manage");
+          const { user } = await guardTable(
+            ctx,
+            owner.tableId,
+            "schema.manage",
+          );
           await restoreColumn(ctx.db, user.id, input.id);
           await publishCatalog(ctx.bus, owner.baseId, logPublish(ctx));
           return { baseId: owner.baseId, tableId: owner.tableId };
@@ -100,7 +104,7 @@ export const catalogTrashProcedures = {
           const { user, role, table } = await guardTable(
             ctx,
             view.tableId,
-            "read",
+            "rows.read",
           );
           if (!canEditView(view, user.id, role)) {
             throw new AppError("access_denied");
@@ -117,7 +121,9 @@ export const catalogTrashProcedures = {
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
         const { user, bindings } = await authorize(ctx);
-        if (!roleAllows(roleFor(bindings, "base", input.baseId), "manage")) {
+        if (
+          !roleGrants(roleFor(bindings, "base", input.baseId), "base.manage")
+        ) {
           throw new AppError("access_denied");
         }
         const items =

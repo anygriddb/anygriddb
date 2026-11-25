@@ -6,7 +6,7 @@ import {
   type EngineCatalog,
   filterGroupSchema,
   nextRetryDelay,
-  roleAllows,
+  roleGrants,
   type RowEvent,
   touchesWatched,
   WEBHOOK_FAILURE_LIMIT,
@@ -405,7 +405,10 @@ async function creatorEngine(
   const table = loaded.rows.tables.find((item) => item.id === tableId);
   if (
     !table ||
-    !roleAllows(effectiveTableRole(bindings, tableId, table.baseId), "read")
+    !roleGrants(
+      effectiveTableRole(bindings, tableId, table.baseId),
+      "rows.read",
+    )
   ) {
     return null;
   }

@@ -7,6 +7,8 @@ import {
   keepTrashedParts,
   normalizeViewConfig,
   pruneViewConfig,
+  type Role,
+  roleGrants,
   type ViewConfig,
   viewConfigColumns,
   viewConfigForReader,
@@ -130,15 +132,12 @@ function assertViewConfig(
 export function canEditView(
   view: ViewRow,
   userId: string,
-  role: "owner" | "editor" | "commenter" | "viewer",
+  role: Role,
 ): boolean {
   if (view.ownerId) {
     return view.ownerId === userId;
   }
-  if (view.locked) {
-    return role === "owner";
-  }
-  return role === "owner" || role === "editor";
+  return roleGrants(role, view.locked ? "schema.manage" : "views.manage");
 }
 
 export async function createView(

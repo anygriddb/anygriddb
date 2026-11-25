@@ -1,9 +1,7 @@
 import {
-  type Action,
   AppError,
   type Binding,
   can,
-  effectiveTableRole,
   enrollmentGate,
   roleFor,
 } from "@anygriddb/core";
@@ -156,7 +154,7 @@ export async function authorizeGrid(
   db: Database,
   userId: string,
   channel: string,
-  action: Action,
+  permission: "rows.read" | "rows.write",
 ): Promise<GridDecision> {
   const raw = await loadBindings(db, userId);
   const account = await db
@@ -176,7 +174,7 @@ export async function authorizeGrid(
   }
   // A user's own channel carries their notifications; nobody else may listen.
   if (channel.toLowerCase() === userId.toLowerCase()) {
-    return action === "read" ? "ok" : "denied";
+    return permission === "rows.read" ? "ok" : "denied";
   }
   const table = await db
     .selectFrom("dataTables as t")
@@ -187,11 +185,11 @@ export async function authorizeGrid(
     .where(liveBase("b"))
     .executeTakeFirst();
   if (table) {
-    return can(bindings, action, "table", table.id, table.baseId)
+    return can(bindings, permission, "table", table.id, table.baseId)
       ? "ok"
       : "denied";
   }
-  if (action !== "read") {
+  if (permission !== "rows.read") {
     return "denied";
   }
   if (roleFor(bindings, "base", channel)) {
@@ -385,11 +383,13 @@ export async function gridChannelRights(
       }
       const baseId = baseOf.get(channel);
       if (baseId !== undefined) {
-        if (!can(own, "read", "table", channel, baseId)) continue;
-        const owner = effectiveTableRole(own, channel, baseId) === "owner";
+        if (!can(own, "rows.read", "table", channel, baseId)) continue;
+        const unruled = can(own, "members.manage", "table", channel, baseId);
         heard.set(
           asked,
-          owner || !ruled.has(`${account.id}:${channel}`) ? "rows" : "changes",
+          unruled || !ruled.has(`${account.id}:${channel}`)
+            ? "rows"
+            : "changes",
         );
         continue;
       }

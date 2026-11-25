@@ -8,6 +8,7 @@ import {
   duplicateViewInputSchema,
   listViewsInputSchema,
   reorderViewsInputSchema,
+  roleGrants,
   updateViewInputSchema,
 } from "@anygriddb/core";
 import { loadEngine } from "../data/engine.js";
@@ -48,7 +49,7 @@ export const catalogViewProcedures = {
       const { user, bindings, table } = await guardTable(
         ctx,
         input.tableId,
-        "read",
+        "rows.read",
       );
       const hidden = await hiddenColumnNames(
         ctx.db,
@@ -63,14 +64,11 @@ export const catalogViewProcedures = {
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
         const personal = input.personal === true;
-        const { user, bindings, role, table } = await guardTable(
+        const { user, bindings, table } = await guardTable(
           ctx,
           input.tableId,
-          personal ? "read" : "write",
+          personal ? "rows.read" : "views.manage",
         );
-        if (!personal && role !== "owner" && role !== "editor") {
-          throw new AppError("access_denied");
-        }
         const { engine } = await loadEngine(
           ctx.db,
           input.tableId,
@@ -103,11 +101,11 @@ export const catalogViewProcedures = {
           ctx,
           actor,
           view.tableId,
-          "read",
+          "rows.read",
         );
         if (
           !canEditView(view, user.id, role) ||
-          (input.locked !== undefined && role !== "owner")
+          (input.locked !== undefined && !roleGrants(role, "schema.manage"))
         ) {
           throw new AppError("access_denied");
         }
@@ -139,9 +137,9 @@ export const catalogViewProcedures = {
           ctx,
           actor,
           view.tableId,
-          "read",
+          "rows.read",
         );
-        const personal = role !== "owner" && role !== "editor";
+        const personal = !roleGrants(role, "views.manage");
         if (view.ownerId && view.ownerId !== user.id) {
           throw new AppError("access_denied");
         }
@@ -166,7 +164,11 @@ export const catalogViewProcedures = {
     .input(reorderViewsInputSchema)
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
-        const { user, table } = await guardTable(ctx, input.tableId, "write");
+        const { user, table } = await guardTable(
+          ctx,
+          input.tableId,
+          "views.manage",
+        );
         await reorderViews(ctx.db, user.id, input.tableId, input.order);
         await tellViews(ctx, table, true);
         return { ok: true as const };
@@ -182,7 +184,7 @@ export const catalogViewProcedures = {
           ctx,
           actor,
           view.tableId,
-          "read",
+          "rows.read",
         );
         if (!canEditView(view, user.id, role)) {
           throw new AppError("access_denied");

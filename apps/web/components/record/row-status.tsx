@@ -18,7 +18,7 @@ import { toast } from "sonner";
 import { reasonOf, useErrorText } from "../../lib/errors";
 import { cellDisplay, formatInstant } from "../../lib/format";
 import { trpc } from "../../lib/trpc";
-import { canWrite, type RowItem } from "../../lib/types";
+import { grants, type RowItem } from "../../lib/types";
 import { PromptDialog } from "../shell/dialogs";
 import { useTable } from "../table/table-context";
 import {
@@ -105,7 +105,7 @@ export function RowStatus({ row }: { row: RowItem }) {
     ? circuitWord(i18n, "state", current)
     : i18n._(STATUS_LABELS[status] ?? msg`Draft`);
   const actions =
-    circuit && table.role && canWrite(table.role)
+    circuit && table.role && grants(table.role, "rows.write")
       ? allowedTransitions(circuit, status, table.role)
       : [];
 

@@ -51,7 +51,7 @@ export const catalogTableProcedures = {
     .input(createTableInputSchema)
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
-        const { user } = await guardBase(ctx, input.baseId, "manage");
+        const { user } = await guardBase(ctx, input.baseId, "schema.manage");
         const created = await insertTable(ctx.db, user.id, {
           ...input,
           viewName: (await requestNames(ctx)).grid,
@@ -65,8 +65,12 @@ export const catalogTableProcedures = {
     .input(duplicateTableInputSchema)
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
-        const { user, table } = await guardTable(ctx, input.tableId, "manage");
-        await guardBase(ctx, table.baseId, "manage");
+        const { user, table } = await guardTable(
+          ctx,
+          input.tableId,
+          "schema.manage",
+        );
+        await guardBase(ctx, table.baseId, "schema.manage");
         const job = await enqueueJob(queueDeps(ctx), {
           kind: "duplicate_table",
           userId: user.id,
@@ -87,7 +91,11 @@ export const catalogTableProcedures = {
     .input(updateTableInputSchema)
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
-        const { user, table } = await guardTable(ctx, input.tableId, "manage");
+        const { user, table } = await guardTable(
+          ctx,
+          input.tableId,
+          "schema.manage",
+        );
         await updateTable(ctx.db, user.id, input);
         await publishCatalog(ctx.bus, table.baseId, logPublish(ctx));
         return { ok: true as const };
@@ -97,7 +105,7 @@ export const catalogTableProcedures = {
     .input(reorderTablesInputSchema)
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
-        const { user } = await guardBase(ctx, input.baseId, "manage");
+        const { user } = await guardBase(ctx, input.baseId, "schema.manage");
         await reorderTables(ctx.db, user.id, input.baseId, input.order);
         await publishCatalog(ctx.bus, input.baseId, logPublish(ctx));
         return { ok: true as const };
@@ -107,7 +115,7 @@ export const catalogTableProcedures = {
     .input(createFolderInputSchema)
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
-        const { user } = await guardBase(ctx, input.baseId, "manage");
+        const { user } = await guardBase(ctx, input.baseId, "schema.manage");
         const folder = await createFolder(ctx.db, user.id, input);
         await publishCatalog(ctx.bus, input.baseId, logPublish(ctx));
         return folder;
@@ -124,7 +132,12 @@ export const catalogTableProcedures = {
           .where("id", "=", input.folderId)
           .executeTakeFirst();
         if (!folder || folder.deletedAt) throw new AppError("unknown_folder");
-        const { user } = await baseAccess(ctx, actor, folder.baseId, "manage");
+        const { user } = await baseAccess(
+          ctx,
+          actor,
+          folder.baseId,
+          "schema.manage",
+        );
         const updated = await updateFolder(ctx.db, user.id, input);
         await publishCatalog(ctx.bus, folder.baseId, logPublish(ctx));
         return updated;
@@ -141,7 +154,12 @@ export const catalogTableProcedures = {
           .where("id", "=", input.folderId)
           .executeTakeFirst();
         if (!folder || folder.deletedAt) throw new AppError("unknown_folder");
-        const { user } = await baseAccess(ctx, actor, folder.baseId, "manage");
+        const { user } = await baseAccess(
+          ctx,
+          actor,
+          folder.baseId,
+          "schema.manage",
+        );
         await deleteFolder(ctx.db, user.id, input.folderId);
         await publishCatalog(ctx.bus, folder.baseId, logPublish(ctx));
         return { ok: true as const };
@@ -151,8 +169,12 @@ export const catalogTableProcedures = {
     .input(moveTableToFolderInputSchema)
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
-        const { user, table } = await guardTable(ctx, input.tableId, "manage");
-        await guardBase(ctx, table.baseId, "manage");
+        const { user, table } = await guardTable(
+          ctx,
+          input.tableId,
+          "schema.manage",
+        );
+        await guardBase(ctx, table.baseId, "schema.manage");
         await moveTableToFolder(ctx.db, user.id, input);
         await publishCatalog(ctx.bus, table.baseId, logPublish(ctx));
         return { ok: true as const };
@@ -162,7 +184,7 @@ export const catalogTableProcedures = {
     .input(reorderFoldersInputSchema)
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
-        const { user } = await guardBase(ctx, input.baseId, "manage");
+        const { user } = await guardBase(ctx, input.baseId, "schema.manage");
         await reorderFolders(ctx.db, user.id, input.baseId, input.order);
         await publishCatalog(ctx.bus, input.baseId, logPublish(ctx));
         return { ok: true as const };
@@ -179,7 +201,12 @@ export const catalogTableProcedures = {
           .where("id", "=", input.folderId)
           .executeTakeFirst();
         if (!folder || folder.deletedAt) throw new AppError("unknown_folder");
-        const { user } = await baseAccess(ctx, actor, folder.baseId, "manage");
+        const { user } = await baseAccess(
+          ctx,
+          actor,
+          folder.baseId,
+          "schema.manage",
+        );
         await reorderFolderTables(ctx.db, user.id, input.folderId, input.order);
         await publishCatalog(ctx.bus, folder.baseId, logPublish(ctx));
         return { ok: true as const };
@@ -189,7 +216,11 @@ export const catalogTableProcedures = {
     .input(deleteTableInputSchema)
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
-        const { user, table } = await guardTable(ctx, input.tableId, "manage");
+        const { user, table } = await guardTable(
+          ctx,
+          input.tableId,
+          "schema.manage",
+        );
         await trashTable(ctx.db, user.id, table);
         await publishCatalog(ctx.bus, table.baseId, logPublish(ctx));
         return { ok: true as const };
@@ -200,7 +231,7 @@ export const catalogTableProcedures = {
     .input(getTableCircuitInputSchema)
     .query(({ ctx, input }) =>
       handle(ctx, async () => {
-        await guardTable(ctx, input.tableId, "read");
+        await guardTable(ctx, input.tableId, "rows.read");
         return loadTableCircuit(ctx.db, input.tableId);
       }),
     ),
@@ -216,7 +247,11 @@ export const catalogTableProcedures = {
     .input(applyCircuitTemplateInputSchema)
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
-        const { table, user } = await guardTable(ctx, input.tableId, "manage");
+        const { table, user } = await guardTable(
+          ctx,
+          input.tableId,
+          "schema.manage",
+        );
         const circuit = await applyCircuitTemplate(ctx.db, {
           userId: user.id,
           tableId: table.id,

@@ -7,7 +7,6 @@ import {
   auditReadInputSchema,
   deleteCommentInputSchema,
   deleteRowsInputSchema,
-  effectiveTableRole,
   type EngineCatalog,
   importCommitInputSchema,
   insertRowInputSchema,
@@ -23,7 +22,7 @@ import {
   resolveCommentInputSchema,
   restoreRowsInputSchema,
   revertRowInputSchema,
-  roleAllows,
+  roleGrants,
   rowsAggregateInputSchema,
   rowsGetInputSchema,
   rowsReadInputSchema,
@@ -103,6 +102,7 @@ import {
 import type { Context } from "./context.js";
 import { queueDeps } from "./jobs-router.js";
 import {
+  assertGrants,
   authorize,
   guardBase,
   guardTable,
@@ -149,9 +149,13 @@ function scopeOf(ctx: Context, access: TableAccess): Promise<RowScope> {
   );
 }
 
-/** The caller's view of a table they may write. */
-async function writeScope(ctx: Context, tableId: string): Promise<RowScope> {
-  return scopeOf(ctx, await guardTable(ctx, tableId, "write"));
+/** The caller's view of a table they may write, or delete from. */
+async function writeScope(
+  ctx: Context,
+  tableId: string,
+  permission: "rows.write" | "rows.delete" = "rows.write",
+): Promise<RowScope> {
+  return scopeOf(ctx, await guardTable(ctx, tableId, permission));
 }
 
 async function notifyDeps(ctx: Context): Promise<NotifyDeps> {
@@ -298,7 +302,7 @@ async function stoppedByViewFilter(
 export const rowsRouter = t.router({
   read: procedure.input(rowsReadInputSchema).query(({ ctx, input }) =>
     handle(ctx, async () => {
-      const access = await guardTable(ctx, input.tableId, "read");
+      const access = await guardTable(ctx, input.tableId, "rows.read");
       const { engine } = await engineFor(ctx, access);
       const spec = await readSpec(ctx, access, input, engine);
       let page: Awaited<ReturnType<typeof readPage>>;
@@ -335,7 +339,7 @@ export const rowsRouter = t.router({
   ),
   get: procedure.input(rowsGetInputSchema).query(({ ctx, input }) =>
     handle(ctx, async () => {
-      const access = await guardTable(ctx, input.tableId, "read");
+      const access = await guardTable(ctx, input.tableId, "rows.read");
       const { engine } = await engineFor(ctx, access);
       const rows = await readByIds(
         ctx.db,
@@ -350,7 +354,7 @@ export const rowsRouter = t.router({
   ),
   aggregate: procedure.input(rowsAggregateInputSchema).query(({ ctx, input }) =>
     handle(ctx, async () => {
-      const access = await guardTable(ctx, input.tableId, "read");
+      const access = await guardTable(ctx, input.tableId, "rows.read");
       const { engine } = await engineFor(ctx, access);
       const asked = { ...input, limit: 1 };
       const spec = await readSpec(ctx, access, asked, engine);
@@ -423,7 +427,7 @@ export const rowsRouter = t.router({
     .input(deleteRowsInputSchema)
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
-        const scope = await writeScope(ctx, input.tableId);
+        const scope = await writeScope(ctx, input.tableId, "rows.delete");
         const ids = await deleteRows(serviceDeps(ctx), scope, input.rowIds, {
           reason: input.reason,
           source: "web",
@@ -433,7 +437,7 @@ export const rowsRouter = t.router({
     ),
   trash: procedure.input(trashInputSchema).query(({ ctx, input }) =>
     handle(ctx, async () => {
-      const access = await guardTable(ctx, input.tableId, "write");
+      const access = await guardTable(ctx, input.tableId, "rows.delete");
       const { engine } = await engineFor(ctx, access);
       const deletedBy = trashScope({
         actorId: access.user.id,
@@ -461,7 +465,7 @@ export const rowsRouter = t.router({
   ),
   restore: procedure.input(restoreRowsInputSchema).mutation(({ ctx, input }) =>
     handle(ctx, async () => {
-      const scope = await writeScope(ctx, input.tableId);
+      const scope = await writeScope(ctx, input.tableId, "rows.delete");
       return restoreRows(serviceDeps(ctx), scope, input.rowIds, {
         reason: input.reason,
         source: "restore",
@@ -492,7 +496,7 @@ export const rowsRouter = t.router({
     .input(linkCandidatesInputSchema)
     .query(({ ctx, input }) =>
       handle(ctx, async () => {
-        const access = await guardTable(ctx, input.tableId, "read");
+        const access = await guardTable(ctx, input.tableId, "rows.read");
         const { engine } = await engineFor(ctx, access);
         const column = engine.table.columns.find(
           (item) => item.name === input.column,
@@ -516,7 +520,7 @@ export const rowsRouter = t.router({
       const access = await guardTable(
         ctx,
         input.tableId,
-        input.status === "submitted" ? "write" : "manage",
+        input.status === "submitted" ? "rows.write" : "rows.lock",
       );
       const scope = await scopeOf(ctx, access);
       await changeStatus(
@@ -533,7 +537,7 @@ export const rowsRouter = t.router({
     .input(transitionRowInputSchema)
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
-        const access = await guardTable(ctx, input.tableId, "write");
+        const access = await guardTable(ctx, input.tableId, "rows.write");
         const scope = await scopeOf(ctx, access);
         return transitionRowAs(
           serviceDeps(ctx),
@@ -545,7 +549,7 @@ export const rowsRouter = t.router({
     ),
   sign: procedure.input(signRowInputSchema).mutation(({ ctx, input }) =>
     handle(ctx, async () => {
-      const access = await guardTable(ctx, input.tableId, "manage");
+      const access = await guardTable(ctx, input.tableId, "rows.lock");
       await signRowAs(
         serviceDeps(ctx),
         { ...(await scopeOf(ctx, access)), role: access.role },
@@ -564,7 +568,7 @@ export const rowsRouter = t.router({
   ),
   audit: procedure.input(auditReadInputSchema).query(({ ctx, input }) =>
     handle(ctx, async () => {
-      const access = await guardTable(ctx, input.tableId, "read");
+      const access = await guardTable(ctx, input.tableId, "rows.read");
       const { engine } = await engineFor(ctx, access);
       await assertRowsInScope(ctx.db, engine, [input.recordId]);
       const rules = engine.access;
@@ -642,7 +646,12 @@ export const rowsRouter = t.router({
         let canManage: boolean;
         await assertJobCapacity(ctx.db, (await requireUser(ctx)).id);
         if (input.target.kind === "new") {
-          const { user } = await guardBase(ctx, input.target.baseId, "manage");
+          const { user, role } = await guardBase(
+            ctx,
+            input.target.baseId,
+            "schema.manage",
+          );
+          assertGrants(role, "data.import");
           const staged = await loadStagedImport(
             ctx.db,
             input.importId,
@@ -663,7 +672,7 @@ export const rowsRouter = t.router({
             columns,
             viewName: (await requestNames(ctx)).grid,
           });
-          access = await guardTable(ctx, table.id, "write");
+          access = await guardTable(ctx, table.id, "data.import");
           const { rows } = await loadEngine(ctx.db, table.id, () => true);
           created = rows.columns
             .filter((column) => column.tableId === table.id)
@@ -671,15 +680,8 @@ export const rowsRouter = t.router({
             .map((column) => column.name);
           canManage = true;
         } else {
-          access = await guardTable(ctx, input.target.tableId, "write");
-          canManage = roleAllows(
-            effectiveTableRole(
-              access.bindings,
-              access.table.id,
-              access.table.baseId,
-            ),
-            "manage",
-          );
+          access = await guardTable(ctx, input.target.tableId, "data.import");
+          canManage = roleGrants(access.role, "schema.manage");
           const { engine } = await engineFor(ctx, access);
           const writable = new Set(
             writeColumns(engine).map((column) => column.name),
@@ -747,7 +749,7 @@ export const rowsRouter = t.router({
     ),
   comments: procedure.input(listCommentsInputSchema).query(({ ctx, input }) =>
     handle(ctx, async () => {
-      const access = await guardTable(ctx, input.tableId, "read");
+      const access = await guardTable(ctx, input.tableId, "rows.read");
       const { engine } = await engineFor(ctx, access);
       await assertRowsInScope(ctx.db, engine, [input.rowId]);
       return {
@@ -759,7 +761,7 @@ export const rowsRouter = t.router({
     .input(rowsGetInputSchema.pick({ tableId: true, rowIds: true }))
     .query(({ ctx, input }) =>
       handle(ctx, async () => {
-        await guardTable(ctx, input.tableId, "read");
+        await guardTable(ctx, input.tableId, "rows.read");
         const { countComments } = await import("../data/comments.js");
         return {
           counts: await countComments(ctx.db, input.tableId, input.rowIds),
@@ -770,7 +772,7 @@ export const rowsRouter = t.router({
     .input(addCommentInputSchema)
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
-        const access = await guardTable(ctx, input.tableId, "comment");
+        const access = await guardTable(ctx, input.tableId, "rows.comment");
         const { engine } = await engineFor(ctx, access);
         await assertRowsInScope(ctx.db, engine, [input.rowId]);
         await assertRowExists(ctx.db, engine, input.rowId);
@@ -810,7 +812,7 @@ export const rowsRouter = t.router({
           ctx,
           await authorize(ctx),
           await commentTableId(ctx.db, input.commentId),
-          "comment",
+          "rows.comment",
         );
         const before = await ctx.db
           .selectFrom("comments")
@@ -849,7 +851,12 @@ export const rowsRouter = t.router({
       handle(ctx, async () => {
         const actor = await authorize(ctx);
         const place = await commentPlace(ctx.db, input.commentId);
-        const access = await tableAccess(ctx, actor, place.tableId, "comment");
+        const access = await tableAccess(
+          ctx,
+          actor,
+          place.tableId,
+          "rows.comment",
+        );
         const { engine } = await engineFor(ctx, access);
         await assertRowsInScope(ctx.db, engine, [place.rowId]);
         await resolveComment(ctx.db, {
@@ -868,13 +875,13 @@ export const rowsRouter = t.router({
           ctx,
           await authorize(ctx),
           await commentTableId(ctx.db, input.commentId),
-          "comment",
+          "rows.comment",
         );
         await deleteComment(
           ctx.db,
           input.commentId,
           access.user.id,
-          access.role === "owner",
+          roleGrants(access.role, "base.manage"),
         );
         return { ok: true as const };
       }),

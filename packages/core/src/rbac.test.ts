@@ -3,7 +3,13 @@ import {
   can,
   effectiveTableRole,
   enrollmentGate,
+  PERMISSIONS,
+  type Permission,
   roleFor,
+  roleGrants,
+  rolePermissions,
+  ROLES,
+  roleRank,
   type Binding,
 } from "./rbac";
 
@@ -12,12 +18,67 @@ const bindings: Binding[] = [
   { role: "editor", scope: "column", scopeId: "column-1" },
 ];
 
+/**
+ * The rank each act asked of a role before permissions were named
+ * (viewer 1, commenter 2, editor 3, owner 4). The packs must give each
+ * act to exactly the roles that held it then: a role that gains or loses
+ * one changes someone's access, and is a decision of its own.
+ */
+const RANK_BEFORE: Record<Permission, number> = {
+  "rows.read": 1,
+  "data.export": 1,
+  "rows.comment": 2,
+  "rows.write": 3,
+  "rows.delete": 3,
+  "data.import": 3,
+  publish: 3,
+  "views.manage": 3,
+  "rows.lock": 4,
+  "dashboards.manage": 4,
+  "schema.manage": 4,
+  "automations.manage": 4,
+  "webhooks.manage": 4,
+  "members.manage": 4,
+  "base.manage": 4,
+};
+
+describe("roleGrants", () => {
+  it("gives each role exactly the acts its rank gave", () => {
+    for (const role of ROLES) {
+      for (const permission of PERMISSIONS) {
+        expect(roleGrants(role, permission), `${role} / ${permission}`).toBe(
+          roleRank(role) >= RANK_BEFORE[permission],
+        );
+      }
+    }
+  });
+
+  it("gives nothing to no role", () => {
+    for (const permission of PERMISSIONS) {
+      expect(roleGrants(null, permission)).toBe(false);
+      expect(roleGrants(undefined, permission)).toBe(false);
+    }
+  });
+
+  it("lists a pack in the catalogue's order, the owner's whole", () => {
+    expect(rolePermissions("viewer")).toEqual(["rows.read", "data.export"]);
+    expect(rolePermissions("commenter")).toEqual([
+      "rows.read",
+      "rows.comment",
+      "data.export",
+    ]);
+    expect(rolePermissions("owner")).toEqual([...PERMISSIONS]);
+  });
+});
+
 describe("can", () => {
   it("allows a viewer to read only the bound scope", () => {
-    expect(can(bindings, "read", "table", "table-1")).toBe(true);
-    expect(can(bindings, "write", "table", "table-1")).toBe(false);
-    expect(can(bindings, "read", "table", "table-2")).toBe(false);
-    expect(can(bindings, "write", "column", "column-1")).toBe(true);
+    expect(can(bindings, "rows.read", "table", "table-1")).toBe(true);
+    expect(can(bindings, "rows.write", "table", "table-1")).toBe(false);
+    expect(can(bindings, "data.export", "table", "table-1")).toBe(true);
+    expect(can(bindings, "publish", "table", "table-1")).toBe(false);
+    expect(can(bindings, "rows.read", "table", "table-2")).toBe(false);
+    expect(can(bindings, "rows.write", "column", "column-1")).toBe(true);
   });
 });
 
@@ -94,12 +155,18 @@ describe("effectiveTableRole", () => {
     expect(effectiveTableRole(layered, "table-locked", "base-1")).toBe(
       "viewer",
     );
-    expect(can(layered, "write", "table", "table-open", "base-1")).toBe(true);
-    expect(can(layered, "write", "table", "table-locked", "base-1")).toBe(
+    expect(can(layered, "rows.write", "table", "table-open", "base-1")).toBe(
+      true,
+    );
+    expect(can(layered, "rows.write", "table", "table-locked", "base-1")).toBe(
       false,
     );
-    expect(can(layered, "comment", "table", "table-x", "base-2")).toBe(true);
-    expect(can(layered, "write", "table", "table-x", "base-2")).toBe(false);
-    expect(can(layered, "read", "table", "table-open")).toBe(false);
+    expect(can(layered, "rows.comment", "table", "table-x", "base-2")).toBe(
+      true,
+    );
+    expect(can(layered, "rows.write", "table", "table-x", "base-2")).toBe(
+      false,
+    );
+    expect(can(layered, "rows.read", "table", "table-open")).toBe(false);
   });
 });

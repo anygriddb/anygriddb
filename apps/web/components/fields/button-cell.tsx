@@ -3,7 +3,7 @@ import { cn } from "@anygriddb/ui";
 import { toast } from "sonner";
 import { cellDisplay } from "../../lib/format";
 import { trpc } from "../../lib/trpc";
-import { canWrite, type CatalogColumn, type RowItem } from "../../lib/types";
+import { type CatalogColumn, grants, type RowItem } from "../../lib/types";
 import { useTable } from "../table/table-context";
 import { useLingui } from "@lingui/react/macro";
 import { useErrorText } from "../../lib/errors";
@@ -43,7 +43,7 @@ export function ButtonCell({
   const config = (column.config as { button?: ButtonConfig }).button;
   if (!config) return null;
   const runs = config.action === "run_automation";
-  const disabled = runs && !canWrite(table.role);
+  const disabled = runs && !grants(table.role, "rows.write");
 
   async function press() {
     if (config?.action === "open_url" && config.url) {

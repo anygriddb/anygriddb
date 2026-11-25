@@ -798,18 +798,19 @@ describe("jobs, trash, and authors", () => {
         db,
         { userId: owner },
         table.id,
-        "write",
+        "rows.write",
       );
       expect(access.table.id).toBe(table.id);
       // A viewer lost nothing, but never had the right to write.
       await expect(
-        authorTable(db, { userId: viewer }, table.id, "write"),
+        authorTable(db, { userId: viewer }, table.id, "rows.write"),
       ).rejects.toThrow("Access denied");
       expect(
-        (await authorTable(db, { userId: viewer }, table.id, "read")).userId,
+        (await authorTable(db, { userId: viewer }, table.id, "rows.read"))
+          .userId,
       ).toBe(viewer);
       await expect(
-        authorTable(db, { userId: null }, table.id, "read"),
+        authorTable(db, { userId: null }, table.id, "rows.read"),
       ).rejects.toThrow("Access denied");
       await db
         .updateTable("users")
@@ -817,7 +818,7 @@ describe("jobs, trash, and authors", () => {
         .where("id", "=", viewer)
         .execute();
       await expect(
-        authorTable(db, { userId: viewer }, table.id, "read"),
+        authorTable(db, { userId: viewer }, table.id, "rows.read"),
       ).rejects.toThrow("Access denied");
       const full = await db
         .selectFrom("dataTables")
@@ -826,7 +827,7 @@ describe("jobs, trash, and authors", () => {
         .executeTakeFirstOrThrow();
       await trashTable(db, owner, full);
       await expect(
-        authorTable(db, { userId: owner }, table.id, "read"),
+        authorTable(db, { userId: owner }, table.id, "rows.read"),
       ).rejects.toThrow("Unknown table");
     });
   });

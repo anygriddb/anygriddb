@@ -1,4 +1,4 @@
-import type { Role, ViewItem } from "../../lib/types";
+import { grants, type Role, type ViewItem } from "../../lib/types";
 
 /**
  * Whether a person's settings of a view are stored with it. A personal
@@ -13,6 +13,5 @@ export function canEditView(
 ): boolean {
   if (!view) return false;
   if (view.personal) return personalOwner;
-  if (view.locked) return role === "owner";
-  return role === "owner" || role === "editor";
+  return grants(role, view.locked ? "schema.manage" : "views.manage");
 }

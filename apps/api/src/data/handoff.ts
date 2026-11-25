@@ -8,8 +8,9 @@ import { dropAccountTokens } from "../auth/tokens.js";
 import {
   AppError,
   effectiveTableRole,
-  roleAllows,
+  roleGrants,
   type Binding,
+  type Permission,
 } from "@anygriddb/core";
 import type { Database } from "@anygriddb/db";
 import { z } from "zod";
@@ -173,17 +174,22 @@ export async function handOver(
       .select(["role", "scope", "scopeId"])
       .where("userId", "=", input.toUserId)
       .execute();
-    const manages = (item: Made) =>
-      roleAllows(
+    const manages = (item: Made, permission: Permission) =>
+      roleGrants(
         effectiveTableRole(bindings, item.tableId, item.baseId),
-        "manage",
+        permission,
       );
     /** What moves, and what stays with the person. */
-    const split = (made: Made[]) => ({
-      moving: made.filter(manages).map((item) => item.id),
-      kept: made.filter((item) => !manages(item)).map(named),
+    const split = (made: Made[], permission: Permission) => ({
+      moving: made
+        .filter((item) => manages(item, permission))
+        .map((item) => item.id),
+      kept: made.filter((item) => !manages(item, permission)).map(named),
     });
-    const theirAutomations = split(await automationsOf(tx, input.fromUserId));
+    const theirAutomations = split(
+      await automationsOf(tx, input.fromUserId),
+      "automations.manage",
+    );
     if (theirAutomations.moving.length > 0) {
       await tx
         .updateTable("automations")
@@ -191,7 +197,10 @@ export async function handOver(
         .where("id", "in", theirAutomations.moving)
         .execute();
     }
-    const theirWebhooks = split(await webhooksOf(tx, input.fromUserId));
+    const theirWebhooks = split(
+      await webhooksOf(tx, input.fromUserId),
+      "webhooks.manage",
+    );
     if (theirWebhooks.moving.length > 0) {
       await tx
         .updateTable("webhooks")

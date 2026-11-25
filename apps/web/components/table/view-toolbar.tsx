@@ -103,16 +103,16 @@ export function ViewToolbar(props: {
   search: string;
   onSearch: (value: string) => void;
   onPatch: (patch: ViewPatch) => void;
-  canEdit: boolean;
   canUndo: boolean;
   canRedo: boolean;
   onUndo: () => void;
   onRedo: () => void;
-  onExport: (format: "csv" | "json" | "xlsx") => void;
-  onImport: () => void;
-  onTrash: () => void;
-  /** Shown to those who manage the table. */
-  onAutomations?: () => void;
+  /** Each set only for those who may: export, import, the row trash. */
+  onExport?: ((format: "csv" | "json" | "xlsx") => void) | undefined;
+  onImport?: (() => void) | undefined;
+  onTrash?: (() => void) | undefined;
+  /** Shown to those who manage the table's automations. */
+  onAutomations?: (() => void) | undefined;
   /** Opens the dialog that adds a field; unset when the person may not. */
   onAddField?: (() => void) | undefined;
   /** Shown to those who may add rows. */
@@ -132,6 +132,9 @@ export function ViewToolbar(props: {
   const { t } = useLingui();
   const { locale } = useLocale();
   const { config, allColumns } = props;
+  const exportTo = props.onExport;
+  const importFile = props.onImport;
+  const toolsOfRows = props.onAutomations ?? props.onTrash;
   const [draft, setDraft] = useState<FilterGroup>(
     config.filter ?? { conjunction: "and", conditions: [] },
   );
@@ -705,47 +708,59 @@ export function ViewToolbar(props: {
               />
             </div>
           ) : null}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <ToolButton aria-label={t`More actions`}>
-                <MoreHorizontal className="h-4 w-4" aria-hidden />
-              </ToolButton>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onSelect={() => props.onExport("csv")}>
-                <Download className="h-4 w-4" aria-hidden />
-                {t`Export view as CSV`}
-              </DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => props.onExport("xlsx")}>
-                <Download className="h-4 w-4" aria-hidden />
-                {t`Export view to Excel`}
-              </DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => props.onExport("json")}>
-                <Download className="h-4 w-4" aria-hidden />
-                {t`Export view to JSON`}
-              </DropdownMenuItem>
-              {props.canEdit ? (
-                <>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onSelect={props.onImport}>
-                    <Upload className="h-4 w-4" aria-hidden />
-                    {t`Import a file`}
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  {props.onAutomations ? (
-                    <DropdownMenuItem onSelect={props.onAutomations}>
-                      <Zap className="h-4 w-4" aria-hidden />
-                      {t`Automations`}
+          {exportTo || importFile || toolsOfRows ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <ToolButton aria-label={t`More actions`}>
+                  <MoreHorizontal className="h-4 w-4" aria-hidden />
+                </ToolButton>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                {exportTo ? (
+                  <>
+                    <DropdownMenuItem onSelect={() => exportTo("csv")}>
+                      <Download className="h-4 w-4" aria-hidden />
+                      {t`Export view as CSV`}
                     </DropdownMenuItem>
-                  ) : null}
-                  <DropdownMenuItem onSelect={props.onTrash}>
-                    <Trash2 className="h-4 w-4" aria-hidden />
-                    {t`Row trash`}
-                  </DropdownMenuItem>
-                </>
-              ) : null}
-            </DropdownMenuContent>
-          </DropdownMenu>
+                    <DropdownMenuItem onSelect={() => exportTo("xlsx")}>
+                      <Download className="h-4 w-4" aria-hidden />
+                      {t`Export view to Excel`}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onSelect={() => exportTo("json")}>
+                      <Download className="h-4 w-4" aria-hidden />
+                      {t`Export view to JSON`}
+                    </DropdownMenuItem>
+                  </>
+                ) : null}
+                {importFile ? (
+                  <>
+                    {exportTo ? <DropdownMenuSeparator /> : null}
+                    <DropdownMenuItem onSelect={importFile}>
+                      <Upload className="h-4 w-4" aria-hidden />
+                      {t`Import a file`}
+                    </DropdownMenuItem>
+                  </>
+                ) : null}
+                {toolsOfRows ? (
+                  <>
+                    {exportTo || importFile ? <DropdownMenuSeparator /> : null}
+                    {props.onAutomations ? (
+                      <DropdownMenuItem onSelect={props.onAutomations}>
+                        <Zap className="h-4 w-4" aria-hidden />
+                        {t`Automations`}
+                      </DropdownMenuItem>
+                    ) : null}
+                    {props.onTrash ? (
+                      <DropdownMenuItem onSelect={props.onTrash}>
+                        <Trash2 className="h-4 w-4" aria-hidden />
+                        {t`Row trash`}
+                      </DropdownMenuItem>
+                    ) : null}
+                  </>
+                ) : null}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : null}
         </div>
       </div>
       {drawsRows && narrow && settingsOpen ? (

@@ -2,7 +2,7 @@ import type { KeyRing } from "./auth/key-ring.js";
 import { createReadStream } from "node:fs";
 import { join } from "node:path";
 import {
-  type Action,
+  type Permission,
   airtableToSnapshot,
   AppError,
   type Binding,
@@ -22,8 +22,9 @@ import {
   convertColumnJobInputSchema,
   restoreBaseJobInputSchema,
   restorePointJobInputSchema,
-  roleAllows,
+  type Role,
   roleFor,
+  roleGrants,
   trashPurgeJobInputSchema,
 } from "@anygriddb/core";
 import type { Database } from "@anygriddb/db";
@@ -148,18 +149,26 @@ async function activeAuthor(
   };
 }
 
+/** A base's snapshot carries its rows: the base's and an export. */
+function canSnapshot(role: Role | null): boolean {
+  return roleGrants(role, "base.manage") && roleGrants(role, "data.export");
+}
+
 export async function authorTable(
   db: Database,
   job: Pick<JobRow, "userId">,
   tableId: string,
-  action: Action,
+  permission: Permission,
 ): Promise<{ userId: string; table: TableRow; bindings: Binding[] }> {
   const { userId, bindings } = await activeAuthor(db, job);
   // A table in the trash, or in a base in the trash, is gone for a job.
   const table = await findLiveTable(db, tableId);
   if (!table) throw new AppError("unknown_table");
   if (
-    !roleAllows(effectiveTableRole(bindings, table.id, table.baseId), action)
+    !roleGrants(
+      effectiveTableRole(bindings, table.id, table.baseId),
+      permission,
+    )
   ) {
     throw new AppError("access_denied");
   }
@@ -180,7 +189,7 @@ const runImport =
       deps.db,
       job,
       input.tableId,
-      "write",
+      "data.import",
     );
     const staged = await loadStagedImport(deps.db, input.importId, userId);
     // Field and row rules may have changed since the job was queued.
@@ -218,9 +227,9 @@ const runImport =
         mapping: input.mapping,
         upsertSource: input.upsertSource,
         addOptions: input.addOptions,
-        canManage: roleAllows(
+        canManage: roleGrants(
           effectiveTableRole(bindings, table.id, table.baseId),
-          "manage",
+          "schema.manage",
         ),
         reason: input.reason,
         created: input.created,
@@ -275,7 +284,7 @@ const runExport =
       deps.db,
       job,
       input.tableId,
-      "read",
+      "data.export",
     );
     // Taken before the rows: a rule changed while they are read refuses
     // the file rather than serving what it now hides.
@@ -340,9 +349,9 @@ const runDuplicate =
       deps.db,
       job,
       input.tableId,
-      "manage",
+      "schema.manage",
     );
-    if (!roleAllows(roleFor(bindings, "base", table.baseId), "manage")) {
+    if (!roleGrants(roleFor(bindings, "base", table.baseId), "schema.manage")) {
       throw new AppError("access_denied");
     }
     let copyId: string | undefined;
@@ -395,7 +404,7 @@ const runTrashPurge =
       const baseId = input.baseId;
       if (!baseId) throw new AppError("invalid_job");
       const { userId, bindings } = await activeAuthor(deps.db, job);
-      if (!roleAllows(roleFor(bindings, "base", baseId), "manage")) {
+      if (!roleGrants(roleFor(bindings, "base", baseId), "base.manage")) {
         throw new AppError("access_denied");
       }
       const items =
@@ -451,7 +460,7 @@ const runRestorePoint =
   async ({ job, progress }) => {
     const input = restorePointJobInputSchema.parse(job.input);
     const { userId, bindings } = await activeAuthor(deps.db, job);
-    if (!roleAllows(roleFor(bindings, "base", input.baseId), "manage")) {
+    if (!roleGrants(roleFor(bindings, "base", input.baseId), "base.manage")) {
       throw new AppError("access_denied");
     }
     const made = await makeRestorePoint(
@@ -488,7 +497,7 @@ const runRestoreBase =
     const input = restoreBaseJobInputSchema.parse(job.input);
     const { userId, bindings } = await activeAuthor(deps.db, job);
     const point = await findRestorePoint(deps.db, input.restorePointId);
-    if (!roleAllows(roleFor(bindings, "base", point.baseId), "manage")) {
+    if (!roleGrants(roleFor(bindings, "base", point.baseId), "base.manage")) {
       throw new AppError("access_denied");
     }
     let baseId: string | undefined;
@@ -530,7 +539,7 @@ const runExportSnapshot =
   async ({ job, progress }) => {
     const input = exportSnapshotJobInputSchema.parse(job.input);
     const { userId, bindings } = await activeAuthor(deps.db, job);
-    if (!roleAllows(roleFor(bindings, "base", input.baseId), "manage")) {
+    if (!canSnapshot(roleFor(bindings, "base", input.baseId))) {
       throw new AppError("access_denied");
     }
     const base = await deps.db
@@ -797,7 +806,7 @@ const runDuplicateBase =
   async ({ job, progress }) => {
     const input = duplicateBaseJobInputSchema.parse(job.input);
     const { userId, bindings } = await activeAuthor(deps.db, job);
-    if (!roleAllows(roleFor(bindings, "base", input.baseId), "manage")) {
+    if (!roleGrants(roleFor(bindings, "base", input.baseId), "base.manage")) {
       throw new AppError("access_denied");
     }
     // Reading the base is the first half of the work, writing the copy
@@ -948,7 +957,7 @@ const runConvertColumn =
       deps.db,
       job,
       input.tableId,
-      "manage",
+      "schema.manage",
     );
     const { converted, lost } = await runConversion(deps.db, {
       userId,

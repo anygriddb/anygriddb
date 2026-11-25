@@ -1,3 +1,4 @@
+import type { Role } from "@anygriddb/core";
 import { describe, expect, it } from "vitest";
 import {
   memberShown,
@@ -14,7 +15,11 @@ const own = {
 
 describe("ruledMembers", () => {
   it("leaves out the owners of the table, by their role on it or on the base", () => {
-    const people = [
+    const people: Array<{
+      name: string;
+      baseRole: Role | null;
+      tableRole: Role | null;
+    }> = [
       { name: "owner of the base", baseRole: "owner", tableRole: null },
       { name: "editor", baseRole: "editor", tableRole: null },
       { name: "owner of the table", baseRole: "viewer", tableRole: "owner" },

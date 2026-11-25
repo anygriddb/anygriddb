@@ -8,9 +8,10 @@ import { downloadJobFile, useTrackJob } from "../../lib/jobs";
 import { useCatalog, useSession } from "../../lib/session";
 import { trpc, useTRPC } from "../../lib/trpc";
 import {
-  canManage,
   type CatalogBase,
   type Collaborator,
+  grants,
+  type Permission,
   type Role,
 } from "../../lib/types";
 import { ConfirmDialog } from "../shell/dialogs";
@@ -42,18 +43,20 @@ export function BaseSettings({ baseId }: { baseId: string }) {
   const invalidate = useInvalidateCatalog();
   const roleLabel = useRoleLabel();
   const base = catalog.data?.find((item) => item.id === baseId);
-  const manage = canManage(base?.role);
+  const may = (permission: Permission) => grants(base?.role, permission);
+  const manageMembers = may("members.manage");
+  const manage = may("base.manage");
   const members = useQuery({
     ...api.catalog.members.queryOptions({ baseId }),
-    enabled: manage,
+    enabled: manageMembers,
   });
   const collaborators = useQuery({
     ...api.catalog.collaborators.queryOptions({ baseId }),
-    enabled: manage,
+    enabled: manageMembers,
   });
   const openAccess = useQuery({
     ...api.catalog.openAccess.queryOptions({ baseId }),
-    enabled: manage,
+    enabled: manageMembers,
   });
   const people = useMemo(
     () =>
@@ -167,7 +170,7 @@ export function BaseSettings({ baseId }: { baseId: string }) {
         title={t`Members`}
         description={t`The base role applies to all of its tables.`}
       >
-        {manage ? (
+        {manageMembers ? (
           <>
             {(openAccess.data ?? []).map((open) => (
               <p
@@ -325,8 +328,8 @@ export function BaseSettings({ baseId }: { baseId: string }) {
           </p>
         )}
       </RuledSection>
-      {manage ? <BaseLinks baseId={baseId} /> : null}
-      {manage ? (
+      {manage && may("publish") ? <BaseLinks baseId={baseId} /> : null}
+      {manageMembers ? (
         <RuledSection
           title={t`Groups`}
           description={t`Groups come from Administration or your identity provider. Each member gets the group's role, and loses it on leaving the group.`}
@@ -334,7 +337,7 @@ export function BaseSettings({ baseId }: { baseId: string }) {
           <GroupRoles baseId={baseId} roleLabel={(value) => roleLabel(value)} />
         </RuledSection>
       ) : null}
-      {manage ? (
+      {manage && may("data.export") ? (
         <RuledSection
           title={t`Backup`}
           description={t`A file to keep elsewhere: schema, views, dashboards, rows, members, and attachments, in a .zip archive. Import it again from “New base”: its rows come back as drafts, dated from the import. Comments, the history of changes, automations, webhooks, and public links stay with this base.`}
@@ -368,7 +371,7 @@ export function BaseSettings({ baseId }: { baseId: string }) {
       {manage ? (
         <RestorePoints baseId={baseId} hasTables={base.tables.length > 0} />
       ) : null}
-      {manage ? (
+      {manageMembers ? (
         <RuledSection
           title={t`Per-table access`}
           description={t`A table override replaces the base role either way. A member's permissions then narrow the rows they see and what they may do with each field.`}
@@ -384,7 +387,7 @@ export function BaseSettings({ baseId }: { baseId: string }) {
           ))}
         </RuledSection>
       ) : null}
-      {manage ? (
+      {may("webhooks.manage") ? (
         <RuledSection
           title={t`Webhooks`}
           description={t`Signed HTTPS POST (HMAC-SHA256) or email, on every write.`}

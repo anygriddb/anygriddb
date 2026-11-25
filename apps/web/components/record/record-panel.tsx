@@ -40,12 +40,7 @@ import { useNarrowScreen } from "../../lib/narrow-screen";
 import { useSession } from "../../lib/session";
 import { useSubmitGuard } from "../../lib/submit-guard";
 import { trpc, useTRPC } from "../../lib/trpc";
-import {
-  canComment,
-  canWrite,
-  type CatalogColumn,
-  type RowItem,
-} from "../../lib/types";
+import { grants, type CatalogColumn, type RowItem } from "../../lib/types";
 import { AttachmentPreview } from "../fields/attachment-preview";
 import { CellEditor, opensPanel } from "../fields/cell-editor";
 import { linkTarget } from "../fields/link-actions";
@@ -376,7 +371,7 @@ function Comments({ rowId }: { rowId: string }) {
         )}
         {!comment.deleted ? (
           <div className="flex gap-2 text-xs text-muted-foreground">
-            {!reply && canComment(table.role) ? (
+            {!reply && grants(table.role, "rows.comment") ? (
               <button
                 type="button"
                 className="hover:text-foreground"
@@ -385,7 +380,7 @@ function Comments({ rowId }: { rowId: string }) {
                 {t`Reply`}
               </button>
             ) : null}
-            {!reply && canComment(table.role) ? (
+            {!reply && grants(table.role, "rows.comment") ? (
               <button
                 type="button"
                 className="hover:text-foreground"
@@ -422,7 +417,8 @@ function Comments({ rowId }: { rowId: string }) {
                 <Pencil className="inline h-3 w-3" aria-hidden /> {t`Edit`}
               </button>
             ) : null}
-            {comment.authorId === session.data?.id || table.role === "owner" ? (
+            {comment.authorId === session.data?.id ||
+            grants(table.role, "base.manage") ? (
               <button
                 type="button"
                 className="hover:text-danger"
@@ -457,7 +453,7 @@ function Comments({ rowId }: { rowId: string }) {
           <li className="text-sm text-muted-foreground">{t`No comments`}</li>
         ) : null}
       </ul>
-      {canComment(table.role) ? (
+      {grants(table.role, "rows.comment") ? (
         <form
           className="flex flex-col gap-1.5"
           onSubmit={(event) => {
@@ -675,7 +671,7 @@ function History({ row }: { row: RowItem }) {
                     const puttable =
                       eventId !== null &&
                       event.action === "update" &&
-                      canWrite(table.role) &&
+                      grants(table.role, "rows.write") &&
                       column !== undefined &&
                       column.access !== "read" &&
                       column.fieldType !== "formula" &&
@@ -714,7 +710,7 @@ function History({ row }: { row: RowItem }) {
               {"id" in event &&
               typeof event.id === "string" &&
               event.action === "update" &&
-              canWrite(table.role) ? (
+              grants(table.role, "rows.write") ? (
                 <Button
                   size="sm"
                   variant="ghost"
@@ -795,14 +791,17 @@ export function RecordPanel({
   // A client's row is edited only where an administrator enabled it.
   const unlocked = row.ag_status !== "locked" && row.ag_status !== "signed";
   const editable =
-    canWrite(table.role) &&
+    grants(table.role, "rows.write") &&
     (table.table.external?.writes.update ?? true) &&
     unlocked;
   // A client's inverse link writes the other table (ADR 0006): it takes
   // changes when that table does, whatever this one allows.
   const editableField = (column: CatalogColumn) =>
     editable ||
-    (external && canWrite(table.role) && unlocked && isEditableLink(column));
+    (external &&
+      grants(table.role, "rows.write") &&
+      unlocked &&
+      isEditableLink(column));
   const panel = (
     <aside
       ref={panelRef}

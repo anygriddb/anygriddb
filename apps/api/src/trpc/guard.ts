@@ -1,11 +1,11 @@
 import {
-  type Action,
   AppError,
   type Binding,
   effectiveTableRole,
+  type Permission,
   type Role,
-  roleAllows,
   roleFor,
+  roleGrants,
 } from "@anygriddb/core";
 import { assertEnrolled, loadBindings, scopeBindings } from "../auth/access.js";
 import { type SessionUser, withActingRights } from "../auth/session.js";
@@ -98,13 +98,24 @@ async function loadTable(ctx: Context, tableId: string): Promise<TableRow> {
 
 export type TableAccess = Actor & { table: TableRow; role: Role };
 
-/** Authorizes `action` on a table, with the base role as fallback. */
+/**
+ * For an act that needs a second permission besides the one its guard
+ * asked (a base's public link is the base's and a publication; its
+ * snapshot is the base's and an export): refused as the guard refuses.
+ */
+export function assertGrants(role: Role, permission: Permission): void {
+  if (!roleGrants(role, permission)) {
+    throw new AppError("access_denied");
+  }
+}
+
+/** Authorizes `permission` on a table, with the base role as fallback. */
 export async function guardTable(
   ctx: Context,
   tableId: string,
-  action: Action,
+  permission: Permission,
 ): Promise<TableAccess> {
-  return tableAccess(ctx, await authorize(ctx), tableId, action);
+  return tableAccess(ctx, await authorize(ctx), tableId, permission);
 }
 
 /**
@@ -117,11 +128,11 @@ export async function tableAccess(
   ctx: Context,
   actor: Actor,
   tableId: string,
-  action: Action,
+  permission: Permission,
 ): Promise<TableAccess> {
   const table = await loadTable(ctx, tableId);
   const role = effectiveTableRole(actor.bindings, table.id, table.baseId);
-  if (!role || !roleAllows(role, action)) {
+  if (!role || !roleGrants(role, permission)) {
     throw new AppError("access_denied");
   }
   return { ...actor, table, role };
@@ -130,10 +141,15 @@ export async function tableAccess(
 export async function guardBase(
   ctx: Context,
   baseId: string,
-  action: Action,
+  permission: Permission,
   creatingBase = false,
 ): Promise<Actor & { role: Role }> {
-  return baseAccess(ctx, await authorize(ctx, creatingBase), baseId, action);
+  return baseAccess(
+    ctx,
+    await authorize(ctx, creatingBase),
+    baseId,
+    permission,
+  );
 }
 
 /** The same, for a caller already asked who they are: see `tableAccess`. */
@@ -141,7 +157,7 @@ export async function baseAccess(
   ctx: Context,
   actor: Actor,
   baseId: string,
-  action: Action,
+  permission: Permission,
 ): Promise<Actor & { role: Role }> {
   const base = await ctx.db
     .selectFrom("bases")
@@ -155,7 +171,7 @@ export async function baseAccess(
     throw new AppError("access_denied");
   }
   const role = roleFor(actor.bindings, "base", baseId);
-  if (!role || !roleAllows(role, action)) {
+  if (!role || !roleGrants(role, permission)) {
     throw new AppError("access_denied");
   }
   return { ...actor, role };

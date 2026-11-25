@@ -39,6 +39,7 @@ import {
 } from "../webhooks.js";
 import type { Context } from "./context.js";
 import {
+  assertGrants,
   authorize,
   baseAccess,
   guardBase,
@@ -81,7 +82,7 @@ export const catalogSharingProcedures = {
       handle(ctx, async () => {
         const actor = await authorize(ctx);
         const view = await loadView(ctx.db, input.viewId);
-        await tableAccess(ctx, actor, view.tableId, "write");
+        await tableAccess(ctx, actor, view.tableId, "publish");
         return { shares: await listShares(ctx.db, input.viewId) };
       }),
     ),
@@ -99,7 +100,7 @@ export const catalogSharingProcedures = {
       handle(ctx, async () => {
         const actor = await authorize(ctx);
         const view = await loadView(ctx.db, input.viewId);
-        const { user } = await tableAccess(ctx, actor, view.tableId, "write");
+        const { user } = await tableAccess(ctx, actor, view.tableId, "publish");
         if (view.ownerId) {
           throw new AppError("invalid_view");
         }
@@ -122,7 +123,12 @@ export const catalogSharingProcedures = {
       handle(ctx, async () => {
         const actor = await authorize(ctx);
         const view = await loadView(ctx.db, input.viewId);
-        const { user } = await tableAccess(ctx, actor, view.tableId, "read");
+        const { user } = await tableAccess(
+          ctx,
+          actor,
+          view.tableId,
+          "data.export",
+        );
         return { feed: await calendarFeedOf(ctx.db, user.id, view.id) };
       }),
     ),
@@ -133,7 +139,12 @@ export const catalogSharingProcedures = {
       handle(ctx, async () => {
         const actor = await authorize(ctx);
         const view = await loadView(ctx.db, input.viewId);
-        const { user } = await tableAccess(ctx, actor, view.tableId, "read");
+        const { user } = await tableAccess(
+          ctx,
+          actor,
+          view.tableId,
+          "data.export",
+        );
         const token = await renewCalendarFeed(ctx.db, user.id, view.id);
         return { url: `${ctx.env.PUBLIC_URL}/ical/${token}.ics` };
       }),
@@ -144,7 +155,12 @@ export const catalogSharingProcedures = {
       handle(ctx, async () => {
         const actor = await authorize(ctx);
         const view = await loadView(ctx.db, input.viewId);
-        const { user } = await tableAccess(ctx, actor, view.tableId, "read");
+        const { user } = await tableAccess(
+          ctx,
+          actor,
+          view.tableId,
+          "data.export",
+        );
         await revokeCalendarFeed(ctx.db, user.id, view.id);
         return { ok: true as const };
       }),
@@ -160,10 +176,10 @@ export const catalogSharingProcedures = {
         const actor = await authorize(ctx);
         const target = await shareTarget(ctx.db, input.shareId);
         if ("baseId" in target) {
-          await baseAccess(ctx, actor, target.baseId, "manage");
+          await baseAccess(ctx, actor, target.baseId, "base.manage");
         } else {
           const view = await loadView(ctx.db, target.viewId);
-          await tableAccess(ctx, actor, view.tableId, "write");
+          await tableAccess(ctx, actor, view.tableId, "publish");
         }
         await revokeShare(ctx.db, actor.user.id, input.shareId);
         return { ok: true as const };
@@ -174,7 +190,7 @@ export const catalogSharingProcedures = {
     .input(z.object({ baseId: z.uuid() }))
     .query(({ ctx, input }) =>
       handle(ctx, async () => {
-        await guardBase(ctx, input.baseId, "manage");
+        await guardBase(ctx, input.baseId, "base.manage");
         return { shares: await listBaseShares(ctx.db, input.baseId) };
       }),
     ),
@@ -192,7 +208,12 @@ export const catalogSharingProcedures = {
     )
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
-        const { user } = await guardBase(ctx, input.baseId, "manage");
+        const { user, role } = await guardBase(
+          ctx,
+          input.baseId,
+          "base.manage",
+        );
+        assertGrants(role, "publish");
         return createBaseShare(ctx.db, {
           baseId: input.baseId,
           createdBy: user.id,
@@ -205,7 +226,7 @@ export const catalogSharingProcedures = {
     ),
   webhooks: procedure.input(listWebhooksInputSchema).query(({ ctx, input }) =>
     handle(ctx, async () => {
-      await guardTable(ctx, input.tableId, "manage");
+      await guardTable(ctx, input.tableId, "webhooks.manage");
       return { webhooks: await listWebhooks(ctx.db, input.tableId) };
     }),
   ),
@@ -213,7 +234,11 @@ export const catalogSharingProcedures = {
     .input(createWebhookInputSchema)
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
-        const { user } = await guardTable(ctx, input.tableId, "manage");
+        const { user } = await guardTable(
+          ctx,
+          input.tableId,
+          "webhooks.manage",
+        );
         await assertWebhookColumns(ctx, input.tableId, input);
         return createWebhook(ctx.db, ctx.env.AUTH_ENCRYPTION_KEY, {
           ...input,
@@ -227,7 +252,12 @@ export const catalogSharingProcedures = {
       handle(ctx, async () => {
         const actor = await authorize(ctx);
         const tableId = await webhookTableId(ctx.db, input.webhookId);
-        const { user } = await tableAccess(ctx, actor, tableId, "manage");
+        const { user } = await tableAccess(
+          ctx,
+          actor,
+          tableId,
+          "webhooks.manage",
+        );
         await assertWebhookColumns(ctx, tableId, {
           filter: input.filter ?? undefined,
           watchColumns: input.watchColumns ?? undefined,
@@ -250,7 +280,7 @@ export const catalogSharingProcedures = {
           ctx,
           await authorize(ctx),
           await webhookTableId(ctx.db, input.webhookId),
-          "manage",
+          "webhooks.manage",
         );
         const { config: smtp } = await resolveSmtp(ctx.db, ctx.env);
         return testWebhook(
@@ -272,7 +302,7 @@ export const catalogSharingProcedures = {
           ctx,
           await authorize(ctx),
           await webhookTableId(ctx.db, input.webhookId),
-          "manage",
+          "webhooks.manage",
         );
         return {
           deliveries: await listDeliveries(
@@ -293,7 +323,7 @@ export const catalogSharingProcedures = {
           ctx,
           actor,
           await webhookTableId(ctx.db, webhookId),
-          "manage",
+          "webhooks.manage",
         );
         await retryDelivery(ctx.db, input.deliveryId);
         return { ok: true as const };
@@ -307,7 +337,7 @@ export const catalogSharingProcedures = {
           ctx,
           await authorize(ctx),
           await webhookTableId(ctx.db, input.webhookId),
-          "manage",
+          "webhooks.manage",
         );
         await deleteWebhook(ctx.db, user.id, input.webhookId);
         return { ok: true as const };

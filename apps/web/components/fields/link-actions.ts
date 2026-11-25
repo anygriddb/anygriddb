@@ -1,10 +1,6 @@
 import { coerceCellValue } from "@anygriddb/core";
 import type { Reading } from "../../lib/cell-reading";
-import {
-  canWrite,
-  type CatalogColumn,
-  type CatalogTable,
-} from "../../lib/types";
+import { grants, type CatalogColumn, type CatalogTable } from "../../lib/types";
 import type { CellValue } from "../table/table-context";
 
 /** Field types whose typed text names a new row well. */
@@ -49,7 +45,7 @@ export function linkedRowDraft(
     limited ||
     !target ||
     target.external ||
-    !canWrite(target.role)
+    !grants(target.role, "rows.write")
   ) {
     return undefined;
   }

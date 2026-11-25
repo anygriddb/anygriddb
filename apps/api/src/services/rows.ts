@@ -20,7 +20,7 @@ import {
   MAX_READ_LIMIT,
   placeTarget,
   resolveChangeReason,
-  roleAllows,
+  roleGrants,
   type RowPlace,
 } from "@anygriddb/core";
 import type { Database } from "@anygriddb/db";
@@ -296,7 +296,7 @@ async function assertLinkAllowed(
           targetTable.baseId,
         )
       : undefined;
-  if (!role || !roleAllows(role, writesOther ? "write" : "read")) {
+  if (!roleGrants(role, writesOther ? "rows.write" : "rows.read")) {
     throw new AppError("access_denied");
   }
   const target = scope.engine.tables.get(relation.targetTableId);

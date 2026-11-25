@@ -83,7 +83,7 @@ export const jobsRouter = t.router({
     .input(exportJobInputSchema)
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
-        const access = await guardTable(ctx, input.tableId, "read");
+        const access = await guardTable(ctx, input.tableId, "data.export");
         if (input.viewId) {
           const view = await loadView(ctx.db, input.viewId);
           if (

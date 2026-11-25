@@ -7,7 +7,7 @@ import type { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import multipart from "@fastify/multipart";
 import {
-  type Action,
+  type Permission,
   AppError,
   ATTACHMENT_HEAD_BYTES,
   ATTACHMENT_KEY,
@@ -20,7 +20,7 @@ import {
   isImageAttachmentMime,
   isInlineAttachmentMime,
   resolveAttachmentMaxBytes,
-  roleAllows,
+  roleGrants,
 } from "@anygriddb/core";
 import type { Database } from "@anygriddb/db";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
@@ -391,7 +391,7 @@ async function tableAccess(
   db: Database,
   bindings: readonly Binding[],
   tableId: string,
-  action: Action,
+  permission: Permission,
 ): Promise<boolean> {
   const table = await db
     .selectFrom("dataTables as t")
@@ -402,9 +402,9 @@ async function tableAccess(
     .where(liveBase("b"))
     .executeTakeFirst();
   if (!table) return false;
-  return roleAllows(
+  return roleGrants(
     effectiveTableRole(bindings, table.id, table.baseId),
-    action,
+    permission,
   );
 }
 
@@ -539,7 +539,12 @@ export async function registerAttachmentRoutes(
     const actor = await actorOf(deps.db, request);
     if (!actor) return deny(reply, 401);
     if (
-      !(await tableAccess(deps.db, actor.bindings, query.data.tableId, "write"))
+      !(await tableAccess(
+        deps.db,
+        actor.bindings,
+        query.data.tableId,
+        "rows.write",
+      ))
     )
       return deny(reply, 403);
     return receiveAttachment(
@@ -567,7 +572,7 @@ export async function registerAttachmentRoutes(
       opened = await openShare(
         { db: deps.db, encryptionKey: deps.encryptionKey },
         { token: params.data.token, access: access.data },
-        "write",
+        "rows.write",
       );
     } catch (error) {
       if (error instanceof AppError) return deny(reply, 404);
@@ -601,7 +606,9 @@ export async function registerAttachmentRoutes(
     );
     // A file waiting for a form's answer is no row's yet: nobody reads it.
     if (!meta || meta.staged) return deny(reply, 404);
-    if (!(await tableAccess(deps.db, actor.bindings, meta.tableId, "read")))
+    if (
+      !(await tableAccess(deps.db, actor.bindings, meta.tableId, "rows.read"))
+    )
       return deny(reply, 404);
     if (
       !(await visibleToReader(
