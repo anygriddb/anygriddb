@@ -387,8 +387,8 @@ msgstr "{0, plural, one {# item deleted} other {# items deleted}}"
 
 #. placeholder {0}: Number(detail.count ?? 0)
 #: components/admin/alerts-section.tsx
-msgid "{0, plural, one {# job, webhook delivery, or automation run failed in the last 24 hours.} other {# jobs, webhook deliveries, and automation runs failed in the last 24 hours.}}"
-msgstr "{0, plural, one {# job, webhook delivery, or automation run failed in the last 24 hours.} other {# jobs, webhook deliveries, and automation runs failed in the last 24 hours.}}"
+msgid "{0, plural, one {# job, delivery, or automation run failed in the last 24 hours.} other {# jobs, deliveries, and automation runs failed in the last 24 hours.}}"
+msgstr "{0, plural, one {# job, delivery, or automation run failed in the last 24 hours.} other {# jobs, deliveries, and automation runs failed in the last 24 hours.}}"
 
 #. placeholder {0}: page.total
 #: components/admin/logs-tab.tsx
@@ -2788,8 +2788,8 @@ msgid "Back-channel logout URL, to end sessions here when they end there:"
 msgstr "Back-channel logout URL, to end sessions here when they end there:"
 
 #: components/admin/admin-overview.tsx
-msgid "Background jobs, webhook deliveries, or automation runs that did not go through."
-msgstr "Background jobs, webhook deliveries, or automation runs that did not go through."
+msgid "Background jobs, deliveries of webhooks and notification channels, or automation runs that did not go through."
+msgstr "Background jobs, deliveries of webhooks and notification channels, or automation runs that did not go through."
 
 #: lib/key-names.ts
 msgctxt "keyboard key"
@@ -4390,10 +4390,15 @@ msgstr "Deleting rows is not allowed on this table: an administrator can enable 
 msgid "Deliveries are kept for 30 days. A failed delivery is retried three times."
 msgstr "Deliveries are kept for 30 days. A failed delivery is retried three times."
 
+#: components/admin/support-tab.tsx
+msgid "Deliveries that failed"
+msgstr "Deliveries that failed"
+
 #: components/settings/webhooks-panel.tsx
 msgid "Delivery log"
 msgstr "Delivery log"
 
+#: components/admin/support-tab.tsx
 #: components/settings/webhooks-panel.tsx
 msgid "Delivery queued again"
 msgstr "Delivery queued again"
@@ -8002,8 +8007,8 @@ msgid "No deliveries yet."
 msgstr "No deliveries yet."
 
 #: components/admin/support-tab.tsx
-msgid "No delivery has failed. A webhook's delivery shows here once it gives up after its retries, with the error it got."
-msgstr "No delivery has failed. A webhook's delivery shows here once it gives up after its retries, with the error it got."
+msgid "No delivery has failed. A webhook's or a notification channel's delivery shows here once it gives up after its retries, with the error it got."
+msgstr "No delivery has failed. A webhook's or a notification channel's delivery shows here once it gives up after its retries, with the error it got."
 
 #: components/admin/notifications-tab.tsx
 msgid "No delivery yet."
@@ -8402,6 +8407,14 @@ msgstr "Notice emailed"
 #: components/admin/support-tab.tsx
 msgid "Notice queued for {0, plural, one {# account} other {# accounts}}"
 msgstr "Notice queued for {0, plural, one {# account} other {# accounts}}"
+
+#: components/admin/support-tab.tsx
+msgid "Notification channel ({kind})"
+msgstr "Notification channel ({kind})"
+
+#: components/admin/support-tab.tsx
+msgid "Notification channels"
+msgstr "Notification channels"
 
 #: components/admin/admin-sections.ts
 #: components/admin/notifications-tab.tsx
@@ -8917,14 +8930,14 @@ msgstr "Pasted data"
 msgid "PATCH takes the same shape with an id per row; DELETE takes ?records=id1,id2. 100 rows per call. X-Reason header for fields that require a reason."
 msgstr "PATCH takes the same shape with an id per row; DELETE takes ?records=id1,id2. 100 rows per call. X-Reason header for fields that require a reason."
 
+#: components/admin/health-tab.tsx
+msgid "Pending deliveries"
+msgstr "Pending deliveries"
+
 #: components/admin/invitations-panel.tsx
 #: components/settings/base-settings.tsx
 msgid "Pending invitations"
 msgstr "Pending invitations"
-
-#: components/admin/health-tab.tsx
-msgid "Pending webhook deliveries"
-msgstr "Pending webhook deliveries"
 
 #: components/record/record-panel.tsx
 msgid "Pending: the client's database has not confirmed this change yet."
@@ -10754,6 +10767,14 @@ msgstr "Sends traces to an OTLP HTTP collector. A restart is asked for only when
 #: components/settings/webhooks-panel.tsx
 msgid "Sent ({status})"
 msgstr "Sent ({status})"
+
+#: components/admin/support-tab.tsx
+msgid "Sent by"
+msgstr "Sent by"
+
+#: components/admin/support-tab.tsx
+msgid "Sent to"
+msgstr "Sent to"
 
 #: components/admin/admin-overview.tsx
 msgid "Sent to people who have not joined yet. Send one again, or withdraw it."
@@ -13631,6 +13652,7 @@ msgstr "Trust the identity provider's second factor"
 msgid "Trusted proxies"
 msgstr "Trusted proxies"
 
+#: components/admin/support-tab.tsx
 #: components/dashboards/dashboard-board.tsx
 #: components/dashboards/view-widget.tsx
 #: components/grid/rows-error.tsx
@@ -14110,7 +14132,6 @@ msgid "Web pages and SVG images"
 msgstr "Web pages and SVG images"
 
 #: components/admin/notifications-tab.tsx
-#: components/admin/support-tab.tsx
 #: components/admin/trails.tsx
 msgid "Webhook"
 msgstr "Webhook"
@@ -14124,10 +14145,6 @@ msgstr "Webhook {name} on {table} was turned off after repeated failures"
 msgid "Webhook address"
 msgstr "Webhook address"
 
-#: components/admin/support-tab.tsx
-msgid "Webhook deliveries that failed"
-msgstr "Webhook deliveries that failed"
-
 #: lib/known-text.ts
 msgid "Webhook disabled after too many failures"
 msgstr "Webhook disabled after too many failures"
@@ -14136,9 +14153,14 @@ msgstr "Webhook disabled after too many failures"
 msgid "Webhook you created was disabled"
 msgstr "Webhook you created was disabled"
 
+#: components/admin/support-tab.tsx
+msgid "Webhook, table {table}"
+msgstr "Webhook, table {table}"
+
 #: components/admin/access-tab.tsx
 #: components/admin/account-handoff.tsx
 #: components/admin/permission-labels.ts
+#: components/admin/support-tab.tsx
 #: components/settings/base-settings.tsx
 msgid "Webhooks"
 msgstr "Webhooks"

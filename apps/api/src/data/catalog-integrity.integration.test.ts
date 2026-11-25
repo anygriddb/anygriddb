@@ -1131,3 +1131,101 @@ describe("notification preferences on a catalog that had one email switch", () =
     }
   });
 });
+
+describe("one journal of deliveries on a catalog that kept two", () => {
+  it("moves a webhook's and a channel's deliveries, each with its id", async () => {
+    const { db, pool, close } = await catalogBefore("0139");
+    try {
+      const { id: owner } = await db
+        .insertInto("users")
+        .values({ email: `hooks-${suffix}@example.com`, displayName: "Hooks" })
+        .returning("id")
+        .executeTakeFirstOrThrow();
+      const { id: baseId } = await insertBase(db, owner, { name: "Hooks" });
+      const table = await insertTable(db, owner, {
+        baseId,
+        name: "Orders",
+        columns: [{ name: "title", label: "Title", fieldType: "text" }],
+      });
+      const hook = await withAudit(
+        db,
+        { userId: owner, tableId: table.id, source: "web" },
+        (tx) =>
+          tx
+            .insertInto("webhooks")
+            .values({
+              tableId: table.id,
+              kind: "http",
+              target: "https://hooks.example.com/in",
+              events: ["insert"],
+              secretCiphertext: Buffer.from("sealed"),
+              secretNonce: Buffer.from("nonce"),
+            })
+            .returning("id")
+            .executeTakeFirstOrThrow(),
+      );
+      const channel = await db
+        .insertInto("instanceIntegrations")
+        .values({ name: "Ops", provider: "ntfy" })
+        .returning("id")
+        .executeTakeFirstOrThrow();
+      const sent = "44444444-4444-4444-8444-444444444444";
+      const told = "55555555-5555-4555-8555-555555555555";
+      const event = "66666666-6666-4666-8666-666666666666";
+      await pool.query(
+        `insert into webhook_deliveries
+           (id, webhook_id, event, row_id, status, attempts, error, payload)
+         values ($1, $2, 'insert', 'row-1', 'failed', 4, 'HTTP 503',
+                 '{"id": "kept"}')`,
+        [sent, hook.id],
+      );
+      await pool.query(
+        `insert into integration_deliveries
+           (id, integration_id, event_id, event, subject, fields, status, attempts)
+         values ($1, $2, $3, 'job.failed', 'job-1', '{"kind": "export"}',
+                 'pending', 1)`,
+        [told, channel.id, event],
+      );
+
+      expect(await migrateDb(pool)).toEqual(["0139_deliveries"]);
+      const moved = await db
+        .selectFrom("deliveries")
+        .selectAll()
+        .orderBy("origin", "desc")
+        .execute();
+      expect(moved).toMatchObject([
+        {
+          id: sent,
+          origin: "webhook",
+          webhookId: hook.id,
+          integrationId: null,
+          rowId: "row-1",
+          status: "failed",
+          attempts: 4,
+          error: "HTTP 503",
+          payload: { id: "kept" },
+        },
+        {
+          id: told,
+          origin: "integration",
+          webhookId: null,
+          integrationId: channel.id,
+          eventId: event,
+          subject: "job-1",
+          status: "pending",
+          attempts: 1,
+          payload: { kind: "export" },
+          // Its next attempt is its queued job's, not the sweep's to guess.
+          nextAttemptAt: null,
+        },
+      ]);
+      const { rows } = await pool.query<{ hooks: string | null }>(
+        `select to_regclass('webhook_deliveries')::text as hooks,
+                to_regclass('integration_deliveries')::text as channels`,
+      );
+      expect(rows[0]).toEqual({ hooks: null, channels: null });
+    } finally {
+      await close();
+    }
+  });
+});

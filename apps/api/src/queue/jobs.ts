@@ -15,7 +15,9 @@ export const TASKS = {
   rowEvents: "row_events",
   /** One row event for the webhooks of its table. */
   webhooksEvent: "webhooks_event",
-  /** One attempt to deliver one webhook payload. */
+  /** One attempt of one delivery of the journal (ADR 0125). */
+  deliveryAttempt: "delivery_attempt",
+  /** An attempt queued by 0.9.1 or before, for a webhook: the same work. */
   webhookAttempt: "webhook_attempt",
   /** One row event for people newly put in a user field. */
   assignmentsEvent: "assignments_event",
@@ -28,7 +30,7 @@ export const TASKS = {
   /** Periodic work, from the crontab. */
   automationSchedules: "automation_schedules",
   jobsRecover: "jobs_recover",
-  webhookSweep: "webhook_sweep",
+  deliverySweep: "delivery_sweep",
   purge: "purge",
   /** The alerts kept in step with what the instance finds. */
   alerts: "alerts",
@@ -64,7 +66,7 @@ export const TASKS = {
   accountWelcome: "account_welcome",
   /** Daily usage snapshot and load-bucket purge (ROADMAP #40, #41). */
   usageSnapshot: "usage_snapshot",
-  /** One attempt to deliver one notification (ADR 0092). */
+  /** An attempt queued by 0.9.1 or before, for a channel: the same work. */
   integrationDelivery: "integration_delivery",
   /** Daily person-notification digests (ADR 0123). */
   notificationDigestDaily: "notification_digest_daily",

@@ -13,6 +13,7 @@ import { z } from "zod";
 import { recordAuthEvent } from "./auth/auth-events.js";
 import { holdsInstanceRole } from "./auth/instance-roles.js";
 import { withAudit } from "./data/audit-context.js";
+import type { DeliveryOrigin } from "./outbound/deliveries.js";
 import { eraseAccount, ERASED_USER_ID } from "./data/erasure.js";
 import { soleOwnerBases } from "./data/members.js";
 import type { Env } from "./env.js";
@@ -759,42 +760,67 @@ export async function accessReportCsv(db: Database): Promise<string> {
 /* Deliveries                                                          */
 /* ------------------------------------------------------------------ */
 
-/** Webhook deliveries that gave up, with the webhook's host only. */
+/**
+ * Deliveries that gave up, of every origin or of one: a webhook's with its
+ * table and the host it calls only, a channel's with its kind.
+ */
 export async function listFailedDeliveries(
   db: Database,
-  input: { limit: number; offset?: number },
+  input: { limit: number; offset?: number; origin?: DeliveryOrigin },
 ) {
   const offset = input.offset ?? 0;
-  const counted = await db
-    .selectFrom("webhookDeliveries as d")
+  let failed = db
+    .selectFrom("deliveries as d")
+    .where("d.status", "=", "failed");
+  if (input.origin !== undefined) {
+    failed = failed.where("d.origin", "=", input.origin);
+  }
+  const counted = await failed
     .select((eb) => eb.fn.countAll<string>().as("value"))
-    .where("d.status", "=", "failed")
     .executeTakeFirst();
   const total = Number(counted?.value ?? 0);
-  const rows = await db
-    .selectFrom("webhookDeliveries as d")
-    .innerJoin("webhooks as w", "w.id", "d.webhookId")
+  const rows = await failed
+    .leftJoin("webhooks as w", "w.id", "d.webhookId")
+    .leftJoin("dataTables as t", "t.id", "w.tableId")
+    .leftJoin("instanceIntegrations as i", "i.id", "d.integrationId")
     .select([
       "d.id",
+      "d.origin",
       "d.event",
       "d.attempts",
       "d.error",
       "d.createdAt",
+      (eb) => eb("d.payload", "is not", null).as("retryable"),
       "w.name as webhookName",
       "w.target",
+      "t.name as tableName",
+      "i.name as channelName",
+      "i.provider",
     ])
-    .where("d.status", "=", "failed")
     .orderBy("d.createdAt", "desc")
     .offset(offset)
     .limit(input.limit)
     .execute();
   return {
     total,
-    deliveries: rows.map(({ target, ...row }) => ({
-      ...row,
-      // The path and query of a target can carry a secret.
-      host: hostOf(target),
+    deliveries: rows.map((row) => ({
+      id: row.id,
+      origin: row.origin,
+      event: row.event,
+      attempts: row.attempts,
+      error: row.error,
+      retryable: row.retryable === true,
       createdAt: row.createdAt.toISOString(),
+      /** What it was sent to, as its maker named it. */
+      name:
+        row.origin === "webhook"
+          ? row.webhookName || null
+          : (row.channelName ?? null),
+      /** A webhook's table; a channel's kind. */
+      context:
+        row.origin === "webhook" ? row.tableName : (row.provider ?? null),
+      // The path and query of a target can carry a secret.
+      host: row.target ? hostOf(row.target) : null,
     })),
   };
 }

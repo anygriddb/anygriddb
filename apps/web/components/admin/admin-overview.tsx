@@ -138,7 +138,7 @@ export function AdminOverview() {
         one: "failure in the last 24 hours",
         other: "failures in the last 24 hours",
       }),
-      t`Background jobs, webhook deliveries, or automation runs that did not go through.`,
+      t`Background jobs, deliveries of webhooks and notification channels, or automation runs that did not go through.`,
       <Link to="/admin/instance/support" className={open}>
         {t`See what failed`}
       </Link>,

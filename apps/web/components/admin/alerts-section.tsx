@@ -52,9 +52,9 @@ export function useAlertText(): (
         return t`The source ${{ name: detail.name }} does not answer: its watched tables could not be read.`;
       case "failures":
         return plural(Number(detail.count ?? 0), {
-          one: "# job, webhook delivery, or automation run failed in the last 24 hours.",
+          one: "# job, delivery, or automation run failed in the last 24 hours.",
           other:
-            "# jobs, webhook deliveries, and automation runs failed in the last 24 hours.",
+            "# jobs, deliveries, and automation runs failed in the last 24 hours.",
         });
     }
   };

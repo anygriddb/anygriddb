@@ -4,7 +4,6 @@ import {
   assertPublicHttps,
   failureText,
   payloadRow,
-  planAttempt,
   signBody,
 } from "./webhooks.js";
 
@@ -47,27 +46,6 @@ describe("webhooks", () => {
     await expect(
       assertPublicHttps("https://hooks.invalid/hook"),
     ).rejects.toMatchObject({ code: "invalid_webhook" });
-  });
-});
-
-describe("planAttempt", () => {
-  it("clears the payload on success", () => {
-    expect(planAttempt(true, 1)).toEqual({
-      status: "success",
-      clearPayload: true,
-    });
-  });
-
-  it("retries three times, then fails", () => {
-    expect(planAttempt(false, 1)).toEqual({
-      status: "pending",
-      retryInSeconds: 60,
-    });
-    expect(planAttempt(false, 3)).toEqual({
-      status: "pending",
-      retryInSeconds: 1_800,
-    });
-    expect(planAttempt(false, 4)).toEqual({ status: "failed" });
   });
 });
 

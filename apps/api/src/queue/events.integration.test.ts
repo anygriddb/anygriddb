@@ -162,7 +162,7 @@ describe("row events in graphile-worker", () => {
   it("delivers each row of the transaction to the webhook, once", async () => {
     await work();
     const deliveries = await database
-      .selectFrom("webhookDeliveries")
+      .selectFrom("deliveries")
       .selectAll()
       .orderBy("createdAt", "asc")
       .execute();
@@ -173,21 +173,21 @@ describe("row events in graphile-worker", () => {
       expect(delivery.attempts).toBe(1);
       expect(delivery.event).toBe("insert");
     }
-    const next = await queued(TASKS.webhookAttempt);
+    const next = await queued(TASKS.deliveryAttempt);
     expect(next.map((job) => job.key).sort()).toEqual(
-      deliveries.map((delivery) => `webhook:${delivery.id}:1`).sort(),
+      deliveries.map((delivery) => `delivery:${delivery.id}:1`).sort(),
     );
     // Nothing else is left to run: the event and its consumers are done.
     expect(
       (await queued()).filter(
-        (job) => job.task_identifier !== TASKS.webhookAttempt,
+        (job) => job.task_identifier !== TASKS.deliveryAttempt,
       ),
     ).toEqual([]);
   });
 
   it("sends one import event with the count of what committed", async () => {
     await pool.query("delete from graphile_worker._private_jobs");
-    await database.deleteFrom("webhookDeliveries").execute();
+    await database.deleteFrom("deliveries").execute();
     const table = await scope();
     for (const count of [500, 1000, 1200]) {
       await insertNativeBatch(
@@ -218,7 +218,7 @@ describe("row events in graphile-worker", () => {
     });
     await work();
     const deliveries = await database
-      .selectFrom("webhookDeliveries")
+      .selectFrom("deliveries")
       .selectAll()
       .where("event", "=", "import")
       .execute();

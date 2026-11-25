@@ -310,6 +310,99 @@ test("an administrator ends a session, reads the sign-ins, and exports access", 
     ).toBeHidden();
     expect(await accessibilityViolations(page)).toEqual([]);
 
+    // What the instance failed to deliver is in one list, a table's
+    // webhook's beside a notification channel's (ADR 0125): filtered by
+    // what sent it, and sent again from its first attempt.
+    const { rows: owned } = await control.query<{
+      user: string;
+      table: string;
+    }>(
+      `select u.id as user, t.id as table from users u
+         join role_bindings r on r.user_id = u.id and r.role = 'owner'
+         join data_tables t on t.base_id = r.scope_id
+        where u.email = $1 limit 1`,
+      [email],
+    );
+    const hookName = `Orders out ${stamp}`;
+    const channelName = `Ops room ${stamp}`;
+    await control.query("begin");
+    await control.query(
+      `select set_config('anygrid.user_id', $1, true),
+              set_config('anygrid.table_id', $2, true),
+              set_config('anygrid.source', 'web', true)`,
+      [owned[0]?.user, owned[0]?.table],
+    );
+    // Switched off: sent again, it is refused at once, and nothing leaves.
+    const { rows: hooks } = await control.query<{ id: string }>(
+      `insert into webhooks (table_id, name, kind, target, events,
+         secret_ciphertext, secret_nonce, active)
+       values ($1, $2, 'http', 'https://hooks.example.org/orders',
+         '["insert"]', '\\x00', '\\x00', false)
+       returning id`,
+      [owned[0]?.table, hookName],
+    );
+    await control.query("commit");
+    const { rows: channels } = await control.query<{ id: string }>(
+      `insert into instance_integrations (name, provider, enabled)
+       values ($1, 'ntfy', false) returning id`,
+      [channelName],
+    );
+    const { rows: gaveUp } = await control.query<{ id: string }>(
+      `insert into deliveries (webhook_id, event, status, attempts, error, payload)
+       values ($1, 'insert', 'failed', 4, 'HTTP 503', '{"id": "e2e"}')
+       returning id`,
+      [hooks[0]?.id],
+    );
+    await control.query(
+      `insert into deliveries (integration_id, event_id, event, subject,
+         status, attempts, error)
+       values ($1, gen_random_uuid(), 'job.failed', 'job', 'failed', 4,
+         'HTTP 502')`,
+      [channels[0]?.id],
+    );
+    await page.reload();
+    const deliveries = page
+      .getByRole("table")
+      .filter({ has: page.getByRole("columnheader", { name: "Sent to" }) });
+    const hookRow = deliveries.getByRole("row").filter({ hasText: hookName });
+    const channelRow = deliveries
+      .getByRole("row")
+      .filter({ hasText: channelName });
+    await expect(hookRow).toContainText("HTTP 503");
+    await expect(channelRow).toContainText("Notification channel (ntfy)");
+    await page.getByLabel("Sent by").selectOption("integration");
+    await expect(channelRow).toBeVisible();
+    await expect(hookRow).toHaveCount(0);
+    await page.getByLabel("Sent by").selectOption("webhook");
+    await expect(hookRow).toBeVisible();
+    await expect(channelRow).toHaveCount(0);
+    expect(await accessibilityViolations(page)).toEqual([]);
+    // The proof given above still stands.
+    await hookRow.getByRole("button", { name: "Try again" }).click();
+    await expect(page.getByText("Delivery queued again")).toBeVisible();
+    // From its first attempt: the count starts again.
+    await expect
+      .poll(async () => {
+        const { rows } = await control.query<{ attempts: number }>(
+          "select attempts from deliveries where id = $1",
+          [gaveUp[0]?.id],
+        );
+        return rows[0]?.attempts;
+      })
+      .toBe(0);
+    await control.query("delete from instance_integrations where id = $1", [
+      channels[0]?.id,
+    ]);
+    await control.query("begin");
+    await control.query(
+      `select set_config('anygrid.user_id', $1, true),
+              set_config('anygrid.table_id', $2, true),
+              set_config('anygrid.source', 'web', true)`,
+      [owned[0]?.user, owned[0]?.table],
+    );
+    await control.query("delete from webhooks where id = $1", [hooks[0]?.id]);
+    await control.query("commit");
+
     // Which AnyGridDB runs (ADR 0048): the support bundle and Health say
     // it. This server runs from sources, so no commit or build time.
     const { version } = JSON.parse(
