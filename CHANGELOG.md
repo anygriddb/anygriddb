@@ -8,8 +8,11 @@ first.
 
 ## Unreleased
 
-**One migration runs as the instance starts (`0139_deliveries`): it moves
-the deliveries of webhooks and of notification channels into one journal,
+## 0.9.2 - 2026-11-25
+
+**Upgrade with this release's Compose files and its pin, as usual. One
+migration runs as the instance starts (`0139_deliveries`): it moves the
+deliveries of webhooks and of notification channels into one journal,
 with their history; nothing to do before or after.**
 
 ### Changed
@@ -24,6 +27,8 @@ with their history; nothing to do before or after.**
   it is delivered, as a webhook's already did; both are tried again on the
   same schedule, and a delivery whose attempt a stopped worker lost is
   queued again, a channel's included.
+- The API page shows a number field's example as decimal text ("42.5"),
+  the form the API's document asks for.
 
 ### Fixed
 
