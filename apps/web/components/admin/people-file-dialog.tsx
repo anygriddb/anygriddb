@@ -21,6 +21,7 @@ import { useErrorText } from "../../lib/errors";
 import { trpc, type RouterOutputs } from "../../lib/trpc";
 import { useRoleLabel } from "../settings/role-label";
 import { useStepUp } from "./step-up";
+import { Refusal, useRefusal } from "../shell/dialogs";
 
 type Preview = RouterOutputs["admin"]["people"]["preview"];
 type Line = Preview["lines"][number];
@@ -69,6 +70,7 @@ export function PeopleFileDialog({
 }) {
   const { t } = useLingui();
   const errorText = useErrorText();
+  const refusal = useRefusal();
   const roleLabel = useRoleLabel();
   const problemText = useProblemText();
   const stepUp = useStepUp();
@@ -77,8 +79,9 @@ export function PeopleFileDialog({
   const [busy, setBusy] = useState(false);
 
   async function read(chosen: File) {
+    refusal.clear();
     if (chosen.size > PEOPLE_FILE_MAX_BYTES) {
-      toast.error(errorText({ code: "people_file_too_long" }));
+      refusal.show(errorText({ code: "people_file_too_long" }));
       return;
     }
     setBusy(true);
@@ -87,7 +90,7 @@ export function PeopleFileDialog({
       setPreview(await trpc.admin.people.preview.mutate({ file: text }));
       setFile({ name: chosen.name, text });
     } catch (cause) {
-      toast.error(errorText(cause));
+      refusal.say(cause);
     } finally {
       setBusy(false);
     }
@@ -95,6 +98,7 @@ export function PeopleFileDialog({
 
   async function add() {
     if (!file || busy) return;
+    refusal.clear();
     setBusy(true);
     try {
       if (!(await stepUp.ensure())) return;
@@ -110,7 +114,7 @@ export function PeopleFileDialog({
         }),
       );
     } catch (cause) {
-      toast.error(errorText(cause));
+      refusal.say(cause);
     } finally {
       setBusy(false);
     }
@@ -222,6 +226,7 @@ export function PeopleFileDialog({
             </>
           ) : null}
         </div>
+        <Refusal text={refusal.text} />
         <DialogFooter>
           <Button variant="ghost" onClick={onClose}>
             {t`Cancel`}

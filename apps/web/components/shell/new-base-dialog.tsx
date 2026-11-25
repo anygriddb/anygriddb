@@ -16,6 +16,7 @@ import { useRef, useState, type DragEvent, type SubmitEvent } from "react";
 import { toast } from "sonner";
 import { useTrackJob } from "../../lib/jobs";
 import { trpc, useTRPC } from "../../lib/trpc";
+import { Refusal, useRefusal } from "./dialogs";
 import { useInvalidateCatalog } from "./sidebar";
 import { plural } from "@lingui/core/macro";
 import { useLingui } from "@lingui/react/macro";
@@ -84,6 +85,7 @@ export function NewBaseDialog(props: NewBaseProps) {
 function NewBaseForm(props: NewBaseProps) {
   const { t } = useLingui();
   const errorText = useErrorText();
+  const refusal = useRefusal();
   const api = useTRPC();
   const navigate = useNavigate();
   const invalidate = useInvalidateCatalog();
@@ -139,6 +141,7 @@ function NewBaseForm(props: NewBaseProps) {
   /** A workbook's sheets, read for the person to choose: the shown ones kept. */
   async function uploadWorkbook(file: File) {
     if (!requireMfa()) return;
+    refusal.clear();
     setBusy(true);
     try {
       const body = new FormData();
@@ -149,7 +152,7 @@ function NewBaseForm(props: NewBaseProps) {
       });
       const json: unknown = await response.json().catch(() => null);
       if (!response.ok) {
-        toast.error(
+        refusal.show(
           response.status === 413
             ? t`File too large: a spreadsheet takes 64 MB at most.`
             : errorText(json ?? { code: "invalid_import" }),
@@ -170,7 +173,7 @@ function NewBaseForm(props: NewBaseProps) {
       setTemplate("");
       setName(parsed.filename.replace(/\.xlsx$/i, "").slice(0, 100));
     } catch (cause) {
-      toast.error(errorText(cause));
+      refusal.say(cause);
     } finally {
       setBusy(false);
     }
@@ -184,6 +187,7 @@ function NewBaseForm(props: NewBaseProps) {
 
   async function upload(file: File) {
     if (!requireMfa()) return;
+    refusal.clear();
     setBusy(true);
     try {
       const body = new FormData();
@@ -194,7 +198,7 @@ function NewBaseForm(props: NewBaseProps) {
       });
       const json: unknown = await response.json().catch(() => null);
       if (!response.ok) {
-        toast.error(
+        refusal.show(
           errorText(
             json ?? {
               code:
@@ -213,7 +217,7 @@ function NewBaseForm(props: NewBaseProps) {
       setTemplate("");
       setName(parsed.name);
     } catch (cause) {
-      toast.error(errorText(cause));
+      refusal.say(cause);
     } finally {
       setBusy(false);
     }
@@ -223,6 +227,7 @@ function NewBaseForm(props: NewBaseProps) {
     event.preventDefault();
     if (!name.trim()) return;
     if (!requireMfa()) return;
+    refusal.clear();
     setBusy(true);
     try {
       if (airtable) {
@@ -330,7 +335,7 @@ function NewBaseForm(props: NewBaseProps) {
       props.onOpenChange(false);
       void navigate({ to: "/b/$baseId", params: { baseId: created.id } });
     } catch (cause) {
-      toast.error(errorText(cause));
+      refusal.say(cause);
     } finally {
       setBusy(false);
     }
@@ -689,6 +694,7 @@ function NewBaseForm(props: NewBaseProps) {
           {backToStart}
         </div>
       ) : null}
+      <Refusal text={refusal.text} />
       <DialogFooter>
         <Button variant="ghost" onClick={() => props.onOpenChange(false)}>
           {t`Cancel`}

@@ -1445,6 +1445,17 @@ test("an administrator allows scripts, and an automation runs one", async ({
     await expect(dialog.getByText("Give the automation a name.")).toHaveCount(
       0,
     );
+    // What only the server can tell, an address on a private network, is
+    // said in the dialog above its buttons, not in a toast over Save.
+    await dialog.getByLabel("URL").fill("https://127.0.0.1/hook");
+    await dialog.getByRole("button", { name: "Save" }).click();
+    await expect(dialog.getByRole("alert")).toContainText(
+      "a public HTTPS address or an email is required",
+    );
+    await expect(page.locator("[data-sonner-toast]")).toHaveCount(0);
+    expect(await accessibilityViolations(page)).toEqual([]);
+    // That refusal was asked for: what follows must ask for none.
+    refused.length = 0;
     await dialog.getByRole("button", { name: "Cancel" }).click();
 
     // Scripts are off by default: the dialog says so, and a save says
