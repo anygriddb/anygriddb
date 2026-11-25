@@ -139,23 +139,21 @@ export function MapView(props: ViewProps) {
   const drawn = notice !== "add-fields";
   useEffect(() => {
     const sheet = sheetRef.current;
-    if (!sheet || !tileUrl) return;
+    if (!sheet) return;
     const observer = new ResizeObserver((entries) => {
       const size = entries[0]?.contentRect;
       if (size && size.height > 0) setAspect(size.width / size.height);
     });
     observer.observe(sheet);
     return () => observer.disconnect();
-  }, [tileUrl, drawn]);
-  const fitted = tileUrl
-    ? mapViewport(
-        points.map(({ latitude, longitude }) => ({ latitude, longitude })),
-        aspect,
-      )
-    : null;
-  const fittedKey = fitted
-    ? `${fitted.minX}:${fitted.maxX}:${fitted.minY}:${fitted.maxY}:${fitted.zoom}`
-    : "";
+  }, [drawn]);
+  // The sheet frames the rows' places, with a basemap under them or none:
+  // drawn on the whole globe, the places of one region were one blot.
+  const fitted = mapViewport(
+    points.map(({ latitude, longitude }) => ({ latitude, longitude })),
+    aspect,
+  );
+  const fittedKey = `${fitted.minX}:${fitted.maxX}:${fitted.minY}:${fitted.maxY}:${fitted.zoom}`;
   // A pan or zoom sticks until the person resets, or the fitted view moves
   // (its key changes and the manual offset no longer applies).
   const moved = manual && manual.key === fittedKey ? manual.viewport : null;
@@ -163,10 +161,10 @@ export function MapView(props: ViewProps) {
   const setView = (next: MapViewport) =>
     setManual({ key: fittedKey, viewport: next });
   const zoom = (delta: 1 | -1) => {
-    if (viewport) setView(zoomViewport(viewport, delta, aspect));
+    setView(zoomViewport(viewport, delta, aspect));
   };
   const pan = (dx: number, dy: number) => {
-    if (viewport) setView(panViewport(viewport, dx, dy));
+    setView(panViewport(viewport, dx, dy));
   };
   // A trackpad sends many small scrolls where a mouse sends one notch:
   // they add up to a step, so that a swipe does not cross every zoom.
@@ -182,13 +180,13 @@ export function MapView(props: ViewProps) {
   });
   useEffect(() => {
     const sheet = sheetRef.current;
-    if (!sheet || !tileUrl) return;
+    if (!sheet) return;
     // React listens to the wheel passively, and a passive listener cannot
     // keep the page from scrolling under the map.
     sheet.addEventListener("wheel", onWheel, { passive: false });
     return () => sheet.removeEventListener("wheel", onWheel);
-  }, [tileUrl, drawn]);
-  const tiles = tileUrl && viewport ? mapTiles(tileUrl, viewport) : [];
+  }, [drawn]);
+  const tiles = tileUrl ? mapTiles(tileUrl, viewport) : [];
   // Nothing to choose from: the map says what it needs, as the kanban and
   // the calendar do, rather than an empty sheet.
   if (notice === "add-fields") {
@@ -268,45 +266,37 @@ export function MapView(props: ViewProps) {
         <div
           ref={sheetRef}
           className={cn(
-            "relative m-4 flex-1 overflow-hidden rounded-sm border border-border max-md:m-2 max-md:h-64 max-md:flex-none",
+            "relative m-4 flex-1 cursor-grab touch-none overflow-hidden rounded-sm border border-border select-none max-md:m-2 max-md:h-64 max-md:flex-none",
             tileUrl
-              ? "cursor-grab touch-none bg-muted select-none"
+              ? "bg-muted"
               : "bg-[linear-gradient(transparent_49.5%,var(--ag-border)_50%,transparent_50.5%),linear-gradient(90deg,transparent_49.5%,var(--ag-border)_50%,transparent_50.5%)] bg-[size:12.5%_16.66%]",
           )}
-          onPointerDown={
-            tileUrl
-              ? (event) => {
-                  if (event.button !== 0) return;
-                  drag.current = {
-                    x: event.clientX,
-                    y: event.clientY,
-                    moving: false,
-                  };
-                }
-              : undefined
-          }
-          onPointerMove={
-            tileUrl
-              ? (event) => {
-                  const from = drag.current;
-                  const sheet = event.currentTarget;
-                  if (!from || sheet.clientWidth === 0) return;
-                  const dx = from.x - event.clientX;
-                  const dy = from.y - event.clientY;
-                  // A press that barely moves stays a click, on a pin or
-                  // on a button. Once it drags, the sheet keeps the
-                  // pointer, and its release opens no pin.
-                  if (!from.moving && Math.hypot(dx, dy) < DRAG_START) return;
-                  if (!from.moving) sheet.setPointerCapture(event.pointerId);
-                  drag.current = {
-                    x: event.clientX,
-                    y: event.clientY,
-                    moving: true,
-                  };
-                  pan(dx / sheet.clientWidth, dy / sheet.clientHeight);
-                }
-              : undefined
-          }
+          onPointerDown={(event) => {
+            if (event.button !== 0) return;
+            drag.current = {
+              x: event.clientX,
+              y: event.clientY,
+              moving: false,
+            };
+          }}
+          onPointerMove={(event) => {
+            const from = drag.current;
+            const sheet = event.currentTarget;
+            if (!from || sheet.clientWidth === 0) return;
+            const dx = from.x - event.clientX;
+            const dy = from.y - event.clientY;
+            // A press that barely moves stays a click, on a pin or
+            // on a button. Once it drags, the sheet keeps the
+            // pointer, and its release opens no pin.
+            if (!from.moving && Math.hypot(dx, dy) < DRAG_START) return;
+            if (!from.moving) sheet.setPointerCapture(event.pointerId);
+            drag.current = {
+              x: event.clientX,
+              y: event.clientY,
+              moving: true,
+            };
+            pan(dx / sheet.clientWidth, dy / sheet.clientHeight);
+          }}
           onPointerUp={() => {
             drag.current = null;
           }}
@@ -314,7 +304,7 @@ export function MapView(props: ViewProps) {
             drag.current = null;
           }}
         >
-          {tileUrl && viewport ? (
+          {points.length > 0 ? (
             // Every move the pointer makes has a button: the keyboard
             // reaches them, and a pointer that cannot drag presses them.
             <div
@@ -378,12 +368,7 @@ export function MapView(props: ViewProps) {
               reader, however close they are. */}
           {points.map(({ row, latitude, longitude }) => {
             const tint = props.tintOf?.(row);
-            const placeOnMap = viewport
-              ? pinPlace({ longitude, latitude }, viewport)
-              : {
-                  left: ((longitude + 180) / 360) * 100,
-                  top: ((90 - latitude) / 180) * 100,
-                };
+            const placeOnMap = pinPlace({ longitude, latitude }, viewport);
             return (
               <span
                 key={row.id}
