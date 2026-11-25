@@ -128,6 +128,7 @@ export function SignInTrail({
             baseCreation: t`Who can create bases`,
             apiTokens: t`Who can create API tokens`,
             inactiveDays: t`Disable accounts nobody uses`,
+            limits: t`Limits and usage`,
             lockAlerts: t`Tell administrators`,
             auditRetentionDays: t`Change trail kept for`,
             trashDays: t`Trash kept for`,

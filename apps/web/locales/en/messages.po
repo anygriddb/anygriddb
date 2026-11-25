@@ -1359,6 +1359,14 @@ msgstr "A colour, shown with its swatch"
 msgid "A comma: 1,234 is one point two three four"
 msgstr "A comma: 1,234 is one point two three four"
 
+#: components/admin/limits-tab.tsx
+msgid "A connection"
+msgstr "A connection"
+
+#: components/admin/limits-tab.tsx
+msgid "A CSV or text file imported"
+msgstr "A CSV or text file imported"
+
 #: components/admin/notifications-tab.tsx
 msgid "A database migration failed"
 msgstr "A database migration failed"
@@ -1376,6 +1384,10 @@ msgstr "A day and a time"
 #: components/shell/trashed-bases.tsx
 msgid "a deleted account"
 msgstr "a deleted account"
+
+#: components/admin/limits-tab.tsx
+msgid "A delivery of a webhook or a channel"
+msgstr "A delivery of a webhook or a channel"
 
 #: lib/errors.ts
 msgid "A field already has this name"
@@ -1409,9 +1421,17 @@ msgstr "A file could not be attached. Add it again."
 msgid "A file from that version is no longer stored"
 msgstr "A file from that version is no longer stored"
 
+#: components/admin/limits-tab.tsx
+msgid "A file in a cell"
+msgstr "A file in a cell"
+
 #: components/settings/base-settings.tsx
 msgid "A file to keep elsewhere: schema, views, dashboards, rows, members, and attachments, in a .zip archive. Import it again from “New base”: its rows come back as drafts, dated from the import. Comments, the history of changes, automations, webhooks, and public links stay with this base."
 msgstr "A file to keep elsewhere: schema, views, dashboards, rows, members, and attachments, in a .zip archive. Import it again from “New base”: its rows come back as drafts, dated from the import. Comments, the history of changes, automations, webhooks, and public links stay with this base."
+
+#: components/admin/limits-tab.tsx
+msgid "A finished job kept"
+msgstr "A finished job kept"
 
 #: components/admin/integrations-tab.tsx
 msgid "A first sign-in then reaches the existing account with the same address. Leave it off if people can change their address at the provider without proving it."
@@ -1436,6 +1456,10 @@ msgstr "A group gathers accounts so a base can give them one role. Make a group 
 #: components/fields/formula-docs.ts
 msgid "A JSON document's value at a path, such as $.client.name or $.lines[0]."
 msgstr "A JSON document's value at a path, such as $.client.name or $.lines[0]."
+
+#: components/admin/limits-tab.tsx
+msgid "A JSON file imported"
+msgstr "A JSON file imported"
 
 #: components/views/kanban-view.tsx
 msgid "A kanban needs a single select field that the client's database holds."
@@ -1466,6 +1490,22 @@ msgstr "A longer password is the strongest rule: AnyGridDB asks for no mix of ch
 msgid "A message is on its way to {awaiting}. Open the link it holds to finish: it works for a day."
 msgstr "A message is on its way to {awaiting}. Open the link it holds to finish: it works for a day."
 
+#: components/admin/limits-tab.tsx
+msgid "A minute"
+msgstr "A minute"
+
+#: components/admin/limits-tab.tsx
+msgid "A notice waiting for a digest"
+msgstr "A notice waiting for a digest"
+
+#: components/admin/limits-tab.tsx
+msgid "A notification not read"
+msgstr "A notification not read"
+
+#: components/admin/limits-tab.tsx
+msgid "A notification read"
+msgstr "A notification read"
+
 #: components/fields/field-meta.tsx
 msgid "A number given to each new row"
 msgstr "A number given to each new row"
@@ -1493,6 +1533,10 @@ msgstr "A private address for your calendar application (Outlook, Google Calenda
 #: lib/errors.ts
 msgid "A reason is required"
 msgstr "A reason is required"
+
+#: components/admin/limits-tab.tsx
+msgid "A request"
+msgstr "A request"
 
 #: components/admin/trails.tsx
 msgid "A restore point of the base, kept on the instance"
@@ -1549,6 +1593,10 @@ msgstr "A rule of the client's database refuses this value"
 #: components/fields/field-meta.tsx
 msgid "A score drawn as symbols"
 msgstr "A score drawn as symbols"
+
+#: components/admin/limits-tab.tsx
+msgid "A screen that holds back says what it left out."
+msgstr "A screen that holds back says what it left out."
 
 #: lib/errors.ts
 msgid "A script calls public https:// addresses only, with headers of its own"
@@ -1643,9 +1691,17 @@ msgstr "A source is reachable again"
 msgid "A source is unreachable"
 msgstr "A source is unreachable"
 
+#: components/admin/limits-tab.tsx
+msgid "A source's load, measured"
+msgstr "A source's load, measured"
+
 #: components/admin/alerts-section.tsx
 msgid "A source's watched tables cannot be read"
 msgstr "A source's watched tables cannot be read"
+
+#: components/admin/limits-tab.tsx
+msgid "A spreadsheet imported"
+msgstr "A spreadsheet imported"
 
 #: lib/errors.ts
 msgid "A starting point is not applied when the tables live in a source. Create the base empty, then add its tables."
@@ -1687,6 +1743,10 @@ msgstr "A total over the linked rows"
 #: lib/errors.ts
 msgid "A value is required"
 msgstr "A value is required"
+
+#: components/admin/limits-tab.tsx
+msgid "A view"
+msgstr "A view"
 
 #: components/admin/trails.tsx
 msgid "A view's rows, as {format}"
@@ -1872,6 +1932,10 @@ msgstr "Act as this person"
 msgid "Action"
 msgstr "Action"
 
+#: components/admin/limits-tab.tsx
+msgid "actions"
+msgstr "actions"
+
 #: components/admin/access-tab.tsx
 #: components/admin/accounts-tab.tsx
 #: components/admin/api-tokens-tab.tsx
@@ -1894,6 +1958,14 @@ msgstr "Actions for {name}"
 #: components/dashboards/dashboard-board.tsx
 msgid "Actions for {widget}"
 msgstr "Actions for {widget}"
+
+#: components/admin/limits-tab.tsx
+msgid "Actions in an automation"
+msgstr "Actions in an automation"
+
+#: components/admin/limits-tab.tsx
+msgid "Actions inside a condition or a loop"
+msgstr "Actions inside a condition or a loop"
 
 #: components/admin/account-page.tsx
 #: components/admin/accounts-tab.tsx
@@ -2147,6 +2219,10 @@ msgstr "Address of the API"
 msgid "Address revoked"
 msgstr "Address revoked"
 
+#: components/admin/limits-tab.tsx
+msgid "Addresses refused"
+msgstr "Addresses refused"
+
 #: components/fields/formula-docs.ts
 msgid "Adds a duration in years, months, weeks, days, hours, minutes, or seconds."
 msgstr "Adds a duration in years, months, weeks, days, hours, minutes, or seconds."
@@ -2377,6 +2453,10 @@ msgstr "Amount"
 msgid "Amounts, quantities, percentages"
 msgstr "Amounts, quantities, percentages"
 
+#: components/admin/limits-tab.tsx
+msgid "An account"
+msgstr "An account"
+
 #: components/admin/sources-tab.tsx
 msgid "An account dedicated to AnyGridDB, never an administrator. The connection uses TLS, with a verified certificate."
 msgstr "An account dedicated to AnyGridDB, never an administrator. The connection uses TLS, with a verified certificate."
@@ -2396,6 +2476,10 @@ msgstr "An account was deleted"
 #: components/admin/notifications-tab.tsx
 msgid "An account was locked after failed sign-ins"
 msgstr "An account was locked after failed sign-ins"
+
+#: components/admin/limits-tab.tsx
+msgid "An address"
+msgstr "An address"
 
 #: components/admin/account-actions.tsx
 msgid "An administrator already can"
@@ -2422,6 +2506,10 @@ msgstr "An API token lives at most"
 msgid "An application asks a person for access to bases they choose, then calls the API and MCP with a token. Register it here with the addresses it may send the person back to."
 msgstr "An application asks a person for access to bases they choose, then calls the API and MCP with a token. Register it here with the addresses it may send the person back to."
 
+#: components/admin/limits-tab.tsx
+msgid "An application's tokens"
+msgstr "An application's tokens"
+
 #: components/settings/second-factor.tsx
 msgid "An authenticator app is set up."
 msgstr "An authenticator app is set up."
@@ -2429,6 +2517,26 @@ msgstr "An authenticator app is set up."
 #: components/settings/account-settings.tsx
 msgid "An authenticator app or a passkey, asked at each sign-in after your password."
 msgstr "An authenticator app or a passkey, asked at each sign-in after your password."
+
+#: components/admin/limits-tab.tsx
+msgid "An automation"
+msgstr "An automation"
+
+#: components/admin/limits-tab.tsx
+msgid "An automation's run"
+msgstr "An automation's run"
+
+#: components/admin/limits-tab.tsx
+msgid "An automation's runs"
+msgstr "An automation's runs"
+
+#: components/admin/limits-tab.tsx
+msgid "An automation's shape"
+msgstr "An automation's shape"
+
+#: components/admin/limits-tab.tsx
+msgid "An automation's wait"
+msgstr "An automation's wait"
 
 #: components/fields/field-meta.tsx
 msgid "An email address, as a link"
@@ -2445,6 +2553,10 @@ msgstr "an exact date"
 #: components/fields/field-settings.tsx
 msgid "An expanded row draws this field's text as a code, for a scanner to read."
 msgstr "An expanded row draws this field's text as a code, for a scanner to read."
+
+#: components/admin/limits-tab.tsx
+msgid "An export's file kept"
+msgstr "An export's file kept"
 
 #: components/admin/notifications-tab.tsx
 msgid "An import failed"
@@ -2496,6 +2608,7 @@ msgstr "Any step"
 msgid "Any true"
 msgstr "Any true"
 
+#: components/admin/limits-tab.tsx
 #: components/shell/new-base-dialog.tsx
 msgid "AnyGridDB"
 msgstr "AnyGridDB"
@@ -3054,6 +3167,10 @@ msgstr "By invitation to a base"
 msgid "By rules"
 msgstr "By rules"
 
+#: components/admin/limits-tab.tsx
+msgid "bytes"
+msgstr "bytes"
+
 #: components/table/view-tabs.tsx
 msgid "Calendar"
 msgstr "Calendar"
@@ -3087,6 +3204,7 @@ msgstr "Calls the push address of an Uptime Kuma monitor, with status up or down
 #: components/admin/base-admin-members.tsx
 #: components/admin/group-page.tsx
 #: components/admin/groups-tab.tsx
+#: components/admin/limits-tab.tsx
 #: components/admin/notifications-tab.tsx
 #: components/admin/people-file-dialog.tsx
 #: components/admin/roles-tab.tsx
@@ -3262,6 +3380,14 @@ msgstr "Channels and heartbeats"
 #: components/admin/notifications-tab.tsx
 msgid "Channels hear failures as they happen. Heartbeats ping a monitor when a chosen schedule runs. A secret is stored encrypted and is not shown again."
 msgstr "Channels hear failures as they happen. Heartbeats ping a monitor when a chosen schedule runs. A secret is stored encrypted and is not shown again."
+
+#: components/admin/limits-tab.tsx
+msgid "characters"
+msgstr "characters"
+
+#: components/admin/limits-tab.tsx
+msgid "Characters of a script"
+msgstr "Characters of a script"
 
 #: components/dashboards/dashboard-board.tsx
 msgid "Chart"
@@ -3702,6 +3828,10 @@ msgstr "Connection lost: changes made by others will show once it is back."
 msgid "Connection refused"
 msgstr "Connection refused"
 
+#: components/admin/limits-tab.tsx
+msgid "connections"
+msgstr "connections"
+
 #: components/admin/admin-sections.ts
 msgid "Connections"
 msgstr "Connections"
@@ -3887,6 +4017,10 @@ msgstr "Count of links"
 #: components/fields/field-link-settings.tsx
 msgid "Count of values"
 msgstr "Count of values"
+
+#: components/admin/limits-tab.tsx
+msgid "Counted for"
+msgstr "Counted for"
 
 #: components/fields/field-editor.tsx
 msgid "Counted on the first {total} values: the table holds more."
@@ -4146,6 +4280,10 @@ msgstr "Dates grouped by"
 #: components/table/automations-dialog.tsx
 msgid "Day"
 msgstr "Day"
+
+#: components/admin/limits-tab.tsx
+msgid "days"
+msgstr "days"
 
 #: components/settings/account-settings.tsx
 #: components/table/filter-builder.tsx
@@ -4635,9 +4773,17 @@ msgstr "Duplicating {name}…"
 msgid "Duration"
 msgstr "Duration"
 
+#: components/admin/limits-tab.tsx
+msgid "Each address may send this many requests of a kind a minute, counted across every process of the instance; one more is refused until the minute ends. Raise one when many people share an address (an office behind one proxy), within its bounds."
+msgstr "Each address may send this many requests of a kind a minute, counted across every process of the instance; one more is refused until the minute ends. Raise one when many people share an address (an office behind one proxy), within its bounds."
+
 #: components/admin/security-tab.tsx
 msgid "Each choice starts at a value that suits most organizations. Change it to follow your own rules: the limits that protect accounts cannot be turned off."
 msgstr "Each choice starts at a value that suits most organizations. Change it to follow your own rules: the limits that protect accounts cannot be turned off."
+
+#: components/admin/limits-tab.tsx
+msgid "Each limit takes a whole number within its bounds."
+msgstr "Each limit takes a whole number within its bounds."
 
 #: components/settings/second-factor.tsx
 msgid "Each one signs you in once if you lose your authenticator app or your passkey. Keep them somewhere other than this device."
@@ -5031,6 +5177,10 @@ msgstr "Every day"
 msgid "Every hour"
 msgstr "Every hour"
 
+#: components/admin/limits-tab.tsx
+msgid "Every limit the instance keeps to, where it is set, and what is used of it where the instance counts it. What is used is a count: it names no address and no account."
+msgstr "Every limit the instance keeps to, where it is set, and what is used of it where the instance counts it. What is used is a count: it names no address and no account."
+
 #: components/admin/emergency-section.tsx
 msgid "Every link to a view or a form stops opening at once, password or not. Nothing is deleted: they open again when the policy allows them."
 msgstr "Every link to a view or a form stops opening at once, password or not. Nothing is deleted: they open again when the policy allows them."
@@ -5108,6 +5258,10 @@ msgstr "Everyone else is signed out"
 #: components/admin/roles-tab.tsx
 msgid "Everyone who holds a role gets what it gives now: a change takes effect at once. A role somebody holds, or that an invitation waits with, cannot be deleted."
 msgstr "Everyone who holds a role gets what it gives now: a change takes effect at once. A role somebody holds, or that an invitation waits with, cannot be deleted."
+
+#: components/admin/limits-tab.tsx
+msgid "Everything else in the app"
+msgstr "Everything else in the app"
 
 #: components/shell/shortcuts-dialog.tsx
 msgid "Everywhere"
@@ -5284,6 +5438,10 @@ msgstr "Failing"
 msgid "Failure address"
 msgstr "Failure address"
 
+#: components/admin/limits-tab.tsx
+msgid "Failures pages report"
+msgstr "Failures pages report"
+
 #: components/admin/alerts-section.tsx
 msgid "Failures piling up"
 msgstr "Failures piling up"
@@ -5439,6 +5597,14 @@ msgstr "Files and images"
 #: components/admin/permission-labels.ts
 msgid "Files into a table, and a workbook as new tables."
 msgstr "Files into a table, and a workbook as new tables."
+
+#: components/admin/limits-tab.tsx
+msgid "Files sent"
+msgstr "Files sent"
+
+#: components/admin/limits-tab.tsx
+msgid "Files sent to public forms"
+msgstr "Files sent to public forms"
 
 #: components/shell/shortcuts-dialog.tsx
 msgid "Fill down"
@@ -5660,6 +5826,10 @@ msgstr "Friday"
 #: components/table/filter-builder.tsx
 msgid "From"
 msgstr "From"
+
+#: components/admin/limits-tab.tsx
+msgid "From {floor} to {top}; shipped with {shipped}."
+msgstr "From {floor} to {top}; shipped with {shipped}."
 
 #: components/shell/new-base-dialog.tsx
 msgid "from a backup file"
@@ -5890,6 +6060,10 @@ msgstr "Group updated"
 msgid "Grouped by {0, plural, one {# field} other {# fields}}"
 msgstr "Grouped by {0, plural, one {# field} other {# fields}}"
 
+#: components/admin/limits-tab.tsx
+msgid "groups"
+msgstr "groups"
+
 #: components/admin/admin-sections.ts
 #: components/admin/group-page.tsx
 #: components/admin/groups-tab.tsx
@@ -5897,6 +6071,10 @@ msgstr "Grouped by {0, plural, one {# field} other {# fields}}"
 #: components/settings/base-settings.tsx
 msgid "Groups"
 msgstr "Groups"
+
+#: components/admin/limits-tab.tsx
+msgid "Groups a page reads"
+msgstr "Groups a page reads"
 
 #: components/settings/base-settings.tsx
 msgid "Groups come from Administration or your identity provider. Each member gets the group's role, and loses it on leaving the group."
@@ -6054,6 +6232,10 @@ msgstr "Host the secret is sent to"
 msgid "Hourly purge"
 msgstr "Hourly purge"
 
+#: components/admin/limits-tab.tsx
+msgid "hours"
+msgstr "hours"
+
 #: components/fields/field-meta.tsx
 msgid "Hours and minutes"
 msgstr "Hours and minutes"
@@ -6065,6 +6247,10 @@ msgstr "Hover over a function to see what it does."
 #: components/admin/sign-in-trail.tsx
 msgid "How"
 msgstr "How"
+
+#: components/admin/limits-tab.tsx
+msgid "How long things are kept"
+msgstr "How long things are kept"
 
 #: components/fields/formula-docs.ts
 msgid "How many values are filled."
@@ -6198,6 +6384,10 @@ msgstr "Importing: {done} of {total} rows."
 #: components/table/import-dialog.tsx
 msgid "Importing…"
 msgstr "Importing…"
+
+#: components/admin/limits-tab.tsx
+msgid "Imports, exports, copies and files"
+msgstr "Imports, exports, copies and files"
 
 #: components/admin/base-admin-page.tsx
 msgid "In a client's database"
@@ -6749,6 +6939,10 @@ msgstr "Job finished"
 msgid "Job not found"
 msgstr "Job not found"
 
+#: components/admin/limits-tab.tsx
+msgid "jobs"
+msgstr "jobs"
+
 #: components/admin/support-tab.tsx
 msgid "Jobs"
 msgstr "Jobs"
@@ -6756,6 +6950,10 @@ msgstr "Jobs"
 #: components/shell/jobs-menu.tsx
 msgid "Jobs ({count} running)"
 msgstr "Jobs ({count} running)"
+
+#: components/admin/limits-tab.tsx
+msgid "Jobs queued or running"
+msgstr "Jobs queued or running"
 
 #: components/admin/health-tab.tsx
 msgid "Jobs queued, running"
@@ -6977,6 +7175,10 @@ msgstr "Leave blank to keep the stored password"
 msgid "Level"
 msgstr "Level"
 
+#: components/admin/limits-tab.tsx
+msgid "Levels of grouping"
+msgstr "Levels of grouping"
+
 #: components/shell/about-dialog.tsx
 msgid "Licenses of the libraries it uses"
 msgstr "Licenses of the libraries it uses"
@@ -6993,9 +7195,22 @@ msgstr "Light theme"
 msgid "Like FIND, ignoring upper and lower case."
 msgstr "Like FIND, ignoring upper and lower case."
 
+#: components/admin/limits-tab.tsx
+msgid "Limit"
+msgstr "Limit"
+
 #: components/admin/security-tab.tsx
 msgid "Limit interactive sign-in (password, single sign-on, passkeys) to these client addresses. Empty means any. API tokens, SCIM, and metrics are not gated here. Behind a reverse proxy, set ANYGRIDDB_TRUSTED_PROXIES so the real client address is used."
 msgstr "Limit interactive sign-in (password, single sign-on, passkeys) to these client addresses. Empty means any. API tokens, SCIM, and metrics are not gated here. Behind a reverse proxy, set ANYGRIDDB_TRUSTED_PROXIES so the real client address is used."
+
+#: components/admin/admin-sections.ts
+#: components/admin/sign-in-trail.tsx
+msgid "Limits and usage"
+msgstr "Limits and usage"
+
+#: components/admin/limits-tab.tsx
+msgid "Limits saved"
+msgstr "Limits saved"
 
 #: components/dashboards/dashboard-board.tsx
 msgid "Line"
@@ -7085,6 +7300,10 @@ msgstr "Lists the accounts, and makes one. An account made with a token is never
 #: components/admin/api-tokens-tab.tsx
 msgid "Lists the invitations that wait for an answer."
 msgstr "Lists the invitations that wait for an answer."
+
+#: components/admin/limits-tab.tsx
+msgid "Live connections"
+msgstr "Live connections"
 
 #: components/shell/home-page.tsx
 msgid "Live in {source}"
@@ -7477,6 +7696,10 @@ msgstr "Minimum"
 msgid "Minimum length"
 msgstr "Minimum length"
 
+#: components/admin/limits-tab.tsx
+msgid "minutes"
+msgstr "minutes"
+
 #: lib/errors.ts
 msgid "Missing closing parenthesis"
 msgstr "Missing closing parenthesis"
@@ -7503,6 +7726,10 @@ msgstr "More actions"
 #: components/admin/people-file-dialog.tsx
 msgid "More than 20 bases for one person"
 msgstr "More than 20 bases for one person"
+
+#: components/admin/limits-tab.tsx
+msgid "Most from one address"
+msgstr "Most from one address"
 
 #: components/dashboards/dashboard-board.tsx
 #: components/table/use-row-writes.ts
@@ -8479,6 +8706,10 @@ msgstr "Notify collaborators"
 msgid "Notify people when they are assigned"
 msgstr "Notify people when they are assigned"
 
+#: components/admin/limits-tab.tsx
+msgid "Now: at most {most} for one account; {past} at the limit."
+msgstr "Now: at most {most} for one account; {past} at the limit."
+
 #: components/fields/field-meta.tsx
 #: lib/aggregate-labels.ts
 msgid "Number"
@@ -8855,6 +9086,14 @@ msgstr "Owners"
 msgid "Page not found"
 msgstr "Page not found"
 
+#: components/admin/limits-tab.tsx
+msgid "pages"
+msgstr "pages"
+
+#: components/admin/limits-tab.tsx
+msgid "Pages one connection follows"
+msgstr "Pages one connection follows"
+
 #: components/fields/field-meta.tsx
 msgid "Paragraphs and notes"
 msgstr "Paragraphs and notes"
@@ -9119,6 +9358,10 @@ msgstr "Pinned"
 msgid "Place"
 msgstr "Place"
 
+#: components/admin/limits-tab.tsx
+msgid "Places a map shows"
+msgstr "Places a map shows"
+
 #: components/fields/field-settings.tsx
 msgid "Plain text"
 msgstr "Plain text"
@@ -9292,6 +9535,10 @@ msgstr "Public links to a view, a form or a whole base."
 #: components/admin/security-tab.tsx
 msgid "Public links to views and forms"
 msgstr "Public links to views and forms"
+
+#: components/admin/limits-tab.tsx
+msgid "Public links, forms and feeds"
+msgstr "Public links, forms and feeds"
 
 #: components/admin/health-tab.tsx
 msgid "PUBLIC_URL is an IP address: HTTPS and TOTP work; passkeys need a DNS hostname (or localhost) in PUBLIC_URL that people open. Put the IP in TLS_NAMES if it must stay on the certificate."
@@ -9907,6 +10154,18 @@ msgstr "Request body"
 msgid "Request refused"
 msgstr "Request refused"
 
+#: components/admin/limits-tab.tsx
+msgid "Requests"
+msgstr "Requests"
+
+#: components/admin/limits-tab.tsx
+msgid "requests a minute"
+msgstr "requests a minute"
+
+#: components/admin/limits-tab.tsx
+msgid "Requests a minute, per address"
+msgstr "Requests a minute, per address"
+
 #: components/history/earlier.tsx
 msgid "Require a reason"
 msgstr "Require a reason"
@@ -9963,6 +10222,10 @@ msgstr "resolved"
 #: components/record/record-panel.tsx
 msgid "resolved by {name}"
 msgstr "resolved by {name}"
+
+#: components/admin/limits-tab.tsx
+msgid "REST API, MCP and SCIM"
+msgstr "REST API, MCP and SCIM"
 
 #: components/settings/api-docs.tsx
 msgid "REST at {url}. Authenticate with a token: Authorization: Bearer ag_…"
@@ -10281,6 +10544,7 @@ msgstr "Row trash"
 msgid "Row values"
 msgstr "Row values"
 
+#: components/admin/limits-tab.tsx
 #: components/table/automations-dialog.tsx
 msgid "rows"
 msgstr "rows"
@@ -10292,6 +10556,22 @@ msgstr "rows"
 #: components/views/row-cards.tsx
 msgid "Rows"
 msgstr "Rows"
+
+#: components/admin/limits-tab.tsx
+msgid "Rows a calendar shows"
+msgstr "Rows a calendar shows"
+
+#: components/admin/limits-tab.tsx
+msgid "Rows a list shows"
+msgstr "Rows a list shows"
+
+#: components/admin/limits-tab.tsx
+msgid "Rows a loop goes through"
+msgstr "Rows a loop goes through"
+
+#: components/admin/limits-tab.tsx
+msgid "Rows a page reads"
+msgstr "Rows a page reads"
 
 #: components/fields/field-editor.tsx
 msgid "Rows already empty here stay so until someone changes this field."
@@ -10308,6 +10588,18 @@ msgstr "Rows are deleted"
 #: components/table/circuit-editor.tsx
 msgid "Rows change"
 msgstr "Rows change"
+
+#: components/admin/limits-tab.tsx
+msgid "Rows copied at once"
+msgstr "Rows copied at once"
+
+#: components/admin/limits-tab.tsx
+msgid "Rows exported at once"
+msgstr "Rows exported at once"
+
+#: components/admin/limits-tab.tsx
+msgid "Rows imported at once"
+msgstr "Rows imported at once"
 
 #: components/table/circuit-editor.tsx
 msgid "Rows in “{state}” ({count}) move to"
@@ -10382,6 +10674,10 @@ msgstr "Running"
 msgid "Runs"
 msgstr "Runs"
 
+#: components/admin/limits-tab.tsx
+msgid "runs a minute"
+msgstr "runs a minute"
+
 #: components/table/automations-dialog.tsx
 msgid "Runs of “{name}”"
 msgstr "Runs of “{name}”"
@@ -10409,6 +10705,7 @@ msgstr "Saturday"
 
 #: components/admin/account-actions.tsx
 #: components/admin/group-page.tsx
+#: components/admin/limits-tab.tsx
 #: components/admin/roles-tab.tsx
 #: components/admin/settings-tab.tsx
 #: components/admin/sources-tab.tsx
@@ -10664,11 +10961,20 @@ msgstr "Secret name"
 msgid "Secret value"
 msgstr "Secret value"
 
+#: components/admin/limits-tab.tsx
+msgid "secrets"
+msgstr "secrets"
+
 #: components/table/automations-dialog.tsx
 msgid "Secrets for scripts"
 msgstr "Secrets for scripts"
 
+#: components/admin/limits-tab.tsx
+msgid "Secrets of an automation"
+msgstr "Secrets of an automation"
+
 #: components/admin/admin-sections.ts
+#: components/admin/limits-tab.tsx
 msgid "Security"
 msgstr "Security"
 
@@ -10919,6 +11225,18 @@ msgstr "Sessions on a calendar, their venues, and a form where attendees registe
 msgid "Set as primary field"
 msgstr "Set as primary field"
 
+#: components/admin/limits-tab.tsx
+msgid "Set by"
+msgstr "Set by"
+
+#: components/admin/limits-tab.tsx
+msgid "Set by AnyGridDB."
+msgstr "Set by AnyGridDB."
+
+#: components/admin/limits-tab.tsx
+msgid "Set by AnyGridDB. The trash, restore points and the trails are set in Settings and Security."
+msgstr "Set by AnyGridDB. The trash, restore points and the trails are set in Settings and Security."
+
 #: components/admin/integrations-tab.tsx
 msgid "Set in the instance's environment"
 msgstr "Set in the instance's environment"
@@ -10957,6 +11275,7 @@ msgstr "Setting changed"
 
 #: components/admin/admin-sections.ts
 #: components/admin/api-tokens-tab.tsx
+#: components/admin/limits-tab.tsx
 msgid "Settings"
 msgstr "Settings"
 
@@ -11188,6 +11507,10 @@ msgstr "Sign-in trail retention"
 msgid "Sign-ins"
 msgstr "Sign-ins"
 
+#: components/admin/limits-tab.tsx
+msgid "Sign-ins and codes"
+msgstr "Sign-ins and codes"
+
 #: components/settings/second-factor.tsx
 msgid "Sign-ins to this account will no longer ask for a code by email."
 msgstr "Sign-ins to this account will no longer ask for a code by email."
@@ -11311,6 +11634,7 @@ msgstr "Single select"
 
 #: components/admin/account-page.tsx
 #: components/admin/accounts-tab.tsx
+#: components/admin/limits-tab.tsx
 msgid "Single sign-on"
 msgstr "Single sign-on"
 
@@ -12204,6 +12528,10 @@ msgstr "The day of the week, from 0 (Sunday) to 6 (Saturday)."
 msgid "The day: 03/04/2026 is 3 April"
 msgstr "The day: 03/04/2026 is 3 April"
 
+#: components/admin/limits-tab.tsx
+msgid "The environment"
+msgstr "The environment"
+
 #: components/fields/formula-docs.ts
 msgid "The false value."
 msgstr "The false value."
@@ -12307,6 +12635,10 @@ msgstr "The id the API and links name the row by"
 #: components/admin/scim-tab.tsx
 msgid "The identity provider will no longer be able to provision anything with this token."
 msgstr "The identity provider will no longer be able to provision anything with this token."
+
+#: components/admin/limits-tab.tsx
+msgid "The instance"
+msgstr "The instance"
 
 #: components/admin/integrations-tab.tsx
 msgid "The instance falls back to environment variables, if any."
@@ -12579,6 +12911,10 @@ msgstr "the row's status"
 #: components/grid/rows-error.tsx
 msgid "The rows could not be read: {reason}"
 msgstr "The rows could not be read: {reason}"
+
+#: components/admin/limits-tab.tsx
+msgid "The rows imported or exported at once are set by the instance's environment; the largest file in a cell, in Settings."
+msgstr "The rows imported or exported at once are set by the instance's environment; the largest file in a cell, in Settings."
 
 #: components/fields/link-selection.tsx
 msgid "The rows of a shared view"
@@ -14107,6 +14443,7 @@ msgstr "Usually the full email address"
 msgid "Valid until {date}, for: {names}."
 msgstr "Valid until {date}, for: {names}."
 
+#: components/admin/limits-tab.tsx
 #: components/table/automations-dialog.tsx
 #: components/table/filter-builder.tsx
 #: components/table/import-dialog.tsx
@@ -14304,6 +14641,10 @@ msgstr "Weekly digest"
 msgid "What"
 msgstr "What"
 
+#: components/admin/limits-tab.tsx
+msgid "What a page reads and shows"
+msgstr "What a page reads and shows"
+
 #: components/admin/roles-tab.tsx
 msgid "What a role gives someone on a base or a table. The four below come with every instance. Make others from the same permissions, then give them as the four are, from a base's settings or from here."
 msgstr "What a role gives someone on a base or a table. The four below come with every instance. Make others from the same permissions, then give them as the four are, from a base's settings or from here."
@@ -14335,6 +14676,10 @@ msgstr "What comes first in this file's dates?"
 #: components/admin/notification-defaults-section.tsx
 msgid "What each account inherits until they change their own preferences. Security notices keep immediate email."
 msgstr "What each account inherits until they change their own preferences. Security notices keep immediate email."
+
+#: components/admin/limits-tab.tsx
+msgid "What is used is counted over this minute and the one before."
+msgstr "What is used is counted over this minute and the one before."
 
 #: components/shell/home-page.tsx
 msgid "What is waiting for you, and what changed in your tables."
@@ -14581,6 +14926,10 @@ msgstr "Without an active owner"
 #: components/settings/webhooks-panel.tsx
 msgid "without values"
 msgstr "without values"
+
+#: components/admin/limits-tab.tsx
+msgid "Work in the background and live connections"
+msgstr "Work in the background and live connections"
 
 #: components/settings/api-docs.tsx
 msgid "Write"

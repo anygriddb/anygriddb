@@ -20,6 +20,7 @@ collector of your own are known.
 | Provision accounts (SCIM)                | [Provisioning with SCIM](#provisioning-with-scim)                                         |
 | Script Administration                    | [The administration API](#the-administration-api)                                         |
 | Run several API processes                | [Several API processes](#several-api-processes)                                           |
+| See and set the limits                   | [Limits and usage](#limits-and-usage)                                                     |
 | Size memory for large reads              | [How much a read may hold](#how-much-a-read-may-hold)                                     |
 | Ship logs / metrics                      | [Shipping logs](#shipping-logs-to-a-collector), [Metrics and traces](#metrics-and-traces) |
 | Send sign-in events to a collector       | [Sign-in events to a collector](#sign-in-events-to-a-collector)                           |
@@ -564,6 +565,23 @@ Supported shape: **one** API process. Multiple behind a balancer:
 
 Balancer: `/ready` (Postgres ≤ 2 s) / `/readyz` (+ migrations). `/health` /
 `/healthz` = process up. See [Health](integrations/health.md).
+
+## Limits and usage
+
+Administration › Instance › **Limits and usage** lists every limit the
+instance keeps, where it is set (AnyGridDB, the environment, Settings),
+and what is used of it where it is counted: for each kind of request,
+the most one address sent over this minute and the one before, and how
+many addresses were refused; for jobs, the most one account holds. Counts
+only, never an address or an account.
+
+The requests a minute, per address, are set there, each between a floor
+that still protects the instance and a top that still protects the
+database; a limit left at its shipped value follows a later version's.
+Every process reads a change within five seconds. Raise one when many
+people share an address (an office behind one proxy, with
+`ANYGRIDDB_TRUSTED_PROXIES` set). The sign-in trail says who changed the
+limits; the log line `limits changed` holds the values before and after.
 
 ## How much a read may hold
 

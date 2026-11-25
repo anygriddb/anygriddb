@@ -1,9 +1,14 @@
 import rateLimit from "@fastify/rate-limit";
 import type { FastifyInstance } from "fastify";
 import { publicErrorBody } from "./http.js";
-import { ceilingOf } from "@anygriddb/core";
+import {
+  ceilingOf,
+  limitIn,
+  type LimitValues,
+  type SettableLimitId,
+} from "@anygriddb/core";
 
-type RateBucket =
+export type RateBucket =
   | "auth"
   | "oauth"
   | "signOn"
@@ -14,7 +19,20 @@ type RateBucket =
   | "report"
   | "app";
 
-/** Requests allowed per minute and per client address, by bucket. */
+/** The limit of the catalogue each bucket is counted against (ADR 0132). */
+export const BUCKET_LIMITS = {
+  auth: "rate.auth",
+  oauth: "rate.oauth",
+  signOn: "rate.sign_on",
+  share: "rate.share",
+  api: "rate.api",
+  upload: "rate.upload",
+  formUpload: "rate.form_upload",
+  report: "rate.report",
+  app: "rate.app",
+} as const satisfies Record<RateBucket, SettableLimitId>;
+
+/** Requests allowed per minute and per client address, by bucket, as shipped. */
 export const RATE_LIMITS: Record<RateBucket, number> = {
   auth: ceilingOf("rate.auth"),
   // An application's backend, which renews the grants of all its people
@@ -165,6 +183,8 @@ export async function registerRateLimit(
   shared?: {
     store: NonNullable<Parameters<typeof rateLimit>[1]>["store"];
     prune: (timeWindow: number) => Promise<void>;
+    /** What Administration set ("Limits and usage"), read through a cache. */
+    values: () => Promise<LimitValues>;
   },
 ): Promise<void> {
   if (shared) {
@@ -194,7 +214,13 @@ export async function registerRateLimit(
     skipOnError: true,
     keyGenerator: (request) =>
       `${request.ip}:${rateBucket(request.method, request.url)}`,
-    max: (request) => RATE_LIMITS[rateBucket(request.method, request.url)],
+    max: async (request) => {
+      const bucket = rateBucket(request.method, request.url);
+      if (!shared) return RATE_LIMITS[bucket];
+      // Settings that cannot be read leave the limits as shipped.
+      const values = await shared.values().catch(() => ({}));
+      return limitIn(BUCKET_LIMITS[bucket], values);
+    },
     errorResponseBuilder: (_request, context) => ({
       statusCode: 429,
       error: "Too many requests",

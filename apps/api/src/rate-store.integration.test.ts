@@ -25,6 +25,7 @@ describe("requests counted where every process sees them", () => {
     await registerRateLimit(server, {
       store: rateStoreIn(counting, { warn }),
       prune: (timeWindow) => pruneRateWindows(counting, timeWindow),
+      values: async () => ({}),
     });
     server.post("/api/client-errors", () => ({ ok: true }));
     server.get("/health", () => ({ ok: true }));

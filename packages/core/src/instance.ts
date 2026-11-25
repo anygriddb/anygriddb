@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { ATTACHMENT_REFUSABLE_KINDS } from "./attachment-types";
-import { ceilingOf } from "./limits";
+import { ceilingOf, limitValuesSchema } from "./limits";
 
 /** The product's name: what an instance is called until it names itself. */
 export const PRODUCT_NAME = "AnyGridDB";
@@ -219,6 +219,11 @@ const fields = {
     z.int().min(1024).max(ATTACHMENT_MAX_BYTES_CEILING),
   ]),
   /**
+   * The limits an administrator set in "Limits and usage" (ADR 0132), each
+   * within its bounds; a limit left out keeps the catalogue's value.
+   */
+  limits: limitValuesSchema,
+  /**
    * File extensions an administrator refuses (ROADMAP #39), each with a
    * leading dot. Empty means every extension is taken. A name is the
    * uploader's to choose: what a file is, whatever its name, is the kinds
@@ -340,6 +345,7 @@ export const INSTANCE_DEFAULTS: InstanceSettings = {
   automationScripts: false,
   trailToCollector: false,
   attachmentMaxBytes: null,
+  limits: {},
   attachmentRefusedExtensions: [],
   attachmentRefusedKinds: [],
   trashDays: 30,
@@ -413,6 +419,7 @@ export const instanceSettingsSchema = z.object({
   attachmentMaxBytes: fields.attachmentMaxBytes.default(
     INSTANCE_DEFAULTS.attachmentMaxBytes,
   ),
+  limits: fields.limits.default(INSTANCE_DEFAULTS.limits),
   attachmentRefusedExtensions: fields.attachmentRefusedExtensions.default(
     INSTANCE_DEFAULTS.attachmentRefusedExtensions,
   ),
@@ -490,6 +497,7 @@ export const instanceSettingsPatchSchema = z
     automationScripts: fields.automationScripts.optional(),
     trailToCollector: fields.trailToCollector.optional(),
     attachmentMaxBytes: fields.attachmentMaxBytes.optional(),
+    limits: fields.limits.optional(),
     attachmentRefusedExtensions: fields.attachmentRefusedExtensions.optional(),
     attachmentRefusedKinds: fields.attachmentRefusedKinds.optional(),
     trashDays: fields.trashDays.optional(),

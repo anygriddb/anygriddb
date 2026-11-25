@@ -76,6 +76,10 @@ policy numbers that already have a home on the Security page keep that home;
 they read and write through the catalogue. Display ceilings appear as
 read-only rows so the page is the whole picture.
 
+As built (family 2): the requests a minute are the limits set there; the
+sign-in trail says who changed the limits, as it says for every setting
+(ADR 0043), and the values before and after go to the log beside it.
+
 ### Storage quotas (roadmap 38)
 
 `storage.base_bytes` and `storage.account_bytes` enter the catalogue. A base's

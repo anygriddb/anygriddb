@@ -241,6 +241,7 @@ export async function createApp(deps: {
       },
     }),
     prune: (timeWindow) => pruneRateWindows(deps.db, timeWindow),
+    values: async () => (await readGateSettings(deps.db)).limits,
   });
   await app.register(cookie);
   await app.register(websocket, SOCKET_OPTIONS);

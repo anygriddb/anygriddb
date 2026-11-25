@@ -48,6 +48,7 @@ import {
   type ReleaseStatus,
 } from "../release-status.js";
 import { saveInstanceSettings } from "../instance-settings.js";
+import { limitsAndUsage } from "../limits-usage.js";
 import { readMailVoice, readSettings } from "../settings.js";
 import {
   alertOptOuts,
@@ -184,6 +185,13 @@ export const adminInstanceProcedures = {
    * What the operator fixed in the environment (public URL, storage,
    * trusted proxies). Read-only; secrets are never included.
    */
+  /** Every limit as the instance keeps it, and what is used of it (ADR 0132). */
+  limits: procedure.query(({ ctx }) =>
+    handle(ctx, async () => {
+      await requireAdmin(ctx);
+      return limitsAndUsage(ctx.db, ctx.env, await readSettings(ctx.db));
+    }),
+  ),
   operatorSettings: procedure.query(({ ctx }) =>
     handle(ctx, async () => {
       await requireAdmin(ctx);
@@ -200,6 +208,7 @@ export const adminInstanceProcedures = {
             db: ctx.db,
             env: ctx.env,
             closeUser: (userId) => ctx.hub.closeUser(userId),
+            log: ctx.req.log,
           },
           { id: admin.id, ip: ctx.req.ip, method: "admin" },
           input,

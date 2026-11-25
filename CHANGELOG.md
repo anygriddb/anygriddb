@@ -8,6 +8,14 @@ first.
 
 ## Unreleased
 
+### Added
+
+- Administration › Instance › **Limits and usage**: every limit the instance
+  keeps, where it is set, and what is used of it where it is counted (the
+  most one address sent, how many were refused, the most jobs one account
+  holds); counts only, never an address or an account. The requests a
+  minute, per address, are set there, each within its bounds.
+
 ### Changed
 
 - Rate limits hold across processes: requests are counted in PostgreSQL, a
