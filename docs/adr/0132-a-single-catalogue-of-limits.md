@@ -80,6 +80,12 @@ As built (family 2): the requests a minute are the limits set there; the
 sign-in trail says who changed the limits, as it says for every setting
 (ADR 0043), and the values before and after go to the log beside it.
 
+As built (family 5): the days the trash, restore points and the sign-in
+trail are kept are entries of the catalogue, with their bounds, which the
+settings' schema reads (`boundsOf`); they stay set in Settings and
+Security, and the page lists them. The change trail, kept for ever unless
+Security says otherwise, has no ceiling to list.
+
 ### Storage quotas (roadmap 38)
 
 `storage.base_bytes` and `storage.account_bytes` enter the catalogue. A base's

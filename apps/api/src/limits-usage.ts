@@ -91,9 +91,15 @@ function valueNow(id: LimitId, settings: InstanceSettings, env: Env): number {
       return env.IMPORT_MAX_ROWS;
     case "export.max_rows":
       return env.EXPORT_MAX_ROWS;
+    case "retention.trash_days":
+      return settings.trashDays;
+    case "retention.restore_point_days":
+      return settings.restorePointDays;
+    case "retention.sign_in_days":
+      return settings.authRetentionDays;
     default: {
       const entry: LimitEntry = LIMITS[id];
-      return entry.bounds
+      return entry.setBy === "limits"
         ? limitIn(id as SettableLimitId, settings.limits)
         : entry.value;
     }
@@ -111,7 +117,7 @@ export async function limitsAndUsage(
     const used =
       id === "jobs.active_per_account"
         ? jobs
-        : entry.bounds
+        : entry.setBy === "limits"
           ? (rates.get(id as SettableLimitId) ?? { most: 0, past: 0 })
           : null;
     return { ...entry, id, now: valueNow(id, settings, env), used };

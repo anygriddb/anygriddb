@@ -14,7 +14,9 @@ first.
   keeps, where it is set, and what is used of it where it is counted (the
   most one address sent, how many were refused, the most jobs one account
   holds); counts only, never an address or an account. The requests a
-  minute, per address, are set there, each within its bounds.
+  minute, per address, are set there, each within its bounds. How long the
+  trash, restore points and the sign-in trail are kept is listed there too,
+  and still set in Settings and Security.
 
 ### Changed
 

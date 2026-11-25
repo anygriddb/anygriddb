@@ -1538,6 +1538,10 @@ msgstr "Un motif est requis"
 msgid "A request"
 msgstr "Une requête"
 
+#: components/admin/limits-tab.tsx
+msgid "A restore point"
+msgstr "Un point de restauration"
+
 #: components/admin/trails.tsx
 msgid "A restore point of the base, kept on the instance"
 msgstr "Un point de restauration de la base, gardé sur l’instance"
@@ -11233,10 +11237,6 @@ msgstr "Réglé par"
 msgid "Set by AnyGridDB."
 msgstr "Réglé par AnyGridDB."
 
-#: components/admin/limits-tab.tsx
-msgid "Set by AnyGridDB. The trash, restore points and the trails are set in Settings and Security."
-msgstr "Réglé par AnyGridDB. La corbeille, les points de restauration et les journaux se règlent dans Réglages et Sécurité."
-
 #: components/admin/integrations-tab.tsx
 msgid "Set in the instance's environment"
 msgstr "Fixé dans l’environnement de l’instance"
@@ -12972,6 +12972,10 @@ msgstr "Le serveur n’est pas du moteur choisi : MySQL et MariaDB se distingue
 msgid "The server's internal certificate authority, or its self-signed certificate. Without one, the system's authorities are trusted."
 msgstr "L’autorité de certification interne du serveur, ou son certificat auto-signé. Sans certificat, les autorités du système sont reconnues."
 
+#: components/admin/limits-tab.tsx
+msgid "The sign-in trail"
+msgstr "Le journal des connexions"
+
 #: components/admin/trails.tsx
 msgid "The sign-in trail, as {format}"
 msgstr "Le journal des connexions, en {format}"
@@ -13071,6 +13075,10 @@ msgstr "Le temps entre la date et maintenant, comme FROMNOW."
 #: components/admin/rights-at.tsx
 msgid "The trail was purged before that date."
 msgstr "La piste a été purgée avant cette date."
+
+#: components/admin/limits-tab.tsx
+msgid "The trash and restore points are set in Settings, the sign-in trail in Security; the change trail, kept for ever unless Security says otherwise, is not listed."
+msgstr "La corbeille et les points de restauration se règlent dans Réglages, le journal des connexions dans Sécurité ; le journal des modifications, gardé pour toujours sauf si Sécurité en décide autrement, n’est pas listé."
 
 #: components/shell/trash-dialog.tsx
 #: components/table/row-trash-dialog.tsx
@@ -13627,6 +13635,10 @@ msgstr "Ce nombre a plus de 60 chiffres"
 #: lib/errors.ts
 msgid "This number reads two ways: say which decimal separator it uses"
 msgstr "Ce nombre se lit de deux façons : indiquez son séparateur décimal"
+
+#: components/admin/limits-tab.tsx
+msgid "This page"
+msgstr "Cette page"
 
 #: components/shell/load-failed.tsx
 msgid "This page could not be loaded: {reason}"
@@ -14676,6 +14688,10 @@ msgstr "Qu’est-ce qui vient en premier dans les dates de ce fichier ?"
 #: components/admin/notification-defaults-section.tsx
 msgid "What each account inherits until they change their own preferences. Security notices keep immediate email."
 msgstr "Ce que chaque compte hérite jusqu’à ce qu’il change ses propres préférences. Les avis de sécurité gardent l’e-mail immédiat."
+
+#: components/admin/limits-tab.tsx
+msgid "What is deleted, in the trash"
+msgstr "Ce qui est supprimé, dans la corbeille"
 
 #: components/admin/limits-tab.tsx
 msgid "What is used is counted over this minute and the one before."

@@ -1,5 +1,6 @@
 import {
   LIMITS,
+  type LimitEntry,
   type LimitId,
   type LimitValues,
   type SettableLimitId,
@@ -55,6 +56,9 @@ export const FAMILY_OF = {
   "retention.deliveries_days": "kept",
   "retention.digest_days": "kept",
   "retention.source_load_days": "kept",
+  "retention.trash_days": "kept",
+  "retention.restore_point_days": "kept",
+  "retention.sign_in_days": "kept",
   "automation.max_actions": "automations",
   "automation.max_nested_actions": "automations",
   "automation.max_loop_rows": "automations",
@@ -78,8 +82,8 @@ export function limitsFromDraft(
   const limits: Record<string, number> = {};
   const invalid: SettableLimitId[] = [];
   for (const id of Object.keys(LIMITS) as LimitId[]) {
-    const entry = LIMITS[id];
-    if (!entry.bounds) continue;
+    const entry: LimitEntry = LIMITS[id];
+    if (entry.setBy !== "limits" || !entry.bounds) continue;
     const settable = id as SettableLimitId;
     const typed = draft[settable];
     const text = typed === undefined ? undefined : typed.trim();
