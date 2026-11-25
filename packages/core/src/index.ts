@@ -142,6 +142,13 @@ export {
   type ValueKind,
   type WritableType,
 } from "./field-types";
+export {
+  apiValueExample,
+  apiValueNote,
+  apiValueSchema,
+  takesApiWrites,
+  type ApiField,
+} from "./field-api";
 
 export {
   DATE_MODES,

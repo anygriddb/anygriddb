@@ -1,4 +1,9 @@
-import { ERROR_CODES, isRelationType, isWritableType } from "@anygriddb/core";
+import {
+  apiValueNote,
+  apiValueSchema,
+  ERROR_CODES,
+  takesApiWrites,
+} from "@anygriddb/core";
 import { publicColumns } from "../trpc/catalog-shared.js";
 import { z } from "zod";
 import { listQuerySchema, MAX_RECORDS, recordQuerySchema } from "./types.js";
@@ -30,20 +35,6 @@ const REASON_HEADER = {
     "Why the change is made. A field that requires a reason refuses a write without one (400 `reason_required`). Percent-encode it to carry what a header cannot; its first 500 characters are kept.",
 };
 
-/**
- * Exact numbers travel as decimal text (ADR 0023): a JSON number would
- * round through a float. Writes accept either form, but an integer past
- * 2^53 has already been rounded as a JSON number, and is refused.
- */
-function exactNumberSchema(base: Record<string, unknown>) {
-  return {
-    ...base,
-    type: "string",
-    format: "decimal",
-    pattern: "^-?\\d+(\\.\\d+)?$",
-  };
-}
-
 /** JSON type of a field in OpenAPI terms. */
 function fieldSchema(
   column: ReturnType<typeof publicColumns>[number],
@@ -51,84 +42,17 @@ function fieldSchema(
   const options = (
     column.config as { options?: Array<{ name: string }> }
   ).options?.map((option) => option.name);
-  const readOnly =
-    !isWritableType(column.fieldType) && !isRelationType(column.fieldType);
-  const base: Record<string, unknown> = {
-    description: column.description ?? column.label,
-    ...(readOnly ? { readOnly: true } : {}),
+  const description = column.description ?? column.label;
+  const note = apiValueNote(column.fieldType);
+  return {
+    description: note === undefined ? description : `${description}. ${note}`,
+    ...(takesApiWrites(column.fieldType) ? {} : { readOnly: true }),
+    ...apiValueSchema({
+      fieldType: column.fieldType,
+      kind: column.kind,
+      ...(options ? { options } : {}),
+    }),
   };
-  switch (column.fieldType) {
-    case "number":
-      return exactNumberSchema({
-        ...base,
-        description: `${String(base.description)}. Send an exact number as a string: a JSON integer past 2^53 is refused`,
-      });
-    case "rating":
-    case "duration":
-    case "autonumber":
-      return { ...base, type: "number" };
-    case "boolean":
-      return { ...base, type: "boolean" };
-    case "date":
-      return { ...base, type: "string", format: "date" };
-    case "datetime":
-    case "created_time":
-    case "last_modified_time":
-      return { ...base, type: "string", format: "date-time" };
-    case "email":
-      return { ...base, type: "string", format: "email" };
-    case "url":
-      return { ...base, type: "string", format: "uri" };
-    case "single_select":
-      return { ...base, type: "string", ...(options ? { enum: options } : {}) };
-    case "multi_select":
-      return {
-        ...base,
-        type: "array",
-        items: { type: "string", ...(options ? { enum: options } : {}) },
-      };
-    case "user":
-      return {
-        ...base,
-        type: "array",
-        items: { type: "string", format: "uuid" },
-      };
-    case "created_by":
-    case "last_modified_by":
-      return { ...base, type: "string", format: "uuid" };
-    case "row_id":
-      // AnyGridDB's uuid, or a client table's key as text.
-      return { ...base, type: "string" };
-    case "attachment":
-      return {
-        ...base,
-        type: "array",
-        items: {
-          oneOf: [
-            { type: "string", description: "Attachment key (write)" },
-            { $ref: "#/components/schemas/Attachment" },
-          ],
-        },
-      };
-    case "relation_one_to_many":
-    case "relation_many_to_many":
-      return {
-        ...base,
-        type: "array",
-        items: {
-          oneOf: [
-            { type: "string", format: "uuid" },
-            { $ref: "#/components/schemas/Link" },
-          ],
-        },
-      };
-    default:
-      // A computed number (formula, lookup, rollup) is exact.
-      if (column.kind === "number") return exactNumberSchema(base);
-      if (column.kind === "boolean") return { ...base, type: "boolean" };
-      if (column.kind === "array") return { ...base, type: "array", items: {} };
-      return { ...base, type: "string" };
-  }
 }
 
 export function buildOpenApi(
