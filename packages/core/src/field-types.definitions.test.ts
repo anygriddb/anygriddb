@@ -6,6 +6,7 @@ import {
   SYSTEM_COLUMN,
   WRITABLE_TYPES,
   canBeRequired,
+  comparedAs,
   hasPhysicalColumn,
   isComputedType,
   isPrimaryType,
@@ -112,5 +113,29 @@ describe("FIELD_DEFINITIONS", () => {
     expect(
       FIELD_TYPES.filter((type) => FIELD_DEFINITIONS[type].sideEligible).sort(),
     ).toEqual([...SIDE_FIELD_TYPES].sort());
+  });
+
+  it("compares as seen by the kind of value each type keeps", () => {
+    const byWay = (way: string) =>
+      FIELD_TYPES.filter((type) => comparedAs(type) === way).sort();
+    expect(byWay("text")).toEqual(
+      [
+        "color",
+        "email",
+        "long_text",
+        "phone",
+        "place",
+        "single_select",
+        "text",
+        "url",
+      ].sort(),
+    );
+    expect(byWay("document")).toEqual(["json"]);
+    expect(byWay("instant")).toEqual(["date", "datetime"]);
+    expect(byWay("checkbox")).toEqual(["boolean"]);
+    expect(byWay("files")).toEqual(["attachment"]);
+    // A type nobody defined, or none, is compared as the value it is.
+    expect(comparedAs("nonsense")).toBe("value");
+    expect(comparedAs(undefined)).toBe("value");
   });
 });
