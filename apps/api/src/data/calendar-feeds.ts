@@ -16,7 +16,7 @@ import {
   describeColumns,
   effectiveTableRole,
   normalizeViewConfig,
-  roleAllows,
+  roleGrants,
   viewFilter,
 } from "@anygriddb/core";
 import type { Database } from "@anygriddb/db";
@@ -65,7 +65,7 @@ async function feedView(db: Database, viewId: string, userId: string) {
   }
   const bindings = await loadBindings(db, userId);
   const role = effectiveTableRole(bindings, view.tableId, view.baseId);
-  if (!role || !roleAllows(role, "read")) return undefined;
+  if (!roleGrants(role, "data.export")) return undefined;
   return { ...view, bindings };
 }
 

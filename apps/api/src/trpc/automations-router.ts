@@ -70,7 +70,7 @@ export const automationsRouter = t.router({
     .input(z.object({ tableId: z.uuid() }))
     .query(({ ctx, input }) =>
       handle(ctx, async () => {
-        await guardTable(ctx, input.tableId, "manage");
+        await guardTable(ctx, input.tableId, "automations.manage");
         return { automations: await listAutomations(ctx.db, input.tableId) };
       }),
     ),
@@ -78,13 +78,17 @@ export const automationsRouter = t.router({
     .input(createAutomationInputSchema)
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
-        const { user, table } = await guardTable(ctx, input.tableId, "manage");
+        const { user, table } = await guardTable(
+          ctx,
+          input.tableId,
+          "automations.manage",
+        );
         await assertAutomation(ctx.db, table, input);
         if (input.trigger.type === "form_submitted") {
           await assertFormView(ctx, table.id, input.trigger.viewId);
         }
         for (const tableId of writtenTables(input.actions)) {
-          await guardTable(ctx, tableId, "write");
+          await guardTable(ctx, tableId, "rows.write");
         }
         return withAddress(
           ctx,
@@ -106,14 +110,14 @@ export const automationsRouter = t.router({
           ctx,
           actor,
           tableId,
-          "manage",
+          "automations.manage",
         );
         await assertAutomation(ctx.db, table, input);
         if (input.trigger.type === "form_submitted") {
           await assertFormView(ctx, table.id, input.trigger.viewId);
         }
         for (const tableId of writtenTables(input.actions)) {
-          await guardTable(ctx, tableId, "write");
+          await guardTable(ctx, tableId, "rows.write");
         }
         return withAddress(
           ctx,
@@ -139,7 +143,7 @@ export const automationsRouter = t.router({
           ctx,
           await authorize(ctx),
           await automationTableId(ctx.db, input.automationId),
-          "manage",
+          "automations.manage",
         );
         const token = await renewAutomationWebhook(
           ctx.db,
@@ -159,7 +163,7 @@ export const automationsRouter = t.router({
           ctx,
           await authorize(ctx),
           await automationTableId(ctx.db, input.automationId),
-          "manage",
+          "automations.manage",
         );
         await setAutomationEnabled(
           ctx.db,
@@ -178,7 +182,7 @@ export const automationsRouter = t.router({
           ctx,
           await authorize(ctx),
           await automationTableId(ctx.db, input.automationId),
-          "manage",
+          "automations.manage",
         );
         await deleteAutomation(ctx.db, user.id, input.automationId);
         return { ok: true as const };
@@ -197,7 +201,7 @@ export const automationsRouter = t.router({
           ctx,
           await authorize(ctx),
           await automationTableId(ctx.db, input.automationId),
-          "manage",
+          "automations.manage",
         );
         return {
           runs: await listRuns(ctx.db, input.automationId, input.limit),
@@ -213,7 +217,7 @@ export const automationsRouter = t.router({
           ctx,
           await authorize(ctx),
           await automationTableId(ctx.db, input.automationId),
-          "manage",
+          "automations.manage",
         );
         const automation = await ctx.db
           .selectFrom("automations")
@@ -240,7 +244,11 @@ export const automationsRouter = t.router({
     )
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
-        const { user, table } = await guardTable(ctx, input.tableId, "write");
+        const { user, table } = await guardTable(
+          ctx,
+          input.tableId,
+          "rows.write",
+        );
         const column = await ctx.db
           .selectFrom("dataColumns")
           .select("fieldType")

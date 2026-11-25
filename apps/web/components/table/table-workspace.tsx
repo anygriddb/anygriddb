@@ -10,10 +10,10 @@ import { useChannel, usePresence } from "../../lib/realtime";
 import { useCatalog, useSession } from "../../lib/session";
 import { trpc, useTRPC } from "../../lib/trpc";
 import {
-  canManage,
-  canWrite,
   type CatalogColumn,
   type Collaborator,
+  grants,
+  type Permission,
   type RowItem,
 } from "../../lib/types";
 import { FieldEditor, type FieldEditorTarget } from "../fields/field-editor";
@@ -163,14 +163,16 @@ function OpenTable({ baseId, tableId, viewId, rowId }: TableWorkspaceProps) {
   // Fields AnyGridDB added to a client's table are edited even when the
   // client's own fields are read-only (ADR 0032); each field says which.
   const hasSide = table?.columns.some((column) => column.side) ?? false;
+  const may = (permission: Permission) => grants(role, permission);
   const writable =
-    canWrite(role) && (!external || external.writes.update || hasSide);
-  const canAdd = canWrite(role) && (!external || external.writes.insert);
-  const canDelete = canWrite(role) && (!external || external.writes.delete);
+    may("rows.write") && (!external || external.writes.update || hasSide);
+  const canAdd = may("rows.write") && (!external || external.writes.insert);
+  const canDelete = may("rows.delete") && (!external || external.writes.delete);
+  const shape = may("schema.manage");
   // AnyGridDB's own rows keep the order people give them, which a view
   // shows when it sorts nothing (ADR 0060); a client's keep its database's.
   const byHand =
-    external === null && canWrite(role) && (config.sort?.length ?? 0) === 0;
+    external === null && may("rows.write") && (config.sort?.length ?? 0) === 0;
   const [search, setSearch] = useState("");
   const viewType = activeView?.viewType ?? "grid";
   const isGrid = viewType === "grid";
@@ -389,7 +391,7 @@ function OpenTable({ baseId, tableId, viewId, rowId }: TableWorkspaceProps) {
     groups: rows.groups,
     ...(read.counts ? { counts: read.counts } : {}),
     ...(read.dayQuery ? { dayQuery: read.dayQuery } : {}),
-    ...(canManage(role) && !external
+    ...(shape && !external
       ? { onOpenFieldEditor: () => setFieldEditor({ mode: "create" }) }
       : {}),
   };
@@ -417,23 +419,30 @@ function OpenTable({ baseId, tableId, viewId, rowId }: TableWorkspaceProps) {
           search={search}
           onSearch={setSearch}
           onPatch={(patch) => void patchView(patch)}
-          // Imports, the row trash, and automations stay with AnyGridDB's
-          // own tables for now.
-          canEdit={writable && !external}
           canUndo={writes.canUndo}
           canRedo={writes.canRedo}
           onUndo={writes.undo}
           onRedo={writes.redo}
-          onExport={exportView}
-          onImport={() => setImportOpen(true)}
-          onTrash={() => setTrashOpen(true)}
+          onExport={may("data.export") ? exportView : undefined}
+          // Imports, the row trash, and automations stay with AnyGridDB's
+          // own tables for now.
+          onImport={
+            !external && may("data.import")
+              ? () => setImportOpen(true)
+              : undefined
+          }
+          onTrash={
+            !external && may("rows.delete")
+              ? () => setTrashOpen(true)
+              : undefined
+          }
           onAutomations={
-            canManage(role) ? () => setAutomationsOpen(true) : undefined
+            !external && may("automations.manage")
+              ? () => setAutomationsOpen(true)
+              : undefined
           }
           onAddField={
-            canManage(role)
-              ? () => setFieldEditor({ mode: "create" })
-              : undefined
+            shape ? () => setFieldEditor({ mode: "create" }) : undefined
           }
           // A form adds its own rows, and draws none.
           onNewRow={
@@ -484,7 +493,7 @@ function OpenTable({ baseId, tableId, viewId, rowId }: TableWorkspaceProps) {
                 canEdit={writable}
                 canAdd={canAdd}
                 canDelete={canDelete}
-                canManage={canManage(role)}
+                canManage={shape}
                 tableKeepsValues={!external || external.enrichable}
                 aggregations={aggregates.aggregations}
                 aggregateValues={aggregates.values}
@@ -632,7 +641,7 @@ function OpenTable({ baseId, tableId, viewId, rowId }: TableWorkspaceProps) {
             kind: "existing",
             tableId,
             columns: allColumns,
-            canManage: canManage(role),
+            canManage: shape,
             external: table.external !== null,
           }}
           onDone={() => {

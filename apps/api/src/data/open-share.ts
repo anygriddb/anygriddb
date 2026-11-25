@@ -9,7 +9,7 @@ import {
   effectiveTableRole,
   formWindow,
   normalizeViewConfig,
-  roleAllows,
+  roleGrants,
   roleFor,
   type ViewConfig,
   withRequiredFormFields,
@@ -42,14 +42,14 @@ function visibleFields(
 export async function openShare(
   deps: { db: Database; encryptionKey: KeyRing },
   input: { token: string; password?: string; access?: string },
-  action: "read" | "write",
+  permission: "rows.read" | "rows.write",
 ) {
   const resolved = await resolveShare(deps.db, deps.encryptionKey, input);
   const bindings = await loadBindings(deps.db, resolved.share.createdBy);
   if (
-    !roleAllows(
+    !roleGrants(
       effectiveTableRole(bindings, resolved.table.id, resolved.table.baseId),
-      action,
+      permission,
     )
   ) {
     throw new AppError("unknown_share");
@@ -132,7 +132,9 @@ export async function openBaseShare(
     userId: resolved.share.createdBy,
     bindings: await loadBindings(deps.db, resolved.share.createdBy),
   };
-  if (!roleAllows(roleFor(reader.bindings, "base", resolved.base.id), "read")) {
+  if (
+    !roleGrants(roleFor(reader.bindings, "base", resolved.base.id), "rows.read")
+  ) {
     throw new AppError("unknown_share");
   }
   const tables = (
@@ -146,9 +148,9 @@ export async function openBaseShare(
       .orderBy("createdAt", "asc")
       .execute()
   ).filter((table) =>
-    roleAllows(
+    roleGrants(
       effectiveTableRole(reader.bindings, table.id, table.baseId),
-      "read",
+      "rows.read",
     ),
   );
   const read = async (tableId: string) => {

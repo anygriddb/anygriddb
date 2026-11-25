@@ -43,7 +43,7 @@ import { useCatalog } from "../../lib/session";
 import { LoadFailed } from "../shell/load-failed";
 import { BlockedSourcesBanner } from "../table/source-reach";
 import { trpc, useTRPC } from "../../lib/trpc";
-import { canManage } from "../../lib/types";
+import { grants } from "../../lib/types";
 import { PromptDialog } from "../shell/dialogs";
 import { Earlier } from "../history/earlier";
 import {
@@ -188,7 +188,7 @@ function DashboardEditor(props: { baseId: string; dashboardId: string }) {
   const queryClient = useQueryClient();
   const catalog = useCatalog();
   const base = catalog.data?.find((item) => item.id === props.baseId);
-  const manage = canManage(base?.role);
+  const manage = grants(base?.role, "dashboards.manage");
   const board = useQuery(
     api.dashboards.get.queryOptions({ dashboardId: props.dashboardId }),
   );

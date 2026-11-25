@@ -96,12 +96,12 @@ function publicRows(
 function openShare(
   ctx: Context,
   input: { token: string; password?: string; access?: string },
-  action: "read" | "write",
+  permission: "rows.read" | "rows.write",
 ) {
   return openLink(
     { db: ctx.db, encryptionKey: ctx.env.AUTH_ENCRYPTION_KEY },
     input,
-    action,
+    permission,
   );
 }
 
@@ -192,7 +192,7 @@ export const shareRouter = t.router({
    */
   unlock: procedure.input(passwordSchema).mutation(({ ctx, input }) =>
     handle(ctx, async () => {
-      const opened = await openShare(ctx, input, "read");
+      const opened = await openShare(ctx, input, "rows.read");
       return opened.locked
         ? { locked: true as const, access: null }
         : { locked: false as const, access: opened.access };
@@ -214,7 +214,7 @@ export const shareRouter = t.router({
     .input(z.object({ token: tokenSchema, access: accessSchema }))
     .query(({ ctx, input }) =>
       handle(ctx, async () => {
-        const opened = await openShare(ctx, input, "read");
+        const opened = await openShare(ctx, input, "rows.read");
         if (opened.locked) {
           return {
             locked: true as const,
@@ -255,7 +255,7 @@ export const shareRouter = t.router({
     )
     .query(({ ctx, input }) =>
       handle(ctx, async () => {
-        const opened = await openShare(ctx, input, "read");
+        const opened = await openShare(ctx, input, "rows.read");
         if (opened.locked || opened.view.viewType === "form") {
           throw new AppError("unknown_share");
         }
@@ -298,7 +298,7 @@ export const shareRouter = t.router({
     )
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
-        const opened = await openShare(ctx, input, "write");
+        const opened = await openShare(ctx, input, "rows.write");
         if (opened.locked || opened.view.viewType !== "form") {
           throw new AppError("unknown_share");
         }

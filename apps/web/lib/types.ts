@@ -8,16 +8,10 @@ export type ViewConfig = ViewItem["config"];
 export type RowItem = RouterOutputs["rows"]["read"]["rows"][number];
 export type Collaborator =
   RouterOutputs["catalog"]["collaborators"]["users"][number];
-export type Role = "owner" | "editor" | "commenter" | "viewer";
+export type { Permission, Role } from "@anygriddb/core";
 
-export function canWrite(role: Role | null | undefined): boolean {
-  return role === "owner" || role === "editor";
-}
-
-export function canManage(role: Role | null | undefined): boolean {
-  return role === "owner";
-}
-
-export function canComment(role: Role | null | undefined): boolean {
-  return role === "owner" || role === "editor" || role === "commenter";
-}
+/**
+ * Whether a role on a base or a table gives an act: the server's own rule
+ * (ADR 0127), so a screen offers what the server then accepts.
+ */
+export { roleGrants as grants } from "@anygriddb/core";

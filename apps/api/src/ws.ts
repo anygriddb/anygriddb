@@ -152,7 +152,7 @@ type GridDecision = "ok" | "denied" | "enroll";
 type GridAuthorizer = (
   userId: string,
   channel: string,
-  action: "read" | "write",
+  permission: "rows.read" | "rows.write",
 ) => Promise<GridDecision>;
 /** Of these sessions, the live ones and whose rights each holds now. */
 type SessionIdentities = (
@@ -723,7 +723,7 @@ export class GridHub {
       decision = await this.authorize(
         state.userId,
         parsed.channel,
-        parsed.type === "lock" ? "write" : "read",
+        parsed.type === "lock" ? "rows.write" : "rows.read",
       );
     } catch (error) {
       this.log("error", error, "realtime failed");

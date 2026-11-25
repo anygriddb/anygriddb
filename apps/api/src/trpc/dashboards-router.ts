@@ -7,7 +7,7 @@ import {
   getDashboardInputSchema,
   layoutWidgetsInputSchema,
   listDashboardsInputSchema,
-  roleAllows,
+  roleGrants,
   updateDashboardInputSchema,
   upsertWidgetInputSchema,
   widgetDataInputSchema,
@@ -31,7 +31,7 @@ import { procedure, t } from "./init.js";
 export const dashboardsRouter = t.router({
   list: procedure.input(listDashboardsInputSchema).query(({ ctx, input }) =>
     handle(ctx, async () => {
-      await guardBase(ctx, input.baseId, "read");
+      await guardBase(ctx, input.baseId, "rows.read");
       return { dashboards: await listDashboards(ctx.db, input.baseId) };
     }),
   ),
@@ -39,7 +39,7 @@ export const dashboardsRouter = t.router({
     handle(ctx, async () => {
       const actor = await authorize(ctx);
       const dashboard = await loadDashboard(ctx.db, input.dashboardId);
-      await baseAccess(ctx, actor, dashboard.baseId, "read");
+      await baseAccess(ctx, actor, dashboard.baseId, "rows.read");
       const board = await getDashboard(ctx.db, input.dashboardId);
       return {
         dashboard: board.dashboard,
@@ -56,7 +56,11 @@ export const dashboardsRouter = t.router({
     .input(createDashboardInputSchema)
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
-        const { user } = await guardBase(ctx, input.baseId, "manage");
+        const { user } = await guardBase(
+          ctx,
+          input.baseId,
+          "dashboards.manage",
+        );
         return createDashboard(ctx.db, user.id, input);
       }),
     ),
@@ -70,7 +74,7 @@ export const dashboardsRouter = t.router({
           ctx,
           actor,
           dashboard.baseId,
-          "manage",
+          "dashboards.manage",
         );
         return updateDashboard(ctx.db, user.id, input);
       }),
@@ -85,7 +89,7 @@ export const dashboardsRouter = t.router({
           ctx,
           actor,
           dashboard.baseId,
-          "manage",
+          "dashboards.manage",
         );
         await deleteDashboard(ctx.db, user.id, input.dashboardId);
         return { ok: true as const };
@@ -101,7 +105,7 @@ export const dashboardsRouter = t.router({
           ctx,
           actor,
           dashboard.baseId,
-          "manage",
+          "dashboards.manage",
         );
         return upsertWidget(ctx.db, user.id, dashboard.baseId, input);
       }),
@@ -116,7 +120,7 @@ export const dashboardsRouter = t.router({
           ctx,
           actor,
           dashboard.baseId,
-          "manage",
+          "dashboards.manage",
         );
         await deleteWidget(ctx.db, user.id, input.dashboardId, input.widgetId);
         return { ok: true as const };
@@ -126,7 +130,12 @@ export const dashboardsRouter = t.router({
     handle(ctx, async () => {
       const actor = await authorize(ctx);
       const dashboard = await loadDashboard(ctx.db, input.dashboardId);
-      const { user } = await baseAccess(ctx, actor, dashboard.baseId, "manage");
+      const { user } = await baseAccess(
+        ctx,
+        actor,
+        dashboard.baseId,
+        "dashboards.manage",
+      );
       await layoutWidgets(ctx.db, user.id, input.dashboardId, input.widgets);
       return { ok: true as const };
     }),
@@ -139,7 +148,7 @@ export const dashboardsRouter = t.router({
         ctx.db,
         input.dashboardId,
       );
-      await baseAccess(ctx, actor, dashboard.baseId, "read");
+      await baseAccess(ctx, actor, dashboard.baseId, "rows.read");
       const widget = widgets.find((item) => item.id === input.widgetId);
       if (!widget) throw new AppError("unknown_widget");
       return widgetData(
@@ -153,9 +162,9 @@ export const dashboardsRouter = t.router({
               ? ctx.req.headers["x-timezone"]
               : "UTC",
           canReadTable: (tableId) =>
-            roleAllows(
+            roleGrants(
               effectiveTableRole(bindings, tableId, dashboard.baseId),
-              "read",
+              "rows.read",
             ),
         },
       );

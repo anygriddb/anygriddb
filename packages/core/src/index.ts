@@ -343,16 +343,18 @@ export {
 
 export {
   INSTANCE_ROLES,
+  PERMISSIONS,
   ROLES,
   can,
   effectiveTableRole,
   enrollmentGate,
-  roleAllows,
   roleFor,
+  roleGrants,
+  rolePermissions,
   roleRank,
-  type Action,
   type Binding,
   type InstanceRole,
+  type Permission,
   type Role,
 } from "./rbac";
 

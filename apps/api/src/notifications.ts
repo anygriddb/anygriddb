@@ -1,4 +1,4 @@
-import { effectiveTableRole, roleAllows, type RowEvent } from "@anygriddb/core";
+import { effectiveTableRole, roleGrants, type RowEvent } from "@anygriddb/core";
 import type { Database } from "@anygriddb/db";
 import { sql as sqlTag } from "kysely";
 import type { KeyRing } from "./auth/key-ring.js";
@@ -51,7 +51,9 @@ async function readersOf(
   const readers = new Set<string>();
   for (const userId of userIds) {
     const own = bindings.filter((binding) => binding.userId === userId);
-    if (roleAllows(effectiveTableRole(own, table.id, table.baseId), "read")) {
+    if (
+      roleGrants(effectiveTableRole(own, table.id, table.baseId), "rows.read")
+    ) {
       readers.add(userId);
     }
   }
@@ -168,9 +170,9 @@ export async function listNotifications(
     .filter(
       (row) =>
         !row.tableId ||
-        roleAllows(
+        roleGrants(
           effectiveTableRole(bindings, row.tableId, row.baseId ?? undefined),
-          "read",
+          "rows.read",
         ),
     )
     .map((row) => ({

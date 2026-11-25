@@ -564,7 +564,7 @@ describe("what an open socket hears", () => {
     );
     for (const userId of [member.id, stranger.id]) {
       for (const channel of channels) {
-        const single = await authorizeGrid(db, userId, channel, "read");
+        const single = await authorizeGrid(db, userId, channel, "rows.read");
         expect({
           userId,
           channel,
@@ -583,7 +583,9 @@ describe("what an open socket hears", () => {
       db,
       new Map([[member.id, new Set([tableId])]]),
     );
-    expect(await authorizeGrid(db, member.id, tableId, "read")).toBe("enroll");
+    expect(await authorizeGrid(db, member.id, tableId, "rows.read")).toBe(
+      "enroll",
+    );
     expect(rights.get(member.id)?.has(tableId) ?? false).toBe(false);
     await admin
       .call()

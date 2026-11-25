@@ -17,7 +17,7 @@ import {
   progressDue,
   type PublicError,
   publicError,
-  roleAllows,
+  roleGrants,
   roleFor,
 } from "@anygriddb/core";
 import type { Database, JobRow } from "@anygriddb/db";
@@ -641,13 +641,14 @@ export function jobReadableBy(
   }
   if (job.baseId === null) return false;
   if (job.kind === "export_snapshot") {
-    return roleAllows(roleFor(bindings, "base", job.baseId), "manage");
+    const role = roleFor(bindings, "base", job.baseId);
+    return roleGrants(role, "base.manage") && roleGrants(role, "data.export");
   }
-  return roleAllows(
+  return roleGrants(
     job.tableId
       ? effectiveTableRole(bindings, job.tableId, job.baseId)
       : roleFor(bindings, "base", job.baseId),
-    "read",
+    "data.export",
   );
 }
 

@@ -16,6 +16,7 @@ import {
   rowSortSchema,
 } from "./query/read";
 import { MAX_BATCH_ROWS } from "./query/write";
+import { type Role, roleGrants } from "./rbac";
 import {
   MAX_VIEW_GROUPS,
   MAX_VIEW_SORTS,
@@ -440,7 +441,7 @@ export const tableActivityInputSchema = z.object({
   tableIds: z.array(z.uuid()).min(1).max(TABLE_ACTIVITY_MAX),
 });
 
-export type AuditRole = "owner" | "editor" | "commenter" | "viewer";
+export type AuditRole = Role;
 
 export function resolveChangeReason(
   columns: readonly { name: string; requireReason: boolean }[],
@@ -504,17 +505,21 @@ export function assertStatusTransition(
   if (
     to === "submitted" &&
     from === "draft" &&
-    (role === "owner" || role === "editor")
+    roleGrants(role, "rows.write")
   ) {
     return;
   }
-  if (to === "locked" && from === "submitted" && role === "owner") {
+  if (
+    to === "locked" &&
+    from === "submitted" &&
+    roleGrants(role, "rows.lock")
+  ) {
     return;
   }
   if (
     to === "draft" &&
     (from === "locked" || from === "signed") &&
-    role === "owner"
+    roleGrants(role, "rows.lock")
   ) {
     return;
   }

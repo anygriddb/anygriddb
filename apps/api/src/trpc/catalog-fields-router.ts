@@ -65,7 +65,11 @@ const reorderOptionsSchema = z.object({
 export const catalogFieldProcedures = {
   addColumn: procedure.input(addColumnInputSchema).mutation(({ ctx, input }) =>
     handle(ctx, async () => {
-      const { user, table } = await guardTable(ctx, input.tableId, "manage");
+      const { user, table } = await guardTable(
+        ctx,
+        input.tableId,
+        "schema.manage",
+      );
       const created = await addColumn(
         ctx.db,
         user.id,
@@ -81,7 +85,11 @@ export const catalogFieldProcedures = {
     .input(updateColumnInputSchema.extend(reorderOptionsSchema.shape))
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
-        const { user, table } = await guardTable(ctx, input.tableId, "manage");
+        const { user, table } = await guardTable(
+          ctx,
+          input.tableId,
+          "schema.manage",
+        );
         // A long conversion goes to the background: its job says when it ends.
         const long = await planLongConversion(ctx.db, table, input);
         if (long) {
@@ -103,7 +111,11 @@ export const catalogFieldProcedures = {
     .input(duplicateColumnInputSchema)
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
-        const { user, table } = await guardTable(ctx, input.tableId, "manage");
+        const { user, table } = await guardTable(
+          ctx,
+          input.tableId,
+          "schema.manage",
+        );
         const created = await duplicateColumn(
           ctx.db,
           user.id,
@@ -122,7 +134,7 @@ export const catalogFieldProcedures = {
         const { user, bindings, table } = await guardTable(
           ctx,
           input.tableId,
-          "manage",
+          "schema.manage",
         );
         const baseOf = await tablesOfBase(ctx, table.baseId);
         return previewConversion(ctx.db, table, input.name, input.fieldType, {
@@ -139,7 +151,11 @@ export const catalogFieldProcedures = {
     .input(deleteColumnInputSchema)
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
-        const { user, table } = await guardTable(ctx, input.tableId, "manage");
+        const { user, table } = await guardTable(
+          ctx,
+          input.tableId,
+          "schema.manage",
+        );
         await trashColumn(ctx.db, user.id, table, input.name);
         await publishCatalog(ctx.bus, table.baseId, logPublish(ctx));
         return { ok: true as const };
@@ -149,7 +165,11 @@ export const catalogFieldProcedures = {
     .input(reorderColumnsInputSchema)
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
-        const { user, table } = await guardTable(ctx, input.tableId, "manage");
+        const { user, table } = await guardTable(
+          ctx,
+          input.tableId,
+          "schema.manage",
+        );
         await reorderColumns(ctx.db, user.id, table.id, input.order);
         await publishCatalog(ctx.bus, table.baseId, logPublish(ctx));
         return { ok: true as const };
@@ -159,7 +179,11 @@ export const catalogFieldProcedures = {
     .input(setPrimaryColumnInputSchema)
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
-        const { user, table } = await guardTable(ctx, input.tableId, "manage");
+        const { user, table } = await guardTable(
+          ctx,
+          input.tableId,
+          "schema.manage",
+        );
         await setPrimaryColumn(ctx.db, user.id, table.id, input.name);
         await publishCatalog(ctx.bus, table.baseId, logPublish(ctx));
         return { ok: true as const };
@@ -169,11 +193,15 @@ export const catalogFieldProcedures = {
     .input(addRelationInputSchema)
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
-        const { user, table } = await guardTable(ctx, input.tableId, "manage");
+        const { user, table } = await guardTable(
+          ctx,
+          input.tableId,
+          "schema.manage",
+        );
         const target = await guardTable(
           ctx,
           input.targetTableId,
-          input.twoWay ? "manage" : "read",
+          input.twoWay ? "schema.manage" : "rows.read",
         );
         if (target.table.baseId !== table.baseId) {
           throw new AppError("invalid_relation");
@@ -188,7 +216,7 @@ export const catalogFieldProcedures = {
       const { user, bindings, table } = await guardTable(
         ctx,
         input.tableId,
-        "manage",
+        "schema.manage",
       );
       const baseOf = await tablesOfBase(ctx, table.baseId);
       const created = await insertComputed(
@@ -206,7 +234,7 @@ export const catalogFieldProcedures = {
       const { user, bindings, table } = await guardTable(
         ctx,
         input.tableId,
-        "manage",
+        "schema.manage",
       );
       const baseOf = await tablesOfBase(ctx, table.baseId);
       const created = await insertComputed(

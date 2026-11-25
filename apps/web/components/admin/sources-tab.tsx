@@ -48,6 +48,7 @@ import { EngineMark } from "./engine-mark";
 import { RefreshFields } from "./refresh-fields";
 import { intlLocale, formatInstant } from "../../lib/format";
 import { useWhen } from "../../lib/i18n";
+import { grants } from "../../lib/types";
 
 type Source = RouterOutputs["admin"]["sources"]["list"][number];
 type SourceTableItem =
@@ -858,7 +859,9 @@ function SourceTables(props: { source: Source }) {
       </p>
     );
   }
-  const owned = (bases.data ?? []).filter((base) => base.role === "owner");
+  const owned = (bases.data ?? []).filter((base) =>
+    grants(base.role, "schema.manage"),
+  );
   // Until one is picked: the base this source's tables already show in.
   const exposedBase = list
     .flatMap((table) => table.exposedIn)

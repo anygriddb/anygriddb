@@ -1,4 +1,4 @@
-import type { FilterGroup } from "@anygriddb/core";
+import { type FilterGroup, type Role, roleGrants } from "@anygriddb/core";
 
 export type FieldAccess = "hide" | "read" | "write";
 
@@ -9,14 +9,15 @@ export type StoredRule = {
 };
 
 /**
- * The members a table's rules apply to: an owner of the table reads and
- * changes every row and every field, whatever is kept for them.
+ * The members a table's rules apply to: whoever may set them (an owner)
+ * reads and changes every row and every field, whatever is kept for them.
  */
 export function ruledMembers<
-  Person extends { baseRole: string | null; tableRole: string | null },
+  Person extends { baseRole: Role | null; tableRole: Role | null },
 >(people: readonly Person[]): Person[] {
   return people.filter(
-    (person) => (person.tableRole ?? person.baseRole) !== "owner",
+    (person) =>
+      !roleGrants(person.tableRole ?? person.baseRole, "members.manage"),
   );
 }
 

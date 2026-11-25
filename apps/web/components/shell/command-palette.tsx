@@ -21,7 +21,7 @@ import {
 import { useNavigate, useParams } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useCatalog } from "../../lib/session";
-import { canManage } from "../../lib/types";
+import { grants } from "../../lib/types";
 import { useTheme } from "../../lib/theme";
 import { useLingui } from "@lingui/react/macro";
 import { useAdminSections } from "../admin/admin-sections";
@@ -145,7 +145,7 @@ export function CommandPalette() {
                   {t`Dashboards of ${{ name: base.name }}`}
                 </CommandItem>
               ) : null}
-              {base && canManage(base.role) ? (
+              {base && grants(base.role, "members.manage") ? (
                 <CommandItem
                   value={`members access accès membres ${base.name}`}
                   onSelect={() =>

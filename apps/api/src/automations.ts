@@ -22,7 +22,7 @@ import {
   MAX_LOOP_ROWS,
   nextScheduleRun,
   renderTemplate,
-  roleAllows,
+  roleGrants,
   type RowEvent,
   scriptTemplateValues,
   touchesWatched,
@@ -695,7 +695,10 @@ async function creatorEngine(
   const table = await findLiveTable(db, tableId);
   if (
     !table ||
-    !roleAllows(effectiveTableRole(bindings, tableId, table.baseId), "write")
+    !roleGrants(
+      effectiveTableRole(bindings, tableId, table.baseId),
+      "rows.write",
+    )
   ) {
     return null;
   }

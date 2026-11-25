@@ -97,7 +97,7 @@ Under `apps/`, `packages/`, `scripts/`, `docker/`, and `docs/`:
 | Directory collections     | plural                          | `components/`, `migrations/`                            |
 | React components          | PascalCase                      | `export function GridView` in `grid-view.tsx`           |
 | Types, classes            | PascalCase nouns, no `I` prefix | `User`, not `IUser`                                     |
-| Functions                 | camelCase, a verb first         | `readPage`, `isLoopback`, `roleAllows`                  |
+| Functions                 | camelCase, a verb first         | `readPage`, `isLoopback`, `roleGrants`                  |
 | Variables, properties     | camelCase                       | `rowHeight`                                             |
 | Module constants          | `UPPER_SNAKE_CASE`              | `MAX_READ_LIMIT`                                        |
 | Unit, integration tests   | next to the module              | `read.ts` → `read.test.ts`, `audit.integration.test.ts` |
@@ -116,9 +116,10 @@ so they are not checked.
   (`duplicate`, `restore`, `revoke`). Existing names stay as they are.
 - **New REST route**: plural resources under `/api/v1`
   (`/tables/:tableId/records`), described in the OpenAPI document.
-- **Access**: guard first — `guardBase` / `guardTable` with `read`, `comment`,
-  `write`, or `manage`. The actor comes from the session, never from an id the
-  client sends.
+- **Access**: guard first — `guardBase` / `guardTable` with the permission of
+  the act (`rows.write`, `data.export`, `schema.manage`, …, ADR 0127); a screen
+  asks the same with `grants`. The actor comes from the session, never from an
+  id the client sends.
 - **Row writes**: always `apps/api/src/services/rows.ts` (tRPC, REST, MCP,
   automations, forms). There is no second write path. A job that writes
   in batches (an import, a copy, a snapshot) uses the service's batch

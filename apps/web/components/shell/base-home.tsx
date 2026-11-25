@@ -15,7 +15,7 @@ import { useCatalog } from "../../lib/session";
 import { resolveShortcuts } from "../../lib/shortcut-list";
 import { useShortcuts } from "../../lib/shortcuts";
 import { trpc } from "../../lib/trpc";
-import { canManage } from "../../lib/types";
+import { grants } from "../../lib/types";
 import { plural } from "@lingui/core/macro";
 import { useLingui } from "@lingui/react/macro";
 import { BlockedSourcesBanner } from "../table/source-reach";
@@ -36,7 +36,7 @@ export function BaseHome({ baseId }: { baseId: string }) {
   const shortcuts = useShortcuts();
   const [creating, setCreating] = useState(false);
   const base = catalog.data?.find((item) => item.id === baseId);
-  const manage = canManage(base?.role);
+  const manage = grants(base?.role, "schema.manage");
   const { recent } = resolveShortcuts(catalog.data ?? [], shortcuts.data);
   const recentHere = recent
     .filter((item) => item.base.id === baseId)

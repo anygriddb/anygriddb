@@ -38,7 +38,7 @@ import { useState } from "react";
 import { Earlier } from "../history/earlier";
 import { toast } from "sonner";
 import { trpc } from "../../lib/trpc";
-import type { Role, ViewItem } from "../../lib/types";
+import { grants, type Role, type ViewItem } from "../../lib/types";
 import { ConfirmDialog, PromptDialog } from "../shell/dialogs";
 import { ShareDialog } from "./share-dialog";
 import { useTrashActions, useTrashDays } from "../../lib/trash";
@@ -104,7 +104,7 @@ export function ViewTabs(props: {
     type: ViewType;
     personal: boolean;
   } | null>(null);
-  const collaborative = props.role === "owner" || props.role === "editor";
+  const collaborative = grants(props.role, "views.manage");
 
   async function run(action: () => Promise<unknown>) {
     try {
@@ -239,7 +239,7 @@ export function ViewTabs(props: {
                     <Copy className="h-4 w-4" aria-hidden />
                     {t`Duplicate`}
                   </DropdownMenuItem>
-                  {props.role === "owner" && !view.personal ? (
+                  {grants(props.role, "schema.manage") && !view.personal ? (
                     <DropdownMenuItem
                       onSelect={() =>
                         void run(() =>

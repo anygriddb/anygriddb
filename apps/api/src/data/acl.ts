@@ -3,7 +3,7 @@ import { rulesOwner } from "./acting-context.js";
 import {
   effectiveTableRole,
   filterGroupSchema,
-  roleAllows,
+  roleGrants,
   type Binding,
   type ColumnAccess,
   type ColumnAclEntry,
@@ -137,9 +137,9 @@ export function readableTables(
   baseOf: ReadonlyMap<string, string>,
 ): (tableId: string) => boolean {
   return (tableId) =>
-    roleAllows(
+    roleGrants(
       effectiveTableRole(bindings, tableId, baseOf.get(tableId)),
-      "read",
+      "rows.read",
     );
 }
 
@@ -157,7 +157,10 @@ export async function readerAccess(
   const restricted = tables
     .filter(
       (table) =>
-        effectiveTableRole(reader.bindings, table.id, table.baseId) !== "owner",
+        !roleGrants(
+          effectiveTableRole(reader.bindings, table.id, table.baseId),
+          "members.manage",
+        ),
     )
     .map((table) => table.id);
   if (restricted.length === 0) return undefined;
@@ -230,7 +233,9 @@ export async function readerRulesPrint(
           .execute();
   const roleOn = (table: { id: string; baseId: string }) =>
     effectiveTableRole(reader.bindings, table.id, table.baseId);
-  const bound = tables.filter((table) => roleOn(table) !== "owner");
+  const bound = tables.filter(
+    (table) => !roleGrants(roleOn(table), "members.manage"),
+  );
   if (bound.length === 0) return null;
   const ids = bound.map((table) => table.id);
   const owner = rulesOwner(reader.userId);
@@ -253,7 +258,7 @@ export async function readerRulesPrint(
       const fields = columnRules.filter((rule) => rule.tableId === table.id);
       return {
         table: table.id,
-        readable: roleAllows(roleOn(table), "read"),
+        readable: roleGrants(roleOn(table), "rows.read"),
         rows:
           rowRules.find((rule) => rule.tableId === table.id)?.rowFilter ?? null,
         fields:

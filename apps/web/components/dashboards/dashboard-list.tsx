@@ -6,7 +6,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { useCatalog } from "../../lib/session";
 import { trpc, useTRPC } from "../../lib/trpc";
-import { canManage } from "../../lib/types";
+import { grants } from "../../lib/types";
 import { useLingui } from "@lingui/react/macro";
 import { useErrorText } from "../../lib/errors";
 import { ConfirmDialog } from "../shell/dialogs";
@@ -23,7 +23,7 @@ export function DashboardList({ baseId }: { baseId: string }) {
   const queryClient = useQueryClient();
   const catalog = useCatalog();
   const base = catalog.data?.find((item) => item.id === baseId);
-  const manage = canManage(base?.role);
+  const manage = grants(base?.role, "dashboards.manage");
   const list = useQuery(api.dashboards.list.queryOptions({ baseId }));
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);

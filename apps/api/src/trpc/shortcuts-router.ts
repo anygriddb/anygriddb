@@ -22,10 +22,10 @@ export const shortcutsRouter = t.router({
   pin: procedure.input(pinInputSchema).mutation(({ ctx, input }) =>
     handle(ctx, async () => {
       if ("baseId" in input) {
-        const { user } = await guardBase(ctx, input.baseId, "read");
+        const { user } = await guardBase(ctx, input.baseId, "rows.read");
         await setPin(ctx.db, user.id, { baseId: input.baseId }, input.pinned);
       } else {
-        const { user } = await guardTable(ctx, input.tableId, "read");
+        const { user } = await guardTable(ctx, input.tableId, "rows.read");
         await setPin(ctx.db, user.id, { tableId: input.tableId }, input.pinned);
       }
       return { ok: true as const };
@@ -35,7 +35,7 @@ export const shortcutsRouter = t.router({
     .input(z.object({ tableId: z.uuid() }).strict())
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
-        const { user } = await guardTable(ctx, input.tableId, "read");
+        const { user } = await guardTable(ctx, input.tableId, "rows.read");
         await touchTable(ctx.db, user.id, input.tableId, "web");
         return { ok: true as const };
       }),

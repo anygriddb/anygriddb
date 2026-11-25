@@ -5,7 +5,7 @@ import {
   type StatusCircuit,
   type StatusTransition,
 } from "@anygriddb/core";
-import { canWrite, type Role } from "../../lib/types";
+import { grants, type Role } from "../../lib/types";
 
 /** A row as these rules read it: its status column, when it has one. */
 type WithStatus = Readonly<Record<string, unknown>>;
@@ -35,7 +35,7 @@ export function allowedTransitions(
   fromKey: string,
   role: Role | null,
 ): StatusTransition[] {
-  if (!role || !canWrite(role)) return [];
+  if (!role || !grants(role, "rows.write")) return [];
   return transitionsFrom(circuit, fromKey)
     .filter((item) => item.roleKeys.includes(role))
     .sort((a, b) => a.position - b.position);
@@ -47,7 +47,7 @@ export function canSubmitRow(
   role: Role | null,
   circuit?: StatusCircuit | null,
 ): boolean {
-  if (!canWrite(role)) return false;
+  if (!grants(role, "rows.write")) return false;
   if (typeof row.ag_status !== "string") return false;
   const initial = circuitInitial(circuit ?? undefined);
   if (row.ag_status !== initial) return false;

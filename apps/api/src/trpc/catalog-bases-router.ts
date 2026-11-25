@@ -23,7 +23,7 @@ import {
   restoreBaseJobInputSchema,
   restorePointIdInputSchema,
   restorePointJobInputSchema,
-  roleAllows,
+  roleGrants,
   roleFor,
   tableActivityInputSchema,
   updateBaseInputSchema,
@@ -59,7 +59,13 @@ import { readSettings } from "../settings.js";
 import { trashBase } from "../data/trash.js";
 import { publishCatalog } from "../realtime/channels.js";
 import type { Context } from "./context.js";
-import { authorize, baseAccess, guardBase, handle } from "./guard.js";
+import {
+  assertGrants,
+  authorize,
+  baseAccess,
+  guardBase,
+  handle,
+} from "./guard.js";
 import { procedure, requestNames } from "./init.js";
 import { queueDeps } from "./jobs-router.js";
 import { encryptSecret } from "../auth/crypto.js";
@@ -109,9 +115,9 @@ async function visibleCatalog(ctx: Context, bindings: readonly Binding[]) {
     .filter(
       (table) =>
         baseIds.has(table.baseId) &&
-        roleAllows(
+        roleGrants(
           effectiveTableRole(bindings, table.id, table.baseId),
-          "read",
+          "rows.read",
         ),
     )
     .map((table) => table.id);
@@ -189,7 +195,7 @@ export const catalogBaseProcedures = {
             .filter(
               (folder) =>
                 holding.has(folder.id) ||
-                roleAllows(roleFor(bindings, "base", base.id), "manage"),
+                roleGrants(roleFor(bindings, "base", base.id), "schema.manage"),
             )
             .map((folder) => ({
               id: folder.id,
@@ -371,7 +377,11 @@ export const catalogBaseProcedures = {
     .input(baseActivityInputSchema)
     .query(({ ctx, input }) =>
       handle(ctx, async () => {
-        const { user, bindings } = await guardBase(ctx, input.baseId, "read");
+        const { user, bindings } = await guardBase(
+          ctx,
+          input.baseId,
+          "rows.read",
+        );
         return baseActivity(ctx.db, { userId: user.id, bindings }, input);
       }),
     ),
@@ -390,9 +400,9 @@ export const catalogBaseProcedures = {
           tableRows.some(
             (table) =>
               table.baseId === input.baseId &&
-              roleAllows(
+              roleGrants(
                 effectiveTableRole(bindings, table.id, table.baseId),
-                "read",
+                "rows.read",
               ),
           );
         if (!allowed) {
@@ -489,7 +499,7 @@ export const catalogBaseProcedures = {
     .input(updateBaseInputSchema)
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
-        const { user } = await guardBase(ctx, input.baseId, "manage");
+        const { user } = await guardBase(ctx, input.baseId, "base.manage");
         await updateBase(ctx.db, user.id, input);
         return { ok: true as const };
       }),
@@ -498,7 +508,7 @@ export const catalogBaseProcedures = {
     .input(deleteBaseInputSchema)
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
-        const { user } = await guardBase(ctx, input.baseId, "manage");
+        const { user } = await guardBase(ctx, input.baseId, "base.manage");
         await trashBase(ctx.db, user.id, input.baseId);
         await publishCatalog(ctx.bus, input.baseId, logPublish(ctx));
         return { ok: true as const };
@@ -509,7 +519,12 @@ export const catalogBaseProcedures = {
     .input(exportSnapshotJobInputSchema)
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
-        const { user } = await guardBase(ctx, input.baseId, "manage");
+        const { user, role } = await guardBase(
+          ctx,
+          input.baseId,
+          "base.manage",
+        );
+        assertGrants(role, "data.export");
         const job = await enqueueJob(queueDeps(ctx), {
           kind: "export_snapshot",
           userId: user.id,
@@ -605,7 +620,7 @@ export const catalogBaseProcedures = {
     .input(duplicateBaseInputSchema)
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
-        const { user } = await guardBase(ctx, input.baseId, "manage");
+        const { user } = await guardBase(ctx, input.baseId, "base.manage");
         await authorize(ctx, true);
         const base = await ctx.db
           .selectFrom("bases")
@@ -635,7 +650,7 @@ export const catalogBaseProcedures = {
     .input(listRestorePointsInputSchema)
     .query(({ ctx, input }) =>
       handle(ctx, async () => {
-        await guardBase(ctx, input.baseId, "manage");
+        await guardBase(ctx, input.baseId, "base.manage");
         return {
           points: await listRestorePoints(ctx.db, input.baseId),
           keepDays: (await readSettings(ctx.db)).restorePointDays,
@@ -647,7 +662,7 @@ export const catalogBaseProcedures = {
     .input(restorePointJobInputSchema)
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
-        const { user } = await guardBase(ctx, input.baseId, "manage");
+        const { user } = await guardBase(ctx, input.baseId, "base.manage");
         const job = await enqueueJob(queueDeps(ctx), {
           kind: "restore_point",
           userId: user.id,
@@ -667,7 +682,12 @@ export const catalogBaseProcedures = {
       handle(ctx, async () => {
         const actor = await authorize(ctx);
         const point = await findRestorePoint(ctx.db, input.restorePointId);
-        const { user } = await baseAccess(ctx, actor, point.baseId, "manage");
+        const { user } = await baseAccess(
+          ctx,
+          actor,
+          point.baseId,
+          "base.manage",
+        );
         await authorize(ctx, true);
         const base = await ctx.db
           .selectFrom("bases")
@@ -695,7 +715,7 @@ export const catalogBaseProcedures = {
       handle(ctx, async () => {
         const actor = await authorize(ctx);
         const point = await findRestorePoint(ctx.db, input.restorePointId);
-        await baseAccess(ctx, actor, point.baseId, "manage");
+        await baseAccess(ctx, actor, point.baseId, "base.manage");
         await deleteRestorePoint(ctx.db, ctx.files, point.id, (error) =>
           ctx.req.log.error({ err: error }, "restore point file delete failed"),
         );
