@@ -409,11 +409,11 @@ test("an owner shares a whole base read-only, and anyone with the link reads it"
   await reader.getByRole("button", { name: "Try again" }).click();
   await expect(reader.getByRole("heading", { name: "Lab" })).toBeVisible();
 
-  // The link is listed with the day it was made, written as every
-  // screen writes a day. Revoking it asks first: everyone who has it
-  // loses it, and a link is not made again.
+  // The link is listed with the moment it was made, written as every
+  // screen writes one: two links of one day are told apart. Revoking it
+  // asks first: everyone who has it loses it, and a link is not made again.
   const listed = page.getByRole("listitem").filter({ hasText: "Created by" });
-  await expect(listed).toContainText(/ on \d{2}\/\d{2}\/\d{4}/);
+  await expect(listed).toContainText(/ on \d{2}\/\d{2}\/\d{4}, \d{2}:\d{2}/);
   await listed.getByRole("button", { name: "Revoke" }).click();
   const asking = page.getByRole("dialog", { name: "Revoke this link?" });
   await expect(asking).toContainText("for everyone who has it");

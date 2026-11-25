@@ -125,7 +125,7 @@ export function BaseLinks({ baseId }: { baseId: string }) {
                 />
               ) : null}
               <span className="min-w-0 flex-1 truncate">
-                {t`Created by ${{ name: share.createdBy }} on ${{ date: when.day(share.createdAt) }}`}
+                {t`Created by ${{ name: share.createdBy }} on ${{ date: when.instant(share.createdAt) }}`}
                 {share.expiresAt
                   ? ` · ${t`expires on ${{ date: when.day(share.expiresAt) }}`}`
                   : ""}

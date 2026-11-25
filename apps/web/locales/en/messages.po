@@ -769,6 +769,7 @@ msgid "{failures, plural, one {failure in the last 24 hours} other {failures in 
 msgstr "{failures, plural, one {failure in the last 24 hours} other {failures in the last 24 hours}}"
 
 #: components/history/earlier.tsx
+#: components/record/record-panel.tsx
 msgid "{field}:"
 msgstr "{field}:"
 
@@ -3837,6 +3838,10 @@ msgstr "Copy this address now: it will not be shown again."
 #: components/admin/scim-tab.tsx
 msgid "Copy this token now: it will not be shown again."
 msgstr "Copy this token now: it will not be shown again."
+
+#: components/table/share-dialog.tsx
+msgid "copying allowed"
+msgstr "copying allowed"
 
 #: components/shell/about-dialog.tsx
 msgid "Copyright © the AnyGridDB contributors, and the authors of the libraries it is built with."
