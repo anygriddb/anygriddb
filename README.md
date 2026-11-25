@@ -58,19 +58,15 @@ cp .env.example .env          # every required value, no defaults for secrets
 docker compose up -d --build
 ```
 
-Open https://localhost:3000: the app and its API share that address. Set `PUBLIC_URL` to the HTTPS origin people type (a hostname such as `https://grid.example.org` or `https://grid.lan:3000`). Put extra certificate names or IP addresses in `TLS_NAMES`. `http://` on the same port redirects there.
+Open https://localhost:3000. Set `PUBLIC_URL` to the HTTPS origin people type.
+HTTPS only (ADR 0029): your cert via `TLS_CERT_FILE` / `TLS_KEY_FILE`, or the
+instance's own authority (fingerprint in the start log and Administration >
+Health). Passkeys need a DNS hostname (or `localhost`) in `PUBLIC_URL`. TLS,
+S3 files, and every other install detail: [`docs/operations.md`](docs/operations.md).
 
-AnyGridDB serves HTTPS only, secure by design (ADR 0029):
-
-- With your own certificate, set `TLS_CERT_FILE` and `TLS_KEY_FILE` (see `docker/.env.example`).
-- Without one, AnyGridDB makes its own authority at the first start and signs its certificate with it. Browsers warn until you install that authority, once per workstation: download it from Administration > Health, or from `https://<address>/tls/authority.crt`, and check its SHA-256 fingerprint against the one shown there and in the start log. It can only vouch for AnyGridDB's addresses, never for another site.
-- Passkeys need that trust **and** a DNS hostname (or `localhost`) in `PUBLIC_URL`, matching the address in the browser. An IP-only `PUBLIC_URL` keeps HTTPS and TOTP; passkeys stay off until you give the instance a resolvable name (see `docs/operations.md`).
-
-Inside the stack too, every connection is encrypted and verified (ADR 0030): PostgreSQL takes TLS connections only and RustFS serves HTTPS, with certificates a one-shot `certs` service issues before they start. A `DATABASE_URL`, `S3_ENDPOINT`, `SAML_ENTRY_POINT`, or `OIDC_ISSUER` beyond the machine must use verified TLS, or AnyGridDB does not start. A mail relay is held to it when mail is sent: one that offers no encryption receives nothing, and the test mail in Administration says why.
-
-Files live on the `files` volume. To keep them in an S3-compatible store, start with `docker compose -f compose.yml -f compose.s3.yml up -d --build` (RustFS), or point `STORAGE_DRIVER=s3` and `S3_*` at your own service.
-
-The first account you create administers the instance, and takes a token only its operator can ask for: `docker compose exec app anygriddb install-token`. Creating a base requires a second factor: an authenticator app (TOTP), a passkey, or, for anyone but an administrator and where mail is set up, a code by email.
+The first account administers the instance:
+`docker compose exec app anygriddb install-token`. Creating a base requires a
+second factor (TOTP, passkey, or email code where mail is set up).
 
 ## Layout
 
@@ -106,9 +102,6 @@ owns is the table of [`CONTRIBUTING.md`](CONTRIBUTING.md#where-to-change-what).
 | [`CONTRIBUTING.md`](CONTRIBUTING.md)             | Dev conventions, setup, tests, PR workflow           |
 | [`TECH_STACK.md`](TECH_STACK.md)                 | What this tree uses                                  |
 | [`ROADMAP.md`](ROADMAP.md)                       | What is done, known limits, what next                |
-| [`docs/brand.md`](docs/brand.md)                 | Notebook identity: type, colour, BrandMark           |
-| [`docs/i18n-glossary.md`](docs/i18n-glossary.md) | The words the interface uses                         |
-| [`docs/weblate.md`](docs/weblate.md)             | Weblate and a third locale                           |
 | [`OPEN_SOURCE_POLICY.md`](OPEN_SOURCE_POLICY.md) | Legal-safe dependency rules                          |
 | [`NOTICE.md`](NOTICE.md)                         | Copyright notice and selected dependency licenses    |
 | [`ACCESSIBILITY.md`](ACCESSIBILITY.md)           | Accessibility commitment and how to report a barrier |
@@ -120,9 +113,6 @@ owns is the table of [`CONTRIBUTING.md`](CONTRIBUTING.md#where-to-change-what).
 | ------------------------------------ | ---------------------------------------------- |
 | [`ARCHITECTURE.md`](ARCHITECTURE.md) | How the pieces fit and their contracts         |
 | [`docs/adr/`](docs/adr/README.md)    | Stack decisions, their costs, rejected options |
-
-The phases that brought the tree here are history:
-[`docs/history/migration-plan.md`](docs/history/migration-plan.md).
 
 ## License
 

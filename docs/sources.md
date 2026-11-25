@@ -1,75 +1,41 @@
 # Connecting a client database
 
-AnyGridDB reads a client's database where it lives (ADRs 0006, 0026): a
-PostgreSQL, MySQL, MariaDB, SQL Server, or Oracle database. A store that
-speaks no SQL is read from a copy instead: see
-[Stores that speak no SQL](#stores-that-speak-no-sql). An instance
-administrator declares the source; the database's own administrator (the
-DBA) prepares two things first:
+PostgreSQL, MySQL, MariaDB, SQL Server, or Oracle live (ADRs 0006, 0026).
+Stores without SQL: [from a copy](#stores-that-speak-no-sql).
 
-- **A dedicated account** for AnyGridDB, never an administrator. AnyGridDB
-  refuses a PostgreSQL superuser, a MySQL or MariaDB account with a global
-  grant beyond rows, a SQL Server sysadmin or holder of CONTROL SERVER, and
-  an Oracle DBA / SYSDBA session.
-  The account's grants decide what AnyGridDB can see: it lists only the
-  tables and columns the account may read. The list stops at 2,000 tables
-  (1,000 for a store read from a copy) and says so: a search by schema or
-  name reaches the others, which expose and watch like any other.
-- **TLS with a certificate AnyGridDB can verify**: one signed by an
-  authority the system trusts, or the server's own authority or
-  self-signed certificate, pasted in the source's form. The certificate
-  must name the host as AnyGridDB reaches it (`localhost`, `db.internal`,
-  an address). Nothing turns verification off.
+**Before declaring a source**
 
-The operator of the AnyGridDB instance lists the hosts sources may live on
-in `ANYGRIDDB_SOURCES_ALLOWED_HOSTS` (names, `*.` domains, addresses,
-ranges). Empty allows none: no new source can be declared, and every
-connection to a declared source is refused (`source_host_not_allowed`).
-That is the network kill switch; it is not a build-time option, and the
-drivers ship in every image.
+1. **Dedicated non-admin account.** Refused: PostgreSQL superuser; MySQL /
+   MariaDB global grants beyond rows; SQL Server sysadmin / CONTROL SERVER;
+   Oracle DBA / SYSDBA. Catalog lists only what the account may read (cap
+   2,000 tables, 1,000 for copy stores; search reaches the rest).
+2. **Verifiable TLS.** System-trusted CA, or paste server CA / self-signed
+   cert naming the host as AnyGridDB reaches it. Verification cannot be
+   turned off. `ANYGRIDDB_SOURCES_ALLOW_PLAINTEXT=true` = development only.
+3. **`ANYGRIDDB_SOURCES_ALLOWED_HOSTS`** (names, `*.` domains, IPs, ranges).
+   Empty = no sources. Network kill switch; drivers ship in every image.
 
-What emptying the list (or removing a host) does to what is already there:
+Emptying / removing a host:
 
-- **Live tables** and **bases held in a source** (ADR 0090): reads and
-  writes fail until the host is allowed again. Catalog entries, views,
-  dashboards, and automations stay; they show that the source is
-  unavailable.
-- **Synced tables** and **stores read from a copy** (ADR 0034, 0088): the
-  last copy in AnyGridDB's database **keeps serving**. Refresh jobs fail;
-  the data freezes. Clearing the allow list does not hide those rows.
+- **Live tables** and **bases held in a source** (ADR 0090): R/W fail until
+  allowed again; catalog stays.
+- **Synced / copy stores** (ADR 0034, 0088): last copy keeps serving;
+  refreshes fail.
 
-A source with a replica needs both hosts on the list: a replica outside it
-refuses the whole source. A synced table whose first copy has not arrived
-is read live until then, so it is refused like a live one.
+Replica hosts must both be allowed. Synced table before first copy is live
+(refused like live if host blocked). Administration → Sources shows impact.
 
-Administration → Sources shows how many sources, live tables, synced
-tables, and hosted bases the instance holds and, when a source is refused,
-what that leaves: the tables that cannot be read, those on their last copy,
-and the bases held there. `ANYGRIDDB_SOURCES_ALLOW_PLAINTEXT=true` connects
-without TLS: for development only, and the administration page says so.
-
-Every read runs under the source's time limit, with at most its number of
-connections, in a read-only transaction where the engine has one. Dates
-and times stored without a time zone are read in the source's time zone,
-set in its form (UTC by default).
-
-A source may name a **read replica**: every read goes there (grids, the
-API, copies, change checks) and falls back to the primary when the replica
-cannot be reached; every write stays on the primary. Its host must be
-allowed like the primary's, and its account follows the same rules. It
-uses the primary's account and password unless others are set. A replica
-that lags shows a change a moment after it is saved.
+Reads: source time limit + connection cap, read-only txn where available.
+Timeless dates use the source timezone (UTC default). Optional **read
+replica**: reads there with primary fallback; writes stay on primary.
 
 ## Writes
 
-A client's table is read-only until an administrator enables writes on
-it, in the source's page: editing, adding, and deleting rows apart
-(ADR 0028). Each needs the matching grant (`UPDATE`, `INSERT`, `DELETE`)
-and a primary key; a column takes writes when the account may update it.
-Grant only what people should do, for example:
+Off until enabled per table (ADR 0028). Needs PK + matching grants;
+column-level update rights apply.
 
 ```sql
--- PostgreSQL: edit two columns of invoices, add customers.
+-- PostgreSQL
 grant update (status, issued) on public.invoices to anygriddb;
 grant insert on public.customers to anygriddb;
 grant usage on sequence public.customers_id_seq to anygriddb;
@@ -77,219 +43,97 @@ grant usage on sequence public.customers_id_seq to anygriddb;
 grant update (status, issued) on erp.invoices to 'anygriddb'@'%';
 -- SQL Server
 grant update on dbo.invoices (status, issued) to anygriddb;
--- Oracle: the tables of the schema `erp`
+-- Oracle
 grant select, update (status, issued) on erp.invoices to anygriddb;
 grant select, insert on erp.customers to anygriddb;
 ```
 
-Files import into a client's table through the same path, with updates
-by key. A line the database refuses (a duplicate, a missing linked row, a
-check) is reported with its reason, and the other lines are written.
-
-A change is compared with what the person saw, under a row lock, and
-refused if the row moved since. What the database refuses (a required
-value, a duplicate, a foreign key, a check, a trigger's error) is shown in
-plain words. Every write is recorded in AnyGridDB in three steps, intent,
-applied, confirmed, and shows in the row's history; changes made by other
-applications do not.
+Imports use the same path (keyed updates). DB refusals reported per line.
+Writes are compare-and-set under row lock, three-step trail (intent /
+applied / confirmed). External app changes are not in that history.
 
 ## A base held in a SQL source
 
-Creating a base can put the tables it creates in a schema of a PostgreSQL,
-MySQL, MariaDB, or SQL Server source. The choice is an administrator's,
-and only for a source that speaks SQL. A store read from a copy cannot
-hold a base: it has no tables for AnyGridDB to create. Oracle is not
-offered here.
+Admin-only. PostgreSQL / MySQL / MariaDB / SQL Server. Not Oracle, not copy
+stores. Schema name fixed (`ag` + base id fragment).
 
-The schema's name is fixed from the base (`ag` and part of its id). The
-account must be allowed to create that schema and the tables in it,
-beside what it reads:
+| Engine         | Extra rights                                  |
+| -------------- | --------------------------------------------- |
+| PostgreSQL     | `CREATE` on the database                      |
+| MySQL, MariaDB | ``GRANT ALL ON `ag%`.*`` (not a global grant) |
+| SQL Server     | `CREATE SCHEMA` + `CREATE TABLE`              |
 
-| Engine         | What the account needs                                                         |
-| -------------- | ------------------------------------------------------------------------------ |
-| PostgreSQL     | `CREATE` on the database                                                       |
-| MySQL, MariaDB | every right on its own databases, ``GRANT ALL ON `ag%`.*``; not a global grant |
-| SQL Server     | `CREATE SCHEMA` and `CREATE TABLE` in the database                             |
+Failure creates neither base nor schema. Stored fields are columns; formula /
+button stay in AnyGridDB. Multiple select, duration, collaborator,
+attachment, links, lookups, rollups, and row meta are not offered there.
+Members, views, dashboards, files, comments, history stay in AnyGridDB.
 
-If it cannot, nothing is created, neither the base nor the schema.
-
-Each table has an `id` the source draws, which the grid shows and nobody
-writes. A field that stores one value is a column of that table, typed as
-a field of a client's table is in AnyGridDB's side table: text, long text,
-number (38 digits, 10 of them decimals, outside PostgreSQL), checkbox,
-date, date and time (in UTC), single select, email, URL, phone, colour,
-place, JSON, rating. A formula and a button stay in AnyGridDB. Multiple
-select, duration, collaborator, attachment, links, lookups, rollups, and
-the row's own times, authors and number are not offered there. Members,
-views, dashboards, files, comments, and history stay in AnyGridDB.
-
-Renaming the base does not rename the schema. Two bases need two schemas.
-A starting point is not applied: its sample rows and links are written
-as AnyGridDB's own tables, so the base starts empty. Duplicating one of
-its tables is not offered.
-
-A field or a table deleted for good, from the trash or when its time
-there ends, is dropped from the schema too, as AnyGridDB drops its own.
-Deleting the base, even for good, leaves the schema and what is in it.
-Deleting the base for good drops the schema only when an administrator
-types its name: then it goes with everything in it, tables someone added
-there included.
-A table that already existed at the client is never one of these: exposing
-it does not change its schema.
+Rename base ≠ rename schema. No starting-point sample rows. Permanent delete
+of field/table drops the source object; permanent delete of the base keeps
+the schema unless an admin types its name. Existing client tables are never
+rewritten by expose.
 
 ## Reading a copy instead
 
-A DBA who refuses live queries on a production database can have a table
-read from a copy in AnyGridDB (ADR 0034). In the source's page, set the
-table's **Lecture** to **Copie dans AnyGridDB**, and its interval in
-minutes.
+Source page → Lecture → **Copie dans AnyGridDB** + interval (ADR 0034).
 
-- The client's table is read once per interval, a thousand rows at a time
-  in short read-only transactions. Everyone then reads the copy.
-- Each refresh tells grids, webhooks, and automations which rows were
-  added, changed, or deleted. Such a table needs no column to watch.
-- The copy is read-only: changes are made in the client's database. A
-  link to a table still read live shows empty; copy both tables to follow
-  it.
-- The table is read live until its first copy is ready. A copy stops at a
-  million rows.
-- **Incremental** refreshes read only the rows whose change column moved
-  since the last one: a date and time the database sets on every change,
-  or a SQL Server `rowversion`, as for [changes made elsewhere](#changes-made-elsewhere).
-  A delete is not seen that way: every N refreshes (24 by default) the
-  table is copied whole again.
+- Refresh: 1k rows / short read-only txns; grids/webhooks/automations get
+  add/change/delete. No watch column needed. Read-only; live until first
+  copy; cap 1M rows. Link to a still-live table shows empty — copy both.
+- **Incremental**: change column (`updated_at` / SQL Server `rowversion`);
+  full copy every N refreshes (default 24) to catch deletes.
 
 ## Stores that speak no SQL
 
-A document database has no SQL for AnyGridDB to read it with. Such a
-store is read from a copy, and only from a copy (ADR 0088): each table
-you expose is read whole, a thousand rows at a time, into AnyGridDB's
-own database, once an hour unless you set another interval in the
-source's page. Everyone reads the copy, with all a table of AnyGridDB's
-has: filters, sorts, search, groups, formulas, charts, exports.
-
-- Nothing is ever written to the store: no row, no field, no table of
-  AnyGridDB's. Such a source has no schema kept for AnyGridDB and no
-  read replica, and its tables take no write. People still add formulas.
-- Each refresh compares the new copy with the one before, and tells
-  grids, webhooks, and automations which rows were added, changed, or
-  deleted.
-- A copy stops at a million rows. A larger table is not read: its
-  refresh fails, and the source's page says why.
-- The source's page says when each table was last copied; **Refresh
-  now** copies it at once. Until its first copy is ready, a table shows
-  empty.
-- A store without a schema tells its fields by its rows. A field's type
-  is the type its values have in the rows read when the table is listed.
-  A value met later that is not of that type reads empty; the source's
-  page counts such values, and **Refresh fields** reads the store's
-  rows again, follows them, and copies the table again at once.
-
-The rest is as for any source: an administrator declares it, on a host
-the operator allows, over TLS with a certificate AnyGridDB can verify.
+Copy only (ADR 0088): whole table, 1k rows/batch, default hourly. No writes,
+no side schema, no replica. Cap 1M rows. Field types inferred from rows;
+mismatched values read empty (counted); **Refresh fields** re-infers.
 
 ### The MongoDB wire protocol
 
-Tested against FerretDB 2. MongoDB's own server speaks the same
-protocol; it is not part of AnyGridDB's tests.
+Tested on FerretDB 2 (MongoDB-compatible protocol; MongoDB server not in
+suite). Port 27017. Connects only to the named host (no replica discovery).
 
-- **Database** is the database to read, and the one the account belongs
-  to. The port is 27017 unless you set another.
-- AnyGridDB connects to the host you name and to no other: the other
-  members of a replica set are not followed, so each address it reaches
-  is one the operator allowed. Name a secondary to spare the primary.
-- Give the account the right to read its database, and nothing more:
+```js
+db.getSiblingDB("erp").createUser({
+  user: "anygriddb",
+  pwd: passwordPrompt(),
+  roles: [{ role: "read", db: "erp" }],
+});
+```
 
-  ```js
-  db.getSiblingDB("erp").createUser({
-    user: "anygriddb",
-    pwd: passwordPrompt(),
-    roles: [{ role: "read", db: "erp" }],
-  });
-  ```
-
-  Where the server tells an account's roles, AnyGridDB refuses one that
-  administers the deployment or its accounts (`root`, `dbOwner`,
-  `userAdmin`, `clusterAdmin`, and the like). FerretDB 2 tells none, and
-  gives every account the same rights.
-
-- A collection is a table, a document a row named by its `_id`, a
-  top-level field a column. A view and a time series are read too, each
-  row named by its content.
-- A field's type is told from the collection's 200 newest documents: a
-  text, a number, a checkbox, a date and time. A field that holds a
-  document or a list is one JSON field, kept whole. A field whose
-  values are of several types reads as text.
-- Left out: a field whose name is longer than 63 bytes or holds a
-  control character, the fields past the first 300 of a collection, and
-  the collections past the first 1,000.
+Refuses deployment/account admin roles when the server reports them.
+Collection → table; `_id` → row; top-level field → column. Types from 200
+newest docs. Nested/list → JSON. Skip: name > 63 bytes / control chars,
+fields past 300, collections past 1,000.
 
 ### OpenSearch
 
-Tested against OpenSearch 2. The port is 9200 unless you set another.
-**Indices** is a pattern of the indices to read (`orders-*`); empty
-reads every open index. Hidden indices, whose name starts with a dot,
-are left out.
-
-- Give the account the right to read those indices, and nothing that
-  administers the cluster. Where the security plugin tells the
-  account's roles, AnyGridDB refuses `all_access` and
-  `security_manager`. A cluster without the plugin has no roles to
-  tell of.
-- AnyGridDB connects to the host you name and follows no redirect, so
-  each address it reaches is one the operator allowed.
-- An index is a table, a document a row named by its `_id`, a
-  top-level field of the mapping a column. The mapping says the type:
-  a text, a number, a checkbox, a date and time. A field that holds an
-  object, or several values, is one JSON field, kept whole. A text
-  longer than 255 characters, or on several lines, is a long text.
-- Left out: a field whose name is longer than 63 bytes or holds a
-  control character, an alias, the fields past the first 300 of an
-  index, and the indices past the first 1,000.
+Tested on OpenSearch 2. Port 9200. **Indices** pattern (`orders-*`); empty =
+all open (hidden `.` indices skipped). Read-only account; refuses
+`all_access` / `security_manager` when reported. No redirect following.
+Index → table; mapping types; object/multi → JSON. Same name/field/index
+caps as above.
 
 ## Statuses and signatures
 
-A client's rows go from draft to submitted, locked, and signed, as
-AnyGridDB's own rows do (ADR 0033). The status lives in AnyGridDB, never
-in the client's table, so this needs no right beyond reading, and works
-on tables AnyGridDB cannot change: a quality manager can sign the orders
-of an ERP. A table needs a primary key.
-
-A locked or signed row is refused to every change made through AnyGridDB.
-Other applications can still change it in the client's database:
-AnyGridDB does not change the client's schema to prevent it. What it does:
-
-- Locking seals the row: AnyGridDB keeps every stored field's value,
-  `updated_at` and `rowversion` columns included, with their SHA-256
-  fingerprint. A signature records that fingerprint.
-- A job compares sealed rows with the client's database every five
-  minutes. On a table watched for changes made elsewhere, a changed
-  sealed row is compared within seconds.
-- A row sealed by an earlier version is compared the way that version
-  read it, then sealed again by the next check, with an entry in its
-  trail. The signatures keep the fingerprint they signed.
-- A row that no longer matches is marked in the grid and its panel,
-  with the fields that moved and their sealed values. Those who locked
-  or signed it and the table's owners are notified. It cannot be signed
-  until an owner unlocks it, checks it, and locks it again.
-
-The DBA who must also refuse such changes in the database adds a trigger
-of their own there; AnyGridDB never installs one.
+Status in AnyGridDB only (ADR 0033) — no client DDL. Needs PK. Locked /
+signed rows refused through AnyGridDB; other apps can still change the
+client table. Seal = SHA-256 of stored fields (incl. `updated_at` /
+`rowversion`). Job compares every 5 min (or seconds if watched). Mismatch →
+grid mark + notify lockers/signers/owners; unlock required before resign.
+DBA triggers to hard-block are theirs; AnyGridDB installs none.
 
 ## Fields AnyGridDB adds
 
-People can add fields of their own to a client's table (ADR 0032): a
-status, notes, a date, a score, a checkbox. They are kept in a side
-table, one per exposed table, in a schema of the client's database kept
-for AnyGridDB; the client's tables are never changed. The DBA creates the
-schema and lets the account work there; an administrator names it in the
-source's form.
+Side schema on the client DB (ADR 0032); client tables untouched. Admin
+names the schema in the source form.
 
 ```sql
 -- PostgreSQL
 create schema anygriddb_side;
 grant usage, create on schema anygriddb_side to anygriddb;
--- MySQL, MariaDB: a database
+-- MySQL, MariaDB
 create database anygriddb_side;
 grant create, alter, select, insert, update, delete
   on anygriddb_side.* to 'anygriddb'@'%';
@@ -298,32 +142,20 @@ create schema anygriddb_side;
 grant create table to anygriddb;
 grant alter, select, insert, update, delete
   on schema::anygriddb_side to anygriddb;
--- Oracle: the account's own schema, named in capitals (ANYGRIDDB)
+-- Oracle: account schema in capitals (ANYGRIDDB)
 grant create table to anygriddb;
 alter user anygriddb quota 100m on users;
 ```
 
-These fields are edited even when the client's table is read-only, and
-filter, sort, and group like the client's own columns. A JSON field is
-kept there in the engine's JSON type (`jsonb` on PostgreSQL, `JSON` on
-MySQL and MariaDB) and as a long text AnyGridDB has checked on SQL Server
-and Oracle, where not every version has such a type.
-
-Without a side schema, the fields are kept in AnyGridDB's own database,
-by the row's key (ADR 0046). A view still filters on them, by value or
-emptiness, combined with AND, up to a thousand matching rows; they cannot
-sort or group, and formulas, automations, and rules do not read them. A
-field stays where it was made: naming a side schema later puts only new
-fields there, and a side schema cannot change while fields are kept in
-it.
+Editable even when the client table is read-only. Without a side schema,
+fields live in AnyGridDB by row key (ADR 0046): filter yes (AND, ≤ 1k
+matches); no sort/group; formulas/automations/rules do not read them.
+Existing fields stay where made.
 
 ## Oracle
 
-AnyGridDB reaches Oracle Database 19c or later with the thin driver: no
-Oracle client to install. The source's form takes the **service name**
-(`ORCLPDB1`, `FREEPDB1`) where the other engines take a database. The
-account sees the tables and views of every schema it may read: its own,
-and those granted to it, to its roles, or to `PUBLIC`.
+19c+, thin driver (no client install). Form takes **service name**. Sees
+every schema the account may read.
 
 ```sql
 create user anygriddb identified by "…";
@@ -331,52 +163,29 @@ grant create session to anygriddb;
 grant select on erp.orders to anygriddb;
 ```
 
-TLS goes over TCPS (port 2484 by convention): paste the authority that
-signed the listener's certificate, which must name the host as AnyGridDB
-reaches it. The listener need not ask for a client certificate
-(`SSL_CLIENT_AUTHENTICATION = FALSE`).
+TLS over TCPS (2484 typical); paste listener CA. Client cert not required
+(`SSL_CLIENT_AUTHENTICATION = FALSE`). Session: UTC, `.` decimal, code-point
+compare.
 
-Each session reads in UTC, with a dot before decimals, and compares text
-by code point, whatever the database's defaults. What differs from the
-other engines, and why:
-
-- Oracle stores no empty text: `''` is NULL. A blank text reads as
-  blank, `REPT` or `SHA256` of it as blank too, and a list built from such
-  values holds nothing where the others hold an empty text.
-- A text holds 4,000 bytes, or 32,767 where the instance has extended
-  strings. A formula that joins texts past it reads blank on that row,
-  and its cell says the text is too long; the other rows read.
-- `NUMBER` keeps no scale: `7.50` is stored and read as `7.5`. A
-  `NUMBER(p)` column refuses a value with decimals rather than round it.
-- `NUMBER(1)` reads as a checkbox when a check keeps it to 0 and 1, and
-  as a number otherwise; `BOOLEAN` from 23ai is a checkbox. A field already
-  exposed keeps its type: a checkbox over a stored 5 shows an error in its
-  cell rather than a state, so that nothing writes over the code.
-- `DATE` also holds a time of day: it reads as a date, the day alone,
-  and a date written there is at midnight. Use `TIMESTAMP` for times.
-- `REGEX_MATCH`, `REGEX_EXTRACT`, and `REGEX_REPLACE` are refused, as on
-  SQL Server: Oracle's expressions have no lookahead, and its `$` also
-  matches before a final newline.
-- Locks wait ten seconds for a row another write holds.
-- `RAW`, `BLOB`, intervals, `ROWID`, `XMLTYPE`, and spatial types read as
-  read-only text; `JSON` as read-only long text.
+| Quirk                                            | Behaviour                                          |
+| ------------------------------------------------ | -------------------------------------------------- |
+| Empty text                                       | `''` is NULL                                       |
+| Text length                                      | 4k / 32k extended; over → blank cell + length note |
+| `NUMBER`                                         | no scale; `NUMBER(p)` refuses decimals             |
+| `NUMBER(1)` / `BOOLEAN`                          | checkbox when constrained to 0/1                   |
+| `DATE`                                           | day only (midnight); use `TIMESTAMP` for time      |
+| Regex formulas                                   | refused (no lookahead; `$` before final NL)        |
+| Locks                                            | 10 s wait                                          |
+| `RAW`/`BLOB`/intervals/`ROWID`/`XMLTYPE`/spatial | read-only text; `JSON` read-only long text         |
 
 ## When the DBA changes a table
 
-A column added, dropped, or retyped in a client's table shows in
-AnyGridDB once an administrator clicks **Refresh fields** on that table,
-in the source's page (or under the message a grid shows when a read
-fails because the table changed). New columns become fields, links when
-they are foreign keys to an exposed table; a field follows its column's
-type when that type changed, under the same name, so views and formulas
-keep it. While the column's type is the same, the field keeps the type
-and settings chosen in AnyGridDB, unless the client's database lists the
-column's values (an enum, a check): that list is followed. A field whose column is gone goes to the trash. The table's
-primary key follows too: without one, writes stop.
+**Refresh fields** on the table (or after a failed grid read). New columns →
+fields (FK → link when target exposed); type follow when type changed under
+same name. Enum/check lists followed. Dropped column → trash. PK change
+followed; no PK → writes stop.
 
-A text column a check limits to a list of values reads as a single
-select of that list (`check (status in ('draft', 'sent'))`). SQL Server
-shows a check's text only to an account allowed to see definitions:
+SQL Server check text needs:
 
 ```sql
 grant view definition on dbo.orders to anygriddb;
@@ -384,47 +193,32 @@ grant view definition on dbo.orders to anygriddb;
 
 ## Changes made elsewhere
 
-AnyGridDB can watch an exposed table for changes other applications make
-(ADR 0031): open grids show them, and webhooks and automations receive
-them as rows added, changed, or deleted, from the source `external`. An
-administrator chooses how, per table, in the source's page:
+Per-table watch (ADR 0031) → grids + webhooks/automations (`source:
+external`). Needs PK. AnyGridDB's own writes not double-told.
 
-- **A column the database sets on every change**: a date and time
-  (`updated_at`), or a SQL Server `rowversion`. It tells rows added and
-  changed, not deleted ones. Index it: each check reads the rows past
-  where the last one stopped. Examples of a column kept by the database:
+- **Change column**: `updated_at` or SQL Server `rowversion` (index it).
+  Sees add/change, not delete.
 
-  ```sql
-  -- MySQL, MariaDB
-  alter table erp.orders add column updated_at datetime(3) not null
-    default current_timestamp(3) on update current_timestamp(3);
-  -- SQL Server
-  alter table dbo.orders add rv rowversion;
-  ```
+```sql
+-- MySQL, MariaDB
+alter table erp.orders add column updated_at datetime(3) not null
+  default current_timestamp(3) on update current_timestamp(3);
+-- SQL Server
+alter table dbo.orders add rv rowversion;
+-- PostgreSQL: trigger with clock_timestamp() (not now())
+```
 
-  On PostgreSQL, a trigger sets it (`new.updated_at = clock_timestamp()`);
-  `clock_timestamp()` is closer to the commit than `now()`, which is the
-  transaction's start.
+- **SQL Server Change Tracking** (includes deletes):
 
-- **SQL Server's Change Tracking**, which tells deletes too:
+```sql
+alter database erp set change_tracking = on
+  (change_retention = 2 days, auto_cleanup = on);
+alter table dbo.orders enable change_tracking;
+grant view change tracking on dbo.orders to anygriddb;
+```
 
-  ```sql
-  alter database erp set change_tracking = on
-    (change_retention = 2 days, auto_cleanup = on);
-  alter table dbo.orders enable change_tracking;
-  grant view change tracking on dbo.orders to anygriddb;
-  ```
-
-  Keep the retention longer than AnyGridDB may be stopped: past it, the
-  table is read again in full and the changes in between are not told one
-  by one.
-
-A table needs a primary key to be watched. Rows AnyGridDB itself writes
-are not told twice.
-
-A check never moves past the engine's own clock. A row dated ahead of it
-is told once, and again if it changes, and hides nothing written after it;
-the source's page says so when a row is more than a day ahead.
+Keep retention longer than AnyGridDB downtime. Rows ahead of engine clock
+told once; page warns if > 1 day ahead.
 
 ## PostgreSQL (13 or later)
 
@@ -432,116 +226,68 @@ the source's page says so when a row is more than a day ahead.
 create role anygriddb login password '…';
 grant connect on database erp to anygriddb;
 grant usage on schema public to anygriddb;
--- The tables to show, or all of them:
 grant select on public.customers, public.invoices to anygriddb;
--- grant select on all tables in schema public to anygriddb;
+-- or: grant select on all tables in schema public to anygriddb;
 -- alter default privileges in schema public grant select on tables to anygriddb;
 ```
 
-TLS: set `ssl = on` with `ssl_cert_file` and `ssl_key_file` in
-`postgresql.conf`, and allow the account only over TLS in `pg_hba.conf`:
+`ssl = on` + certs; `pg_hba.conf`:
 
 ```
 hostssl  erp  anygriddb  10.0.0.0/8  scram-sha-256
 ```
 
-Paste the server's certificate authority (or its self-signed certificate)
-in the form when it is not one the system trusts.
+Paste CA in the form when not system-trusted.
 
 ## MySQL (8.0.16 or later) and MariaDB (10.6 or later)
 
-Choose the engine the server is: AnyGridDB checks, since the two differ.
-An older server is refused when the source is saved, with its version.
+Pick the real engine (checked on save). Older versions refused.
 
 ```sql
 create user 'anygriddb'@'%' identified by '…' require ssl;
 grant select on erp.customers to 'anygriddb'@'%';
 grant select on erp.invoices to 'anygriddb'@'%';
--- or every table of the database:
--- grant select on erp.* to 'anygriddb'@'%';
 ```
 
-TLS: give the server a certificate that names its host (`ssl_cert`,
-`ssl_key`, and `require_secure_transport = ON` in the server's
-configuration). MySQL's auto-generated certificate names no host and
-cannot be verified: replace it. A source reached through a tunnel, an alias,
-or an address needs that name or address in its certificate too; otherwise
-the connection is refused as an untrusted certificate.
-
-The server must have its **time zone tables**, which AnyGridDB needs to
-read dates in the reader's zone. The official images load them; otherwise:
+Cert must name the host (`require_secure_transport = ON`). Auto-generated
+MySQL cert has no hostname → replace. Time zone tables required:
 
 ```sh
 mysql_tzinfo_to_sql /usr/share/zoneinfo | mysql -u root mysql
 ```
 
-Notes:
-
-- `tinyint(1)` reads as a checkbox, ticked for anything but 0, and an
-  `enum` as a single select.
-- `TIME` reads as its text, past 24 hours and negative included. Binary
-  and blob columns read as `0x` and hexadecimal, their first 1,000 bytes.
-- A filter, a search, and a sort on a text compare as the column's
-  collation does, which is what the database's other applications show
-  and what keeps its indexes usable. Under a collation blind to accents
-  and case (`utf8mb4_0900_ai_ci`, MySQL's default), "contains É" also
-  finds `e` and `E`. Give the column a `_bin` or an `_as_cs` collation to
-  tell them apart. What a formula computes compares the same on every
-  engine, by code point.
-- A foreign key becomes a link only when the table declares it with
-  `FOREIGN KEY … REFERENCES`: MySQL ignores a `REFERENCES` written in a
-  column's definition.
-- MariaDB's `JSON` is a `LONGTEXT` with a check that an account that only
-  reads cannot see: it reads as long text.
-- SQRT, EXP, LN, LOG, and POWER run in floating point on MySQL and
-  MariaDB: their results are rounded to 15 significant digits, and the
-  field says so (ADR 0027).
+- `tinyint(1)` → checkbox; `enum` → single select.
+- `TIME` as text (incl. >24 h / negative); binary/blob → `0x` hex, first 1k B.
+- Text filter/sort follows column collation (accent/case-blind defaults
+  match `e`/`É`); use `_bin` / `_as_cs` to distinguish. Formulas always
+  code-point.
+- FK links need `FOREIGN KEY … REFERENCES` (inline `REFERENCES` ignored).
+- MariaDB `JSON` → long text to a read-only account.
+- SQRT/EXP/LN/LOG/POWER → float, 15 sig digits (ADR 0027).
 
 ## SQL Server (2017 or later)
 
-AnyGridDB signs in with a SQL Server login (no Windows authentication).
+SQL login only (no Windows auth).
 
 ```sql
 create login anygriddb with password = '…';
 use erp;
 create user anygriddb for login anygriddb;
 grant select on schema::dbo to anygriddb;
--- or table by table:
--- grant select on dbo.customers to anygriddb;
 ```
 
-TLS: give the instance a certificate that names its host and force
-encryption (on Linux, in `mssql.conf`):
+Force encryption (`mssql.conf` on Linux: `tlscert` / `tlskey` /
+`forceencryption = 1`). No read-only txn — grants enforce reads.
 
-```
-[network]
-tlscert = /var/opt/mssql/server.crt
-tlskey = /var/opt/mssql/server.key
-forceencryption = 1
-```
-
-Notes:
-
-- SQL Server has no read-only transaction: the account's grants keep
-  AnyGridDB's reads reads. Grant it `SELECT`, and the writes people make.
-- `money` and `smallmoney` read with their four decimals. A `datetime2(7)`
-  or `datetimeoffset(7)` keeps its seven decimals of a second, written too.
-- A `varchar` keeps what its code page can. A text with a character it
-  lacks is refused, naming the field, and nothing is written; use
-  `nvarchar` or a `_UTF8` collation to keep any text.
-- Time zones reach SQL Server by their Windows names, mapped from the
-  reader's zone (Unicode CLDR).
-- Formulas, lookups, and rollups run on SQL Server tables. T-SQL keeps at
-  most 38 digits in a number and types a result by the columns' declared
-  types: AnyGridDB follows those types and keeps results exact where they
-  fit (a division to 20 decimals). Where a product or a quotient of wide
-  columns may be rounded, the field says so. SQRT, EXP, LN, LOG, and
-  POWER run in floating point, to 15 significant digits.
+- `money`/`smallmoney` four decimals; `datetime2(7)` / `datetimeoffset(7)`
+  keep 7 fractional digits.
+- `varchar` code-page limited → use `nvarchar` / `_UTF8`.
+- Zones via Windows names (CLDR). Numbers ≤ 38 digits; SQRT/EXP/… float 15
+  sig digits where noted on the field.
 
 ## Sample database lab
 
-To exercise sources against real schemas (Chinook, Northwind, Sakila,
-Pagila, AdventureWorks) on the five engines over TLS, see
+Chinook, Northwind, Sakila, Pagila, AdventureWorks on five engines over TLS:
 [`docker/lab/README.md`](../docker/lab/README.md).
 
 ```bash
@@ -551,8 +297,3 @@ ANYGRIDDB_LAB_HOST=127.0.0.1 \
 ANYGRIDDB_LAB_TLS_CA="$PWD/docker/lab/certs/ca.crt" \
   pnpm test:samples
 ```
-
-The sample suites (`apps/api/src/sources/samples/`) declare sources,
-expose tables, and run reads, filters, sorts, aggregates, lookups, field
-rules, writes, side fields, watches, and seals on every engine. They are
-apart from the formula conformance suite, and run weekly in CI.
