@@ -20,6 +20,7 @@ import {
   singleSelectAppearance,
   textAppearance,
 } from "./field-appearance";
+import { drawingOf } from "./field-drawing";
 import { RatingControl } from "./rating-control";
 
 type Option = { name: string; color: string };
@@ -132,10 +133,8 @@ export function CellValueView({
     return null;
   }
   const type = column.fieldType;
-  if (
-    type === "boolean" ||
-    (column.kind === "boolean" && typeof value === "boolean")
-  ) {
+  const drawing = drawingOf(column, value);
+  if (drawing === "checkbox") {
     const appearance = booleanAppearance(column);
     if (appearance === "yes_no") {
       return (
@@ -177,7 +176,7 @@ export function CellValueView({
       <UntickedBox />
     ) : null;
   }
-  if (type === "single_select" || type === "multi_select") {
+  if (drawing === "options") {
     const options = optionsOf(column);
     const names = Array.isArray(value)
       ? value.map((entry) => cellText(entry))
@@ -211,10 +210,10 @@ export function CellValueView({
       </span>
     );
   }
-  if (type === "rating" && typeof value === "number") {
+  if (drawing === "stars" && typeof value === "number") {
     return <RatingControl column={column} value={value} />;
   }
-  if (type === "user" || type === "created_by" || type === "last_modified_by") {
+  if (drawing === "people") {
     const ids = Array.isArray(value)
       ? value.map((entry) => cellText(entry))
       : [cellText(value)];
@@ -239,7 +238,7 @@ export function CellValueView({
       </span>
     );
   }
-  if (type === "attachment") {
+  if (drawing === "files") {
     const files = attachmentList(value);
     return (
       <span
@@ -286,7 +285,7 @@ export function CellValueView({
       </span>
     );
   }
-  if (isLinkArray(value)) {
+  if (drawing === "links" && isLinkArray(value)) {
     return (
       <span
         className={cn("flex gap-1", wrap ? "flex-wrap" : "overflow-hidden")}
@@ -336,7 +335,7 @@ export function CellValueView({
     ) : (
       shown
     );
-  if (type === "url" && typeof value === "string") {
+  if (drawing === "address" && typeof value === "string") {
     if (!isHttpUrl(value)) {
       return withCode(
         <span className="truncate">{highlight(text, search)}</span>,
@@ -354,7 +353,7 @@ export function CellValueView({
       </a>,
     );
   }
-  if (type === "email" && typeof value === "string") {
+  if (drawing === "mail" && typeof value === "string") {
     if (!isEmail(value)) {
       return <span className="truncate">{highlight(text, search)}</span>;
     }
@@ -368,7 +367,7 @@ export function CellValueView({
       </a>
     );
   }
-  if (type === "color" && typeof value === "string" && isColor(value)) {
+  if (drawing === "swatch" && typeof value === "string" && isColor(value)) {
     return (
       <span className="flex min-w-0 items-center gap-1.5">
         <span
@@ -382,7 +381,7 @@ export function CellValueView({
       </span>
     );
   }
-  if (type === "place" && typeof value === "string" && isPlace(value)) {
+  if (drawing === "place" && typeof value === "string" && isPlace(value)) {
     return (
       <span className="flex min-w-0 items-center gap-1 tabular-nums">
         <MapPin
@@ -393,7 +392,7 @@ export function CellValueView({
       </span>
     );
   }
-  if (type === "json" && typeof value === "string") {
+  if (drawing === "document" && typeof value === "string") {
     // Folded on a grid's line; laid out, a member a line, where it wraps.
     return (
       <span
@@ -414,7 +413,7 @@ export function CellValueView({
         numeric && "tabular-nums",
         numeric && inColumn && !code && "ml-auto",
         // An id is read character by character, and copied whole.
-        type === "row_id" && "font-mono text-xs",
+        drawing === "id" && "font-mono text-xs",
       )}
     >
       {highlight(text, search)}
