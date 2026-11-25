@@ -212,10 +212,12 @@ function SidebarTableRow(props: {
                 <Copy className="h-4 w-4" aria-hidden />
                 {t`Duplicate structure`}
               </DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => onDuplicate(true)}>
-                <CopyPlus className="h-4 w-4" aria-hidden />
-                {t`Duplicate with rows`}
-              </DropdownMenuItem>
+              {grants(table.role, "data.export") ? (
+                <DropdownMenuItem onSelect={() => onDuplicate(true)}>
+                  <CopyPlus className="h-4 w-4" aria-hidden />
+                  {t`Duplicate with rows`}
+                </DropdownMenuItem>
+              ) : null}
               <DropdownMenuSeparator />
               <DropdownMenuItem danger onSelect={onDelete}>
                 <Trash2 className="h-4 w-4" aria-hidden />
@@ -1052,7 +1054,7 @@ function SidebarBase({
                 {t`Rename`}
               </DropdownMenuItem>
             ) : null}
-            {manage ? (
+            {manage && may("data.export") ? (
               <DropdownMenuItem onSelect={() => void duplicateBase(base)}>
                 <CopyPlus className="h-4 w-4" aria-hidden />
                 {t`Duplicate base`}

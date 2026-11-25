@@ -6,6 +6,7 @@ import {
   type Permission,
   roleFor,
   roleGrants,
+  roleGrantsAll,
 } from "@anygriddb/core";
 import { assertEnrolled, loadBindings, scopeBindings } from "../auth/access.js";
 import { type SessionUser, withActingRights } from "../auth/session.js";
@@ -105,6 +106,16 @@ export type TableAccess = Actor & { table: TableRow; role: Grant };
  */
 export function assertGrants(role: Grant, permission: Permission): void {
   if (!roleGrants(role, permission)) {
+    throw new AppError("access_denied");
+  }
+}
+
+/** The same, for an act that asks several permissions besides its guard's. */
+export function assertGrantsAll(
+  role: Grant,
+  permissions: readonly Permission[],
+): void {
+  if (!roleGrantsAll(role, permissions)) {
     throw new AppError("access_denied");
   }
 }

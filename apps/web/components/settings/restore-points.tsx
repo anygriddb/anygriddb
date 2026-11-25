@@ -25,9 +25,12 @@ import { useInvalidateCatalog } from "../shell/sidebar";
 export function RestorePoints({
   baseId,
   hasTables,
+  restores,
 }: {
   baseId: string;
   hasTables: boolean;
+  /** Whether its rows may come back in a new base: an export. */
+  restores: boolean;
 }) {
   const { t } = useLingui();
   const formatBytes = useFormatBytes();
@@ -182,13 +185,15 @@ export function RestorePoints({
                     .join(" · ")}
                 </p>
               </div>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => void restore(point)}
-              >
-                {t`Restore as a new base`}
-              </Button>
+              {restores ? (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => void restore(point)}
+                >
+                  {t`Restore as a new base`}
+                </Button>
+              ) : null}
               <Button
                 size="icon"
                 variant="ghost"

@@ -24,6 +24,7 @@ import { DiskStore } from "../files/index.js";
 import { writeSettings } from "../settings.js";
 import { createTestDatabase } from "../test-database.js";
 import { browserFactory, errorCode } from "./caller.test-helpers.js";
+import { createMadeRole } from "../data/made-roles.js";
 
 const suffix = randomBytes(6).toString("hex");
 
@@ -61,10 +62,21 @@ describe("a base shared by one link", () => {
         .execute()
     ).map((row) => row.id) as [string, string];
     baseId = (await insertBase(db, owner, { name: "Ventes" })).id;
+    // Ada may link the base (it is hers to manage, to publish and to
+    // export), and manages nobody: her field rules hold for her link.
+    const steward = await createMadeRole(db, owner, {
+      name: "Steward",
+      permissions: ["rows.read", "data.export", "publish", "base.manage"],
+    });
     await withAudit(db, { userId: owner }, (tx) =>
       tx
         .insertInto("roleBindings")
-        .values({ userId: ada, role: "viewer", scope: "base", scopeId: baseId })
+        .values({
+          userId: ada,
+          madeRoleId: steward.id,
+          scope: "base",
+          scopeId: baseId,
+        })
         .execute(),
     );
     clients = (

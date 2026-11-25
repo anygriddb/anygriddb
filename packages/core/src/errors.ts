@@ -147,6 +147,11 @@ export const ERRORS = {
   no_row: [BAD, "No row"],
   row_locked: [409, "Row locked"],
   row_outside_rule: [403, "This would put the row outside what you can reach"],
+  /** A copy with its rows would carry what the copier's rules hide. */
+  copy_under_rules: [
+    403,
+    "Field or row rules apply to you on this table: copy it without its rows",
+  ],
   invalid_place: [BAD, "Invalid place"],
   reason_required: [BAD, "Reason required"],
   already_member: [409, "Already a member of this base"],

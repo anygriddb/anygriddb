@@ -6,6 +6,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { useErrorText } from "../../lib/errors";
 import { useCatalog, useSession } from "../../lib/session";
+import { grants } from "../../lib/types";
 import { trpc, useTRPC } from "../../lib/trpc";
 import { LoadFailed } from "../shell/load-failed";
 import { NotebookPage } from "../shell/notebook-page";
@@ -55,7 +56,10 @@ export function OauthConsentPage({ search }: { search: OauthConsentSearch }) {
     enabled: Boolean(session.data && clientId),
   });
 
-  const bases = catalog.data ?? [];
+  // An application holds a token: only a base whose role lets a token in.
+  const bases = (catalog.data ?? []).filter((base) =>
+    grants(base.role, "api.access"),
+  );
   const clientName = client.data?.name ?? clientId;
 
   if (!session.data || client.isLoading) {

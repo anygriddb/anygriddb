@@ -51,7 +51,12 @@ export function usePermissionFamilies(): ReadonlyArray<{
         {
           permission: "data.export",
           label: t`Export`,
-          hint: t`Files of rows, calendar feeds, and a base's backup.`,
+          hint: t`Rows taken out: files, calendar feeds, a base's backup and copies, links that show rows, webhooks, and automations that send values elsewhere.`,
+        },
+        {
+          permission: "api.access",
+          label: t`Reach by a token`,
+          hint: t`The API, MCP and the applications given access act here with this role. Without it, a token reaches nothing here.`,
         },
         {
           permission: "data.import",

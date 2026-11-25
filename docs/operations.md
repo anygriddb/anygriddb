@@ -301,6 +301,30 @@ network, no disk write; max 4 concurrent; 128 MiB process / 64 MiB script;
 docker compose exec app anygriddb scripts check
 ```
 
+### What takes rows out of a base
+
+Reading rows and taking them out are two permissions (ADR 0129). The four
+shipped roles give both **Export** (`data.export`) and **Reach by a token**
+(`api.access`); a made role gives them only when ticked, since a permission
+a version adds goes to no made role. What is made in someone's name acts by
+their roles when it runs: it pauses while they lack what it asks or are
+disabled, and is never deleted for it.
+
+| Way out                                                               | Asks of its maker, when made and when used                     |
+| --------------------------------------------------------------------- | -------------------------------------------------------------- |
+| A token: REST API, MCP, an application                                | `api.access`, then what each call asks                         |
+| A view's file, a calendar feed, a base's snapshot                     | `data.export` (snapshot: and `base.manage`)                    |
+| A view's public link (a form's asks `publish` alone)                  | `publish`, `data.export`                                       |
+| A base's public link                                                  | `base.manage`, `publish`, `data.export`                        |
+| A webhook                                                             | `webhooks.manage`, `data.export`                               |
+| An automation that mails, calls, posts, runs a script, or copies rows | `automations.manage`, `data.export` on each table it reads     |
+| A table copied with its rows                                          | `schema.manage`, `data.export`, and no field or row rule there |
+| A base copied, or a restore point read back as a new base             | `base.manage`, `data.export`                                   |
+
+Within the reader's own reach on purpose: the grid's copy, a printed row, a
+field copied with its values (hidden under column rules until opened), the
+application's API console, dashboards, a notification's mail.
+
 ## When no administrator can sign in
 
 ```sh

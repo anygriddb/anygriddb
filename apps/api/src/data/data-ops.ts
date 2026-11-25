@@ -1,6 +1,9 @@
 import {
   AppError,
+  type Binding,
+  effectiveTableRole,
   isHomeTable,
+  roleGrants,
   type BaseTemplate,
   buildDuplicateJunction,
   buildDuplicateComments,
@@ -26,6 +29,7 @@ import {
   type RollupFn,
 } from "@anygriddb/core";
 import { runStatement, type Database } from "@anygriddb/db";
+import { readerAccess } from "./acl.js";
 import { runRows, withAudit } from "./audit-context.js";
 import { insertComputed } from "./computed.js";
 import {
@@ -457,6 +461,30 @@ async function copyRows(
     signed += Number(locked?.signed ?? 0);
   }
   return signed;
+}
+
+/**
+ * Whether someone may copy a table with its rows. Copying them takes them
+ * out of the table, an export; and the copy carries no field or row rule,
+ * so it is refused to whom such rules apply there. Asked when the copy is
+ * asked for, and again when the job runs.
+ */
+export async function assertMayCopyRows(
+  db: Database,
+  reader: { userId: string; bindings: readonly Binding[] },
+  table: { id: string; baseId: string },
+): Promise<void> {
+  if (
+    !roleGrants(
+      effectiveTableRole(reader.bindings, table.id, table.baseId),
+      "data.export",
+    )
+  ) {
+    throw new AppError("access_denied");
+  }
+  if (await readerAccess(db, reader, [table])) {
+    throw new AppError("copy_under_rules");
+  }
 }
 
 /**

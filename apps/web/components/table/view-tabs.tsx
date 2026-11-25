@@ -33,6 +33,7 @@ import {
   User,
   type LucideIcon,
 } from "lucide-react";
+import { LINK_PERMISSIONS } from "@anygriddb/core";
 import { Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { Earlier } from "../history/earlier";
@@ -105,6 +106,12 @@ export function ViewTabs(props: {
     personal: boolean;
   } | null>(null);
   const collaborative = grants(props.role, "views.manage");
+  // A link is offered to whom the server lets make it: a view's shows its
+  // rows, an export; a form's takes answers in.
+  const mayLink = (view: ViewItem) =>
+    LINK_PERMISSIONS[view.viewType === "form" ? "form" : "view"].every(
+      (permission) => grants(props.role, permission),
+    );
 
   async function run(action: () => Promise<unknown>) {
     try {
@@ -258,7 +265,7 @@ export function ViewTabs(props: {
                       {view.locked ? t`Unlock view` : t`Lock view`}
                     </DropdownMenuItem>
                   ) : null}
-                  {collaborative && !view.personal ? (
+                  {collaborative && !view.personal && mayLink(view) ? (
                     <DropdownMenuItem onSelect={() => setSharing(view)}>
                       <Share2 className="h-4 w-4" aria-hidden />
                       {t`Share view`}

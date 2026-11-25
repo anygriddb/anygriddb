@@ -2,6 +2,7 @@ import {
   AppError,
   createAutomationInputSchema,
   updateAutomationInputSchema,
+  tablesTakenOut,
 } from "@anygriddb/core";
 import { z } from "zod";
 import {
@@ -90,6 +91,11 @@ export const automationsRouter = t.router({
         for (const tableId of writtenTables(input.actions)) {
           await guardTable(ctx, tableId, "rows.write");
         }
+        // Values sent out of the instance or into another table: an export
+        // of each table they come from.
+        for (const tableId of tablesTakenOut(input.actions, table.id)) {
+          await guardTable(ctx, tableId, "data.export");
+        }
         return withAddress(
           ctx,
           await saveAutomation(
@@ -118,6 +124,11 @@ export const automationsRouter = t.router({
         }
         for (const tableId of writtenTables(input.actions)) {
           await guardTable(ctx, tableId, "rows.write");
+        }
+        // Values sent out of the instance or into another table: an export
+        // of each table they come from.
+        for (const tableId of tablesTakenOut(input.actions, table.id)) {
+          await guardTable(ctx, tableId, "data.export");
         }
         return withAddress(
           ctx,

@@ -20,7 +20,7 @@ import {
   viewFilter,
 } from "@anygriddb/core";
 import type { Database } from "@anygriddb/db";
-import { loadBindings } from "../auth/access.js";
+import { authorBindings } from "../auth/access.js";
 import type { ReadBudget } from "../read-budget.js";
 import { readerEngine } from "./acl.js";
 import { withAudit } from "./audit-context.js";
@@ -63,7 +63,8 @@ async function feedView(db: Database, viewId: string, userId: string) {
   ) {
     return undefined;
   }
-  const bindings = await loadBindings(db, userId);
+  // A feed is read without its owner: their roles now, none if disabled.
+  const bindings = await authorBindings(db, userId);
   const role = effectiveTableRole(bindings, view.tableId, view.baseId);
   if (!roleGrants(role, "data.export")) return undefined;
   return { ...view, bindings };

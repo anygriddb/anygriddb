@@ -8,6 +8,7 @@ import {
   deleteWebhookInputSchema,
   embedOriginsInputSchema,
   type FilterGroup,
+  LINK_PERMISSIONS,
   listWebhooksInputSchema,
   retryDeliveryInputSchema,
   updateWebhookInputSchema,
@@ -40,6 +41,7 @@ import { retryDelivery } from "../outbound/deliveries.js";
 import type { Context } from "./context.js";
 import {
   assertGrants,
+  assertGrantsAll,
   authorize,
   baseAccess,
   guardBase,
@@ -100,7 +102,17 @@ export const catalogSharingProcedures = {
       handle(ctx, async () => {
         const actor = await authorize(ctx);
         const view = await loadView(ctx.db, input.viewId);
-        const { user } = await tableAccess(ctx, actor, view.tableId, "publish");
+        const { user, role } = await tableAccess(
+          ctx,
+          actor,
+          view.tableId,
+          "publish",
+        );
+        // A view's link shows its rows to whoever holds it: an export.
+        assertGrantsAll(
+          role,
+          LINK_PERMISSIONS[view.viewType === "form" ? "form" : "view"],
+        );
         if (view.ownerId) {
           throw new AppError("invalid_view");
         }
@@ -213,7 +225,7 @@ export const catalogSharingProcedures = {
           input.baseId,
           "base.manage",
         );
-        assertGrants(role, "publish");
+        assertGrantsAll(role, LINK_PERMISSIONS.base);
         return createBaseShare(ctx.db, {
           baseId: input.baseId,
           createdBy: user.id,
@@ -234,11 +246,13 @@ export const catalogSharingProcedures = {
     .input(createWebhookInputSchema)
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
-        const { user } = await guardTable(
+        const { user, role } = await guardTable(
           ctx,
           input.tableId,
           "webhooks.manage",
         );
+        // A webhook sends the table's rows out of the instance: an export.
+        assertGrants(role, "data.export");
         await assertWebhookColumns(ctx, input.tableId, input);
         return createWebhook(ctx.db, ctx.env.AUTH_ENCRYPTION_KEY, {
           ...input,
@@ -252,12 +266,13 @@ export const catalogSharingProcedures = {
       handle(ctx, async () => {
         const actor = await authorize(ctx);
         const tableId = await webhookTableId(ctx.db, input.webhookId);
-        const { user } = await tableAccess(
+        const { user, role } = await tableAccess(
           ctx,
           actor,
           tableId,
           "webhooks.manage",
         );
+        assertGrants(role, "data.export");
         await assertWebhookColumns(ctx, tableId, {
           filter: input.filter ?? undefined,
           watchColumns: input.watchColumns ?? undefined,
@@ -276,12 +291,13 @@ export const catalogSharingProcedures = {
     .input(webhookIdInputSchema)
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
-        await tableAccess(
+        const { role } = await tableAccess(
           ctx,
           await authorize(ctx),
           await webhookTableId(ctx.db, input.webhookId),
           "webhooks.manage",
         );
+        assertGrants(role, "data.export");
         const { config: smtp } = await resolveSmtp(ctx.db, ctx.env);
         return testWebhook(
           {

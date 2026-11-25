@@ -5427,10 +5427,6 @@ msgstr "Fichiers et images"
 msgid "Files into a table, and a workbook as new tables."
 msgstr "Des fichiers dans une table, et un classeur en nouvelles tables."
 
-#: components/admin/permission-labels.ts
-msgid "Files of rows, calendar feeds, and a base's backup."
-msgstr "Les fichiers de lignes, les flux de calendrier et la sauvegarde d’une base."
-
 #: components/shell/shortcuts-dialog.tsx
 msgid "Fill down"
 msgstr "Recopier vers le bas"
@@ -9340,6 +9336,10 @@ msgstr "Étendue (jours)"
 msgid "Rating"
 msgstr "Note"
 
+#: components/admin/permission-labels.ts
+msgid "Reach by a token"
+msgstr "Accès par jeton"
+
 #: components/settings/account-settings.tsx
 msgid "Reachable bases:"
 msgstr "Bases accessibles :"
@@ -10259,6 +10259,10 @@ msgstr "Lignes ordonnées par"
 #: components/admin/admin-list.tsx
 msgid "Rows per page"
 msgstr "Lignes par page"
+
+#: components/admin/permission-labels.ts
+msgid "Rows taken out: files, calendar feeds, a base's backup and copies, links that show rows, webhooks, and automations that send values elsewhere."
+msgstr "Lignes qui sortent : fichiers, flux de calendrier, sauvegarde et copies d’une base, liens qui montrent des lignes, webhooks, et automations qui envoient des valeurs ailleurs."
 
 #: components/settings/table-rules-panel.tsx
 msgid "Rows this member sees"
@@ -11904,6 +11908,10 @@ msgstr "L’adresse du serveur de tuiles d’où les vues carte tirent leur fond
 #: components/table/share-dialog.tsx
 msgid "The addresses of the sites that may show this link in a frame, each starting with https://. Without one, no site can."
 msgstr "Les adresses des sites qui peuvent afficher ce lien dans un cadre, chacune commençant par https://. Sans adresse, aucun site ne le peut."
+
+#: components/admin/permission-labels.ts
+msgid "The API, MCP and the applications given access act here with this role. Without it, a token reaches nothing here."
+msgstr "L’API, MCP et les applications autorisées agissent ici avec ce rôle. Sans cette permission, un jeton n’atteint rien ici."
 
 #: components/admin/oauth-clients-tab.tsx
 msgid "The application can no longer get new tokens. Tokens it already holds stop working."
@@ -14623,6 +14631,10 @@ msgstr "Votre compte a été désactivé pour inactivité"
 #: components/settings/person-event-labels.ts
 msgid "Your account will soon be disabled"
 msgstr "Votre compte sera bientôt désactivé"
+
+#: lib/errors.ts
+msgid "Your field or row rules on this table hide part of it: copy it without its rows"
+msgstr "Vos règles de champs ou de lignes sur cette table en cachent une partie : copiez-la sans ses lignes"
 
 #: components/admin/scim-tab.tsx
 msgid "Your identity provider (Okta, Microsoft Entra ID, …) creates, changes, and deactivates accounts, and keeps groups. Existing accounts are taken over by their email. Local groups are made under People → Groups. Then give groups a role in each base's settings or in Administration."

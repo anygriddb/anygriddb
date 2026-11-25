@@ -8,14 +8,16 @@ import {
   AppError,
   effectiveTableRole,
   formWindow,
+  LINK_PERMISSIONS,
   normalizeViewConfig,
   roleGrants,
+  roleGrantsAll,
   roleFor,
   type ViewConfig,
   withRequiredFormFields,
 } from "@anygriddb/core";
 import type { Database } from "@anygriddb/db";
-import { loadBindings } from "../auth/access.js";
+import { authorBindings } from "../auth/access.js";
 import { readerEngine } from "./acl.js";
 import { liveTable } from "./live.js";
 import { writeColumns } from "./rows.js";
@@ -45,12 +47,19 @@ export async function openShare(
   permission: "rows.read" | "rows.write",
 ) {
   const resolved = await resolveShare(deps.db, deps.encryptionKey, input);
-  const bindings = await loadBindings(deps.db, resolved.share.createdBy);
+  // A link acts as its creator, as they are now: it stops while they may
+  // no longer make it (a view's shows rows, an export), and comes back
+  // if they may again.
+  const bindings = await authorBindings(deps.db, resolved.share.createdBy);
+  const role = effectiveTableRole(
+    bindings,
+    resolved.table.id,
+    resolved.table.baseId,
+  );
+  const kind = resolved.view.viewType === "form" ? "form" : "view";
   if (
-    !roleGrants(
-      effectiveTableRole(bindings, resolved.table.id, resolved.table.baseId),
-      permission,
-    )
+    !roleGrants(role, permission) ||
+    !roleGrantsAll(role, LINK_PERMISSIONS[kind])
   ) {
     throw new AppError("unknown_share");
   }
@@ -130,10 +139,12 @@ export async function openBaseShare(
   const resolved = await resolveBaseShare(deps.db, deps.encryptionKey, input);
   const reader = {
     userId: resolved.share.createdBy,
-    bindings: await loadBindings(deps.db, resolved.share.createdBy),
+    bindings: await authorBindings(deps.db, resolved.share.createdBy),
   };
+  const held = roleFor(reader.bindings, "base", resolved.base.id);
   if (
-    !roleGrants(roleFor(reader.bindings, "base", resolved.base.id), "rows.read")
+    !roleGrants(held, "rows.read") ||
+    !roleGrantsAll(held, LINK_PERMISSIONS.base)
   ) {
     throw new AppError("unknown_share");
   }

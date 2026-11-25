@@ -4,6 +4,7 @@ import {
   can,
   enrollmentGate,
   readOnlyGiven,
+  tokenGiven,
   roleFor,
 } from "@anygriddb/core";
 import type { Database } from "@anygriddb/db";
@@ -39,6 +40,24 @@ export async function loadBindings(
       .where("b.userId", "=", userId)
       .execute(),
   );
+}
+
+/**
+ * The roles of someone acting through what they made (a link, a webhook,
+ * an automation, a feed), as they are now: none while their account is
+ * disabled. What they made then does nothing, and stays.
+ */
+export async function authorBindings(
+  db: Pick<Database, "selectFrom">,
+  userId: string,
+): Promise<Binding[]> {
+  const active = await db
+    .selectFrom("users")
+    .select("id")
+    .where("id", "=", userId)
+    .where("disabledAt", "is", null)
+    .executeTakeFirst();
+  return active ? loadBindings(db, userId) : [];
 }
 
 /**
@@ -415,9 +434,9 @@ export async function gridChannelRights(
 }
 
 /**
- * Narrows bindings to what an API token allows: its bases only, and
- * viewer rights when it is read-only (of a made role, those it gives).
- * Session requests pass through.
+ * Narrows bindings to what an API token allows: its bases only, the roles
+ * that let a token in, and viewer rights when it is read-only (of a made
+ * role, those it gives). Session requests pass through.
  */
 export async function scopeBindings(
   db: Database,
@@ -452,6 +471,14 @@ export async function scopeBindings(
           : false,
     );
   }
+  // A token reaches only what a role lets a token reach (`api.access`). A
+  // table's role that does not still stands over the base's there: the
+  // table stays out of the token's reach rather than taking the base's.
+  list = list.flatMap((binding) => {
+    const role = tokenGiven(binding.role);
+    if (role === binding.role) return [binding];
+    return binding.scope === "base" ? [] : [{ ...binding, role }];
+  });
   if (scope.readOnly) {
     // A viewer's reach, and never more than the role gave.
     list = list.map((binding) => ({

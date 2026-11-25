@@ -1613,6 +1613,8 @@ test("an administrator makes a role, and whoever holds it does what it gives", a
   await page.getByLabel("Name", { exact: true }).fill(name);
   await expect(page.getByLabel("Read rows")).toBeChecked();
   await expect(page.getByLabel("Read rows")).toBeDisabled();
+  // A token's way in is chosen, never given with reading.
+  await expect(page.getByLabel("Reach by a token")).not.toBeChecked();
   expect(await accessibilityViolations(page)).toEqual([]);
   await page.getByRole("button", { name: "Create", exact: true }).click();
   await proveItIsYou(page);

@@ -138,6 +138,7 @@ const ERROR_MESSAGES: Record<ErrorCode, MessageDescriptor> = {
   no_row: msg`Row not found`,
   row_locked: msg`Row locked`,
   row_outside_rule: msg`This change would put the row outside what you can reach`,
+  copy_under_rules: msg`Your field or row rules on this table hide part of it: copy it without its rows`,
   invalid_place: msg`A row cannot be placed next to itself`,
   reason_required: msg`A reason is required`,
   already_member: msg`You already have a role on this base: open it as its member`,

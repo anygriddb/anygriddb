@@ -43,8 +43,11 @@ export async function issueAuthorizationCode(
   const baseIds = [...new Set(input.baseIds)];
   if (baseIds.length === 0) throw new AppError("invalid_input");
   const bindings = await loadBindings(db, userId);
+  // An application holds a token: it is given only bases whose role lets
+  // a token in.
   for (const baseId of baseIds) {
-    if (!roleGrants(roleFor(bindings, "base", baseId), "rows.read")) {
+    const role = roleFor(bindings, "base", baseId);
+    if (!roleGrants(role, "rows.read") || !roleGrants(role, "api.access")) {
       throw new AppError("access_denied");
     }
   }
