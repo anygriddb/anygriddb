@@ -8,6 +8,8 @@ first.
 
 ## Unreleased
 
+## 0.10.0 - 2026-11-25
+
 **Roles an administrator made: check them after the upgrade.** A token
 (an API token, MCP, an application given access) now reaches a base or a
 table only through a role that gives **Reach by a token**, and every way
@@ -79,7 +81,6 @@ ticked in Administration › People › Roles. Migration 0141.
 - Operator documentation is a runbook again: the historical migration plan is
   gone, and README, operations, sources, and MCP assume Docker and TLS are
   known.
-  ||||||| parent of cb8ff83c (refactor(web): say once how each field type is edited)
 
 ## 0.9.3 - 2026-11-25
 
