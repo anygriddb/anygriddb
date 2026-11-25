@@ -278,12 +278,12 @@ Add `rustfs/rustfs` when using `compose.s3.yml`.
 
 ### Imports / exports / snapshots / restore points
 
-| Limit             | Default                   | Range          | Notes                                               |
-| ----------------- | ------------------------- | -------------- | --------------------------------------------------- |
-| `IMPORT_MAX_ROWS` | 1_000_000                 | 100k–10M       | CSV/TSV 256 MiB, Excel 64, JSON 20; file kept ≤ 2 h |
-| `EXPORT_MAX_ROWS` | 1_000_000                 | 100k–10M       | export kept 24 h                                    |
-| Snapshot rows     | min of import/export caps | —              | archive ≤ 2 GiB; kept 24 h                          |
-| Restore points    | 20/base, 30 days (≤ 365)  | Admin Security | live with instance                                  |
+| Limit             | Default                   | Range          | Notes                                                                       |
+| ----------------- | ------------------------- | -------------- | --------------------------------------------------------------------------- |
+| `IMPORT_MAX_ROWS` | 1_000_000                 | 100k–10M       | 256 MiB for CSV and TSV, 64 MiB for Excel, 20 MiB for JSON; file kept ≤ 2 h |
+| `EXPORT_MAX_ROWS` | 1_000_000                 | 100k–10M       | export kept 24 h                                                            |
+| Snapshot rows     | min of import/export caps | —              | archive ≤ 2 GiB; kept 24 h                                                  |
+| Restore points    | 20/base, 30 days (≤ 365)  | Admin Security | live with instance                                                          |
 
 Imported snapshot history is not trusted: rows come back as drafts; claimed
 status/date refused. Restore points / base&table copies keep dates, authors,
@@ -643,19 +643,19 @@ scrape_configs:
       - targets: ["anygriddb.example.net:3000"]
 ```
 
-| Series                                                     | Meaning                                       |
-| ---------------------------------------------------------- | --------------------------------------------- |
-| `anygriddb_http_requests_total` / `_duration_seconds`      | HTTP by route                                 |
-| `anygriddb_trpc_procedure_duration_seconds`                | tRPC by procedure/outcome                     |
-| `anygriddb_db_pool_connections`                            | pool open/idle/waiting                        |
-| `anygriddb_db_query_duration_seconds`                      | own-DB query time (no statement label)        |
-| `anygriddb_database_size_bytes` / `_reachable`             | size; 0 if DB down (`/metrics` still answers) |
-| `anygriddb_source_operation_*`                             | client-DB ops                                 |
-| `anygriddb_job_duration_seconds` / `anygriddb_queue_jobs`  | jobs                                          |
-| `anygriddb_client_errors_total`                            | browser-reported failures                     |
-| `anygriddb_websocket_*`                                    | sockets / refusals                            |
-| `anygriddb_automation_scripts_total` / `_runs_paced_total` | scripts / pacing                              |
-| `anygriddb_acting_as_total` / `anygriddb_build_info`       | acting-as / version                           |
+| Series                                                                                 | Meaning                                       |
+| -------------------------------------------------------------------------------------- | --------------------------------------------- |
+| `anygriddb_http_requests_total`, `anygriddb_http_request_duration_seconds`             | HTTP by route                                 |
+| `anygriddb_trpc_procedure_duration_seconds`                                            | tRPC by procedure/outcome                     |
+| `anygriddb_db_pool_connections`                                                        | pool open/idle/waiting                        |
+| `anygriddb_db_query_duration_seconds`                                                  | own-DB query time (no statement label)        |
+| `anygriddb_database_size_bytes` / `_reachable`                                         | size; 0 if DB down (`/metrics` still answers) |
+| `anygriddb_source_operation_duration_seconds`, `anygriddb_source_operations_in_flight` | client-DB ops                                 |
+| `anygriddb_job_duration_seconds` / `anygriddb_queue_jobs`                              | jobs                                          |
+| `anygriddb_client_errors_total`                                                        | browser-reported failures                     |
+| `anygriddb_websocket_connections`, `anygriddb_websocket_refused_total`                 | sockets / refusals                            |
+| `anygriddb_automation_scripts_total`, `anygriddb_automation_runs_paced_total`          | scripts / pacing                              |
+| `anygriddb_acting_as_total` / `anygriddb_build_info`                                   | acting-as / version                           |
 
 Plus process/node defaults. Starter alerts:
 
