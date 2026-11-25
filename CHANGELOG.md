@@ -8,6 +8,11 @@ first.
 
 ## Unreleased
 
+## 0.9.3 - 2026-11-25
+
+**Upgrade with this release's Compose files and its pin, as usual. No
+migration; nothing to do before or after.**
+
 ### Fixed
 
 - A map with no basemap (no tile server named, the default) drew its rows
