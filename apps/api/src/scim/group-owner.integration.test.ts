@@ -48,32 +48,24 @@ describe("a base's last owner, through a group", () => {
     const created = await createTestDatabase("group_owner");
     db = created.db;
     close = created.close;
-    const env = {
-      AUTH_ENCRYPTION_KEY: keyRing(randomBytes(32)),
-      PUBLIC_URL: "https://grid.example.org",
-    } as unknown as Env;
     const browser = browserFactory({
       db: () => db,
-      env,
+      env: {
+        AUTH_ENCRYPTION_KEY: keyRing(randomBytes(32)),
+        PUBLIC_URL: "https://grid.example.org",
+      } as unknown as Env,
       hub: { closeUser: () => 0, closeAllBut: () => 0, closeSession: () => 0 },
     });
-    await browser().signUpFirst({
-      email: `ada-${suffix}@example.org`,
-      displayName: "Ada",
-      password: PASSWORD,
-    });
-    adminId = (
-      await db
-        .selectFrom("users")
-        .select("id")
-        .where("email", "=", `ada-${suffix}@example.org`)
-        .executeTakeFirstOrThrow()
-    ).id;
-    personId = await signUpProved(browser(), db, {
-      email: `bea-${suffix}@example.org`,
-      displayName: "Bea",
-      password: PASSWORD,
-    });
+    // Two accounts: the group's functions take who acts, not a session.
+    [adminId, personId] = await Promise.all(
+      ["ada", "bea"].map((name) =>
+        signUpProved(browser(), db, {
+          email: `${name}-${suffix}@example.org`,
+          displayName: name,
+          password: PASSWORD,
+        }),
+      ),
+    ).then(([ada = "", bea = ""]) => [ada, bea]);
     baseId = (await insertBase(db, adminId, { name: `Ledger ${suffix}` })).id;
     groupId = (
       await createLocalGroup(db, adminId, {

@@ -107,6 +107,23 @@ export async function syncGroupBindings(
   `.execute(tx);
 }
 
+/** Which of these bases have an owner, by any role of theirs or a group's. */
+async function basesWithOwner(
+  tx: AuditTx,
+  baseIds: readonly string[],
+): Promise<Set<string>> {
+  if (baseIds.length === 0) return new Set();
+  const rows = await tx
+    .selectFrom("roleBindings")
+    .select("scopeId")
+    .distinct()
+    .where("scope", "=", "base")
+    .where("scopeId", "in", baseIds)
+    .where("role", "=", "owner")
+    .execute();
+  return new Set(rows.map((row) => row.scopeId));
+}
+
 /**
  * The bases a group owns that have an owner now, their rows held until
  * the transaction ends, as a change to a base's members holds it: a change
@@ -116,36 +133,22 @@ async function ownedThroughGroup(
   tx: AuditTx,
   groupId: string,
 ): Promise<string[]> {
-  const owned = await tx
-    .selectFrom("groupRoles")
-    .select("baseId")
-    .where("groupId", "=", groupId)
-    .where("role", "=", "owner")
-    .execute();
-  if (owned.length === 0) return [];
   const bases = await tx
     .selectFrom("bases as b")
+    .innerJoin("groupRoles as r", "r.baseId", "b.id")
     .select("b.id")
-    .where(
-      "b.id",
-      "in",
-      owned.map((row) => row.baseId),
-    )
+    .where("r.groupId", "=", groupId)
+    .where("r.role", "=", "owner")
     .where(liveBase("b"))
     .orderBy("b.id")
-    .forUpdate()
+    .forUpdate("b")
     .execute();
-  const ids = bases.map((base) => base.id);
-  if (ids.length === 0) return [];
-  const held = await tx
-    .selectFrom("roleBindings")
-    .select("scopeId")
-    .distinct()
-    .where("scope", "=", "base")
-    .where("scopeId", "in", ids)
-    .where("role", "=", "owner")
-    .execute();
-  return held.map((row) => row.scopeId);
+  return [
+    ...(await basesWithOwner(
+      tx,
+      bases.map((base) => base.id),
+    )),
+  ];
 }
 
 /**
@@ -158,16 +161,8 @@ async function assertOwnersLeft(
   tx: AuditTx,
   baseIds: readonly string[],
 ): Promise<void> {
-  if (baseIds.length === 0) return;
-  const left = await tx
-    .selectFrom("roleBindings")
-    .select("scopeId")
-    .distinct()
-    .where("scope", "=", "base")
-    .where("scopeId", "in", baseIds)
-    .where("role", "=", "owner")
-    .execute();
-  if (left.length < new Set(baseIds).size) {
+  const owned = await basesWithOwner(tx, baseIds);
+  if (baseIds.some((id) => !owned.has(id))) {
     throw new AppError("invalid_owner");
   }
 }
