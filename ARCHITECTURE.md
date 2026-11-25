@@ -224,4 +224,4 @@ The stack is PostgreSQL and AnyGridDB, with files on the `files` volume. `compos
 
 Operator commands run in the API image as `anygriddb`: the first account's token, an administrator's way back in, the encryption keys, moving files between stores, a backup's report. [`docs/operations.md`](docs/operations.md) has each with its procedure.
 
-See also the [decision records](docs/adr/README.md), the [migration plan](docs/history/migration-plan.md), which is history, and [`OPEN_SOURCE_POLICY.md`](OPEN_SOURCE_POLICY.md).
+See also the [decision records](docs/adr/README.md) and [`OPEN_SOURCE_POLICY.md`](OPEN_SOURCE_POLICY.md).
