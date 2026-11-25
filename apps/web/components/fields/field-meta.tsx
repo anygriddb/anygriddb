@@ -29,41 +29,191 @@ import {
   type LucideIcon,
   MousePointerClick,
 } from "lucide-react";
+import {
+  FIELD_DEFINITIONS,
+  isRelationType,
+  type FieldType,
+} from "@anygriddb/core";
 import type { MessageDescriptor } from "@lingui/core";
 import { msg } from "@lingui/core/macro";
 
-const FIELD_ICONS: Record<string, LucideIcon> = {
-  text: Type,
-  long_text: Text,
-  number: Hash,
-  boolean: CheckSquare,
-  date: Calendar,
-  datetime: CalendarClock,
-  single_select: CircleDot,
-  multi_select: ListChecks,
-  email: AtSign,
-  url: Link2,
-  phone: Phone,
-  color: Palette,
-  place: MapPin,
-  json: Braces,
-  rating: Star,
-  duration: Timer,
-  user: Users,
-  attachment: Paperclip,
-  relation_one_to_many: Link2,
-  relation_many_to_many: Link2,
-  formula: FunctionSquare,
-  lookup: Search,
-  rollup: Sigma,
-  created_time: Clock,
-  last_modified_time: Clock,
-  created_by: User,
-  last_modified_by: UserCheck,
-  autonumber: Binary,
-  row_id: Fingerprint,
-  button: MousePointerClick,
-};
+/** What the rows of another table are, in the picker: a link to be made. */
+const LINKED_ROWS = msg`Rows of another table`;
+
+/**
+ * What a screen shows of each field type: its icon, its name (an English
+ * source, translated by `t` where it is shown), what it holds under its
+ * name in the picker, and the width its column starts at when not the
+ * usual. `satisfies Record<FieldType, …>` refuses a type left out.
+ */
+const FIELD_UI = {
+  text: { icon: Type, label: msg`Text`, description: msg`One line of text` },
+  long_text: {
+    icon: Text,
+    label: msg`Long text`,
+    description: msg`Paragraphs and notes`,
+    width: 260,
+  },
+  number: {
+    icon: Hash,
+    label: msg`Number`,
+    description: msg`Amounts, quantities, percentages`,
+    width: 120,
+  },
+  boolean: {
+    icon: CheckSquare,
+    label: msg`Checkbox`,
+    description: msg`Yes or no`,
+    width: 90,
+  },
+  date: {
+    icon: Calendar,
+    label: msg`Date`,
+    description: msg`A day`,
+    width: 130,
+  },
+  datetime: {
+    icon: CalendarClock,
+    label: msg`Date and time`,
+    description: msg`A day and a time`,
+    width: 170,
+  },
+  single_select: {
+    icon: CircleDot,
+    label: msg`Single select`,
+    description: msg`One option from a list`,
+  },
+  multi_select: {
+    icon: ListChecks,
+    label: msg`Multiple select`,
+    description: msg`Several options from a list`,
+  },
+  email: {
+    icon: AtSign,
+    label: msg`Email`,
+    description: msg`An email address, as a link`,
+  },
+  url: {
+    icon: Link2,
+    label: msg`URL`,
+    description: msg`A web address, as a link`,
+  },
+  phone: { icon: Phone, label: msg`Phone`, description: msg`A phone number` },
+  color: {
+    icon: Palette,
+    label: msg`Colour`,
+    description: msg`A colour, shown with its swatch`,
+  },
+  place: {
+    icon: MapPin,
+    label: msg`Place`,
+    description: msg`A point on the globe, which a map shows`,
+  },
+  json: {
+    icon: Braces,
+    label: msg`JSON`,
+    description: msg`An object or a list, which a formula reads into`,
+    width: 260,
+  },
+  rating: {
+    icon: Star,
+    label: msg`Rating`,
+    description: msg`A score drawn as symbols`,
+    width: 130,
+  },
+  duration: {
+    icon: Timer,
+    label: msg`Duration`,
+    description: msg`Hours and minutes`,
+    width: 110,
+  },
+  user: {
+    icon: Users,
+    label: msg`Collaborator`,
+    description: msg`People of the base`,
+  },
+  attachment: {
+    icon: Paperclip,
+    label: msg`Attachment`,
+    description: msg`Files and images`,
+  },
+  relation_one_to_many: {
+    icon: Link2,
+    label: msg`Link to a row`,
+    description: LINKED_ROWS,
+  },
+  relation_many_to_many: {
+    icon: Link2,
+    label: msg`Link to rows`,
+    description: LINKED_ROWS,
+  },
+  formula: {
+    icon: FunctionSquare,
+    label: msg`Formula`,
+    description: msg`Computed from other fields`,
+  },
+  lookup: {
+    icon: Search,
+    label: msg`Lookup`,
+    description: msg`A field of the linked rows`,
+  },
+  rollup: {
+    icon: Sigma,
+    label: msg`Rollup`,
+    description: msg`A total over the linked rows`,
+  },
+  created_time: {
+    icon: Clock,
+    label: msg`Created time`,
+    description: msg`When the row was created`,
+  },
+  last_modified_time: {
+    icon: Clock,
+    label: msg`Last modified time`,
+    description: msg`When the row last changed`,
+  },
+  created_by: {
+    icon: User,
+    label: msg`Created by`,
+    description: msg`Who created the row`,
+  },
+  last_modified_by: {
+    icon: UserCheck,
+    label: msg`Last modified by`,
+    description: msg`Who last changed the row`,
+  },
+  autonumber: {
+    icon: Binary,
+    label: msg`Autonumber`,
+    description: msg`A number given to each new row`,
+    width: 90,
+  },
+  row_id: {
+    icon: Fingerprint,
+    label: msg`Row id`,
+    description: msg`The id the API and links name the row by`,
+    width: 290,
+  },
+  button: {
+    icon: MousePointerClick,
+    label: msg`Button`,
+    description: msg`Opens a link or runs an action for the row`,
+  },
+} satisfies Record<
+  FieldType,
+  {
+    icon: LucideIcon;
+    label: MessageDescriptor;
+    description: MessageDescriptor;
+    width?: number;
+  }
+>;
+
+function uiOf(fieldType: string) {
+  return Object.hasOwn(FIELD_UI, fieldType)
+    ? FIELD_UI[fieldType as FieldType]
+    : undefined;
+}
 
 export function FieldIcon({
   fieldType,
@@ -72,7 +222,7 @@ export function FieldIcon({
   fieldType: string;
   className?: string;
 }) {
-  const Icon = FIELD_ICONS[fieldType] ?? List;
+  const Icon = uiOf(fieldType)?.icon ?? List;
   return (
     <Icon
       className={className ?? "h-3.5 w-3.5 shrink-0 opacity-60"}
@@ -82,70 +232,20 @@ export function FieldIcon({
 }
 
 /** English source labels, translated by `t` at the call site. */
-export const FIELD_LABELS: Record<string, MessageDescriptor> = {
-  text: msg`Text`,
-  long_text: msg`Long text`,
-  number: msg`Number`,
-  boolean: msg`Checkbox`,
-  date: msg`Date`,
-  datetime: msg`Date and time`,
-  single_select: msg`Single select`,
-  multi_select: msg`Multiple select`,
-  email: msg`Email`,
-  url: msg`URL`,
-  phone: msg`Phone`,
-  color: msg`Colour`,
-  place: msg`Place`,
-  json: msg`JSON`,
-  rating: msg`Rating`,
-  duration: msg`Duration`,
-  user: msg`Collaborator`,
-  attachment: msg`Attachment`,
-  relation_one_to_many: msg`Link to a row`,
-  relation_many_to_many: msg`Link to rows`,
-  formula: msg`Formula`,
-  lookup: msg`Lookup`,
-  rollup: msg`Rollup`,
-  created_time: msg`Created time`,
-  last_modified_time: msg`Last modified time`,
-  created_by: msg`Created by`,
-  last_modified_by: msg`Last modified by`,
-  autonumber: msg`Autonumber`,
-  row_id: msg`Row id`,
-  button: msg`Button`,
-};
+export const FIELD_LABELS: Readonly<Record<string, MessageDescriptor>> =
+  Object.fromEntries(
+    Object.entries(FIELD_UI).map(([type, ui]) => [type, ui.label]),
+  );
 
-/** What each type holds, in a few words, under its name in the picker. */
-export const FIELD_DESCRIPTIONS: Record<string, MessageDescriptor> = {
-  text: msg`One line of text`,
-  long_text: msg`Paragraphs and notes`,
-  email: msg`An email address, as a link`,
-  url: msg`A web address, as a link`,
-  phone: msg`A phone number`,
-  color: msg`A colour, shown with its swatch`,
-  place: msg`A point on the globe, which a map shows`,
-  json: msg`An object or a list, which a formula reads into`,
-  number: msg`Amounts, quantities, percentages`,
-  rating: msg`A score drawn as symbols`,
-  duration: msg`Hours and minutes`,
-  boolean: msg`Yes or no`,
-  date: msg`A day`,
-  datetime: msg`A day and a time`,
-  single_select: msg`One option from a list`,
-  multi_select: msg`Several options from a list`,
-  user: msg`People of the base`,
-  attachment: msg`Files and images`,
-  link: msg`Rows of another table`,
-  lookup: msg`A field of the linked rows`,
-  rollup: msg`A total over the linked rows`,
-  formula: msg`Computed from other fields`,
-  created_time: msg`When the row was created`,
-  last_modified_time: msg`When the row last changed`,
-  created_by: msg`Who created the row`,
-  last_modified_by: msg`Who last changed the row`,
-  autonumber: msg`A number given to each new row`,
-  row_id: msg`The id the API and links name the row by`,
-  button: msg`Opens a link or runs an action for the row`,
+/**
+ * What each type holds, in a few words, under its name in the picker; a
+ * link to be made is offered as `link`.
+ */
+export const FIELD_DESCRIPTIONS: Readonly<Record<string, MessageDescriptor>> = {
+  ...Object.fromEntries(
+    Object.entries(FIELD_UI).map(([type, ui]) => [type, ui.description]),
+  ),
+  link: LINKED_ROWS,
 };
 
 export const FIELD_GROUPS: Array<{
@@ -187,37 +287,20 @@ export const FIELD_GROUPS: Array<{
   },
 ];
 
-export const DEFAULT_WIDTH: Record<string, number> = {
-  boolean: 90,
-  rating: 130,
-  number: 120,
-  autonumber: 90,
-  row_id: 290,
-  date: 130,
-  datetime: 170,
-  long_text: 260,
-  json: 260,
-  duration: 110,
-};
-
-export function isComputedField(fieldType: string): boolean {
-  return (
-    fieldType === "formula" ||
-    fieldType === "lookup" ||
-    fieldType === "rollup" ||
-    fieldType === "created_time" ||
-    fieldType === "last_modified_time" ||
-    fieldType === "created_by" ||
-    fieldType === "last_modified_by" ||
-    fieldType === "autonumber" ||
-    fieldType === "row_id" ||
-    fieldType === "button"
+export const DEFAULT_WIDTH: Readonly<Record<string, number>> =
+  Object.fromEntries(
+    Object.entries(FIELD_UI).flatMap(([type, ui]) =>
+      "width" in ui ? [[type, ui.width]] : [],
+    ),
   );
+
+/** A field nobody types into: computed, kept by the system, or a button. */
+export function isComputedField(fieldType: string): boolean {
+  if (!Object.hasOwn(FIELD_DEFINITIONS, fieldType)) return false;
+  const { role } = FIELD_DEFINITIONS[fieldType as FieldType].physical;
+  return role === "computed" || role === "system" || role === "virtual";
 }
 
 export function isLinkField(fieldType: string): boolean {
-  return (
-    fieldType === "relation_one_to_many" ||
-    fieldType === "relation_many_to_many"
-  );
+  return isRelationType(fieldType as FieldType);
 }
