@@ -4,7 +4,6 @@ import {
   readCellValue,
   MAX_CELL_FILES,
   parseColor,
-  prettyJson,
 } from "@anygriddb/core";
 import {
   Avatar,
@@ -41,11 +40,7 @@ import {
   startingPoint,
   toDateValue,
 } from "../../lib/dates";
-import {
-  editableNumber,
-  readingIn,
-  useRefusedText,
-} from "../../lib/cell-reading";
+import { readingIn, useRefusedText } from "../../lib/cell-reading";
 import { attachmentList, isLinkArray } from "../../lib/format";
 import { useLocale } from "../../lib/i18n";
 import { useFormatBytes } from "../../lib/format-bytes";
@@ -61,6 +56,7 @@ import {
   singleSelectAppearance,
 } from "./field-appearance";
 import { RatingControl } from "./rating-control";
+import { editableText, editingOf, type Typing } from "./field-editing";
 import { AttachmentPreview } from "./attachment-preview";
 import { linkedRowDraft } from "./link-actions";
 import { panelPlacement, visibleBox, type Placement } from "./panel-placement";
@@ -102,27 +98,6 @@ function toCellColumn(column: CatalogColumn) {
   };
 }
 
-/** Text shown in an input when editing an existing value. */
-function editableText(
-  value: unknown,
-  column: CatalogColumn,
-  locale: "fr" | "en",
-): string {
-  if (value === null || value === undefined) return "";
-  // Read back in the same language: `1.234` is written `1,234` in French.
-  if (column.fieldType === "number") {
-    return editableNumber(cellText(value), locale);
-  }
-  if (column.fieldType === "duration" && typeof value === "number") {
-    const hours = Math.floor(value / 3600);
-    const minutes = Math.floor((value % 3600) / 60);
-    return `${hours}:${String(minutes).padStart(2, "0")}`;
-  }
-  // A document is edited laid out, a member a line.
-  if (column.fieldType === "json") return prettyJson(cellText(value));
-  return cellText(value);
-}
-
 /**
  * The keys that end an edit, read before the field sees them: Escape
  * leaves the value as it was, Enter keeps it and goes down, Tab keeps it
@@ -152,10 +127,11 @@ const INLINE_EDITOR_CLASS =
 function InlineEditor({
   column,
   row,
+  typing,
   initialText,
   onDraft,
   onDone,
-}: EditorProps) {
+}: EditorProps & { typing: Typing }) {
   const { t } = useLingui();
   const { locale } = useLocale();
   const refusedText = useRefusedText();
@@ -165,11 +141,10 @@ function InlineEditor({
   const pickerRef = useRef<HTMLInputElement>(null);
   const current = row[column.name as keyof RowItem];
   const [text, setText] = useState(
-    initialText ?? editableText(current, column, locale),
+    initialText ?? editableText(current, column.fieldType, locale),
   );
   const committed = useRef(false);
-  const multiline =
-    column.fieldType === "long_text" || column.fieldType === "json";
+  const multiline = typing.lines === "many";
   const invalid =
     text.trim() !== "" &&
     coerceCellValue(toCellColumn(column), text, readingIn(locale)) ===
@@ -198,7 +173,7 @@ function InlineEditor({
   async function commit(move?: Move) {
     if (committed.current) return;
     committed.current = true;
-    const original = editableText(current, column, locale);
+    const original = editableText(current, column.fieldType, locale);
     if (text === original) {
       onDone(move);
       return;
@@ -241,13 +216,6 @@ function InlineEditor({
     });
   }
 
-  const inputType =
-    column.fieldType === "email"
-      ? "email"
-      : column.fieldType === "url"
-        ? "url"
-        : "text";
-
   const shared = {
     value: text,
     "aria-label": column.label,
@@ -268,13 +236,13 @@ function InlineEditor({
         className={cn(
           INLINE_EDITOR_CLASS,
           "bottom-auto h-40 py-1.5",
-          column.fieldType === "json" && "font-mono text-xs",
+          typing.code && "font-mono text-xs",
         )}
-        spellCheck={column.fieldType === "json" ? false : undefined}
+        spellCheck={typing.code ? false : undefined}
       />
     );
   }
-  if (column.fieldType === "color") {
+  if (typing.swatch) {
     // A colour is typed, or picked: the picker writes what is typed, and
     // going from one to the other does not end the edit.
     return (
@@ -314,8 +282,8 @@ function InlineEditor({
       ref={ref}
       {...shared}
       className={cn(INLINE_EDITOR_CLASS, invalid && "border-danger")}
-      type={inputType}
-      inputMode={column.kind === "number" ? "decimal" : undefined}
+      type={typing.input}
+      inputMode={typing.digits ? "decimal" : undefined}
     />
   );
 }
@@ -328,14 +296,14 @@ function InlineEditor({
 function DateEditor({
   column,
   row,
+  withTime,
   initialText,
   onDraft,
   onDone,
-}: EditorProps) {
+}: EditorProps & { withTime: boolean }) {
   const { t } = useLingui();
   const { updateCells, locale } = useTable();
   const seen = useSeenAtOpen(row, column);
-  const withTime = column.fieldType === "datetime";
   const format = dateFormatOf(column);
   const zone = editZone(format);
   const current = row[column.name as keyof RowItem];
@@ -625,11 +593,15 @@ function ListPanel({
   );
 }
 
-function SelectEditor({ column, row, onDone }: EditorProps) {
+function SelectEditor({
+  column,
+  row,
+  multiple,
+  onDone,
+}: EditorProps & { multiple: boolean }) {
   const { t } = useLingui();
   const { updateCells } = useTable();
   const [query, setQuery] = useState("");
-  const multiple = column.fieldType === "multi_select";
   const current = row[column.name as keyof RowItem];
   const pickedOf = (value: typeof current) =>
     Array.isArray(value) ? value.map(String) : value ? [cellText(value)] : [];
@@ -1093,36 +1065,31 @@ function AttachmentEditor({ column, row, onDone }: EditorProps) {
   );
 }
 
-/** Picks the editor for a column type. Booleans toggle without an editor. */
+/**
+ * The editor of a field, by how its type is edited (`editingOf`). A
+ * checkbox is ticked where it is drawn; a button, a computed field and a
+ * field kept by the system have none.
+ */
 export function CellEditor(props: EditorProps) {
-  switch (props.column.fieldType) {
-    case "single_select":
-    case "multi_select":
-      return <SelectEditor {...props} />;
-    case "user":
+  const editing = editingOf(props.column.fieldType);
+  switch (editing.by) {
+    case "typing":
+      return <InlineEditor {...props} typing={editing} />;
+    case "options":
+      return <SelectEditor {...props} multiple={editing.multiple === true} />;
+    case "people":
       return <UserEditor {...props} />;
-    case "relation_one_to_many":
-    case "relation_many_to_many":
+    case "links":
       return <LinkEditor {...props} />;
-    case "attachment":
+    case "files":
       return <AttachmentEditor {...props} />;
     case "date":
-    case "datetime":
-      return <DateEditor {...props} />;
+      return <DateEditor {...props} withTime={editing.time === true} />;
     case "rating":
       return <RatingEditor {...props} />;
-    default:
-      return <InlineEditor {...props} />;
+    case "checkbox":
+    case "button":
+    case "none":
+      return null;
   }
-}
-
-export function opensPanel(fieldType: string): boolean {
-  return [
-    "single_select",
-    "multi_select",
-    "user",
-    "relation_one_to_many",
-    "relation_many_to_many",
-    "attachment",
-  ].includes(fieldType);
 }

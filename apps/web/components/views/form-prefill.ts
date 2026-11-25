@@ -1,4 +1,5 @@
 import type { CatalogColumn } from "../../lib/types";
+import { editingOf } from "../fields/field-editing";
 
 type FormValue = string | string[] | boolean;
 
@@ -22,22 +23,22 @@ function inputValue(
   column: CatalogColumn,
   text: string,
 ): FormValue | undefined {
-  switch (column.fieldType) {
-    case "boolean": {
+  const editing = editingOf(column.fieldType);
+  switch (editing.by) {
+    case "checkbox": {
       const word = text.trim().toLowerCase();
       if (TRUE_WORDS.has(word)) return true;
       if (FALSE_WORDS.has(word)) return false;
       return undefined;
     }
-    case "single_select":
-      return pick(optionNames(column), text);
-    case "multi_select": {
+    case "options": {
       const names = optionNames(column);
+      if (!editing.multiple) return pick(names, text);
       const chosen = text.split(",").flatMap((part) => pick(names, part) ?? []);
       return chosen.length > 0 ? [...new Set(chosen)] : undefined;
     }
-    case "user":
-    case "attachment":
+    case "people":
+    case "files":
       // People and files are chosen, not typed in a link.
       return undefined;
     default:

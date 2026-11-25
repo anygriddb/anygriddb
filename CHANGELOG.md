@@ -47,6 +47,11 @@ ticked in Administration › People › Roles. Migration 0141.
   statuses cannot hold: it keeps the compliance circuit.
 - A refused step says why: a second person is needed (four eyes), the
   signature's meaning is missing, or a token cannot sign.
+- A duration opened to be edited shows its seconds too: an edit started
+  from the hours and minutes alone, and a change wrote the seconds away.
+- On a phone, a form asks a web address and a phone number with the
+  keyboard for each, as the grid does (a phone number there too), and a
+  duration, typed as hours and minutes, with a keyboard that has a colon.
 
 ### Security
 
@@ -69,6 +74,7 @@ ticked in Administration › People › Roles. Migration 0141.
 - Operator documentation is a runbook again: the historical migration plan is
   gone, and README, operations, sources, and MCP assume Docker and TLS are
   known.
+  ||||||| parent of cb8ff83c (refactor(web): say once how each field type is edited)
 
 ## 0.9.3 - 2026-11-25
 

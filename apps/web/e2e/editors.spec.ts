@@ -404,6 +404,12 @@ test("the grid, the record panel, and a form pass axe and work by keyboard", asy
     .click();
   const due = page.getByRole("group", { name: "Due" });
   await expect(due).toBeVisible();
+  // A web address is asked as one, as the grid asks it: a phone offers
+  // its keyboard for addresses.
+  await expect(page.getByLabel("Page", { exact: true })).toHaveAttribute(
+    "type",
+    "url",
+  );
   // A form draws no row: its bar keeps what acts on the table, and none
   // of what chooses or arranges rows.
   await expect(

@@ -13,6 +13,7 @@ import {
 import { useLocale } from "../../lib/i18n";
 import { readTypedDate, UNREADABLE_DATE } from "../../lib/typed-date";
 import type { CatalogColumn } from "../../lib/types";
+import { editingOf } from "../fields/field-editing";
 
 /**
  * A date of a form, of a public link, or of a new row. What was typed is
@@ -42,7 +43,8 @@ export function FormDate({
 }) {
   const { t } = useLingui();
   const { locale } = useLocale();
-  const withTime = column.fieldType === "datetime";
+  const editing = editingOf(column.fieldType);
+  const withTime = editing.by === "date" && editing.time === true;
   const format = dateFormatOf(column);
   const zone = editZone(format);
   const box = useRef<HTMLDivElement>(null);

@@ -26,6 +26,7 @@ import {
   useAnswerProblemText,
 } from "../views/form-field";
 import { FieldInput, FORM_TIME_ZONE, formKinds } from "../views/form-view";
+import { blankAnswer, editingOf } from "../fields/field-editing";
 import { plural } from "@lingui/core/macro";
 import { useLingui } from "@lingui/react/macro";
 import { refusedAs, useErrorText } from "../../lib/errors";
@@ -157,8 +158,10 @@ function PublicForm({
       { kinds: formKinds(columns), timeZone: FORM_TIME_ZONE },
     ),
   );
+  // Nobody's people are shown to a stranger: a link asks for none.
   const usable = columns.filter(
-    (column) => column.fieldType !== "user" && visible.has(column.name),
+    (column) =>
+      editingOf(column.fieldType).by !== "people" && visible.has(column.name),
   );
   async function submit(event: SubmitEvent) {
     event.preventDefault();
@@ -272,14 +275,7 @@ function PublicForm({
                   described={Boolean(field?.description || column.description)}
                   invalid={Boolean(problems[column.name])}
                   people={NO_PEOPLE}
-                  value={
-                    values[column.name] ??
-                    (column.fieldType === "multi_select"
-                      ? []
-                      : column.fieldType === "boolean"
-                        ? false
-                        : "")
-                  }
+                  value={values[column.name] ?? blankAnswer(column.fieldType)}
                   onChange={(value) => answer(column.name, value)}
                 />
               )}

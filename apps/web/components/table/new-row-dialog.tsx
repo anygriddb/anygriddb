@@ -13,6 +13,7 @@ import { useEffect, useState, type SubmitEvent } from "react";
 import { useTRPC } from "../../lib/trpc";
 import type { CatalogColumn } from "../../lib/types";
 import { isComputedField, isLinkField } from "../fields/field-meta";
+import { blankAnswer, editingOf, type Editing } from "../fields/field-editing";
 import { readFormAnswers } from "../views/form-answers";
 import {
   FormField,
@@ -25,24 +26,16 @@ import { useTable } from "./table-context";
 
 type Draft = string | string[] | boolean;
 
-/** Field types the dialog has an input for. */
-const INPUTS = new Set([
-  "text",
-  "long_text",
-  "number",
-  "boolean",
+/**
+ * What the dialog asks: what is typed, picked on a calendar, among stars
+ * or options, or ticked. People and files are given to a row that exists.
+ */
+const INPUTS: ReadonlySet<Editing["by"]> = new Set([
+  "typing",
   "date",
-  "datetime",
-  "single_select",
-  "multi_select",
-  "email",
-  "url",
-  "phone",
-  "color",
-  "place",
-  "json",
   "rating",
-  "duration",
+  "options",
+  "checkbox",
 ]);
 
 /** A link the new row holds itself: a client's own foreign key. */
@@ -70,7 +63,8 @@ export function newRowFields(
       column.insertable &&
       !column.error &&
       !isComputedField(column.fieldType) &&
-      (INPUTS.has(column.fieldType) || (external && isForwardLink(column))),
+      (INPUTS.has(editingOf(column.fieldType).by) ||
+        (external && isForwardLink(column))),
   );
 }
 
@@ -268,14 +262,7 @@ export function NewRowDialog(props: {
                   column={column}
                   required={column.required}
                   invalid={Boolean(problems[column.name])}
-                  value={
-                    values[column.name] ??
-                    (column.fieldType === "multi_select"
-                      ? []
-                      : column.fieldType === "boolean"
-                        ? false
-                        : "")
-                  }
+                  value={values[column.name] ?? blankAnswer(column.fieldType)}
                   onChange={(value) => answer(column.name, value)}
                   people={people}
                 />
