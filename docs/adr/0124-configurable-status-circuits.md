@@ -1,6 +1,7 @@
 # 0124 — Configurable status circuits
 
-- Status: Accepted
+- Status: Accepted, amended by 0130 (who takes a step, what the code
+  holds of this record and what is still to do)
 - Date: 2026-11-24
 
 ## Context

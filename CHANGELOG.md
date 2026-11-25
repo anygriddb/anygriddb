@@ -20,6 +20,34 @@ four only while it holds all that role gives, so it needs **Reach by a
 token** too before it can give a viewer, a commenter or an editor.
 Migration 0140; nothing to do before.
 
+**Made roles that took circuit steps:** a step now asks **Take a circuit's
+steps**, which an editor's and an owner's roles give. A made role that
+wrote rows or locked them takes no step after the upgrade until it is
+ticked in Administration › People › Roles. Migration 0141.
+
+### Added
+
+- "May validate" without editing or locking: a circuit's step can name a
+  made role, and a role of reading and taking steps then takes it (ADR 0130).
+- A step through the REST API (`POST …/records/:id/transition`) and MCP
+  (`transition_record`); the API's document names each table's states and
+  steps. A step that asks a signature is taken in the application.
+- An automation can start when a row takes a step, any or the one named; a
+  webhook's payload says the states a step moved between, and its key.
+- A step signed with `step_up` takes a code of the signer's authenticator as
+  well as their password.
+
+### Fixed
+
+- A step that required fields was always refused: they were read from
+  values nothing sent, not from the row.
+- A signed step that also asked a reason opened the signature without the
+  reason, and was refused; the dialog now asks both.
+- A table of a client's database could be given a circuit whose states its
+  statuses cannot hold: it keeps the compliance circuit.
+- A refused step says why: a second person is needed (four eyes), the
+  signature's meaning is missing, or a token cannot sign.
+
 ### Security
 
 - A role without Export could still take rows out: its tokens read every

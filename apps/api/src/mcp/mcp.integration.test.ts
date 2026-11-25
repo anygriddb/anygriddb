@@ -146,6 +146,7 @@ describe("the MCP server", () => {
       "list_bases",
       "list_records",
       "list_tables",
+      "transition_record",
       "update_records",
     ]);
     const read = tools.find((tool) => tool.name === "list_records");

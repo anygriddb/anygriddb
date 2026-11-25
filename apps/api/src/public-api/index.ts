@@ -9,6 +9,8 @@ export {
   openApiDocument,
   presentRecord,
   recordIds,
+  transitionBodySchema,
+  transitionRecord,
   updateRecords,
   writeBodySchema,
   type WriteOrigin,

@@ -63,6 +63,8 @@ export function buildOpenApi(
     /** A client's table: ids are its key, and writes compare what was read. */
     external?: boolean;
     columns: ReturnType<typeof publicColumns>;
+    /** The keys of its circuit's states and steps; compliance's otherwise. */
+    circuit?: { states: string[]; steps: string[] };
   }>,
   serverUrl: string,
 ) {
@@ -229,7 +231,13 @@ export function buildOpenApi(
         lastModifiedTime: { type: "string", format: "date-time" },
         status: {
           type: "string",
-          enum: ["draft", "submitted", "locked", "signed"],
+          description: "The record's state in its table's circuit",
+          enum: table.circuit?.states ?? [
+            "draft",
+            "submitted",
+            "locked",
+            "signed",
+          ],
         },
         fields: { $ref: `#/components/schemas/${schemaName}` },
       },
@@ -360,6 +368,44 @@ export function buildOpenApi(
             description: "Record",
             content: { "application/json": { schema: record } },
           },
+          ...errors,
+        },
+      },
+    };
+    paths[`/tables/${table.id}/records/{recordId}/transition`] = {
+      post: {
+        summary: `Take a step of a ${table.name} record's circuit`,
+        description:
+          "Moves the record by one step of its table's circuit, for the caller's roles. A step that asks a signature is taken in the application.",
+        tags: [table.name],
+        parameters: [
+          { name: "recordId", in: "path", required: true, schema: recordId },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["transition"],
+                properties: {
+                  transition: {
+                    type: "string",
+                    enum: table.circuit?.steps ?? [
+                      "submit",
+                      "lock",
+                      "sign",
+                      "unlock",
+                    ],
+                  },
+                  reason: { type: "string", maxLength: 500 },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          "200": { description: "The state the record left and took" },
           ...errors,
         },
       },

@@ -42,6 +42,7 @@ import { type ScriptSecret, scriptHost } from "./automation-scripts/host.js";
 import { ScriptFailure, ScriptRunner } from "./automation-scripts/sandbox.js";
 import { withAudit, type AuditTx } from "./data/audit-context.js";
 import { loadEngine, type TableRow } from "./data/engine.js";
+import { loadTableCircuit } from "./data/status-circuits.js";
 import {
   listCollaborators,
   readPage,
@@ -1694,6 +1695,22 @@ async function matchAutomations(
       case "row_deleted":
         fire = event.event === "delete";
         break;
+      case "step_taken": {
+        if (event.event !== "status" || !event.status) break;
+        if (!trigger.transition) {
+          fire = true;
+          break;
+        }
+        const { from, to } = event.status;
+        const circuit = await loadTableCircuit(deps.db, event.tableId);
+        fire = circuit.transitions.some(
+          (step) =>
+            step.key === trigger.transition &&
+            step.fromStateKey === from &&
+            step.toStateKey === to,
+        );
+        break;
+      }
       case "schedule":
       case "button":
       case "webhook":

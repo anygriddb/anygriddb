@@ -36,6 +36,8 @@ const RANK_BEFORE: Record<Permission, number> = {
   "api.access": 1,
   "rows.comment": 2,
   "rows.write": 3,
+  // An editor submitted a draft, its first step, before it was named.
+  "rows.transition": 3,
   "rows.delete": 3,
   "data.import": 3,
   publish: 3,

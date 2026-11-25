@@ -1542,6 +1542,10 @@ msgstr "A row meets a condition"
 msgid "A row outside this selection cannot be linked; links already in place stay."
 msgstr "A row outside this selection cannot be linked; links already in place stay."
 
+#: components/table/automations-dialog.tsx
+msgid "A row takes a step of its circuit"
+msgstr "A row takes a step of its circuit"
+
 #: components/settings/table-rules-panel.tsx
 msgid "A row that does not match is hidden from this member in every view, export, and answer of the API. “Me”, in a collaborator field, keeps each person to their own rows."
 msgstr "A row that does not match is hidden from this member in every view, export, and answer of the API. “Me”, in a collaborator field, keeps each person to their own rows."
@@ -1658,6 +1662,10 @@ msgstr "A starting point is not applied when the tables live in a source. Create
 #: lib/errors.ts
 msgid "A table already has this name"
 msgstr "A table already has this name"
+
+#: lib/errors.ts
+msgid "A table of a client's database keeps the compliance circuit"
+msgstr "A table of a client's database keeps the compliance circuit"
 
 #: components/settings/base-settings.tsx
 msgid "A table override replaces the base role either way. A member's permissions then narrow the rows they see and what they may do with each field."
@@ -2483,6 +2491,10 @@ msgstr "Any address"
 #: components/table/automations-dialog.tsx
 msgid "Any form of the table"
 msgstr "Any form of the table"
+
+#: components/table/automations-dialog.tsx
+msgid "Any step"
+msgstr "Any step"
 
 #: components/fields/field-link-settings.tsx
 msgid "Any true"
@@ -8752,6 +8764,10 @@ msgstr "Options"
 msgid "or"
 msgstr "or"
 
+#: components/record/row-status.tsx
+msgid "Or a code of your authenticator"
+msgstr "Or a code of your authenticator"
+
 #: components/shell/new-base-dialog.tsx
 msgid "Or import a base:"
 msgstr "Or import a base:"
@@ -9428,6 +9444,7 @@ msgstr "Realtime"
 #: components/admin/give-base-role.tsx
 #: components/admin/open-base.tsx
 #: components/admin/trails.tsx
+#: components/record/row-status.tsx
 msgid "Reason"
 msgstr "Reason"
 
@@ -10435,6 +10452,10 @@ msgstr "Saved. Restart the process before traces use this endpoint."
 msgid "Saving…"
 msgstr "Saving…"
 
+#: lib/errors.ts
+msgid "Say what the signature commits you to"
+msgstr "Say what the signature commits you to"
+
 #: components/views/timeline-view.tsx
 msgid "Scale"
 msgstr "Scale"
@@ -11077,6 +11098,10 @@ msgstr "Sign out, sign in again, and do this within five minutes: your sign-in i
 msgid "Sign out, sign in again, and do this within ten minutes: your sign-in is the proof it asks for."
 msgstr "Sign out, sign in again, and do this within ten minutes: your sign-in is the proof it asks for."
 
+#: lib/errors.ts
+msgid "Sign this step in the application: a token cannot sign"
+msgstr "Sign this step in the application: a token cannot sign"
+
 #: components/admin/security-tab.tsx
 #: components/admin/sign-in-trail.tsx
 msgid "Sign-in addresses"
@@ -11291,6 +11316,10 @@ msgstr "Someone holds this role, or an invitation waits with it: give them anoth
 msgid "Someone made an owner"
 msgstr "Someone made an owner"
 
+#: lib/errors.ts
+msgid "Someone other than whoever took the last step must take this one"
+msgstr "Someone other than whoever took the last step must take this one"
+
 #: components/admin/account-handoff.tsx
 msgid "Someone who stays becomes an owner of the bases {name} alone owns, and the author of the automations and webhooks {name} made, where they may manage them. {name}'s account and roles are left as they are."
 msgstr "Someone who stays becomes an owner of the bases {name} alone owns, and the author of the automations and webhooks {name} made, where they may manage them. {name}'s account and roles are left as they are."
@@ -11469,6 +11498,10 @@ msgstr "Status circuit"
 #: components/settings/status-circuit-panel.tsx
 msgid "Status circuit updated"
 msgstr "Status circuit updated"
+
+#: components/table/automations-dialog.tsx
+msgid "Step"
+msgstr "Step"
 
 #: components/shell/welcome-page.tsx
 msgid "Steps"
@@ -11765,6 +11798,14 @@ msgstr "Tables you create, and the columns you add to them, are written in a sch
 #: components/admin/permission-labels.ts
 msgid "Tables, folders, fields, status circuits and locked views."
 msgstr "Tables, folders, fields, status circuits and locked views."
+
+#: components/admin/permission-labels.ts
+msgid "Take a circuit's steps"
+msgstr "Take a circuit's steps"
+
+#: components/admin/permission-labels.ts
+msgid "Take the steps of a table's circuit that name this role, or the role of owners or editors it stands for. Validating needs no right to edit or lock."
+msgstr "Take the steps of a table's circuit that name this role, or the role of owners or editors it stands for. Validating needs no right to edit or lock."
 
 #: components/table/view-toolbar.tsx
 msgid "Tall"
@@ -14691,6 +14732,10 @@ msgstr "Your second factors removed"
 #: components/settings/account-settings.tsx
 msgid "Your sign-in is the proof here: sign out, sign in again, and delete within ten minutes."
 msgstr "Your sign-in is the proof here: sign out, sign in again, and delete within ten minutes."
+
+#: components/record/row-status.tsx
+msgid "Your signature commits you: enter your password again, or a code of your authenticator."
+msgstr "Your signature commits you: enter your password again, or a code of your authenticator."
 
 #: components/record/row-status.tsx
 msgid "Your signature commits you: enter your password again."

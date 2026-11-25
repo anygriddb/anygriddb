@@ -13,8 +13,17 @@ export const PERMISSIONS = [
   "rows.write",
   /** Move rows to the trash. */
   "rows.delete",
-  /** Lock, sign and unlock rows. */
+  /**
+   * Take the steps a circuit gives owners: lock, sign and unlock on the
+   * compliance circuit (ADR 0124).
+   */
   "rows.lock",
+  /**
+   * Take a step of a table's circuit at all: a step then names who takes
+   * it, one of the four or a made role (ADR 0130). So "may validate" is
+   * given without writing rows or locking them.
+   */
+  "rows.transition",
   /**
    * Rows taken out of the base: files of rows, calendar feeds, a base's
    * snapshot and copies, links that show rows, webhooks, and automations
@@ -57,6 +66,7 @@ const COMMENTER: readonly Permission[] = [...VIEWER, "rows.comment"];
 const EDITOR: readonly Permission[] = [
   ...COMMENTER,
   "rows.write",
+  "rows.transition",
   "rows.delete",
   "data.import",
   "publish",

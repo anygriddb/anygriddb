@@ -25,6 +25,7 @@ import {
   type PublicApiDeps,
   recordIds,
   recordQuerySchema,
+  transitionRecord,
   updateRecords,
 } from "./public-api/index.js";
 
@@ -200,6 +201,20 @@ export function registerRestApi(app: FastifyInstance, deps: Deps): void {
         reasonOf(request),
       );
     }),
+  );
+
+  app.post(
+    "/api/v1/tables/:tableId/records/:recordId/transition",
+    (request, reply) =>
+      run(request, reply, deps, async (actor) => {
+        const { tableId } = read(tableParams, request.params);
+        const { recordId } = read(
+          z.object({ recordId: rowIdSchema }),
+          request.params,
+          "invalid_record_id",
+        );
+        return transitionRecord(shared, actor, tableId, recordId, request.body);
+      }),
   );
 
   app.delete("/api/v1/tables/:tableId/records", (request, reply) =>

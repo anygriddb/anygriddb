@@ -1092,7 +1092,8 @@ export interface StatusStates {
 }
 
 export interface StatusTransitionGrants {
-  roleKey: string;
+  madeRoleId: string | null;
+  roleKey: string | null;
   transitionId: string;
 }
 

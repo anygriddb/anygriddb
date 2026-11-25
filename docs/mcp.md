@@ -15,20 +15,23 @@ HTTP. AnyGridDB embeds no model and calls no outside AI (ADR 0040).
 
 ## Tools
 
-| Tool             | Does                                       | REST equivalent                          |
-| ---------------- | ------------------------------------------ | ---------------------------------------- |
-| `list_bases`     | Bases the token reaches, with the role     | `GET /api/v1/bases`                      |
-| `list_tables`    | A base's tables and their fields           | `GET /api/v1/bases/:baseId/tables`       |
-| `get_openapi`    | A base's OpenAPI 3.1 document              | `GET /api/v1/bases/:baseId/openapi.json` |
-| `list_records`   | A page of rows: view, sort, filter, search | `GET /api/v1/tables/:tableId/records`    |
-| `get_record`     | One row                                    | `GET …/records/:id`                      |
-| `create_records` | Up to 100 rows                             | `POST …/records`                         |
-| `update_records` | Up to 100 rows, each with its id           | `PATCH …/records`                        |
-| `delete_records` | Up to 100 rows by id                       | `DELETE …/records`                       |
+| Tool                | Does                                       | REST equivalent                          |
+| ------------------- | ------------------------------------------ | ---------------------------------------- |
+| `list_bases`        | Bases the token reaches, with the role     | `GET /api/v1/bases`                      |
+| `list_tables`       | A base's tables and their fields           | `GET /api/v1/bases/:baseId/tables`       |
+| `get_openapi`       | A base's OpenAPI 3.1 document              | `GET /api/v1/bases/:baseId/openapi.json` |
+| `list_records`      | A page of rows: view, sort, filter, search | `GET /api/v1/tables/:tableId/records`    |
+| `get_record`        | One row                                    | `GET …/records/:id`                      |
+| `create_records`    | Up to 100 rows                             | `POST …/records`                         |
+| `update_records`    | Up to 100 rows, each with its id           | `PATCH …/records`                        |
+| `delete_records`    | Up to 100 rows by id                       | `DELETE …/records`                       |
+| `transition_record` | One row's step of its table's circuit      | `POST …/records/:id/transition`          |
 
 Read-only → read tools only. No deletes on token → no `delete_records`.
 Writes use the same service as the grid (locks, signatures, trail, live
-updates). Schema / views / members / settings out of reach.
+updates). Schema / views / members / settings out of reach. A step
+that asks a signature is taken in the application: a token proves
+nothing of its holder.
 
 ## Errors
 

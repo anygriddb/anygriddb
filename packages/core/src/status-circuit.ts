@@ -33,8 +33,10 @@ export type StatusTransition = {
   signature: TransitionSignature;
   fourEyes: boolean;
   position: number;
-  /** Ladder / shipped role keys that may fire this transition. */
+  /** The four roles that may take it, by their keys. */
   roleKeys: string[];
+  /** The made roles that may take it (ADR 0130). */
+  madeRoleIds: string[];
 };
 
 export type StatusCircuit = {
@@ -79,6 +81,23 @@ export function stateByKey(
   return circuit.states.find((item) => item.key === key);
 }
 
+/**
+ * The step a row took between two states, as the circuit names it: the
+ * first of its steps from one to the other, or null.
+ */
+export function stepBetween(
+  circuit: StatusCircuit,
+  from: string,
+  to: string,
+): StatusTransition | null {
+  return (
+    [...circuit.transitions]
+      .sort((a, b) => a.position - b.position)
+      .find((item) => item.fromStateKey === from && item.toStateKey === to) ??
+    null
+  );
+}
+
 export function transitionsFrom(
   circuit: StatusCircuit,
   fromKey: string,
@@ -104,15 +123,22 @@ const ACT_OF_KEY: Record<Role, Permission> = {
   owner: "rows.lock",
 };
 
-/** Whether what applies on a table may take a transition given to `roleKeys`. */
+/**
+ * Whether what applies on a table may take a step: it takes steps at all
+ * (`rows.transition`), and the step names its role, one of the four or a
+ * made role it holds, or one of the four by the act that stands for it.
+ */
 export function takesTransition(
-  roleKeys: readonly string[],
+  step: Pick<StatusTransition, "roleKeys" | "madeRoleIds">,
   grant: Grant | null | undefined,
 ): boolean {
-  if (grant == null) return false;
-  if (typeof grant === "string") return roleKeys.includes(grant);
-  if (grant.role !== null && roleKeys.includes(grant.role)) return true;
-  return roleKeys.some(
+  if (grant == null || !roleGrants(grant, "rows.transition")) return false;
+  if (typeof grant === "string") return step.roleKeys.includes(grant);
+  if (grant.role !== null && step.roleKeys.includes(grant.role)) return true;
+  if (grant.made.some((made) => step.madeRoleIds.includes(made.id))) {
+    return true;
+  }
+  return step.roleKeys.some(
     (key) =>
       (ROLES as readonly string[]).includes(key) &&
       roleGrants(grant, ACT_OF_KEY[key as Role]),
@@ -129,7 +155,7 @@ export function findAllowedTransition(
     (item) =>
       item.fromStateKey === fromKey &&
       item.key === transitionKey &&
-      takesTransition(item.roleKeys, grant),
+      takesTransition(item, grant),
   );
   if (!match) {
     throw new AppError("invalid_status");

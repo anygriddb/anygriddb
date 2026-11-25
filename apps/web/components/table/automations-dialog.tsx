@@ -47,6 +47,7 @@ import {
   type AutomationPart,
   type SecretDraft,
 } from "./automation-problems";
+import { circuitWord } from "../record/circuit-labels";
 
 // CodeMirror and the JavaScript grammar load with the first script.
 const ScriptCodeEditor = lazy(() => import("./script-code-editor"));
@@ -61,6 +62,7 @@ const TRIGGERS: TriggerType[] = [
   "row_updated",
   "row_deleted",
   "enters_filter",
+  "step_taken",
   "form_submitted",
   "schedule",
   "button",
@@ -157,6 +159,7 @@ function useLabels() {
       row_created: t`A row is created`,
       row_updated: t`A row is updated`,
       enters_filter: t`A row meets a condition`,
+      step_taken: t`A row takes a step of its circuit`,
       form_submitted: t`A form is submitted`,
       schedule: t`On a schedule`,
       button: t`A button is clicked`,
@@ -220,6 +223,7 @@ function defaultTrigger(
       };
     case "row_deleted":
     case "webhook":
+    case "step_taken":
       return { type };
   }
 }
@@ -971,12 +975,16 @@ function TriggerEditor(props: {
   trigger: AutomationTrigger;
   onChange: (trigger: AutomationTrigger) => void;
 }) {
-  const { t } = useLingui();
+  const { t, i18n } = useLingui();
   const api = useTRPC();
   const table = useTable();
   const views = useQuery(
     api.catalog.views.queryOptions({ tableId: table.table.id }),
   );
+  const circuit = useQuery({
+    ...api.catalog.getCircuit.queryOptions({ tableId: table.table.id }),
+    enabled: props.trigger.type === "step_taken",
+  });
   const { trigger } = props;
   const days = [
     t`Sunday`,
@@ -1038,6 +1046,31 @@ function TriggerEditor(props: {
             props.onChange({ ...trigger, filter })
           }
         />
+      );
+    case "step_taken":
+      return (
+        <Select
+          aria-label={t`Step`}
+          className="h-8 w-64 text-xs"
+          value={trigger.transition ?? ""}
+          onChange={(event) =>
+            props.onChange({
+              ...trigger,
+              transition: event.target.value || undefined,
+            })
+          }
+        >
+          <option value="">{t`Any step`}</option>
+          {[
+            ...new Map(
+              (circuit.data?.transitions ?? []).map((step) => [step.key, step]),
+            ).values(),
+          ].map((step) => (
+            <option key={step.key} value={step.key}>
+              {circuitWord(i18n, "transition", step)}
+            </option>
+          ))}
+        </Select>
       );
     case "form_submitted":
       return (

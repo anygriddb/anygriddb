@@ -69,7 +69,39 @@ describe("buildOpenApi", () => {
       "/bases/base-1/openapi.json",
       "/tables/11111111-2222-4333-8444-555555555555/records",
       "/tables/11111111-2222-4333-8444-555555555555/records/{recordId}",
+      "/tables/11111111-2222-4333-8444-555555555555/records/{recordId}/transition",
     ]);
+  });
+
+  it("names a table's states and steps, as its circuit holds them", () => {
+    const id = "11111111-2222-4333-8444-555555555555";
+    const document = buildOpenApi(
+      { id: "base-1", name: "CRM" },
+      [
+        {
+          id,
+          name: "Deals",
+          columns,
+          circuit: {
+            states: ["draft", "in_review", "approved"],
+            steps: ["submit", "approve", "reject"],
+          },
+        },
+      ],
+      "https://grid.example.org",
+    );
+    const json = JSON.stringify(document);
+    expect(json).toContain('"enum":["draft","in_review","approved"]');
+    expect(json).toContain('"enum":["submit","approve","reject"]');
+    // Without one, the compliance circuit's words, as the database's.
+    const plain = JSON.stringify(
+      buildOpenApi(
+        { id: "base-1", name: "CRM" },
+        [{ id, name: "Deals", columns }],
+        "https://grid.example.org",
+      ),
+    );
+    expect(plain).toContain('"enum":["draft","submitted","locked","signed"]');
   });
 
   it("describes the routes of the base alone when it has no readable table", () => {
