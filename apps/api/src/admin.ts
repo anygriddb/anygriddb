@@ -10,7 +10,7 @@ import {
   lockState,
   memberDomainAllowed,
   parseAdminEmails,
-  ROLES,
+  givenRoleSchema,
   signupAllowed,
 } from "@anygriddb/core";
 import type { AuditAction, Database } from "@anygriddb/db";
@@ -24,6 +24,7 @@ import { withAudit } from "./data/audit-context.js";
 import { ERASED_USER_ID } from "./data/erasure.js";
 import { liveBase } from "./data/live.js";
 import { bindRole } from "./data/members.js";
+import { givenOf, MADE_COLUMNS, resolveGiven } from "./data/made-roles.js";
 import { assertMemberDomain } from "./data/sharing.js";
 import { recordAuthEvent } from "./auth/auth-events.js";
 import { instanceRolesOf, knownInstanceRoles } from "./auth/instance-roles.js";
@@ -45,7 +46,7 @@ export const createAccountInputSchema = z
     displayName: labelSchema,
     admin: z.boolean().default(false),
     memberships: z
-      .array(z.object({ baseId: z.uuid(), role: z.enum(ROLES) }).strict())
+      .array(z.object({ baseId: z.uuid(), role: givenRoleSchema }).strict())
       .max(20)
       .default([])
       .refine(
@@ -483,7 +484,12 @@ export async function createAccount(
           .executeTakeFirst();
         if (!row) throw new AppError("no_row");
         for (const membership of memberships) {
-          await bindRole(tx, row.id, membership.role, membership.baseId);
+          await bindRole(
+            tx,
+            row.id,
+            await resolveGiven(tx, membership.role),
+            membership.baseId,
+          );
         }
         await recordAuthEvent(tx, {
           action: "account_created",
@@ -560,7 +566,14 @@ export async function getAccountDetail(db: Database, userId: string) {
         .selectFrom("roleBindings as b")
         .innerJoin("bases as base", "base.id", "b.scopeId")
         .leftJoin("groups as g", "g.id", "b.groupId")
-        .select(["base.id", "base.name", "b.role", "g.displayName as viaGroup"])
+        .leftJoin("madeRoles as m", "m.id", "b.madeRoleId")
+        .select([
+          "base.id",
+          "base.name",
+          "b.role",
+          "g.displayName as viaGroup",
+          ...MADE_COLUMNS,
+        ])
         .where("b.userId", "=", userId)
         .where("b.scope", "=", "base")
         .where(liveBase("base"))
@@ -613,7 +626,7 @@ export async function getAccountDetail(db: Database, userId: string) {
     bases: bases.map((row) => ({
       id: row.id,
       name: row.name,
-      role: row.role,
+      role: givenOf(row),
       viaGroup: row.viaGroup,
     })),
     signIns: signIns.map((row) => ({

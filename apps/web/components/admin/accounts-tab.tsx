@@ -27,7 +27,6 @@ import { useErrorText } from "../../lib/errors";
 import { sortRows } from "../../lib/sort-rows";
 import { useSession } from "../../lib/session";
 import { trpc, useTRPC } from "../../lib/trpc";
-import type { Role } from "../../lib/types";
 import { useWhen } from "../../lib/i18n";
 import { useColumnSort } from "../sort-header";
 import { ConfirmDialog } from "../shell/dialogs";
@@ -49,7 +48,7 @@ import { BaseName, useBaseChoices } from "./base-choices";
 import { InvitationsPanel } from "./invitations-panel";
 import { PeopleFileDialog } from "./people-file-dialog";
 import { useStepUp } from "./step-up";
-import { useRoleLabel } from "../settings/role-label";
+import { RoleOptions } from "../settings/role-options";
 import { useReadsAll } from "./admin-access";
 
 /** The fields an action needs, from a row of the list. */
@@ -574,14 +573,13 @@ function StatusText({
   );
 }
 
-const ROLES: readonly Role[] = ["owner", "editor", "commenter", "viewer"];
-
 /** A base chosen for the person, with the role they get on it. */
 type Membership = {
   baseId: string;
   name: string;
   owners: string;
-  role: Role;
+  /** One of the four by its key, or a made role by its id. */
+  role: string;
 };
 
 /** At most this many bases at creation, as the server allows. */
@@ -609,7 +607,6 @@ function AddPersonDialog({
 }) {
   const { t } = useLingui();
   const errorText = useErrorText();
-  const roleLabel = useRoleLabel();
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
   const [admin, setAdmin] = useState(false);
@@ -741,18 +738,14 @@ function AddPersonDialog({
                                 other.baseId === row.baseId
                                   ? {
                                       ...other,
-                                      role: event.target.value as Role,
+                                      role: event.target.value,
                                     }
                                   : other,
                               ),
                             )
                           }
                         >
-                          {ROLES.map((role) => (
-                            <option key={role} value={role}>
-                              {roleLabel(role)}
-                            </option>
-                          ))}
+                          <RoleOptions />
                         </Select>
                         <Button
                           size="sm"

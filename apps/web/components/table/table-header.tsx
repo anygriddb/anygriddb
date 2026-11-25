@@ -5,7 +5,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { ENGINE_NAMES } from "../../lib/limits";
 import type { Presence } from "../../lib/realtime";
 import { useTRPC } from "../../lib/trpc";
-import type { CatalogTable, Role, ViewItem } from "../../lib/types";
+import type { CatalogTable, Grant, ViewItem } from "../../lib/types";
 import { ENGINE_MARKS, EngineMark } from "../admin/engine-mark";
 import { canEditView } from "./table-rights";
 import { ViewTabs } from "./view-tabs";
@@ -25,7 +25,7 @@ export function TableHeader({
   table: CatalogTable;
   views: ViewItem[];
   activeId: string | undefined;
-  role: Role | null;
+  role: Grant | null;
   presence: readonly Presence[];
 }) {
   const { t } = useLingui();

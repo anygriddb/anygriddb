@@ -18,15 +18,14 @@ import { toast } from "sonner";
 import { useErrorText } from "../../lib/errors";
 import { useSession } from "../../lib/session";
 import { trpc, useTRPC } from "../../lib/trpc";
-import type { Role } from "../../lib/types";
-import { useRoleLabel } from "../settings/role-label";
+
+import { givenValue } from "../settings/role-label";
+import { RoleOptions } from "../settings/role-options";
 import { ConfirmDialog } from "../shell/dialogs";
 import { LoadFailed } from "../shell/load-failed";
 import { AccountName, useAccountChoices } from "./account-choices";
 import { useBaseChoices } from "./base-choices";
 import { useStepUp } from "./step-up";
-
-const ROLES: readonly Role[] = ["owner", "editor", "commenter", "viewer"];
 
 /**
  * One group's page in Administration (ROADMAP #27): members, bases where
@@ -39,7 +38,6 @@ export function GroupAdminPage({ groupId }: { groupId: string }) {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const stepUp = useStepUp();
-  const roleLabel = useRoleLabel();
   const isAdmin = useSession().data?.isAdmin === true;
   const detail = useQuery(api.admin.groups.get.queryOptions({ groupId }));
   const [busy, setBusy] = useState(false);
@@ -51,7 +49,8 @@ export function GroupAdminPage({ groupId }: { groupId: string }) {
   const [memberTyped, setMemberTyped] = useState("");
   const [pickingBase, setPickingBase] = useState(false);
   const [baseTyped, setBaseTyped] = useState("");
-  const [baseRole, setBaseRole] = useState<Role>("viewer");
+  /** One of the four by its key, or a made role by its id. */
+  const [baseRole, setBaseRole] = useState<string>("viewer");
   const members = useAccountChoices(memberTyped, pickingMember);
   const bases = useBaseChoices(baseTyped, pickingBase);
 
@@ -348,10 +347,10 @@ export function GroupAdminPage({ groupId }: { groupId: string }) {
                     <Select
                       aria-label={t`Role on ${{ base: row.baseName }}`}
                       className="w-36"
-                      value={row.role}
+                      value={givenValue(row.role)}
                       disabled={busy}
                       onChange={(event) => {
-                        const next = event.target.value as Role;
+                        const next = event.target.value;
                         void run(
                           () =>
                             trpc.admin.groups.setBaseRole.mutate({
@@ -364,11 +363,7 @@ export function GroupAdminPage({ groupId }: { groupId: string }) {
                         );
                       }}
                     >
-                      {ROLES.map((option) => (
-                        <option key={option} value={option}>
-                          {roleLabel(option)}
-                        </option>
-                      ))}
+                      <RoleOptions />
                     </Select>
                     <Button
                       size="sm"
@@ -450,13 +445,9 @@ export function GroupAdminPage({ groupId }: { groupId: string }) {
                   aria-label={t`Role`}
                   className="w-36"
                   value={baseRole}
-                  onChange={(event) => setBaseRole(event.target.value as Role)}
+                  onChange={(event) => setBaseRole(event.target.value)}
                 >
-                  {ROLES.map((option) => (
-                    <option key={option} value={option}>
-                      {roleLabel(option)}
-                    </option>
-                  ))}
+                  <RoleOptions />
                 </Select>
                 <Button
                   size="sm"

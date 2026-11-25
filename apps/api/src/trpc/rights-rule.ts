@@ -20,6 +20,7 @@ export const RIGHTS_CHANGES: ReadonlySet<string> = new Set([
   "admin.groups.removeMember",
   "admin.groups.setBaseRole",
   "admin.groups.delete",
+  "admin.roles.update",
   "admin.baseOverview.open",
   "admin.baseOverview.close",
 ]);

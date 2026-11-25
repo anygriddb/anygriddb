@@ -2,7 +2,7 @@
  * Who sees which base: roles given from Administration, invitations,
  * what leaves the instance, and an administrator's own way in.
  */
-import { AppError, ROLES, trimEndRun } from "@anygriddb/core";
+import { AppError, givenRoleSchema, trimEndRun } from "@anygriddb/core";
 import { z } from "zod";
 import {
   listPendingInvitations,
@@ -16,6 +16,7 @@ import {
   type AccessNoticeDeps,
 } from "../data/emergency-access.js";
 import { listMembers, revokeMember, setMemberRole } from "../data/members.js";
+import { givenKey, givenName, resolveGiven } from "../data/made-roles.js";
 import { assertMemberDomain, renewInvitation } from "../data/sharing.js";
 import { listAllTrashedBases, restoreBase, trashBase } from "../data/trash.js";
 import { resolveSmtp } from "../integrations/smtp.js";
@@ -73,7 +74,7 @@ export const adminBaseProcedures = {
       z.object({
         userId: z.uuid(),
         baseId: z.uuid(),
-        role: z.enum(ROLES),
+        role: givenRoleSchema,
         /** Why, when the role is the administrator's own (ADR 0074). */
         reason: z.string().trim().min(1).max(500).optional(),
       }),
@@ -87,10 +88,11 @@ export const adminBaseProcedures = {
         if (own && !input.reason) throw new AppError("reason_required");
         const account = await assertGrantable(ctx.db, input);
         await assertMemberDomain(ctx.db, account.email);
+        const role = await resolveGiven(ctx.db, input.role);
         const { owners, previous } = await setMemberRole(
           ctx.db,
           admin.id,
-          input,
+          { ...input, role },
           own ? input.reason : undefined,
         );
         if (own && input.reason) {
@@ -108,11 +110,11 @@ export const adminBaseProcedures = {
               adminName: admin.displayName,
               baseName: base?.name ?? "",
               reason: input.reason,
-              role: input.role,
+              role: givenName(role),
             },
           });
         } else if (
-          previous !== input.role &&
+          givenKey(previous) !== input.role &&
           !(input.role === "owner" && owners.includes(input.userId))
         ) {
           // The owners already there learn who was given which role, and
@@ -120,7 +122,7 @@ export const adminBaseProcedures = {
           await tellOwnersOfRole(await roleNoticeDeps(ctx), {
             baseId: input.baseId,
             actorId: admin.id,
-            gift: { to: "person", userId: input.userId, role: input.role },
+            gift: { to: "person", userId: input.userId, role },
           });
         }
         ctx.req.log.info(

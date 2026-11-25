@@ -2,8 +2,8 @@ import {
   AppError,
   type Binding,
   effectiveTableRole,
+  type Grant,
   type Permission,
-  type Role,
   roleFor,
   roleGrants,
 } from "@anygriddb/core";
@@ -96,14 +96,14 @@ async function loadTable(ctx: Context, tableId: string): Promise<TableRow> {
   return table;
 }
 
-export type TableAccess = Actor & { table: TableRow; role: Role };
+export type TableAccess = Actor & { table: TableRow; role: Grant };
 
 /**
  * For an act that needs a second permission besides the one its guard
  * asked (a base's public link is the base's and a publication; its
  * snapshot is the base's and an export): refused as the guard refuses.
  */
-export function assertGrants(role: Role, permission: Permission): void {
+export function assertGrants(role: Grant, permission: Permission): void {
   if (!roleGrants(role, permission)) {
     throw new AppError("access_denied");
   }
@@ -143,7 +143,7 @@ export async function guardBase(
   baseId: string,
   permission: Permission,
   creatingBase = false,
-): Promise<Actor & { role: Role }> {
+): Promise<Actor & { role: Grant }> {
   return baseAccess(
     ctx,
     await authorize(ctx, creatingBase),
@@ -158,7 +158,7 @@ export async function baseAccess(
   actor: Actor,
   baseId: string,
   permission: Permission,
-): Promise<Actor & { role: Role }> {
+): Promise<Actor & { role: Grant }> {
   const base = await ctx.db
     .selectFrom("bases")
     .select("id")

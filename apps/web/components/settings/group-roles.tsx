@@ -7,18 +7,14 @@ import { plural } from "@lingui/core/macro";
 import { useLingui } from "@lingui/react/macro";
 import { useErrorText } from "../../lib/errors";
 import { trpc, useTRPC } from "../../lib/trpc";
-import type { Role } from "../../lib/types";
-
-const ROLES: Role[] = ["owner", "editor", "commenter", "viewer"];
+import { givenValue } from "./role-label";
+import { RoleOptions } from "./role-options";
 
 /**
  * The roles a base gives to groups (local or from an identity provider):
  * each member gets the group's role, and loses it on leaving the group.
  */
-export function GroupRoles(props: {
-  baseId: string;
-  roleLabel: (role: Role) => string;
-}) {
+export function GroupRoles(props: { baseId: string }) {
   const { t } = useLingui();
   const errorText = useErrorText();
   const api = useTRPC();
@@ -27,9 +23,10 @@ export function GroupRoles(props: {
     api.catalog.groupRoles.queryOptions({ baseId: props.baseId }),
   );
   const [groupId, setGroupId] = useState("");
-  const [role, setRole] = useState<Role>("viewer");
+  /** One of the four by its key, or a made role by its id. */
+  const [role, setRole] = useState<string>("viewer");
 
-  async function set(target: string, next: Role | null) {
+  async function set(target: string, next: string | null) {
     try {
       await trpc.catalog.setGroupRole.mutate({
         baseId: props.baseId,
@@ -77,16 +74,10 @@ export function GroupRoles(props: {
             <Select
               aria-label={t`Role of the group ${{ name: item.displayName }}`}
               className="w-40"
-              value={item.role}
-              onChange={(event) =>
-                void set(item.groupId, event.target.value as Role)
-              }
+              value={givenValue(item.role)}
+              onChange={(event) => void set(item.groupId, event.target.value)}
             >
-              {ROLES.map((value) => (
-                <option key={value} value={value}>
-                  {props.roleLabel(value)}
-                </option>
-              ))}
+              <RoleOptions />
             </Select>
             <Button
               size="icon"
@@ -126,13 +117,9 @@ export function GroupRoles(props: {
             aria-label={t`Role`}
             className="w-40"
             value={role}
-            onChange={(event) => setRole(event.target.value as Role)}
+            onChange={(event) => setRole(event.target.value)}
           >
-            {ROLES.map((value) => (
-              <option key={value} value={value}>
-                {props.roleLabel(value)}
-              </option>
-            ))}
+            <RoleOptions />
           </Select>
           <Button type="submit">{t`Add the group`}</Button>
         </form>

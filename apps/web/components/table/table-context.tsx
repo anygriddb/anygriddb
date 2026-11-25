@@ -3,7 +3,7 @@ import type {
   CatalogColumn,
   CatalogTable,
   Collaborator,
-  Role,
+  Grant,
   RowItem,
   ViewItem,
 } from "../../lib/types";
@@ -15,7 +15,7 @@ export type TableContextValue = {
   table: CatalogTable;
   tables: readonly CatalogTable[];
   columns: readonly CatalogColumn[];
-  role: Role | null;
+  role: Grant | null;
   view: ViewItem | null;
   people: ReadonlyMap<string, Collaborator>;
   locale: "fr" | "en";

@@ -109,6 +109,15 @@ export const ERRORS = {
   invalid_option: [BAD, "Invalid option"],
   invalid_order: [BAD, "Invalid order"],
   invalid_owner: [BAD, "Invalid owner"],
+  /** A made role (ADR 0128) that is not there. */
+  unknown_role: [404, "Unknown role"],
+  role_name_taken: [409, "A role already has this name"],
+  /** Someone holds it, or an invitation waits with it. */
+  role_in_use: [409, "Role in use"],
+  /** A role reads rows, and gives only the catalogue's permissions. */
+  invalid_permissions: [BAD, "Invalid permissions"],
+  /** Nobody gives a role that gives more than they hold. */
+  role_beyond_reach: [403, "Role beyond the giver's own"],
   invalid_relation: [BAD, "Invalid relation"],
   invalid_link_selection: [BAD, "Invalid link selection"],
   airtable_unauthorized: [BAD, "Airtable refused the token"],

@@ -3,8 +3,12 @@ import {
   can,
   effectiveTableRole,
   enrollmentGate,
+  madePermissions,
+  type MadeRole,
+  mayGive,
   PERMISSIONS,
   type Permission,
+  readOnlyGiven,
   roleFor,
   roleGrants,
   rolePermissions,
@@ -168,5 +172,101 @@ describe("effectiveTableRole", () => {
       false,
     );
     expect(can(layered, "rows.read", "table", "table-open")).toBe(false);
+  });
+});
+
+const REVIEWER: MadeRole = {
+  id: "made-1",
+  name: "Reviewer",
+  permissions: ["rows.read", "rows.comment", "rows.lock"],
+};
+const STEWARD: MadeRole = {
+  id: "made-2",
+  name: "Steward",
+  permissions: ["rows.read", "members.manage", "schema.manage"],
+};
+
+describe("made roles", () => {
+  it("give what they hold, and nothing else", () => {
+    expect(roleGrants(REVIEWER, "rows.lock")).toBe(true);
+    expect(roleGrants(REVIEWER, "rows.write")).toBe(false);
+    expect(roleGrants(REVIEWER, "data.export")).toBe(false);
+  });
+
+  it("add up with the four on one scope, and an owner holds it all", () => {
+    const held = roleFor(
+      [
+        { role: "viewer", scope: "base", scopeId: "b" },
+        { role: REVIEWER, scope: "base", scopeId: "b" },
+      ],
+      "base",
+      "b",
+    );
+    expect(held).toEqual({
+      role: "viewer",
+      made: [{ id: "made-1", name: "Reviewer" }],
+      permissions: ["rows.read", "rows.comment", "rows.lock", "data.export"],
+    });
+    expect(
+      roleFor(
+        [
+          { role: REVIEWER, scope: "base", scopeId: "b" },
+          { role: "owner", scope: "base", scopeId: "b" },
+        ],
+        "base",
+        "b",
+      ),
+    ).toBe("owner");
+  });
+
+  it("keep a table's role exact: it replaces the base's, made or not", () => {
+    const bindings: Binding[] = [
+      { role: "editor", scope: "base", scopeId: "b" },
+      { role: REVIEWER, scope: "table", scopeId: "t" },
+    ];
+    expect(can(bindings, "rows.write", "table", "t", "b")).toBe(false);
+    expect(can(bindings, "rows.lock", "table", "t", "b")).toBe(true);
+    expect(can(bindings, "rows.write", "table", "other", "b")).toBe(true);
+  });
+
+  it("are given only by someone who holds all they give", () => {
+    expect(mayGive("owner", "owner")).toBe(true);
+    expect(mayGive("owner", REVIEWER)).toBe(true);
+    expect(mayGive(STEWARD, "owner")).toBe(false);
+    expect(mayGive(STEWARD, REVIEWER)).toBe(false);
+    expect(
+      mayGive(STEWARD, { id: "x", name: "x", permissions: ["rows.read"] }),
+    ).toBe(true);
+    expect(mayGive("editor", "viewer")).toBe(false);
+    expect(mayGive(null, "viewer")).toBe(false);
+  });
+
+  it("leave a read-only token a viewer's part of them", () => {
+    expect(readOnlyGiven("owner")).toBe("viewer");
+    expect(readOnlyGiven(REVIEWER)).toEqual({
+      ...REVIEWER,
+      permissions: ["rows.read"],
+    });
+  });
+
+  it("read rows, and hold only the catalogue's permissions", () => {
+    expect(madePermissions(["rows.lock", "rows.read"])).toEqual([
+      "rows.read",
+      "rows.lock",
+    ]);
+    expect(madePermissions(["rows.write"])).toBeNull();
+    expect(madePermissions(["rows.read", "admin"])).toBeNull();
+  });
+
+  it("ask a second factor of whoever they let give access or run a base", () => {
+    const gate = (role: Binding["role"]) =>
+      enrollmentGate({
+        bindings: [{ role, scope: "base", scopeId: "b" }],
+        factors: 0,
+        isAdmin: false,
+        scope: "owners",
+      });
+    expect(gate(STEWARD)).toBe("enroll");
+    expect(gate(REVIEWER)).toBe("ok");
   });
 });

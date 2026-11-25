@@ -15,7 +15,9 @@ import {
   normalizeViewConfig,
   pruneViewConfig,
   roleGrants,
+  grantName,
   roleFor,
+  rolePermissions,
   rowIdSchema,
   type RowSort,
   viewFilter,
@@ -357,11 +359,15 @@ export async function listBases(deps: PublicApiDeps, actor: Actor) {
           .where(liveBase())
           .execute();
   return {
-    bases: rows.map((base) => ({
-      id: base.id,
-      name: base.name,
-      role: roleFor(actor.bindings, "base", base.id),
-    })),
+    bases: rows.map((base) => {
+      const held = roleFor(actor.bindings, "base", base.id);
+      return {
+        id: base.id,
+        name: base.name,
+        role: grantName(held),
+        permissions: held ? rolePermissions(held) : [],
+      };
+    }),
   };
 }
 

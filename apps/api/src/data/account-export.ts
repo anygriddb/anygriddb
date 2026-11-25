@@ -212,7 +212,14 @@ export async function writeAccountDataFile(
       .selectFrom("roleBindings as b")
       .innerJoin("bases as base", "base.id", "b.scopeId")
       .leftJoin("groups as g", "g.id", "b.groupId")
-      .select(["base.id", "base.name", "b.role", "g.displayName as viaGroup"])
+      .leftJoin("madeRoles as m", "m.id", "b.madeRoleId")
+      .select([
+        "base.id",
+        "base.name",
+        "b.role",
+        "m.name as madeName",
+        "g.displayName as viaGroup",
+      ])
       .where("b.userId", "=", userId)
       .where("b.scope", "=", "base")
       .where(liveBase("base"))
@@ -223,11 +230,13 @@ export async function writeAccountDataFile(
       .innerJoin("dataTables as t", "t.id", "b.scopeId")
       .innerJoin("bases as base", "base.id", "t.baseId")
       .leftJoin("groups as g", "g.id", "b.groupId")
+      .leftJoin("madeRoles as m", "m.id", "b.madeRoleId")
       .select([
         "t.id",
         "t.name",
         "base.name as baseName",
         "b.role",
+        "m.name as madeName",
         "g.displayName as viaGroup",
       ])
       .where("b.userId", "=", userId)
@@ -303,14 +312,15 @@ export async function writeAccountDataFile(
         bases: bases.map((row) => ({
           id: row.id,
           name: row.name,
-          role: row.role,
+          // One of the four, or a made role by its name (ADR 0128).
+          role: row.role ?? row.madeName,
           viaGroup: row.viaGroup,
         })),
         tables: tables.map((row) => ({
           id: row.id,
           name: row.name,
           base: row.baseName,
-          role: row.role,
+          role: row.role ?? row.madeName,
           viaGroup: row.viaGroup,
         })),
         groups: groups.map((row) => ({

@@ -4,6 +4,7 @@
  * account is left as it is, and so are their personal API tokens, which
  * the administrator may revoke in the same gesture.
  */
+import { loadBindings } from "../auth/access.js";
 import { dropAccountTokens } from "../auth/tokens.js";
 import {
   AppError,
@@ -169,11 +170,7 @@ export async function handOver(
     }
 
     // The successor's roles, the bases just handed over among them.
-    const bindings: Binding[] = await tx
-      .selectFrom("roleBindings")
-      .select(["role", "scope", "scopeId"])
-      .where("userId", "=", input.toUserId)
-      .execute();
+    const bindings: Binding[] = await loadBindings(tx, input.toUserId);
     const manages = (item: Made, permission: Permission) =>
       roleGrants(
         effectiveTableRole(bindings, item.tableId, item.baseId),

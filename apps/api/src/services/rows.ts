@@ -21,6 +21,7 @@ import {
   placeTarget,
   resolveChangeReason,
   roleGrants,
+  takesTransition,
   type RowPlace,
 } from "@anygriddb/core";
 import type { Database } from "@anygriddb/db";
@@ -1063,7 +1064,7 @@ export async function transitionRowAs(
   const needsProof = circuit.transitions.some(
     (item) =>
       item.key === input.transitionKey &&
-      item.roleKeys.includes(scope.role) &&
+      takesTransition(item.roleKeys, scope.role) &&
       item.signature !== "none",
   );
   if (needsProof) {

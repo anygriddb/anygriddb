@@ -12,13 +12,13 @@ import {
   type Collaborator,
   grants,
   type Permission,
-  type Role,
 } from "../../lib/types";
 import { ConfirmDialog } from "../shell/dialogs";
 import { NotebookPage, RuledSection } from "../shell/notebook-page";
 import { useInvalidateCatalog } from "../shell/sidebar";
 import { GroupRoles } from "./group-roles";
 import { BaseLinks } from "./base-links";
+import { RoleOptions, useRoleChoiceLabel } from "./role-options";
 import { RestorePoints } from "./restore-points";
 import { useRoleLabel } from "./role-label";
 import { StatusCircuitPanel } from "./status-circuit-panel";
@@ -28,8 +28,6 @@ import { useLingui } from "@lingui/react/macro";
 import { useErrorText } from "../../lib/errors";
 import { Earlier } from "../history/earlier";
 import { useWhen } from "../../lib/i18n";
-
-const ROLES: Role[] = ["owner", "editor", "commenter", "viewer"];
 
 export function BaseSettings({ baseId }: { baseId: string }) {
   const { t } = useLingui();
@@ -42,6 +40,7 @@ export function BaseSettings({ baseId }: { baseId: string }) {
   const session = useSession();
   const invalidate = useInvalidateCatalog();
   const roleLabel = useRoleLabel();
+  const choiceLabel = useRoleChoiceLabel();
   const base = catalog.data?.find((item) => item.id === baseId);
   const may = (permission: Permission) => grants(base?.role, permission);
   const manageMembers = may("members.manage");
@@ -66,7 +65,7 @@ export function BaseSettings({ baseId }: { baseId: string }) {
     [collaborators.data],
   );
   const [email, setEmail] = useState("");
-  const [role, setRole] = useState<Role>("editor");
+  const [role, setRole] = useState<string>("editor");
   const [description, setDescription] = useState<string | null>(null);
   const [inviteLink, setInviteLink] = useState("");
   const [exporting, setExporting] = useState(false);
@@ -79,7 +78,8 @@ export function BaseSettings({ baseId }: { baseId: string }) {
   // is confirmed: nobody gives it back to themselves.
   const [lowering, setLowering] = useState<{
     email: string;
-    role: Role;
+    /** One of the four by its key, or a made role by its id. */
+    role: string;
   } | null>(null);
   const track = useTrackJob();
 
@@ -205,9 +205,9 @@ export function BaseSettings({ baseId }: { baseId: string }) {
                   <Select
                     aria-label={t`Role`}
                     className={member.direct ? "w-40" : "hidden"}
-                    value={member.role}
+                    value={member.given ?? ""}
                     onChange={(event) => {
-                      const next = event.target.value as Role;
+                      const next = event.target.value;
                       if (
                         member.userId === session.data?.id &&
                         member.role === "owner" &&
@@ -225,11 +225,7 @@ export function BaseSettings({ baseId }: { baseId: string }) {
                       );
                     }}
                   >
-                    {ROLES.map((value) => (
-                      <option key={value} value={value}>
-                        {roleLabel(value)}
-                      </option>
-                    ))}
+                    <RoleOptions />
                   </Select>
                   <Tooltip content={t`Remove ${{ name: member.displayName }}`}>
                     <Button
@@ -294,13 +290,9 @@ export function BaseSettings({ baseId }: { baseId: string }) {
                 aria-label={t`Role`}
                 className="w-40"
                 value={role}
-                onChange={(event) => setRole(event.target.value as Role)}
+                onChange={(event) => setRole(event.target.value)}
               >
-                {ROLES.map((value) => (
-                  <option key={value} value={value}>
-                    {roleLabel(value)}
-                  </option>
-                ))}
+                <RoleOptions />
               </Select>
               <Button type="submit" disabled={!email}>
                 {t`Invite`}
@@ -334,7 +326,7 @@ export function BaseSettings({ baseId }: { baseId: string }) {
           title={t`Groups`}
           description={t`Groups come from Administration or your identity provider. Each member gets the group's role, and loses it on leaving the group.`}
         >
-          <GroupRoles baseId={baseId} roleLabel={(value) => roleLabel(value)} />
+          <GroupRoles baseId={baseId} />
         </RuledSection>
       ) : null}
       {manage && may("data.export") ? (
@@ -411,7 +403,7 @@ export function BaseSettings({ baseId }: { baseId: string }) {
           danger
           onOpenChange={(open) => !open && setLowering(null)}
           title={t`Stop being an owner of ${{ base: base.name }}?`}
-          description={t`You become its ${{ role: roleLabel(lowering.role) }} at once, and no longer manage it: its members, its settings, its tables and their fields. Only another owner can make you an owner again.`}
+          description={t`You become its ${{ role: choiceLabel(lowering.role) }} at once, and no longer manage it: its members, its settings, its tables and their fields. Only another owner can make you an owner again.`}
           confirmLabel={t`Lower my role`}
           onConfirm={async () => {
             await trpc.catalog.grant.mutate({
@@ -592,13 +584,13 @@ function TableAccess({
             <Select
               aria-label={t`Role on ${{ table: name }}`}
               className="h-8 w-48"
-              value={person.tableRole ?? ""}
+              value={person.tableGiven ?? ""}
               onChange={async (event) => {
                 try {
                   await trpc.catalog.setTableRole.mutate({
                     tableId,
                     userId: person.userId,
-                    role: (event.target.value || null) as Role | null,
+                    role: event.target.value || null,
                   });
                   await queryClient.invalidateQueries({
                     queryKey: api.catalog.tableAccess.queryKey({ tableId }),
@@ -611,11 +603,7 @@ function TableAccess({
               <option value="">
                 {t`Inherited (${{ role: roleLabel(person.baseRole) }})`}
               </option>
-              {ROLES.map((value) => (
-                <option key={value} value={value}>
-                  {roleLabel(value)}
-                </option>
-              ))}
+              <RoleOptions />
             </Select>
           </li>
         ))}

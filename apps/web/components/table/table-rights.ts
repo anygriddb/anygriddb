@@ -1,4 +1,4 @@
-import { grants, type Role, type ViewItem } from "../../lib/types";
+import { grants, type Grant, type ViewItem } from "../../lib/types";
 
 /**
  * Whether a person's settings of a view are stored with it. A personal
@@ -8,7 +8,7 @@ import { grants, type Role, type ViewItem } from "../../lib/types";
  */
 export function canEditView(
   view: ViewItem | undefined,
-  role: Role | null,
+  role: Grant | null,
   personalOwner: boolean,
 ): boolean {
   if (!view) return false;

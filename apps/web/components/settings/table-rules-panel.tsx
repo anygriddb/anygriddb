@@ -10,7 +10,7 @@ import { useErrorText } from "../../lib/errors";
 import { formatNumber } from "../../lib/format";
 import { useLocale } from "../../lib/i18n";
 import { trpc, useTRPC, type RouterOutputs } from "../../lib/trpc";
-import type { CatalogColumn, Collaborator, Role } from "../../lib/types";
+import type { CatalogColumn, Collaborator, Grant } from "../../lib/types";
 import { CellValueView } from "../fields/cell-value";
 import { FilterBuilder } from "../table/filter-builder";
 import { useRoleLabel } from "./role-label";
@@ -26,8 +26,8 @@ import {
 type Member = {
   userId: string;
   displayName: string;
-  baseRole: Role | null;
-  tableRole: Role | null;
+  baseRole: Grant | null;
+  tableRole: Grant | null;
 };
 
 /** What was changed for one member and is not saved yet. */

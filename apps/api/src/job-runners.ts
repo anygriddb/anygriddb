@@ -22,7 +22,7 @@ import {
   convertColumnJobInputSchema,
   restoreBaseJobInputSchema,
   restorePointJobInputSchema,
-  type Role,
+  type Grant,
   roleFor,
   roleGrants,
   trashPurgeJobInputSchema,
@@ -150,7 +150,7 @@ async function activeAuthor(
 }
 
 /** A base's snapshot carries its rows: the base's and an export. */
-function canSnapshot(role: Role | null): boolean {
+function canSnapshot(role: Grant | null): boolean {
   return roleGrants(role, "base.manage") && roleGrants(role, "data.export");
 }
 

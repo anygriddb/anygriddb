@@ -8,6 +8,24 @@ first.
 
 ## Unreleased
 
+One migration runs as the instance starts (`0138_made_roles`); nothing to
+do before or after.
+
+### Added
+
+- **Roles you make.** Administration, People, Roles: make a role of the
+  permissions of a base (read, comment, edit, delete, lock and sign rows,
+  export, import, publish, shared views, dashboards, tables and fields,
+  automations, webhooks, members, the base itself) and give it wherever
+  the four roles are given: to a person on a base or a table, to a group,
+  by invitation. A change to a role is everyone's at once; a role somebody
+  holds cannot be deleted. Whoever may give access gives only roles that
+  give no more than their own.
+- A base's backup carries a made role by its name and permissions; the
+  import gives it back where a role of that name gives exactly those, and
+  leaves out whoever's role finds none, so that nobody sees more of the
+  copy.
+
 ## 0.9.0 - 2026-11-25
 
 **Upgrade with this release's Compose files and its pin, as usual. One

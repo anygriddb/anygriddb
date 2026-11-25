@@ -8,6 +8,7 @@ import {
   PEOPLE_FILE_MAX_BYTES,
 } from "@anygriddb/core";
 import { z } from "zod";
+import { resolveGiven } from "../data/made-roles.js";
 import {
   adminEraseInputSchema,
   clearFactors,
@@ -340,7 +341,11 @@ export const adminAccountProcedures = {
           await tellOwnersOfRole(await roleNoticeDeps(ctx), {
             baseId,
             actorId: admin.id,
-            gift: { to: "person", userId: created.id, role },
+            gift: {
+              to: "person",
+              userId: created.id,
+              role: await resolveGiven(ctx.db, role),
+            },
           });
         }
         ctx.req.log.info(

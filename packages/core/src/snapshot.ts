@@ -15,7 +15,7 @@ import {
   importIdSchema,
 } from "./schemas";
 import { viewConfigSchema, viewTypeSchema } from "./view-config";
-import { ROLES } from "./rbac";
+import { PERMISSIONS, ROLES } from "./rbac";
 import { trimRuns } from "./plain-text";
 
 /**
@@ -81,10 +81,26 @@ const snapshotFileSchema = z
   .strict();
 
 /** A member's role on the base, by email: given back on request. */
+/**
+ * A role a member holds: one of the four, or a made role by its name and
+ * what it gives (ADR 0128). The import finds the made role of that name
+ * and those permissions where it lands, or gives that person nothing.
+ */
+const snapshotRoleSchema = z.union([
+  z.enum(ROLES),
+  z
+    .object({
+      name: z.string().trim().min(1).max(60),
+      permissions: z.array(z.enum(PERMISSIONS)).min(1).max(PERMISSIONS.length),
+    })
+    .strict(),
+]);
+export type SnapshotRole = z.infer<typeof snapshotRoleSchema>;
+
 const snapshotMemberSchema = z
   .object({
     email: z.email().max(254),
-    role: z.enum(ROLES),
+    role: snapshotRoleSchema,
   })
   .strict();
 
@@ -96,7 +112,7 @@ const snapshotMemberSchema = z
 const snapshotTableAccessSchema = z
   .object({
     email: z.email().max(254),
-    role: z.enum(ROLES).optional(),
+    role: snapshotRoleSchema.optional(),
     rowFilter: filterGroupSchema.optional(),
     columns: z.array(columnAclEntrySchema).max(200).optional(),
   })

@@ -16,7 +16,7 @@ import {
   rowSortSchema,
 } from "./query/read";
 import { MAX_BATCH_ROWS } from "./query/write";
-import { type Role, roleGrants } from "./rbac";
+import { type Grant, PERMISSIONS, ROLES, roleGrants } from "./rbac";
 import {
   MAX_VIEW_GROUPS,
   MAX_VIEW_SORTS,
@@ -441,7 +441,19 @@ export const tableActivityInputSchema = z.object({
   tableIds: z.array(z.uuid()).min(1).max(TABLE_ACTIVITY_MAX),
 });
 
-export type AuditRole = Role;
+export type AuditRole = Grant;
+
+/**
+ * A role given on a base or a table: one of the four by its name, or a
+ * made role by its id (ADR 0128).
+ */
+export const givenRoleSchema = z.union([z.enum(ROLES), z.uuid()]);
+
+/** A role an administrator makes: its name and the permissions it gives. */
+export const madeRoleInputSchema = z.object({
+  name: z.string().trim().min(1).max(60),
+  permissions: z.array(z.enum(PERMISSIONS)).min(1).max(PERMISSIONS.length),
+});
 
 export function resolveChangeReason(
   columns: readonly { name: string; requireReason: boolean }[],

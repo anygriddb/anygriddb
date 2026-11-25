@@ -38,7 +38,7 @@ import { useState } from "react";
 import { Earlier } from "../history/earlier";
 import { toast } from "sonner";
 import { trpc } from "../../lib/trpc";
-import { grants, type Role, type ViewItem } from "../../lib/types";
+import { grants, type Grant, type ViewItem } from "../../lib/types";
 import { ConfirmDialog, PromptDialog } from "../shell/dialogs";
 import { ShareDialog } from "./share-dialog";
 import { useTrashActions, useTrashDays } from "../../lib/trash";
@@ -85,7 +85,7 @@ export function ViewTabs(props: {
   tableId: string;
   views: readonly ViewItem[];
   activeId: string | undefined;
-  role: Role | null;
+  role: Grant | null;
   userCanEditView: (view: ViewItem) => boolean;
   onChanged: () => Promise<unknown>;
   onCreated: (view: ViewItem) => void;

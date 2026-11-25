@@ -8,8 +8,9 @@ import { toast } from "sonner";
 import { useErrorText } from "../../lib/errors";
 import { useSession } from "../../lib/session";
 import { trpc, useTRPC } from "../../lib/trpc";
-import type { Role } from "../../lib/types";
+import type { Grant } from "../../lib/types";
 import { useRoleLabel } from "../settings/role-label";
+import { RoleOptions } from "../settings/role-options";
 import { ConfirmDialog } from "../shell/dialogs";
 import { useGiveBaseRole } from "./give-base-role";
 import {
@@ -21,13 +22,13 @@ import { sortRows } from "../../lib/sort-rows";
 import { useColumnSort } from "../sort-header";
 import { useStepUp } from "./step-up";
 
-const ROLES: readonly Role[] = ["owner", "editor", "commenter", "viewer"];
-
 type Member = {
   userId: string;
   displayName: string;
   email: string;
-  role: Role;
+  role: Grant;
+  /** Their own role, which the list changes: a key or a made role's id. */
+  given: string | null;
   direct: boolean;
   groups: string[];
 };
@@ -58,7 +59,7 @@ export function BaseAdminMembers({
   const [picking, setPicking] = useState(false);
   const [typed, setTyped] = useState("");
   const [chosen, setChosen] = useState<AccountChoice | null>(null);
-  const [role, setRole] = useState<Role>("viewer");
+  const [role, setRole] = useState<string>("viewer");
   const [busy, setBusy] = useState(false);
   const choices = useAccountChoices(typed, picking);
   const giving = useGiveBaseRole();
@@ -66,7 +67,8 @@ export function BaseAdminMembers({
   const ordered = sortRows(
     members,
     columns.sort,
-    (member, key) => (key === "account" ? member.displayName : member.role),
+    (member, key) =>
+      key === "account" ? member.displayName : roleLabel(member.role),
     (member) => member.userId,
   );
   const already = new Set(
@@ -79,7 +81,7 @@ export function BaseAdminMembers({
       queryKey: api.admin.baseOverview.get.queryKey({ baseId }),
     });
 
-  async function setOn(userId: string, next: Role): Promise<boolean> {
+  async function setOn(userId: string, next: string): Promise<boolean> {
     setBusy(true);
     try {
       if (!(await stepUp.ensure())) return false;
@@ -135,20 +137,16 @@ export function BaseAdminMembers({
                     <Select
                       aria-label={t`Role for ${{ name: member.displayName }}`}
                       className="w-36"
-                      value={member.role}
+                      value={member.given ?? ""}
                       disabled={busy}
                       onChange={(event) => {
-                        const next = event.target.value as Role;
+                        const next = event.target.value;
                         void setOn(member.userId, next).then((done) => {
                           if (done) toast.success(t`Role changed`);
                         });
                       }}
                     >
-                      {ROLES.map((option) => (
-                        <option key={option} value={option}>
-                          {roleLabel(option)}
-                        </option>
-                      ))}
+                      <RoleOptions />
                     </Select>
                   ) : (
                     roleLabel(member.role)
@@ -201,13 +199,9 @@ export function BaseAdminMembers({
                 aria-label={t`Role for ${{ name: chosen.displayName }}`}
                 className="w-36"
                 value={role}
-                onChange={(event) => setRole(event.target.value as Role)}
+                onChange={(event) => setRole(event.target.value)}
               >
-                {ROLES.map((option) => (
-                  <option key={option} value={option}>
-                    {roleLabel(option)}
-                  </option>
-                ))}
+                <RoleOptions />
               </Select>
             </div>
           ) : (

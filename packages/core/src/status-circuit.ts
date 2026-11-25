@@ -1,4 +1,11 @@
 import { AppError } from "./errors.js";
+import {
+  type Grant,
+  type Permission,
+  type Role,
+  ROLES,
+  roleGrants,
+} from "./rbac.js";
 
 /** Signature proof a transition may require (ADR 0124). */
 export type TransitionSignature = "none" | "password" | "step_up";
@@ -84,17 +91,45 @@ export function transitionsFrom(
  * Role must be listed on the transition (owner may take any grant that lists
  * owner; the former ladder is expressed in the circuit grants).
  */
+/**
+ * The act that stands for each of the four in a circuit's grants, for a
+ * made role (ADR 0128): a transition given to editors is open to a made
+ * role that writes rows, one given to owners to a made role that locks
+ * them.
+ */
+const ACT_OF_KEY: Record<Role, Permission> = {
+  viewer: "rows.read",
+  commenter: "rows.comment",
+  editor: "rows.write",
+  owner: "rows.lock",
+};
+
+/** Whether what applies on a table may take a transition given to `roleKeys`. */
+export function takesTransition(
+  roleKeys: readonly string[],
+  grant: Grant | null | undefined,
+): boolean {
+  if (grant == null) return false;
+  if (typeof grant === "string") return roleKeys.includes(grant);
+  if (grant.role !== null && roleKeys.includes(grant.role)) return true;
+  return roleKeys.some(
+    (key) =>
+      (ROLES as readonly string[]).includes(key) &&
+      roleGrants(grant, ACT_OF_KEY[key as Role]),
+  );
+}
+
 export function findAllowedTransition(
   circuit: StatusCircuit,
   fromKey: string,
   transitionKey: string,
-  roleKey: string,
+  grant: Grant,
 ): StatusTransition {
   const match = circuit.transitions.find(
     (item) =>
       item.fromStateKey === fromKey &&
       item.key === transitionKey &&
-      item.roleKeys.includes(roleKey),
+      takesTransition(item.roleKeys, grant),
   );
   if (!match) {
     throw new AppError("invalid_status");

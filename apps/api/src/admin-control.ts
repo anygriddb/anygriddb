@@ -729,7 +729,8 @@ export async function accessReportCsv(db: Database): Promise<string> {
   const bindings = await db
     .selectFrom("roleBindings as r")
     .innerJoin("bases as b", "b.id", "r.scopeId")
-    .select(["r.userId", "b.name", "r.role"])
+    .leftJoin("madeRoles as m", "m.id", "r.madeRoleId")
+    .select(["r.userId", "b.name", "r.role", "m.name as madeName"])
     .where("r.scope", "=", "base")
     .where("b.deletedAt", "is", null)
     .orderBy("b.name")
@@ -738,7 +739,7 @@ export async function accessReportCsv(db: Database): Promise<string> {
   for (const row of bindings) {
     if (!row.userId) continue;
     const list = byUser.get(row.userId) ?? [];
-    list.push(`${row.name}:${row.role}`);
+    list.push(`${row.name}:${row.role ?? row.madeName ?? ""}`);
     byUser.set(row.userId, list);
   }
   return csv([

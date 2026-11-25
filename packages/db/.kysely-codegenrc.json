@@ -7,6 +7,7 @@
   "overrides": {
     "columns": {
       "api_tokens.base_ids": "string[] | null",
+      "made_roles.permissions": "string[]",
       "audit_events.new_value": "unknown",
       "audit_events.old_value": "unknown",
       "automation_runs.steps": "Array<{ type: string; ok: boolean; error?: string }> | null",

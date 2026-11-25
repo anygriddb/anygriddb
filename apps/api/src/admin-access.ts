@@ -6,14 +6,15 @@
 import {
   AppError,
   effectiveTableRole,
+  type Given,
   roleFor,
   roleRank,
-  type Role,
 } from "@anygriddb/core";
 import type { Database } from "@anygriddb/db";
 import { z } from "zod";
 import { ERASED_USER_ID } from "./data/erasure.js";
 import { liveBase, liveTable } from "./data/live.js";
+import { givenOf, MADE_COLUMNS } from "./data/made-roles.js";
 
 export const effectiveAccessInputSchema = z
   .object({
@@ -28,28 +29,35 @@ type AccessOrigin =
   | { kind: "none" };
 
 type SourcedBinding = {
-  role: Role;
+  role: Given;
   scope: "base" | "table";
   scopeId: string;
   groupId: string | null;
   groupName: string | null;
 };
 
+/** Where a binding stands among the four; a made role below them all. */
+function rankOf(role: Given): number {
+  return typeof role === "string" ? roleRank(role) : 0;
+}
+
 /**
  * Among bindings on one exact scope, the highest role and where it comes
- * from. A person's own binding wins a tie with a group's.
+ * from. A person's own binding wins a tie with a group's. A made role is
+ * held with the others, each giving what it gives (`roleFor`); the origin
+ * named is the highest of the four's, or the first made role's.
  */
 function resolvedOn(
   bindings: readonly SourcedBinding[],
   scope: "base" | "table",
   scopeId: string,
-): { role: Role | null; origin: AccessOrigin } {
-  let best: Role | null = null;
+): { role: Given | null; origin: AccessOrigin } {
+  let best: Given | null = null;
   let origin: AccessOrigin = { kind: "none" };
   for (const binding of bindings) {
     if (binding.scope !== scope || binding.scopeId !== scopeId) continue;
-    const rank = roleRank(binding.role);
-    const bestRank = best ? roleRank(best) : 0;
+    const rank = rankOf(binding.role) + 1;
+    const bestRank = best ? rankOf(best) + 1 : 0;
     const direct = binding.groupId === null;
     const better =
       rank > bestRank ||
@@ -99,12 +107,14 @@ export async function effectiveAccess(
     db
       .selectFrom("roleBindings as b")
       .leftJoin("groups as g", "g.id", "b.groupId")
+      .leftJoin("madeRoles as m", "m.id", "b.madeRoleId")
       .select([
         "b.role",
         "b.scope",
         "b.scopeId",
         "b.groupId",
         "g.displayName as groupName",
+        ...MADE_COLUMNS,
       ])
       .where("b.userId", "=", userId)
       .where("b.scope", "in", ["base", "table"])
@@ -118,13 +128,20 @@ export async function effectiveAccess(
       .execute(),
   ]);
 
-  const sourced: SourcedBinding[] = bindings.map((row) => ({
-    role: row.role,
-    scope: row.scope as "base" | "table",
-    scopeId: row.scopeId,
-    groupId: row.groupId,
-    groupName: row.groupName,
-  }));
+  const sourced: SourcedBinding[] = bindings.flatMap((row) => {
+    const role = givenOf(row);
+    return role === null
+      ? []
+      : [
+          {
+            role,
+            scope: row.scope as "base" | "table",
+            scopeId: row.scopeId,
+            groupId: row.groupId,
+            groupName: row.groupName,
+          },
+        ];
+  });
 
   // Same plain bindings the engine loads for can() / effectiveTableRole.
   const plain = sourced.map(({ role, scope, scopeId }) => ({

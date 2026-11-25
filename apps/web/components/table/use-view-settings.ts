@@ -4,7 +4,7 @@ import { useCallback, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useErrorText } from "../../lib/errors";
 import { trpc, useTRPC } from "../../lib/trpc";
-import type { Role, ViewConfig, ViewItem } from "../../lib/types";
+import type { Grant, ViewConfig, ViewItem } from "../../lib/types";
 import { canEditView } from "./table-rights";
 import { saveQueue, withoutSaved } from "./view-patch";
 import type { ViewPatch } from "./view-toolbar";
@@ -18,7 +18,7 @@ import type { ViewPatch } from "./view-toolbar";
 export function useViewSettings(input: {
   tableId: string;
   view: ViewItem | undefined;
-  role: Role | null;
+  role: Grant | null;
 }) {
   const { tableId, view, role } = input;
   const api = useTRPC();

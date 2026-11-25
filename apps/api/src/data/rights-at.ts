@@ -9,7 +9,10 @@ import { sql } from "kysely";
 export type RightsAtLine = {
   scope: "base" | "table";
   scopeId: string;
-  role: Role;
+  /** One of the four, or null for a made role (ADR 0128). */
+  role: Role | null;
+  /** The made role, by its name now; a name of null: since deleted. */
+  madeRole: { id: string; name: string | null } | null;
   /** Null when the role is the person's own; set when a group still gives it. */
   groupId: string | null;
   groupName: string | null;
@@ -61,7 +64,8 @@ function bindingFromPayload(payload: Record<string, unknown> | null): {
   userId: string;
   scope: "base" | "table";
   scopeId: string;
-  role: Role;
+  role: Role | null;
+  madeRoleId: string | null;
   groupId: string | null;
 } | null {
   if (!payload) return null;
@@ -70,15 +74,22 @@ function bindingFromPayload(payload: Record<string, unknown> | null): {
   const scope = textField(payload, "scope");
   const scopeId = textField(payload, "scope_id", "scopeId");
   const role = textField(payload, "role");
+  const madeRoleId = textField(payload, "made_role_id", "madeRoleId");
   const groupId = textField(payload, "group_id", "groupId");
-  if (!userId || (scope !== "base" && scope !== "table") || !scopeId || !role) {
+  if (
+    !userId ||
+    (scope !== "base" && scope !== "table") ||
+    !scopeId ||
+    (!role && !madeRoleId)
+  ) {
     return null;
   }
   return {
     userId,
     scope,
     scopeId,
-    role: role as Role,
+    role: role ? (role as Role) : null,
+    madeRoleId: role ? null : madeRoleId,
     groupId,
   };
 }
@@ -86,7 +97,8 @@ function bindingFromPayload(payload: Record<string, unknown> | null): {
 type StateRow = {
   scope: "base" | "table";
   scopeId: string;
-  role: Role;
+  role: Role | null;
+  madeRoleId: string | null;
   groupId: string | null;
   groupName: string | null;
   eventId: string | null;
@@ -117,6 +129,7 @@ export async function rightsAt(
     .leftJoin("groups as g", "g.id", "b.groupId")
     .select([
       "b.role",
+      "b.madeRoleId",
       "b.scope",
       "b.scopeId",
       "b.groupId",
@@ -133,6 +146,7 @@ export async function rightsAt(
       scope,
       scopeId: row.scopeId,
       role: row.role,
+      madeRoleId: row.madeRoleId,
       groupId: row.groupId,
       groupName: row.groupName,
       eventId: null,
@@ -187,6 +201,7 @@ export async function rightsAt(
         scope: before.scope,
         scopeId: before.scopeId,
         role: before.role,
+        madeRoleId: before.madeRoleId,
         groupId: before.groupId,
         groupName: null,
         eventId: event.id,
@@ -217,11 +232,33 @@ export async function rightsAt(
     }
   }
 
+  const madeIds = [
+    ...new Set(
+      [...state.values()]
+        .map((row) => row.madeRoleId)
+        .filter((id): id is string => id !== null),
+    ),
+  ];
+  const madeNames = new Map(
+    madeIds.length === 0
+      ? []
+      : (
+          await db
+            .selectFrom("madeRoles")
+            .select(["id", "name"])
+            .where("id", "in", madeIds)
+            .execute()
+        ).map((role) => [role.id, role.name] as const),
+  );
   const lines: RightsAtLine[] = [...state.values()]
     .map((row) => ({
       scope: row.scope,
       scopeId: row.scopeId,
       role: row.role,
+      madeRole:
+        row.madeRoleId === null
+          ? null
+          : { id: row.madeRoleId, name: madeNames.get(row.madeRoleId) ?? null },
       groupId: row.groupId,
       groupName: row.groupName,
       eventId: row.eventId,
@@ -259,7 +296,7 @@ export function rightsAtCsv(
       line.scopeId,
       names.base ?? "",
       names.table ?? "",
-      line.role,
+      line.role ?? line.madeRole?.name ?? line.madeRole?.id ?? "",
       line.groupId ?? "",
       line.groupName ?? "",
       line.eventId ?? "",

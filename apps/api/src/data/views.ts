@@ -7,7 +7,7 @@ import {
   keepTrashedParts,
   normalizeViewConfig,
   pruneViewConfig,
-  type Role,
+  type Grant,
   roleGrants,
   type ViewConfig,
   viewConfigColumns,
@@ -132,7 +132,7 @@ function assertViewConfig(
 export function canEditView(
   view: ViewRow,
   userId: string,
-  role: Role,
+  role: Grant,
 ): boolean {
   if (view.ownerId) {
     return view.ownerId === userId;

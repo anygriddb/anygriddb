@@ -5,13 +5,13 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { useErrorText } from "../../lib/errors";
 import { trpc, useTRPC } from "../../lib/trpc";
-import type { Role } from "../../lib/types";
+import type { Given } from "../../lib/types";
 import { useRoleLabel } from "../settings/role-label";
 import { useInvalidateCatalog } from "./sidebar";
 
 type Invitation = {
   id: string;
-  role: Role;
+  role: Given | null;
   baseName: string;
   invitedBy: string | null;
 };

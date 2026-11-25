@@ -204,7 +204,16 @@ export function buildOpenApi(
                   properties: {
                     id: { type: "string", format: "uuid" },
                     name: text,
-                    role: { type: ["string", "null"] },
+                    role: {
+                      type: ["string", "null"],
+                      description:
+                        "owner, editor, commenter or viewer, or the names of the roles an administrator made that apply, joined by +",
+                    },
+                    permissions: {
+                      type: "array",
+                      items: { type: "string" },
+                      description: "What the roles that apply give on the base",
+                    },
                   },
                 },
               },

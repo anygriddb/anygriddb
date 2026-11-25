@@ -61,17 +61,106 @@ const PACKS: Record<Role, ReadonlySet<Permission>> = {
   owner: new Set(PERMISSIONS),
 };
 
-/** The permissions a role gives, in the catalogue's order. */
-export function rolePermissions(role: Role): Permission[] {
-  return PERMISSIONS.filter((permission) => PACKS[role].has(permission));
+/**
+ * A role an administrator made of permissions (ADR 0128), given on a base
+ * or a table as one of the four is.
+ */
+export type MadeRole = {
+  id: string;
+  name: string;
+  permissions: readonly Permission[];
+};
+
+/** What one binding gives: one of the four, or a made role. */
+export type Given = Role | MadeRole;
+
+/**
+ * What applies on one base or one table when a made role is among it:
+ * the highest of the four that applies there too, if any, the made roles,
+ * and what they give together.
+ */
+export type Held = {
+  role: Role | null;
+  made: ReadonlyArray<{ id: string; name: string }>;
+  permissions: readonly Permission[];
+};
+
+/**
+ * What applies on one base or one table: one of the four alone, as
+ * before made roles, or the roles together.
+ */
+export type Grant = Role | Held;
+
+/**
+ * What applies, as one word an API answers with: one of the four by its
+ * key, or the made roles by their names (after the four's key), joined.
+ */
+export function grantName(grant: Grant | null): string | null {
+  if (grant === null) return null;
+  if (typeof grant === "string") return grant;
+  return [
+    ...(grant.role ? [grant.role] : []),
+    ...grant.made.map((made) => made.name),
+  ].join(" + ");
 }
 
-/** The one decision: whether a role, if any, gives this permission. */
+/** The permissions a role, a made role or roles held together give. */
+export function rolePermissions(role: Role | MadeRole | Held): Permission[] {
+  return PERMISSIONS.filter((permission) => roleGrants(role, permission));
+}
+
+/** The one decision: whether what applies, if anything, gives this permission. */
 export function roleGrants(
-  role: Role | null | undefined,
+  role: Role | MadeRole | Held | null | undefined,
   permission: Permission,
 ): boolean {
-  return role != null && PACKS[role].has(permission);
+  if (role == null) return false;
+  if (typeof role === "string") return PACKS[role].has(permission);
+  return role.permissions.includes(permission);
+}
+
+/**
+ * Whoever holds `giver` may give `given`: one of the four up to their own
+ * reach, the owner's only by an owner, and a made role only when they hold
+ * every permission it gives. Nobody gives more than they hold.
+ */
+export function mayGive(giver: Grant | MadeRole | null, given: Given): boolean {
+  if (giver === "owner") return true;
+  if (!roleGrants(giver, "members.manage")) return false;
+  if (given === "owner") return false;
+  return rolePermissions(given).every((permission) =>
+    roleGrants(giver, permission),
+  );
+}
+
+/**
+ * What a read-only token leaves of a role: what a viewer may, and no more
+ * than the role gave (ADR 0128).
+ */
+export function readOnlyGiven(given: Given): Given {
+  if (typeof given === "string") return "viewer";
+  return {
+    ...given,
+    permissions: given.permissions.filter((permission) =>
+      PACKS.viewer.has(permission),
+    ),
+  };
+}
+
+/** Whether a made role's permissions are a set it can be: read first. */
+export function madePermissions(
+  permissions: readonly string[],
+): Permission[] | null {
+  const wanted = new Set(permissions);
+  if (!wanted.has("rows.read")) return null;
+  if ([...wanted].some((permission) => !isPermission(permission))) {
+    return null;
+  }
+  return PERMISSIONS.filter((permission) => wanted.has(permission));
+}
+
+function isPermission(value: string): value is Permission {
+  return (PERMISSIONS as readonly string[]).includes(value);
 }
 
 /**
@@ -83,7 +172,7 @@ export const INSTANCE_ROLES = ["account_manager", "source_manager"] as const;
 export type InstanceRole = (typeof INSTANCE_ROLES)[number];
 
 export type Binding = {
-  role: Role;
+  role: Given;
   scope: Scope;
   scopeId: string;
 };
@@ -99,22 +188,39 @@ export function roleRank(role: Role): number {
   return ROLE_RANK[role];
 }
 
-/** Highest role bound to this exact scope, if any. */
+/**
+ * What applies on this exact scope, if anything: the highest of the four
+ * bound there, as always; with a made role among them, every role bound
+ * there together, each giving what it gives (an owner holds it all).
+ */
 export function roleFor(
   bindings: readonly Binding[],
   scope: Scope,
   scopeId: string,
-): Role | null {
+): Grant | null {
   let best: Role | null = null;
+  const made = new Map<string, MadeRole>();
   for (const binding of bindings) {
     if (binding.scope !== scope || binding.scopeId !== scopeId) {
       continue;
     }
-    if (!best || ROLE_RANK[binding.role] > ROLE_RANK[best]) {
+    if (typeof binding.role !== "string") {
+      made.set(binding.role.id, binding.role);
+    } else if (!best || ROLE_RANK[binding.role] > ROLE_RANK[best]) {
       best = binding.role;
     }
   }
-  return best;
+  if (made.size === 0 || best === "owner") return best;
+  const roles = [...made.values()];
+  return {
+    role: best,
+    made: roles.map(({ id, name }) => ({ id, name })),
+    permissions: PERMISSIONS.filter(
+      (permission) =>
+        (best !== null && PACKS[best].has(permission)) ||
+        roles.some((role) => role.permissions.includes(permission)),
+    ),
+  };
 }
 
 /**
@@ -125,7 +231,7 @@ export function effectiveTableRole(
   bindings: readonly Binding[],
   tableId: string,
   baseId: string | undefined,
-): Role | null {
+): Grant | null {
   const own = roleFor(bindings, "table", tableId);
   if (own) {
     return own;
@@ -154,9 +260,10 @@ export function can(
 /**
  * Who must confirm a second factor before working (ADR 0043):
  * administrators always, with one of their own whatever a provider says;
- * then, as the instance chooses, owners and anyone creating a base (the
- * default), every account, or nobody else. Anyone else the identity
- * provider vouches for (`providerFactor`) counts as enrolled.
+ * then, as the instance chooses, owners (and whoever a made role lets
+ * give access or run a base) and anyone creating a base (the default),
+ * every account, or nobody else. Anyone else the identity provider
+ * vouches for (`providerFactor`) counts as enrolled.
  */
 export function enrollmentGate(input: {
   bindings: readonly Binding[];
@@ -171,6 +278,11 @@ export function enrollmentGate(input: {
   if (input.providerFactor) return "ok";
   if (input.scope === "everyone") return "enroll";
   if (input.scope === "admins") return "ok";
-  const owner = input.bindings.some((binding) => binding.role === "owner");
+  // An owner, or whoever a made role lets give access or run the base.
+  const owner = input.bindings.some(
+    (binding) =>
+      roleGrants(binding.role, "members.manage") ||
+      roleGrants(binding.role, "base.manage"),
+  );
   return owner || input.creatingBase ? "enroll" : "ok";
 }
