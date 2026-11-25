@@ -1,5 +1,5 @@
 import { randomBytes } from "node:crypto";
-import { JOB_KINDS, JOB_STATUSES } from "@anygriddb/core";
+import { JOB_KINDS, JOB_STATUSES, ceilingOf } from "@anygriddb/core";
 import type { Database } from "@anygriddb/db";
 import type { WebSocket } from "ws";
 import { z } from "zod";
@@ -36,9 +36,9 @@ const BEAT = JSON.stringify({ type: "beat" });
  */
 export const MAX_BUFFERED_BYTES = 1_048_576;
 /** One tab is one socket: this is many tabs, and refuses an account's flood. */
-export const MAX_SOCKETS_PER_ACCOUNT = 64;
+export const MAX_SOCKETS_PER_ACCOUNT = ceilingOf("sockets.per_account");
 /** A page follows a few channels; a dashboard, one per table it shows. */
-export const MAX_CHANNELS_PER_SOCKET = 128;
+export const MAX_CHANNELS_PER_SOCKET = ceilingOf("sockets.channels_per_socket");
 /** Messages of one socket waiting: all its channels asked again, and more. */
 export const MAX_QUEUED_MESSAGES = 256;
 /** "I am on this cell", as fast as someone moves, then a few a second. */

@@ -1,8 +1,9 @@
 import type { FilterGroup } from "@anygriddb/core";
 import type { CatalogColumn } from "../../lib/types";
+import { ceilingOf } from "@anygriddb/core";
 
 /** A map shows the places of this many rows at most, and says so past it. */
-export const MAP_CEILING = 5_000;
+export const MAP_CEILING = ceilingOf("display.map_places");
 
 /** What a map reads its places from. */
 export type MapPlaces = {

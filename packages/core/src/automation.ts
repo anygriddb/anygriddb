@@ -3,17 +3,18 @@ import { filterGroupSchema } from "./filter";
 import { isTimeZone } from "./field-config";
 import { columnNameSchema } from "./names";
 import { AppError } from "./errors";
+import { ceilingOf } from "./limits";
 
 /** Actions at the top of an automation. */
-export const MAX_AUTOMATION_ACTIONS = 20;
+export const MAX_AUTOMATION_ACTIONS = ceilingOf("automation.max_actions");
 /** Actions inside one branch or one loop. */
-export const MAX_NESTED_ACTIONS = 10;
+export const MAX_NESTED_ACTIONS = ceilingOf("automation.max_nested_actions");
 /** Rows one loop goes through, at most. */
-export const MAX_LOOP_ROWS = 100;
+export const MAX_LOOP_ROWS = ceilingOf("automation.max_loop_rows");
 /** Characters of one script, at most. */
-export const MAX_SCRIPT_LENGTH = 20_000;
+export const MAX_SCRIPT_LENGTH = ceilingOf("automation.max_script_chars");
 /** Secrets one automation keeps for its scripts, at most. */
-export const MAX_AUTOMATION_SECRETS = 10;
+export const MAX_AUTOMATION_SECRETS = ceilingOf("automation.max_secrets");
 
 const templateSchema = z.string().max(10_000);
 const valuesSchema = z

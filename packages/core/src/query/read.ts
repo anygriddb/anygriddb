@@ -51,12 +51,13 @@ import {
 import { AppError, type ErrorCode } from "../errors";
 import { numberToDecimal } from "../decimal";
 import type { SourceLimit } from "./limits";
+import { ceilingOf } from "../limits";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-export const MAX_READ_LIMIT = 1000;
+export const MAX_READ_LIMIT = ceilingOf("read.rows_per_page");
 const MAX_READ_OFFSET = 10_000_000;
-export const MAX_GROUPS = 2_000;
+export const MAX_GROUPS = ceilingOf("read.groups");
 
 export const rowSortSchema = z.object({
   column: columnNameSchema,

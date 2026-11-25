@@ -1,4 +1,9 @@
-import { effectiveTableRole, roleGrants, type RowEvent } from "@anygriddb/core";
+import {
+  effectiveTableRole,
+  roleGrants,
+  type RowEvent,
+  ceilingOf,
+} from "@anygriddb/core";
 import type { Database } from "@anygriddb/db";
 import { sql as sqlTag } from "kysely";
 import type { KeyRing } from "./auth/key-ring.js";
@@ -34,8 +39,8 @@ export type NotifyDeps = {
   keys?: KeyRing;
 };
 
-const READ_RETENTION_DAYS = 90;
-const UNREAD_RETENTION_DAYS = 180;
+const READ_RETENTION_DAYS = ceilingOf("retention.notifications_read_days");
+const UNREAD_RETENTION_DAYS = ceilingOf("retention.notifications_unread_days");
 
 /** Who among `userIds` can still read the table: nobody is told about rows they cannot see. */
 async function readersOf(

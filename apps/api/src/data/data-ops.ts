@@ -27,6 +27,7 @@ import {
   type ReadSpec,
   ROLLUP_FNS,
   type RollupFn,
+  ceilingOf,
 } from "@anygriddb/core";
 import { runStatement, type Database } from "@anygriddb/db";
 import { readerAccess } from "./acl.js";
@@ -57,7 +58,7 @@ import { createView } from "./views.js";
  * by key, a base snapshot's rows, a field copied with its values. A table
  * copy reads none (ADR 0065).
  */
-export const MAX_COPY_ROWS = 100_000;
+export const MAX_COPY_ROWS = ceilingOf("copy.max_rows");
 const PAGE = 1000;
 const BATCH = 500;
 

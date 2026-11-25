@@ -6,10 +6,11 @@
  */
 import type { Database } from "@anygriddb/db";
 import { sql } from "kysely";
+import { ceilingOf } from "@anygriddb/core";
 
 const DAY_MS = 86_400_000;
 /** Keep minute buckets this long; Health shows up to the same window. */
-const SOURCE_LOAD_KEEP_DAYS = 30;
+const SOURCE_LOAD_KEEP_DAYS = ceilingOf("retention.source_load_days");
 /** An operation at or above this duration counts as slow (1 s). */
 export const SOURCE_LOAD_SLOW_MS = 1_000;
 

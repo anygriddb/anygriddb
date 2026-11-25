@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { ATTACHMENT_REFUSABLE_KINDS } from "./attachment-types";
+import { ceilingOf } from "./limits";
 
 /** The product's name: what an instance is called until it names itself. */
 export const PRODUCT_NAME = "AnyGridDB";
@@ -86,7 +87,7 @@ const cidrSchema = z
   );
 
 /** Default when neither the setting nor the environment sets a ceiling. */
-export const DEFAULT_ATTACHMENT_MAX_BYTES = 20 * 1024 * 1024;
+export const DEFAULT_ATTACHMENT_MAX_BYTES = ceilingOf("attachment.max_bytes");
 
 /** The largest ceiling an instance may choose, in the UI or the environment. */
 export const ATTACHMENT_MAX_BYTES_CEILING = 500 * 1024 * 1024;

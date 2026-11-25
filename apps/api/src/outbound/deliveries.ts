@@ -1,4 +1,4 @@
-import { AppError, nextRetryDelay } from "@anygriddb/core";
+import { AppError, nextRetryDelay, ceilingOf } from "@anygriddb/core";
 import type { Database, DeliveryRow, NewRow } from "@anygriddb/db";
 import { addJob, TASKS, type SqlExecutor } from "../queue/jobs.js";
 
@@ -32,7 +32,7 @@ export type Destination = {
 
 export type Destinations = Record<DeliveryOrigin, Destination>;
 
-const RETENTION_DAYS = 30;
+const RETENTION_DAYS = ceilingOf("retention.deliveries_days");
 /** A pending delivery whose attempt is this late lost its job: queue it again. */
 const STALE_ATTEMPT_MS = 15 * 60_000;
 

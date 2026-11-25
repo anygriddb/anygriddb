@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { isIP } from "node:net";
-import { ATTACHMENT_MAX_BYTES_CEILING } from "@anygriddb/core";
+import { ATTACHMENT_MAX_BYTES_CEILING, ceilingOf } from "@anygriddb/core";
 import { parseKeyRing, type KeyRing } from "./auth/key-ring.js";
 import type { FileSettings } from "./files/index.js";
 
@@ -609,8 +609,16 @@ export function readEnv(source: NodeJS.ProcessEnv = process.env): Env {
     DATABASE_POOL_MAX: count(source, "DATABASE_POOL_MAX", 10, 4),
     WORKER_CONCURRENCY: count(source, "WORKER_CONCURRENCY", 4),
     UPLOAD_CONCURRENCY: count(source, "UPLOAD_CONCURRENCY", 8),
-    EXPORT_MAX_ROWS: rowCeiling(source, "EXPORT_MAX_ROWS", 1_000_000),
-    IMPORT_MAX_ROWS: rowCeiling(source, "IMPORT_MAX_ROWS", 1_000_000),
+    EXPORT_MAX_ROWS: rowCeiling(
+      source,
+      "EXPORT_MAX_ROWS",
+      ceilingOf("export.max_rows"),
+    ),
+    IMPORT_MAX_ROWS: rowCeiling(
+      source,
+      "IMPORT_MAX_ROWS",
+      ceilingOf("import.max_rows"),
+    ),
     JOB_CONCURRENCY: count(source, "JOB_CONCURRENCY", 2),
     SOURCES_ALLOWED_HOSTS: source.ANYGRIDDB_SOURCES_ALLOWED_HOSTS ?? "",
     SOURCES_ALLOW_PLAINTEXT: allowPlaintext,

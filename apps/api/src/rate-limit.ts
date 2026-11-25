@@ -1,6 +1,7 @@
 import rateLimit from "@fastify/rate-limit";
 import type { FastifyInstance } from "fastify";
 import { publicErrorBody } from "./http.js";
+import { ceilingOf } from "@anygriddb/core";
 
 type RateBucket =
   | "auth"
@@ -15,23 +16,23 @@ type RateBucket =
 
 /** Requests allowed per minute and per client address, by bucket. */
 export const RATE_LIMITS: Record<RateBucket, number> = {
-  auth: 20,
+  auth: ceilingOf("rate.auth"),
   // An application's backend, which renews the grants of all its people
   // from one address. Its secret is long and random, not a password to
   // guess: what this holds back is the work of checking it.
-  oauth: 120,
+  oauth: ceilingOf("rate.oauth"),
   // The way to an identity provider and back: two requests a sign-in, and
   // the people of an office, behind one address, arrive together.
-  signOn: 300,
-  share: 240,
-  api: 600,
-  upload: 120,
+  signOn: ceilingOf("rate.sign_on"),
+  share: ceilingOf("rate.share"),
+  api: ceilingOf("rate.api"),
+  upload: ceilingOf("rate.upload"),
   // Files sent to public forms, by people who have no account: an answer
   // carries a few, and each is held a day if no answer comes (ADR 0062).
-  formUpload: 30,
+  formUpload: ceilingOf("rate.form_upload"),
   // Failures pages report: a page that fails in a loop stops here.
-  report: 30,
-  app: 3_000,
+  report: ceilingOf("rate.report"),
+  app: ceilingOf("rate.app"),
 };
 
 /**

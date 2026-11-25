@@ -7,12 +7,13 @@
  */
 import type { Executor } from "@anygriddb/db";
 import { sql } from "kysely";
+import { ceilingOf } from "@anygriddb/core";
 
 /** Runs one automation may start per minute, whatever triggers it. */
-export const RUNS_PER_MINUTE = 300;
+export const RUNS_PER_MINUTE = ceilingOf("automation.runs_per_minute");
 
 /** How long a run may wait for its turn: past it, it is dropped and said so. */
-export const MAX_DELAY_MINUTES = 24 * 60;
+export const MAX_DELAY_MINUTES = ceilingOf("automation.max_delay_minutes");
 
 /** A minute's waiting runs start spread over this much of it. */
 const SPREAD_MS = 55_000;
