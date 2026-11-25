@@ -9,21 +9,10 @@
  * that a person changing a cell twice in a row is not refused for the form
  * of their own write.
  */
+import { comparedAs } from "./field-types";
 import { canonicalDecimal, sameCell } from "./query/external-write";
 import { compareCodeUnits } from "./text-order";
 import { parseIsoInstant } from "./query/iso-instant";
-
-/** Types that keep a text: only the same characters are the same value. */
-const TEXT_TYPES: ReadonlySet<string> = new Set([
-  "text",
-  "long_text",
-  "email",
-  "url",
-  "phone",
-  "color",
-  "place",
-  "single_select",
-]);
 
 /** Past this exponent a number is compared as it is spelled. */
 const MAX_EXPONENT = 1_000;
@@ -61,16 +50,19 @@ export function sameFieldValue(
   ) {
     return (left ?? null) === (right ?? null);
   }
-  if (fieldType !== undefined && TEXT_TYPES.has(fieldType)) {
-    return textOf(left) === textOf(right);
+  switch (comparedAs(fieldType)) {
+    case "text":
+      return textOf(left) === textOf(right);
+    case "document":
+      return documentOf(left) === documentOf(right);
+    case "instant": {
+      const a = instantOf(left);
+      const b = instantOf(right);
+      return a !== null && b !== null ? a === b : sameCell(left, right);
+    }
+    default:
+      return sameCell(left, right);
   }
-  if (fieldType === "json") return documentOf(left) === documentOf(right);
-  if (fieldType === "date" || fieldType === "datetime") {
-    const a = instantOf(left);
-    const b = instantOf(right);
-    if (a !== null && b !== null) return a === b;
-  }
-  return sameCell(left, right);
 }
 
 function textOf(value: unknown): string {
@@ -80,12 +72,13 @@ function textOf(value: unknown): string {
 /** A cell as its field keeps it: an empty one is null, whatever said so. */
 function kept(fieldType: string, value: unknown): unknown {
   if (value === undefined || value === null || value === "") return null;
-  if (fieldType === "boolean") return value === true ? true : null;
-  if (fieldType === "json") return value;
+  const as = comparedAs(fieldType);
+  if (as === "checkbox") return value === true ? true : null;
+  if (as === "document") return value;
   if (Array.isArray(value)) {
     if (value.length === 0) return null;
     return value.map((item: unknown) =>
-      fieldType === "attachment" ? fileKey(item) : String(item),
+      as === "files" ? fileKey(item) : String(item),
     );
   }
   if (value instanceof Date) return value.toISOString();
