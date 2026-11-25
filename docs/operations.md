@@ -558,8 +558,8 @@ Rate limit 600/min/address.
 
 Supported shape: **one** API process. Multiple behind a balancer:
 
-- Rate limits are per-process memory → set `ANYGRIDDB_TRUSTED_PROXIES` and
-  enforce a global limit on the proxy.
+- Rate limits are counted in PostgreSQL, so they hold across processes. Set
+  `ANYGRIDDB_TRUSTED_PROXIES` so each client is counted by its own address.
 - WebSocket presence per process; row fan-out via `LISTEN`/`NOTIFY`.
 
 Balancer: `/ready` (Postgres ≤ 2 s) / `/readyz` (+ migrations). `/health` /

@@ -8,6 +8,15 @@ first.
 
 ## Unreleased
 
+### Changed
+
+- Rate limits hold across processes: requests are counted in PostgreSQL, a
+  minute at a time, so an instance served by several processes refuses at
+  the same number as one served by a single process (migration 0143, an
+  unlogged table). The probes (`/health`, `/ready`) are not counted, and a
+  count the database does not give within two seconds lets the request
+  through, said in the log once a minute.
+
 ## 0.10.0 - 2026-11-25
 
 **Roles an administrator made: check them after the upgrade.** A token

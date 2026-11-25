@@ -168,11 +168,11 @@ so they are not checked.
 
 What runs where:
 
-| When             | What                                                                                                                                                             |
-| ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `git commit`     | Prettier on staged files; commit message format                                                                                                                  |
-| `pnpm check`, CI | format, `scripts/check-conventions.mjs` (file names, migrations, versions), `scripts/check-licenses.mjs` (every dependency's license), ESLint, types, unit tests |
-| CI on every PR   | integration and e2e tests, translation catalogs, title, commit messages, CodeQL, dependency review                                                               |
+| When             | What                                                                                                                                                                                         |
+| ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `git commit`     | Prettier on staged files; commit message format                                                                                                                                              |
+| `pnpm check`, CI | format, `scripts/check-conventions.mjs` (file names, migrations, versions, no merge's conflict marker), `scripts/check-licenses.mjs` (every dependency's license), ESLint, types, unit tests |
+| CI on every PR   | integration and e2e tests, translation catalogs, title, commit messages, CodeQL, dependency review                                                                                           |
 
 ## Messages (i18n)
 

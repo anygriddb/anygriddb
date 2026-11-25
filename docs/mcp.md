@@ -11,7 +11,7 @@ HTTP. AnyGridDB embeds no model and calls no outside AI (ADR 0040).
   Admins-only also disables existing non-admin tokens (ADR 0044).
 - Effective rights = min(token scope, owner's roles / field / row rules).
 - Prefer read-only. Write tokens can omit deletes (`allowDelete` false, ADR 0079) → no `delete_records`; REST/tRPC delete → `token_cannot_delete`.
-- Rate limit: 600/min per address and process (shared with REST).
+- Rate limit: 600/min per address, across every process (shared with REST).
 
 ## Tools
 

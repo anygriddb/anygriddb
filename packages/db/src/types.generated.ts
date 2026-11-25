@@ -893,6 +893,12 @@ export interface Pins {
   userId: string;
 }
 
+export interface RateWindows {
+  hits: number;
+  key: string;
+  windowStart: Timestamp;
+}
+
 export interface RecentTables {
   openedAt: Generated<Timestamp>;
   tableId: string;
@@ -1299,6 +1305,7 @@ export interface DB {
   passwordHashes: PasswordHashes;
   passwordResets: PasswordResets;
   pins: Pins;
+  rateWindows: RateWindows;
   recentTables: RecentTables;
   relations: Relations;
   releaseStatus: ReleaseStatus;

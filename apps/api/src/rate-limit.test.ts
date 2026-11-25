@@ -5,6 +5,7 @@ import {
   credentialCalls,
   RATE_LIMITS,
   rateBucket,
+  probe,
   registerRateLimit,
   tooManyShareCalls,
 } from "./rate-limit.js";
@@ -128,6 +129,18 @@ describe("credentialCalls", () => {
       2,
     );
     expect(credentialCalls("/api/v1/tables/x/records")).toBe(0);
+  });
+});
+
+describe("probe", () => {
+  it("names the probes, with or without a query", () => {
+    expect(probe("/health")).toBe(true);
+    expect(probe("/readyz?full=1")).toBe(true);
+  });
+
+  it("names nothing else", () => {
+    expect(probe("/healthy")).toBe(false);
+    expect(probe("/api/v1/health")).toBe(false);
   });
 });
 
