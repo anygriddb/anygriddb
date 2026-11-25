@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { AppError } from "./errors.js";
-import { circuitDefinitionSchema } from "./schemas.js";
+import { assertCircuitDefinition } from "./schemas.js";
 import {
   assertCircuitEdit,
   definitionOf,
@@ -164,7 +164,7 @@ describe("takesTransition", () => {
 describe("a circuit as its editor saves it", () => {
   it("holds a circuit read back, its steps with whom they name", () => {
     const drawn = definitionOf(compliance);
-    expect(circuitDefinitionSchema.safeParse(drawn).success).toBe(true);
+    expect(() => assertCircuitDefinition(drawn)).not.toThrow();
     expect(drawn.steps.find((step) => step.key === "lock")).toMatchObject({
       from: "submitted",
       to: "locked",
@@ -178,7 +178,12 @@ describe("a circuit as its editor saves it", () => {
     const refused = (change: (copy: typeof drawn) => void) => {
       const copy = structuredClone(drawn);
       change(copy);
-      return circuitDefinitionSchema.safeParse(copy).success;
+      try {
+        assertCircuitDefinition(copy);
+        return true;
+      } catch {
+        return false;
+      }
     };
     expect(
       refused((copy) => {

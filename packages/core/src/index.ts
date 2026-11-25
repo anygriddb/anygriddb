@@ -403,6 +403,7 @@ export {
   addLookupInputSchema,
   addRelationInputSchema,
   addRollupInputSchema,
+  assertCircuitDefinition,
   circuitDefinitionSchema,
   saveCircuitInputSchema,
   type CircuitDefinition,

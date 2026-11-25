@@ -471,41 +471,42 @@ export const circuitDefinitionSchema = z
       )
       .max(60),
   })
-  .strict()
-  .superRefine((circuit, context) => {
-    const refuse = () =>
-      context.addIssue({ code: "custom", message: "Invalid circuit" });
-    const keys = circuit.states.map((state) => state.key);
-    if (new Set(keys).size !== keys.length) refuse();
-    if (circuit.states.filter((state) => state.initial).length !== 1) {
-      refuse();
-    }
-    if (
-      circuit.states.some(
-        (state) => state.seal && (state.writable || state.delete),
-      )
-    ) {
-      refuse();
-    }
-    const known = new Set(keys);
-    const leaving = new Set<string>();
-    for (const step of circuit.steps) {
-      if (
-        !known.has(step.from) ||
-        !known.has(step.to) ||
-        step.from === step.to
-      ) {
-        refuse();
-      }
-      const named = `${step.from} ${step.key}`;
-      if (leaving.has(named)) refuse();
-      leaving.add(named);
-      if (new Set(step.roles).size !== step.roles.length) refuse();
-      if (new Set(step.madeRoles).size !== step.madeRoles.length) refuse();
-    }
-  });
+  .strict();
 
 export type CircuitDefinition = z.infer<typeof circuitDefinitionSchema>;
+
+/**
+ * Whether a circuit's definition holds together: one first state, each
+ * state's key once, a sealed state that neither writes nor deletes, steps
+ * between two states it has, each step's key once from its state, and
+ * whom a step names once each. Asked after the caller is known: an input
+ * that fails here tells nothing to who may not save it.
+ */
+export function assertCircuitDefinition(circuit: CircuitDefinition): void {
+  const keys = circuit.states.map((state) => state.key);
+  const known = new Set(keys);
+  const leaving = new Set<string>();
+  const holds =
+    known.size === keys.length &&
+    circuit.states.filter((state) => state.initial).length === 1 &&
+    circuit.states.every(
+      (state) => !(state.seal && (state.writable || state.delete)),
+    ) &&
+    circuit.steps.every((step) => {
+      const named = `${step.from} ${step.key}`;
+      const once = !leaving.has(named);
+      leaving.add(named);
+      return (
+        once &&
+        known.has(step.from) &&
+        known.has(step.to) &&
+        step.from !== step.to &&
+        new Set(step.roles).size === step.roles.length &&
+        new Set(step.madeRoles).size === step.madeRoles.length
+      );
+    });
+  if (!holds) throw new AppError("invalid_status");
+}
 
 export const saveCircuitInputSchema = z.object({
   tableId: z.uuid(),

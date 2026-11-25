@@ -6,6 +6,7 @@ import {
   createTableInputSchema,
   deleteTableInputSchema,
   duplicateTableInputSchema,
+  assertCircuitDefinition,
   getTableCircuitInputSchema,
   isWritableType,
   listCircuitTemplatesInputSchema,
@@ -275,6 +276,7 @@ export const catalogTableProcedures = {
           input.tableId,
           "schema.manage",
         );
+        assertCircuitDefinition(input.circuit);
         const named = [
           ...input.circuit.states.flatMap(
             (state) => state.writableFields ?? [],
