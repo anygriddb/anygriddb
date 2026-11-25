@@ -6,7 +6,7 @@ import {
 } from "./cell-values";
 import { numberToDecimal, toDecimalString } from "./decimal";
 import { selectOptionNames } from "./field-config";
-import type { FieldType } from "./field-types";
+import type { FieldType, WritableType } from "./field-types";
 import { isIsoDateTime } from "./iso-date";
 import { readNumberText } from "./typed-text";
 
@@ -18,27 +18,6 @@ import { readNumberText } from "./typed-text";
 
 /** A stored value as a conversion reads it from the database. */
 export type StoredCell = string | boolean | readonly string[];
-
-const NUMBERS: ReadonlySet<FieldType> = new Set([
-  "number",
-  "rating",
-  "duration",
-]);
-
-/** The fields whose write check is asked of a text as it stands. */
-const TAKES_TEXT: ReadonlySet<FieldType> = new Set([
-  "text",
-  "long_text",
-  "email",
-  "url",
-  "phone",
-  "color",
-  "place",
-  "number",
-  "date",
-  "datetime",
-  "single_select",
-]);
 
 /** Two zones no offset makes agree: a time without one reads differently. */
 const FAR_ZONES = ["Etc/GMT+12", "Pacific/Kiritimati"] as const;
@@ -114,28 +93,118 @@ function toInstant(
   return west === east ? west : undefined;
 }
 
+/**
+ * How a value becomes one of a field's type, the type's own rules: a
+ * number is compared as the decimal it is; a text its write check takes
+ * stays as it stands; a text it does not is read as the type reads one
+ * (as a cell reads it, unless said); a list (options, people, files) is
+ * read as its names joined, unless said; and what the trail holds comes
+ * back as the type takes it (a boolean read, anything else as a text
+ * converted, unless said).
+ */
+type Conversion = {
+  number?: true;
+  keepsText?: true;
+  fromText?: (
+    column: CellColumn,
+    text: string,
+    from: FieldType,
+    timeZone: string | undefined,
+  ) => CellValue | undefined;
+  fromList?: (
+    column: CellColumn,
+    list: readonly string[],
+  ) => CellValue | undefined;
+  restore?: (column: CellColumn, held: HeldCell) => CellValue | undefined;
+};
+
+/** A value the trail holds for a row in the trash. */
+type HeldCell = string | boolean | readonly string[];
+
+const kept = (held: HeldCell): string => spelled(held);
+
+/** One entry per writable type: `satisfies Record<…>` refuses a gap. */
+const CONVERSIONS = {
+  text: { keepsText: true, restore: (_column, held) => kept(held) },
+  long_text: { keepsText: true, restore: (_column, held) => kept(held) },
+  number: { number: true, keepsText: true },
+  boolean: {
+    fromText: (column, text, from) =>
+      conversionOf(from).number ? text !== "0" : read(column, text),
+  },
+  date: {
+    keepsText: true,
+    // A held instant has no one day without a zone: it is not guessed.
+    restore: (column, held) =>
+      typeof held === "string" && isIsoDateTime(held.trim())
+        ? undefined
+        : convertCell("text", column, spelled(held)),
+  },
+  datetime: {
+    keepsText: true,
+    fromText: (column, text, _from, timeZone) =>
+      toInstant(column, text, timeZone),
+  },
+  single_select: {
+    keepsText: true,
+    // A list is one option of it, or does not fit.
+    fromList: (column, list) => {
+      const [only] = list;
+      return list.length === 1 && only !== undefined
+        ? (optionNamed(column, only) ?? undefined)
+        : undefined;
+    },
+    restore: (_column, held) => kept(held),
+  },
+  multi_select: {
+    fromText: (column, text, from) => toList(from, column, text),
+    restore: (_column, held) => [...heldList(held)],
+  },
+  email: { keepsText: true },
+  url: { keepsText: true },
+  phone: { keepsText: true },
+  color: { keepsText: true },
+  place: { keepsText: true },
+  json: {},
+  rating: { number: true, fromText: (column, text) => toFloat(column, text) },
+  duration: {
+    number: true,
+    fromText: (column, text) => toFloat(column, text),
+  },
+  user: {
+    restore: (_column, held) =>
+      isList(held) && held.every((id) => UUID.test(id)) ? [...held] : undefined,
+  },
+  attachment: {
+    restore: (_column, held) => (isList(held) ? [...held] : undefined),
+  },
+} satisfies Record<WritableType, Conversion>;
+
+/** A link to one row comes back as the row's id, or not at all. */
+const LINK: Conversion = {
+  restore: (_column, held) =>
+    typeof held === "string" && UUID.test(held) ? held : undefined,
+};
+
+function conversionOf(type: FieldType): Conversion {
+  if (type === "relation_one_to_many") return LINK;
+  return Object.hasOwn(CONVERSIONS, type)
+    ? CONVERSIONS[type as WritableType]
+    : {};
+}
+
 function fromText(
   from: FieldType,
   column: CellColumn,
   text: string,
   timeZone: string | undefined,
 ): CellValue | undefined {
-  const { fieldType } = column;
-  if (TAKES_TEXT.has(fieldType) && takes(column, text)) return text;
+  const conversion = conversionOf(column.fieldType);
+  if (conversion.keepsText && takes(column, text)) return text;
   if (text.trim() === "") return null;
-  switch (fieldType) {
-    case "boolean":
-      return NUMBERS.has(from) ? text !== "0" : read(column, text);
-    case "multi_select":
-      return toList(from, column, text);
-    case "rating":
-    case "duration":
-      return toFloat(column, text);
-    case "datetime":
-      return toInstant(column, text, timeZone);
-    default:
-      return read(column, text);
-  }
+  return conversion.fromText
+    ? conversion.fromText(column, text, from, timeZone)
+    : read(column, text);
 }
 
 /**
@@ -153,13 +222,10 @@ export function convertCell(
     return fromText(from, column, stored, timeZone);
   }
   if (stored.length === 0) return null;
-  if (column.fieldType === "single_select") {
-    const [only] = stored;
-    return stored.length === 1 && only !== undefined
-      ? (optionNamed(column, only) ?? undefined)
-      : undefined;
-  }
-  return fromText(from, column, stored.join(", "), timeZone);
+  const { fromList } = conversionOf(column.fieldType);
+  return fromList
+    ? fromList(column, stored)
+    : fromText(from, column, stored.join(", "), timeZone);
 }
 
 function isList(value: unknown): value is readonly string[] {
@@ -183,7 +249,7 @@ export function conversionChanges(
   if (kept === null) return false;
   const after = spelled(kept);
   return (
-    (NUMBERS.has(to) ? (toDecimalString(after) ?? after) : after) !==
+    (conversionOf(to).number ? (toDecimalString(after) ?? after) : after) !==
     spelled(stored)
   );
 }
@@ -205,30 +271,11 @@ function heldList(
  */
 export function restoredCell(
   column: CellColumn,
-  held: string | boolean | readonly string[],
+  held: HeldCell,
 ): CellValue | undefined {
-  switch (column.fieldType) {
-    case "text":
-    case "long_text":
-    case "single_select":
-      return spelled(held);
-    case "multi_select":
-      return [...heldList(held)];
-    case "attachment":
-      return isList(held) ? [...held] : undefined;
-    case "user":
-      return isList(held) && held.every((id) => UUID.test(id))
-        ? [...held]
-        : undefined;
-    case "relation_one_to_many":
-      return typeof held === "string" && UUID.test(held) ? held : undefined;
-    case "date":
-      return typeof held === "string" && isIsoDateTime(held.trim())
-        ? undefined
-        : convertCell("text", column, spelled(held));
-    default:
-      return typeof held === "boolean"
-        ? read(column, held)
-        : convertCell("text", column, spelled(held));
-  }
+  const { restore } = conversionOf(column.fieldType);
+  if (restore) return restore(column, held);
+  return typeof held === "boolean"
+    ? read(column, held)
+    : convertCell("text", column, spelled(held));
 }
