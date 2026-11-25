@@ -127,6 +127,7 @@ no command line and no access to the database.
 | 8   | Workspaces (and teams) above bases                                                                | L      | Bases stay the top level of membership until someone needs more: a new level in the model is to be decided first (ADR 0017 notes the cost of cross-base links inside one workspace) |
 | 9   | Richer field and row rules (several row rules per member, per-column conditions, user attributes) | L      | Current model: one row rule per table per member, `me` in filters (ADR 0016)                                                                                                        |
 | 10  | Timeline dependencies (Gantt)                                                                     | L      | The timeline has no dependency edges today                                                                                                                                          |
+| 114 | A row's state in filters, sorts, groups and kanban stacks                                         | M      | ADR 0124 promised it; ADR 0130 records it as not done. The state is a system column the database guards, read by its key and shown by its circuit's label                           |
 
 ## Non-goals
 

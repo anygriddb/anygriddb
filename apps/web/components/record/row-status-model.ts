@@ -36,9 +36,8 @@ export function allowedTransitions(
   fromKey: string,
   role: Grant | null,
 ): StatusTransition[] {
-  if (!role || !grants(role, "rows.write")) return [];
   return transitionsFrom(circuit, fromKey)
-    .filter((item) => takesTransition(item.roleKeys, role))
+    .filter((item) => takesTransition(item, role))
     .sort((a, b) => a.position - b.position);
 }
 
@@ -48,7 +47,7 @@ export function canSubmitRow(
   role: Grant | null,
   circuit?: StatusCircuit | null,
 ): boolean {
-  if (!grants(role, "rows.write")) return false;
+  if (!grants(role, "rows.transition")) return false;
   if (typeof row.ag_status !== "string") return false;
   const initial = circuitInitial(circuit ?? undefined);
   if (row.ag_status !== initial) return false;

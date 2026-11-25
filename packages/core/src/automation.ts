@@ -62,6 +62,19 @@ export const automationTriggerSchema = z.discriminatedUnion("type", [
   /** After a row is deleted: its id, and its values where the trail has them. */
   z.object({ type: z.literal("row_deleted") }).strict(),
   /**
+   * After a row takes a step of its table's circuit (ADR 0130): any step,
+   * or the one named by its key.
+   */
+  z
+    .object({
+      type: z.literal("step_taken"),
+      transition: z
+        .string()
+        .regex(/^[a-z][a-z0-9_]{0,63}$/)
+        .optional(),
+    })
+    .strict(),
+  /**
    * A call to the automation's secret address (`POST /hooks/automations/<token>`):
    * its JSON body's fields as `{{body_<field>}}`.
    */

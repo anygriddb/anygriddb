@@ -143,4 +143,10 @@ accepted as the work they decide was done; each carries its own date.
 | [0127](0127-permissions-of-a-base.md)                        | A base's roles are packs of permissions, one per act                                    | Accepted                                                                    |
 | [0128](0128-made-roles.md)                                   | Roles an administrator makes of a base's permissions                                    | Accepted                                                                    |
 | [0129](0129-rows-leave-by-export.md)                         | Rows leave a base by an export, and a token by its own permission                       | Accepted (amends 0127, 0128)                                                |
+| <<<<<<< HEAD                                                 |
 | [0132](0132-a-single-catalogue-of-limits.md)                 | A single catalogue of limits                                                            | Accepted (amends 0009, 0043, 0044, 0069, 0110, 0115)                        |
+|                                                              |                                                                                         |                                                                             |     |     |     | ad71a2c9 |
+| =======                                                      |
+| [0130](0130-taking-a-circuit-step.md)                        | Taking a circuit's step is a permission, and a step names its roles                     | Accepted (amends 0124)                                                      |
+
+> > > > > > > origin/main

@@ -11,6 +11,8 @@ import {
   listTables,
   openApiDocument,
   type PublicApiDeps,
+  transitionBodySchema,
+  transitionRecord,
   updateRecords,
   writeBodySchema,
 } from "../public-api/index.js";
@@ -203,6 +205,34 @@ export function registerPublicApiTools(
     },
     async ({ tableId, reason, ...body }) =>
       run((actor) => updateRecords(deps, actor, tableId, body, reason)),
+  );
+
+  server.registerTool(
+    "transition_record",
+    {
+      title: "Take a step of a record's circuit",
+      description:
+        "Move one record along its table's status circuit by a step's key (for example submit). A step that asks a signature is taken in the application.",
+      inputSchema: z.object({
+        tableId: z.uuid(),
+        recordId: rowIdSchema,
+        transition: transitionBodySchema.shape.transition,
+        reason: transitionBodySchema.shape.reason,
+      }),
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: false,
+        openWorldHint: false,
+      },
+    },
+    async ({ tableId, recordId, transition, reason }) =>
+      run((actor) =>
+        transitionRecord(deps, actor, tableId, recordId, {
+          transition,
+          reason,
+        }),
+      ),
   );
 
   // A write token may still refuse deletes (ADR 0079): do not offer the tool.

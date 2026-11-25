@@ -16,7 +16,7 @@ import {
   rowSortSchema,
 } from "./query/read";
 import { MAX_BATCH_ROWS } from "./query/write";
-import { type Grant, PERMISSIONS, ROLES, roleGrants } from "./rbac";
+import { type Grant, PERMISSIONS, ROLES } from "./rbac";
 import {
   MAX_VIEW_GROUPS,
   MAX_VIEW_SORTS,
@@ -414,6 +414,8 @@ export const transitionRowInputSchema = z.object({
   reason: z.string().trim().min(1).max(500).optional(),
   meaning: z.string().trim().min(1).max(500).optional(),
   password: z.string().min(12).max(128).optional(),
+  /** For a step signed `step_up`: the authenticator's code, or a backup one. */
+  factorCode: z.string().trim().min(6).max(64).optional(),
 });
 
 export const getTableCircuitInputSchema = z.object({
@@ -507,35 +509,6 @@ export function assertRequiredValues(
       }
     }
   }
-}
-
-export function assertStatusTransition(
-  from: string,
-  to: "submitted" | "locked" | "draft",
-  role: AuditRole,
-): void {
-  if (
-    to === "submitted" &&
-    from === "draft" &&
-    roleGrants(role, "rows.write")
-  ) {
-    return;
-  }
-  if (
-    to === "locked" &&
-    from === "submitted" &&
-    roleGrants(role, "rows.lock")
-  ) {
-    return;
-  }
-  if (
-    to === "draft" &&
-    (from === "locked" || from === "signed") &&
-    roleGrants(role, "rows.lock")
-  ) {
-    return;
-  }
-  throw new AppError("invalid_status");
 }
 
 export const listViewsInputSchema = z.object({ tableId: z.uuid() });
