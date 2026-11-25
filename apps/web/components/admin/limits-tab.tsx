@@ -84,6 +84,9 @@ function useLimitNames(): Record<LimitId, string> {
     "retention.deliveries_days": t`A delivery of a webhook or a channel`,
     "retention.digest_days": t`A notice waiting for a digest`,
     "retention.source_load_days": t`A source's load, measured`,
+    "retention.trash_days": t`What is deleted, in the trash`,
+    "retention.restore_point_days": t`A restore point`,
+    "retention.sign_in_days": t`The sign-in trail`,
     "automation.max_actions": t`Actions in an automation`,
     "automation.max_nested_actions": t`Actions inside a condition or a loop`,
     "automation.max_loop_rows": t`Rows a loop goes through`,
@@ -116,7 +119,7 @@ function useFamilyNames(): Record<
     },
     kept: {
       title: t`How long things are kept`,
-      description: t`Set by AnyGridDB. The trash, restore points and the trails are set in Settings and Security.`,
+      description: t`The trash and restore points are set in Settings, the sign-in trail in Security; the change trail, kept for ever unless Security says otherwise, is not listed.`,
     },
     automations: {
       title: t`An automation's shape`,
@@ -165,6 +168,7 @@ function useSetByNames(): Record<LimitSetBy, string> {
     environment: t`The environment`,
     security: t`Security`,
     settings: t`Settings`,
+    limits: t`This page`,
   };
 }
 

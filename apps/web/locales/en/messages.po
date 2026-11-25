@@ -1538,6 +1538,10 @@ msgstr "A reason is required"
 msgid "A request"
 msgstr "A request"
 
+#: components/admin/limits-tab.tsx
+msgid "A restore point"
+msgstr "A restore point"
+
 #: components/admin/trails.tsx
 msgid "A restore point of the base, kept on the instance"
 msgstr "A restore point of the base, kept on the instance"
@@ -11233,10 +11237,6 @@ msgstr "Set by"
 msgid "Set by AnyGridDB."
 msgstr "Set by AnyGridDB."
 
-#: components/admin/limits-tab.tsx
-msgid "Set by AnyGridDB. The trash, restore points and the trails are set in Settings and Security."
-msgstr "Set by AnyGridDB. The trash, restore points and the trails are set in Settings and Security."
-
 #: components/admin/integrations-tab.tsx
 msgid "Set in the instance's environment"
 msgstr "Set in the instance's environment"
@@ -12972,6 +12972,10 @@ msgstr "The server is not of the chosen engine: MySQL and MariaDB differ"
 msgid "The server's internal certificate authority, or its self-signed certificate. Without one, the system's authorities are trusted."
 msgstr "The server's internal certificate authority, or its self-signed certificate. Without one, the system's authorities are trusted."
 
+#: components/admin/limits-tab.tsx
+msgid "The sign-in trail"
+msgstr "The sign-in trail"
+
 #: components/admin/trails.tsx
 msgid "The sign-in trail, as {format}"
 msgstr "The sign-in trail, as {format}"
@@ -13071,6 +13075,10 @@ msgstr "The time between the date and now, as FROMNOW gives."
 #: components/admin/rights-at.tsx
 msgid "The trail was purged before that date."
 msgstr "The trail was purged before that date."
+
+#: components/admin/limits-tab.tsx
+msgid "The trash and restore points are set in Settings, the sign-in trail in Security; the change trail, kept for ever unless Security says otherwise, is not listed."
+msgstr "The trash and restore points are set in Settings, the sign-in trail in Security; the change trail, kept for ever unless Security says otherwise, is not listed."
 
 #: components/shell/trash-dialog.tsx
 #: components/table/row-trash-dialog.tsx
@@ -13627,6 +13635,10 @@ msgstr "This number has more than 60 digits"
 #: lib/errors.ts
 msgid "This number reads two ways: say which decimal separator it uses"
 msgstr "This number reads two ways: say which decimal separator it uses"
+
+#: components/admin/limits-tab.tsx
+msgid "This page"
+msgstr "This page"
 
 #: components/shell/load-failed.tsx
 msgid "This page could not be loaded: {reason}"
@@ -14676,6 +14688,10 @@ msgstr "What comes first in this file's dates?"
 #: components/admin/notification-defaults-section.tsx
 msgid "What each account inherits until they change their own preferences. Security notices keep immediate email."
 msgstr "What each account inherits until they change their own preferences. Security notices keep immediate email."
+
+#: components/admin/limits-tab.tsx
+msgid "What is deleted, in the trash"
+msgstr "What is deleted, in the trash"
 
 #: components/admin/limits-tab.tsx
 msgid "What is used is counted over this minute and the one before."

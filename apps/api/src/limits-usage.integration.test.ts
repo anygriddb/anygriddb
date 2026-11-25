@@ -85,6 +85,13 @@ describe("limits and usage", () => {
       setBy: "environment",
       used: null,
     });
+    // Set in Settings: the value the instance keeps, with its bounds.
+    expect(row("retention.trash_days")).toMatchObject({
+      now: 30,
+      setBy: "settings",
+      bounds: [7, 365],
+      used: null,
+    });
     expect(row("jobs.active_per_account")?.used).toEqual({
       most: 0,
       past: 0,

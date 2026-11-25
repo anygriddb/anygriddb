@@ -8,7 +8,11 @@ import {
   limitValuesSchema,
   SETTABLE_LIMITS,
 } from "./limits";
-import { parseInstanceSettings } from "./instance";
+import {
+  INSTANCE_DEFAULTS,
+  parseInstanceSettings,
+  POLICY_BOUNDS,
+} from "./instance";
 import { MAX_READ_LIMIT } from "./query/read";
 
 describe("the catalogue of limits", () => {
@@ -54,7 +58,10 @@ describe("the catalogue of limits", () => {
       "retention.digest_days": 30,
       "retention.notifications_read_days": 90,
       "retention.notifications_unread_days": 180,
+      "retention.restore_point_days": 30,
+      "retention.sign_in_days": 365,
       "retention.source_load_days": 30,
+      "retention.trash_days": 30,
       "sockets.channels_per_socket": 128,
       "sockets.per_account": 64,
       "view.groups": 5,
@@ -76,6 +83,24 @@ describe("the catalogue of limits", () => {
     expect(MAX_AUTOMATION_ACTIONS).toBe(ceilingOf("automation.max_actions"));
     // A ceiling the catalogue does not hold is no ceiling.
     expect(() => ceilingOf("nonsense" as never)).toThrow();
+  });
+});
+
+describe("the days kept that Settings and Security set", () => {
+  it("are the settings' own bounds and defaults", () => {
+    expect(POLICY_BOUNDS.trashDays).toEqual({ min: 7, max: 365 });
+    expect(POLICY_BOUNDS.restorePointDays).toEqual({ min: 1, max: 365 });
+    expect(POLICY_BOUNDS.authRetentionDays).toEqual({ min: 180, max: 365 });
+    expect(INSTANCE_DEFAULTS.trashDays).toBe(ceilingOf("retention.trash_days"));
+    expect(INSTANCE_DEFAULTS.authRetentionDays).toBe(
+      ceilingOf("retention.sign_in_days"),
+    );
+  });
+
+  it("are not set in Limits and usage", () => {
+    expect(
+      limitValuesSchema.safeParse({ "retention.trash_days": 60 }).success,
+    ).toBe(false);
   });
 });
 

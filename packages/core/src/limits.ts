@@ -47,7 +47,8 @@ export type LimitKind = "enforce" | "display";
  * environment, or in Administration (the security policy, the instance's
  * settings).
  */
-export type LimitSetBy = "code" | "environment" | "security" | "settings";
+export type LimitSetBy =
+  "code" | "environment" | "security" | "settings" | "limits";
 
 export type LimitEntry = {
   unit: LimitUnit;
@@ -58,8 +59,9 @@ export type LimitEntry = {
   setBy: LimitSetBy;
   /**
    * The least and the most an administrator may set, for a limit set in
-   * Administration's "Limits and usage" (`setBy: "settings"`): the floor
-   * still protects the instance, the top still protects the database.
+   * Administration ("Limits and usage", `setBy: "limits"`, or Settings and
+   * Security): the floor still protects the instance, the top still
+   * protects the database.
    */
   bounds?: readonly [number, number];
 };
@@ -75,9 +77,9 @@ function enforce(
   return { unit, value, scope, kind: "enforce", setBy };
 }
 
-/** A limit an administrator sets, between its bounds. */
+/** A limit an administrator sets in "Limits and usage", between its bounds. */
 type SettableEntry = LimitEntry & {
-  setBy: "settings";
+  setBy: "limits";
   bounds: readonly [number, number];
 };
 
@@ -88,7 +90,24 @@ function rate(value: number, floor: number, top: number): SettableEntry {
     value,
     scope: "address",
     kind: "enforce",
-    setBy: "settings",
+    setBy: "limits",
+    bounds: [floor, top],
+  };
+}
+
+/** A limit set in Settings or Security, between its bounds. */
+function kept(
+  value: number,
+  floor: number,
+  top: number,
+  setBy: "settings" | "security",
+): LimitEntry & { bounds: readonly [number, number] } {
+  return {
+    unit: "days",
+    value,
+    scope: "instance",
+    kind: "enforce",
+    setBy,
     bounds: [floor, top],
   };
 }
@@ -139,6 +158,10 @@ export const LIMITS = {
   "retention.deliveries_days": enforce("days", 30, "instance"),
   "retention.digest_days": enforce("days", 30, "instance"),
   "retention.source_load_days": enforce("days", 30, "instance"),
+  // Set in Settings and Security, between their bounds.
+  "retention.trash_days": kept(30, 7, 365, "settings"),
+  "retention.restore_point_days": kept(30, 1, 365, "settings"),
+  "retention.sign_in_days": kept(365, 180, 365, "security"),
   // An automation's shape.
   "automation.max_actions": enforce("actions", 20, "automation"),
   "automation.max_nested_actions": enforce("actions", 10, "automation"),
@@ -157,13 +180,11 @@ export function ceilingOf(id: LimitId): number {
 
 /** The limits an administrator sets, in Administration's "Limits and usage". */
 export type SettableLimitId = {
-  [Id in LimitId]: (typeof LIMITS)[Id] extends { setBy: "settings" }
-    ? Id
-    : never;
+  [Id in LimitId]: (typeof LIMITS)[Id] extends { setBy: "limits" } ? Id : never;
 }[LimitId];
 
 export const SETTABLE_LIMITS = (Object.keys(LIMITS) as LimitId[]).filter(
-  (id): id is SettableLimitId => LIMITS[id].bounds !== undefined,
+  (id): id is SettableLimitId => LIMITS[id].setBy === "limits",
 );
 
 /**
@@ -182,6 +203,17 @@ export const limitValuesSchema = z
   .strict();
 
 export type LimitValues = z.output<typeof limitValuesSchema>;
+
+/** A bounded limit's least and most, as a settings schema takes them. */
+export function boundsOf(
+  id:
+    | "retention.trash_days"
+    | "retention.restore_point_days"
+    | "retention.sign_in_days",
+): { min: number; max: number } {
+  const [min, max] = LIMITS[id].bounds;
+  return { min, max };
+}
 
 /** A limit as the instance keeps it: as set, else the catalogue's value. */
 export function limitIn(id: SettableLimitId, values: LimitValues): number {

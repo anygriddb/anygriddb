@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { ATTACHMENT_REFUSABLE_KINDS } from "./attachment-types";
-import { ceilingOf, limitValuesSchema } from "./limits";
+import { boundsOf, ceilingOf, limitValuesSchema } from "./limits";
 
 /** The product's name: what an instance is called until it names itself. */
 export const PRODUCT_NAME = "AnyGridDB";
@@ -39,13 +39,13 @@ export const POLICY_BOUNDS = {
   sessionMaxHours: { min: 1, max: 168 },
   passwordMinLength: { min: 12, max: 64 },
   tokenMaxDays: { min: 1, max: 365 },
-  authRetentionDays: { min: 180, max: 365 },
+  authRetentionDays: boundsOf("retention.sign_in_days"),
   /** 0 never disables an inactive account. */
   inactiveDays: { min: 30, max: 730 },
   /** How long deleted bases, tables, fields, and views can come back. */
-  trashDays: { min: 7, max: 365 },
+  trashDays: boundsOf("retention.trash_days"),
   /** How long a base's restore point is kept (ADR 0077). */
-  restorePointDays: { min: 1, max: 365 },
+  restorePointDays: boundsOf("retention.restore_point_days"),
   /**
    * How long the change trail is kept, once it is not for ever: a year at
    * least, the longest the trash keeps a row, which it restores from the
@@ -335,7 +335,7 @@ export const INSTANCE_DEFAULTS: InstanceSettings = {
   tokenMaxDays: 365,
   publicLinks: "allowed",
   signupDomains: [],
-  authRetentionDays: 365,
+  authRetentionDays: ceilingOf("retention.sign_in_days"),
   invitations: "anyone",
   baseCreation: "everyone",
   apiTokens: "everyone",
@@ -348,8 +348,8 @@ export const INSTANCE_DEFAULTS: InstanceSettings = {
   limits: {},
   attachmentRefusedExtensions: [],
   attachmentRefusedKinds: [],
-  trashDays: 30,
-  restorePointDays: 30,
+  trashDays: ceilingOf("retention.trash_days"),
+  restorePointDays: ceilingOf("retention.restore_point_days"),
   auditRetentionDays: 0,
   alertBackupHours: 36,
   alertStoragePercent: 90,
