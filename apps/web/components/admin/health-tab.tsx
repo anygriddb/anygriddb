@@ -233,9 +233,7 @@ export function HealthTab() {
           </dd>
           <dt className="text-muted-foreground">{t`Queued events`}</dt>
           <dd className="tabular-nums">{data.queue.events}</dd>
-          <dt className="text-muted-foreground">
-            {t`Pending webhook deliveries`}
-          </dt>
+          <dt className="text-muted-foreground">{t`Pending deliveries`}</dt>
           <dd className="tabular-nums">{data.queue.pendingDeliveries}</dd>
           <dt className="text-muted-foreground">{t`Failed deliveries (24 h)`}</dt>
           <dd className="tabular-nums">{data.queue.failedDeliveries24h}</dd>

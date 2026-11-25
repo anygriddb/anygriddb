@@ -430,8 +430,8 @@ function alertLine(locale: MailLocale, alert: MailedAlert): string {
         : `The source ${String(detail.name)} does not answer: its watched tables could not be read.`;
     case "failures":
       return fr
-        ? `${String(detail.count)} tâches, envois de webhooks et exécutions d’automatisations ont échoué en 24 heures (alerte à ${String(detail.threshold)}).`
-        : `${String(detail.count)} jobs, webhook deliveries, and automation runs failed in 24 hours (alert at ${String(detail.threshold)}).`;
+        ? `${String(detail.count)} tâches, envois et exécutions d’automatisations ont échoué en 24 heures (alerte à ${String(detail.threshold)}).`
+        : `${String(detail.count)} jobs, deliveries, and automation runs failed in 24 hours (alert at ${String(detail.threshold)}).`;
   }
 }
 

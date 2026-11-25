@@ -9,6 +9,7 @@ import {
   type Outbound,
   type OutboundResponse,
 } from "./outbound.js";
+import { noteDelivery } from "../outbound/deliveries.js";
 import { readSettings } from "../settings.js";
 
 export type PulsePhase = "start" | "success" | "fail";
@@ -116,19 +117,14 @@ export async function pulse(
       failure = notifyFailureText(error);
       deps.log(error, "heartbeat failed");
     }
-    await deps.db
-      .insertInto("integrationDeliveries")
-      .values({
-        integrationId: row.id,
-        eventId: randomUUID(),
-        event: `heartbeat.${phase}`,
-        subject: schedule,
-        status: failure ? "failed" : "success",
-        attempts: 1,
-        responseStatus: status,
-        error: failure?.slice(0, 200) ?? null,
-        finishedAt: new Date(),
-      })
-      .execute();
+    await noteDelivery(deps.db, {
+      integrationId: row.id,
+      eventId: randomUUID(),
+      event: `heartbeat.${phase}`,
+      subject: schedule,
+      status: failure ? "failed" : "success",
+      responseStatus: status,
+      error: failure?.slice(0, 200) ?? null,
+    });
   }
 }

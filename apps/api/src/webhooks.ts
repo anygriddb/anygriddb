@@ -5,13 +5,12 @@ import {
   effectiveTableRole,
   type EngineCatalog,
   filterGroupSchema,
-  nextRetryDelay,
   roleGrants,
   type RowEvent,
   touchesWatched,
   WEBHOOK_FAILURE_LIMIT,
 } from "@anygriddb/core";
-import type { Database, DeliveryRow, NewRow, WebhookRow } from "@anygriddb/db";
+import type { Database, NewRow, WebhookRow } from "@anygriddb/db";
 import { sql as sqlTag } from "kysely";
 import { loadBindings } from "./auth/access.js";
 import { readerEngine } from "./data/acl.js";
@@ -31,37 +30,12 @@ import {
   outboundFailureText,
   postOutbound,
 } from "./outbound/index.js";
+import {
+  addDeliveries,
+  noteDelivery,
+  type Destination,
+} from "./outbound/deliveries.js";
 import type { NotificationInput } from "./notifications.js";
-import { addJob, TASKS, type SqlExecutor } from "./queue/jobs.js";
-
-/**
- * Queues the attempt that follows `attempts` earlier ones. The key names
- * that attempt, so adding it twice queues it once, and the attempt that
- * schedules the next one never collides with its own job.
- */
-function queueAttempt(
-  executor: SqlExecutor,
-  delivery: { id: string; attempts: number },
-  options: { runAt?: Date; replace?: boolean } = {},
-): Promise<void> {
-  return addJob(
-    executor,
-    TASKS.webhookAttempt,
-    { deliveryId: delivery.id },
-    {
-      runAt: options.runAt,
-      // HTTP failures follow the delivery's own schedule; these retries
-      // only cover the database being unreachable.
-      maxAttempts: 3,
-      jobKey: `webhook:${delivery.id}:${String(delivery.attempts)}`,
-      jobKeyMode: options.replace ? "replace" : "unsafe_dedupe",
-    },
-  );
-}
-
-const DELIVERY_RETENTION_DAYS = 30;
-/** A pending delivery whose attempt is this late lost its job: queue it again. */
-const STALE_ATTEMPT_MS = 15 * 60_000;
 
 export type HookDeps = {
   db: Database;
@@ -289,11 +263,11 @@ export async function deliveryWebhookId(
   deliveryId: string,
 ): Promise<string> {
   const row = await db
-    .selectFrom("webhookDeliveries")
+    .selectFrom("deliveries")
     .select("webhookId")
     .where("id", "=", deliveryId)
     .executeTakeFirst();
-  if (!row) {
+  if (!row?.webhookId) {
     throw new AppError("no_row");
   }
   return row.webhookId;
@@ -331,7 +305,7 @@ export async function listDeliveries(
   limit: number,
 ) {
   const rows = await db
-    .selectFrom("webhookDeliveries")
+    .selectFrom("deliveries")
     .select([
       "id",
       "event",
@@ -508,20 +482,6 @@ async function send(
   return status;
 }
 
-type AttemptPlan =
-  | { status: "success"; clearPayload: true }
-  | { status: "pending"; retryInSeconds: number }
-  | { status: "failed" };
-
-/** What an attempt leads to, from its outcome and the attempts made so far. */
-export function planAttempt(ok: boolean, attempts: number): AttemptPlan {
-  if (ok) return { status: "success", clearPayload: true };
-  const delay = nextRetryDelay(attempts);
-  return delay === null
-    ? { status: "failed" }
-    : { status: "pending", retryInSeconds: delay };
-}
-
 async function recordFailure(deps: HookDeps, hook: WebhookRow): Promise<void> {
   const updated = await deps.db
     .updateTable("webhooks")
@@ -574,71 +534,57 @@ async function recordFailure(deps: HookDeps, hook: WebhookRow): Promise<void> {
   }).catch((error: unknown) => deps.log(error, "webhook notice failed"));
 }
 
-/** Makes one attempt and records its outcome on the delivery. */
-async function attemptDelivery(
-  deps: HookDeps,
+/** What one attempt to a webhook came to, from what `send` threw. */
+async function sendOnce(
+  deps: Pick<HookDeps, "db" | "key" | "smtp">,
   hook: WebhookRow,
-  delivery: Pick<DeliveryRow, "id" | "attempts" | "payload">,
-): Promise<{ ok: boolean; status: number | null; error: string | null }> {
-  const attempts = delivery.attempts + 1;
-  let status: number | null;
-  let error: string | null = null;
+  payload: unknown,
+): Promise<{ status: number | null; error: string | null }> {
   try {
-    status = await send(deps, hook, delivery.payload);
+    return { status: await send(deps, hook, payload), error: null };
   } catch (cause) {
-    error = failureText(cause);
+    const error = failureText(cause);
     const match = /^HTTP (\d{3})$/.exec(error);
-    status = match ? Number(match[1]) : null;
+    return { status: match ? Number(match[1]) : null, error };
   }
-  const plan = planAttempt(error === null, attempts);
-  const now = new Date();
-  if (plan.status === "success") {
-    await deps.db
-      .updateTable("webhookDeliveries")
-      .set({
-        status: "success",
-        attempts,
-        responseStatus: status,
-        error: null,
-        payload: null,
-        nextAttemptAt: null,
-        finishedAt: now,
-      })
-      .where("id", "=", delivery.id)
-      .execute();
-    if (hook.failureCount > 0) {
+}
+
+/**
+ * How the journal sends a webhook's deliveries: to its target while it is
+ * on, its failures counted until it switches itself off.
+ */
+export function webhookDestination(deps: HookDeps): Destination {
+  const hookOf = (webhookId: string | null) =>
+    webhookId === null
+      ? Promise.resolve(undefined)
+      : deps.db
+          .selectFrom("webhooks")
+          .selectAll()
+          .where("id", "=", webhookId)
+          .executeTakeFirst();
+  return {
+    attempt: async (delivery) => {
+      const hook = await hookOf(delivery.webhookId);
+      if (!hook?.active) return { refused: "Webhook disabled" };
+      const { status, error } = await sendOnce(deps, hook, delivery.payload);
+      return error === null
+        ? { sent: true, status }
+        : { sent: false, status, error };
+    },
+    delivered: async (delivery) => {
+      if (delivery.webhookId === null) return;
       await deps.db
         .updateTable("webhooks")
         .set({ failureCount: 0 })
-        .where("id", "=", hook.id)
+        .where("id", "=", delivery.webhookId)
+        .where("failureCount", ">", 0)
         .execute();
-    }
-  } else if (plan.status === "pending") {
-    const next = new Date(now.getTime() + plan.retryInSeconds * 1000);
-    await deps.db.transaction().execute(async (tx) => {
-      await tx
-        .updateTable("webhookDeliveries")
-        .set({ attempts, responseStatus: status, error, nextAttemptAt: next })
-        .where("id", "=", delivery.id)
-        .execute();
-      await queueAttempt(tx, { id: delivery.id, attempts }, { runAt: next });
-    });
-  } else {
-    await deps.db
-      .updateTable("webhookDeliveries")
-      .set({
-        status: "failed",
-        attempts,
-        responseStatus: status,
-        error,
-        nextAttemptAt: null,
-        finishedAt: now,
-      })
-      .where("id", "=", delivery.id)
-      .execute();
-    await recordFailure(deps, hook);
-  }
-  return { ok: error === null, status, error };
+    },
+    gaveUp: async (delivery) => {
+      const hook = await hookOf(delivery.webhookId);
+      if (hook) await recordFailure(deps, hook);
+    },
+  };
 }
 
 /** Records and sends one event to every active webhook of its table that wants it. */
@@ -665,7 +611,7 @@ export async function handleWebhookEvent(
     .where("id", "=", event.tableId)
     .executeTakeFirst();
   if (!table) return;
-  const deliveries: Array<NewRow<"webhookDeliveries"> & { id: string }> = [];
+  const deliveries: Array<NewRow<"deliveries">> = [];
   for (const hook of wanted) {
     const id = randomUUID();
     const payload = await payloadFor(deps, hook, event, table.name, id);
@@ -676,51 +622,11 @@ export async function handleWebhookEvent(
       event: event.event,
       rowId: event.rowId ?? null,
       payload,
-      nextAttemptAt: new Date(),
     });
   }
-  if (deliveries.length === 0) return;
   // The deliveries and their first attempts exist together, or not at all,
   // so a retried event never sends twice.
-  await deps.db.transaction().execute(async (tx) => {
-    await tx.insertInto("webhookDeliveries").values(deliveries).execute();
-    for (const delivery of deliveries) {
-      await queueAttempt(tx, { id: delivery.id, attempts: 0 });
-    }
-  });
-}
-
-/** One queued attempt: sends the delivery unless it is no longer pending. */
-export async function runDeliveryAttempt(
-  deps: HookDeps,
-  deliveryId: string,
-): Promise<void> {
-  const delivery = await deps.db
-    .selectFrom("webhookDeliveries")
-    .selectAll()
-    .where("id", "=", deliveryId)
-    .where("status", "=", "pending")
-    .executeTakeFirst();
-  if (!delivery) return;
-  const hook = await deps.db
-    .selectFrom("webhooks")
-    .selectAll()
-    .where("id", "=", delivery.webhookId)
-    .executeTakeFirst();
-  if (!hook?.active) {
-    await deps.db
-      .updateTable("webhookDeliveries")
-      .set({
-        status: "failed",
-        error: "Webhook disabled",
-        nextAttemptAt: null,
-        finishedAt: new Date(),
-      })
-      .where("id", "=", delivery.id)
-      .execute();
-    return;
-  }
-  await attemptDelivery(deps, hook, delivery);
+  await deps.db.transaction().execute((tx) => addDeliveries(tx, deliveries));
 }
 
 /** Sends a sample event now and records it like any delivery. */
@@ -752,94 +658,16 @@ export async function testWebhook(
     source: "test",
     row: null,
   };
-  await deps.db
-    .insertInto("webhookDeliveries")
-    .values({
-      id,
-      webhookId: hook.id,
-      event: "test",
-      payload,
-      nextAttemptAt: new Date(),
-    })
-    .execute();
   // A test is a single attempt: it is never retried and never counts as a failure.
-  let status: number | null;
-  let error: string | null = null;
-  try {
-    status = await send(deps, hook, payload);
-  } catch (cause) {
-    error = failureText(cause);
-    const match = /^HTTP (\d{3})$/.exec(error);
-    status = match ? Number(match[1]) : null;
-  }
-  await deps.db
-    .updateTable("webhookDeliveries")
-    .set({
-      status: error ? "failed" : "success",
-      attempts: 1,
-      responseStatus: status,
-      error,
-      payload: error ? payload : null,
-      nextAttemptAt: null,
-      finishedAt: new Date(),
-    })
-    .where("id", "=", id)
-    .execute();
-  return { ok: error === null, status, error };
-}
-
-/** Queues a failed delivery again, if its payload is still kept. */
-export async function retryDelivery(
-  db: Database,
-  deliveryId: string,
-): Promise<void> {
-  await db.transaction().execute(async (tx) => {
-    const updated = await tx
-      .updateTable("webhookDeliveries")
-      .set({
-        status: "pending",
-        attempts: 0,
-        nextAttemptAt: new Date(),
-        finishedAt: null,
-      })
-      .where("id", "=", deliveryId)
-      .where("status", "=", "failed")
-      .where("payload", "is not", null)
-      .returning("id")
-      .execute();
-    if (updated.length === 0) {
-      throw new AppError("invalid_delivery");
-    }
-    await queueAttempt(tx, { id: deliveryId, attempts: 0 }, { replace: true });
+  const { status, error } = await sendOnce(deps, hook, payload);
+  await noteDelivery(deps.db, {
+    id,
+    webhookId: hook.id,
+    event: "test",
+    status: error ? "failed" : "success",
+    responseStatus: status,
+    error,
+    payload: error ? payload : null,
   });
-}
-
-/**
- * Queues again the pending deliveries whose attempt is long overdue: a job
- * lost with a crashed worker, or a delivery that predates the job queue.
- */
-export async function sweepDeliveries(db: Database): Promise<number> {
-  const stale = await db
-    .selectFrom("webhookDeliveries")
-    .select(["id", "attempts"])
-    .where("status", "=", "pending")
-    .where("nextAttemptAt", "<", new Date(Date.now() - STALE_ATTEMPT_MS))
-    .limit(500)
-    .execute();
-  for (const delivery of stale) {
-    await queueAttempt(db, delivery, { replace: true });
-  }
-  return stale.length;
-}
-
-/** Deliveries are kept 30 days, then removed with their payloads. */
-export async function purgeDeliveries(db: Database): Promise<void> {
-  await db
-    .deleteFrom("webhookDeliveries")
-    .where(
-      "createdAt",
-      "<",
-      new Date(Date.now() - DELIVERY_RETENTION_DAYS * 24 * 60 * 60 * 1000),
-    )
-    .execute();
+  return { ok: error === null, status, error };
 }

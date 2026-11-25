@@ -34,7 +34,9 @@
       "staged_uploads.meta": "Record<string, unknown> | null",
       "table_acls.row_filter": "Record<string, unknown> | null",
       "views.config": "Record<string, unknown> | null",
-      "webhook_deliveries.payload": "unknown",
+      "deliveries.origin": "ColumnType<\"integration\" | \"webhook\", never, never>",
+      "deliveries.payload": "unknown",
+      "deliveries.status": "Generated<\"failed\" | \"pending\" | \"success\">",
       "webhooks.events": "string[]",
       "webhooks.filter": "unknown",
       "webhooks.watch_columns": "string[] | null"

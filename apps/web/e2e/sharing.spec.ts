@@ -677,7 +677,7 @@ test("a table's webhook is tested, delivers a new row, and is deleted once confi
   await control.connect();
   try {
     await control.query(
-      `insert into webhook_deliveries (webhook_id, event, status, attempts, next_attempt_at)
+      `insert into deliveries (webhook_id, event, status, attempts, next_attempt_at)
        select id, 'insert', 'pending', 0, now() + interval '1 day'
          from webhooks where table_id = $1`,
       [tableId],

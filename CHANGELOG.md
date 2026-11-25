@@ -8,6 +8,23 @@ first.
 
 ## Unreleased
 
+**One migration runs as the instance starts (`0139_deliveries`): it moves
+the deliveries of webhooks and of notification channels into one journal,
+with their history; nothing to do before or after.**
+
+### Changed
+
+- **Every delivery that gave up is in one list.** Administration,
+  Instance, Support lists a notification channel's failed deliveries
+  beside a webhook's, filtered by what sent them, and sends one again from
+  its first attempt. The pending deliveries on the health page, the
+  failures on the first page of Administration, and the alert on failures
+  count both.
+- A notification channel's delivery keeps the fields it sends only until
+  it is delivered, as a webhook's already did; both are tried again on the
+  same schedule, and a delivery whose attempt a stopped worker lost is
+  queued again, a channel's included.
+
 ## 0.9.1 - 2026-11-25
 
 **Upgrade with this release's Compose files and its pin, as usual. One

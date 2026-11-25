@@ -15,6 +15,7 @@ import {
 } from "@anygriddb/core";
 import { z } from "zod";
 import { instanceRuntime, listFailedDeliveries } from "../admin-control.js";
+import { retryDelivery } from "../outbound/deliveries.js";
 import { operatorFixedFromEnv } from "../operator-fixed.js";
 import { readLogoVersion, removeLogo, saveLogo } from "../instance-logo.js";
 import { alertLock } from "../auth/lock-alerts.js";
@@ -431,12 +432,27 @@ export const adminInstanceProcedures = {
       z.object({
         limit: z.int().min(1).max(100).default(50),
         offset: z.int().min(0).max(1_000_000).default(0),
+        origin: z.enum(["webhook", "integration"]).optional(),
       }),
     )
     .query(({ ctx, input }) =>
       handle(ctx, async () => {
         await requireAdmin(ctx);
         return listFailedDeliveries(ctx.db, input);
+      }),
+    ),
+  /** A delivery that gave up, sent again from its first attempt. */
+  retryDelivery: procedure
+    .input(z.object({ deliveryId: z.uuid() }))
+    .mutation(({ ctx, input }) =>
+      handle(ctx, async () => {
+        const admin = await requireAdmin(ctx);
+        await retryDelivery(ctx.db, input.deliveryId);
+        ctx.req.log.info(
+          { actor: admin.id, delivery: input.deliveryId },
+          "delivery retried",
+        );
+        return { ok: true as const };
       }),
     ),
   /** Sends a test email to the administrator's own address. */

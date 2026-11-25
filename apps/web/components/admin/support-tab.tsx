@@ -28,8 +28,10 @@ import { useAdminPage, useAdminPageSize } from "./admin-page-size";
 
 type RecipientMode = "all_active" | "ids";
 
+type DeliveryOrigin = "webhook" | "integration";
+
 /**
- * Helping people (ADR 0042): jobs, webhook deliveries that gave up, and
+ * Helping people (ADR 0042): jobs, deliveries that gave up, and
  * what to send to whoever helps, and notices to accounts (ADR 0052).
  * Pending invitations sit beside the accounts (ROADMAP #20), who has
  * access beside the security policy (ROADMAP #49).
@@ -43,6 +45,7 @@ export function SupportTab() {
   const api = useTRPC();
   const queryClient = useQueryClient();
   const [status, setStatus] = useState<JobStatus | "">("");
+  const [origin, setOrigin] = useState<DeliveryOrigin | "">("");
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
   const [mode, setMode] = useState<RecipientMode>("all_active");
@@ -67,6 +70,7 @@ export function SupportTab() {
     ...api.admin.failedDeliveries.queryOptions({
       limit: pageSize,
       offset: deliveriesPage.offset,
+      origin: origin || undefined,
     }),
     placeholderData: (previous) => previous,
   });
@@ -74,7 +78,7 @@ export function SupportTab() {
     "started" | "person" | "kind" | "table" | "status"
   >();
   const deliverySort = useColumnSort<
-    "date" | "webhook" | "event" | "attempts" | "error"
+    "date" | "destination" | "event" | "attempts" | "error"
   >();
   const jobRows = sortRows(
     jobs.data?.jobs ?? [],
@@ -93,7 +97,7 @@ export function SupportTab() {
     deliverySort.sort,
     (delivery, key) => {
       if (key === "date") return delivery.createdAt;
-      if (key === "webhook") return delivery.webhookName;
+      if (key === "destination") return delivery.name ?? delivery.host;
       if (key === "event") return delivery.event;
       if (key === "attempts") return delivery.attempts;
       return delivery.error;
@@ -129,6 +133,9 @@ export function SupportTab() {
       await action();
       await queryClient.invalidateQueries({
         queryKey: api.admin.jobs.queryKey(),
+      });
+      await queryClient.invalidateQueries({
+        queryKey: api.admin.failedDeliveries.queryKey(),
       });
       if (done) toast.success(done);
     } catch (cause) {
@@ -414,11 +421,28 @@ export function SupportTab() {
         ) : null}
       </RuledSection>
 
-      <RuledSection title={t`Webhook deliveries that failed`}>
+      <RuledSection title={t`Deliveries that failed`}>
+        <div className="flex flex-col gap-1">
+          <Label htmlFor="support-delivery-origin">{t`Sent by`}</Label>
+          <Select
+            reads
+            id="support-delivery-origin"
+            className="w-56"
+            value={origin}
+            onChange={(event) => {
+              setOrigin(event.target.value as DeliveryOrigin | "");
+              deliveriesPage.setPage(1);
+            }}
+          >
+            <option value="">{t`All`}</option>
+            <option value="webhook">{t`Webhooks`}</option>
+            <option value="integration">{t`Notification channels`}</option>
+          </Select>
+        </div>
         {deliveries.isLoading ? <Spinner /> : null}
         {deliveries.data?.deliveries.length === 0 ? (
           <p className="text-sm text-muted-foreground">
-            {t`No delivery has failed. A webhook's delivery shows here once it gives up after its retries, with the error it got.`}
+            {t`No delivery has failed. A webhook's or a notification channel's delivery shows here once it gives up after its retries, with the error it got.`}
           </p>
         ) : (
           <>
@@ -426,10 +450,17 @@ export function SupportTab() {
               <AdminTableHead>
                 <tr>
                   {deliverySort.header("date", t`Date`, "px-2 py-1.5")}
-                  {deliverySort.header("webhook", t`Webhook`, "px-2 py-1.5")}
+                  {deliverySort.header(
+                    "destination",
+                    t`Sent to`,
+                    "px-2 py-1.5",
+                  )}
                   {deliverySort.header("event", t`Event`, "px-2 py-1.5")}
                   {deliverySort.header("attempts", t`Attempts`, "px-2 py-1.5")}
                   {deliverySort.header("error", t`Error`, "px-2 py-1.5")}
+                  <th className="px-2 py-1.5">
+                    <span className="sr-only">{t`Actions`}</span>
+                  </th>
                 </tr>
               </AdminTableHead>
               <tbody>
@@ -439,18 +470,42 @@ export function SupportTab() {
                       {date(delivery.createdAt)}
                     </td>
                     <td className="px-2 py-1.5">
-                      {delivery.webhookName}
-                      {delivery.host ? (
-                        <span className="block text-muted-foreground">
-                          {delivery.host}
-                        </span>
-                      ) : null}
+                      {delivery.name ?? delivery.host ?? "—"}
+                      <span className="block text-muted-foreground">
+                        {delivery.origin === "webhook"
+                          ? t`Webhook, table ${{ table: delivery.context ?? "—" }}`
+                          : t`Notification channel (${{ kind: delivery.context ?? "—" }})`}
+                        {delivery.origin === "webhook" &&
+                        delivery.host &&
+                        delivery.name
+                          ? ` · ${delivery.host}`
+                          : null}
+                      </span>
                     </td>
                     <td className="px-2 py-1.5 font-mono">{delivery.event}</td>
                     <td className="px-2 py-1.5 tabular-nums">
                       {delivery.attempts}
                     </td>
                     <td className="px-2 py-1.5">{delivery.error ?? "—"}</td>
+                    <td className="px-2 py-1.5 text-right">
+                      {delivery.retryable ? (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() =>
+                            void run(
+                              () =>
+                                trpc.admin.retryDelivery.mutate({
+                                  deliveryId: delivery.id,
+                                }),
+                              t`Delivery queued again`,
+                            )
+                          }
+                        >
+                          {t`Try again`}
+                        </Button>
+                      ) : null}
+                    </td>
                   </tr>
                 ))}
               </tbody>

@@ -940,12 +940,12 @@ export async function instanceHealth(deps: {
     .catch(() => -1);
   const value = sqlTag<number>`count(*)::int`.as("value");
   const pending = await deps.db
-    .selectFrom("webhookDeliveries")
+    .selectFrom("deliveries")
     .select(value)
     .where("status", "=", "pending")
     .executeTakeFirst();
   const failedDeliveries = await deps.db
-    .selectFrom("webhookDeliveries")
+    .selectFrom("deliveries")
     .select(value)
     .where("status", "=", "failed")
     .where("createdAt", ">", since)
