@@ -41,7 +41,7 @@ import { ENGINE_NAMES } from "../../lib/limits";
 import { trpc, useTRPC, type RouterOutputs } from "../../lib/trpc";
 import { raw } from "../../lib/known-text";
 import { FIELD_LABELS } from "../fields/field-meta";
-import { ConfirmDialog } from "../shell/dialogs";
+import { ConfirmDialog, Refusal, useRefusal } from "../shell/dialogs";
 import { AdminPager, AdminTable, AdminTableHead } from "./admin-list";
 import { useAdminPage, useAdminPageSize } from "./admin-page-size";
 import { EngineMark } from "./engine-mark";
@@ -417,7 +417,7 @@ function SourceForm(props: {
   onSaved: () => void;
 }) {
   const { t } = useLingui();
-  const errorText = useErrorText();
+  const refusal = useRefusal();
   const existing = props.source;
   const [engine, setEngine] = useState<SourceEngine>(
     existing?.engine ?? "postgres",
@@ -483,11 +483,12 @@ function SourceForm(props: {
   }
 
   async function run(action: () => Promise<void>) {
+    refusal.clear();
     setBusy(true);
     try {
       await action();
     } catch (cause) {
-      toast.error(errorText(cause));
+      refusal.say(cause);
     } finally {
       setBusy(false);
     }
@@ -782,6 +783,7 @@ function SourceForm(props: {
           </div>
         </>
       )}
+      <Refusal text={refusal.text} className="col-span-2" />
       <DialogFooter className="col-span-2">
         <Button variant="ghost" onClick={props.onClose}>
           {t`Cancel`}

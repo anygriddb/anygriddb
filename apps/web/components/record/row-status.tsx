@@ -19,7 +19,7 @@ import { reasonOf, useErrorText } from "../../lib/errors";
 import { cellDisplay, formatInstant } from "../../lib/format";
 import { trpc } from "../../lib/trpc";
 import { grants, type RowItem } from "../../lib/types";
-import { PromptDialog } from "../shell/dialogs";
+import { PromptDialog, Refusal, useRefusal } from "../shell/dialogs";
 import { useTable } from "../table/table-context";
 import {
   allowedTransitions,
@@ -363,16 +363,21 @@ function SignForm(props: {
   const [meaning, setMeaning] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
+  const refusal = useRefusal();
   async function submit(event: SubmitEvent) {
     event.preventDefault();
     if (!meaning.trim() || password.length < 12) return;
+    refusal.clear();
     setBusy(true);
     try {
       await props.onConfirm(meaning.trim(), password);
       props.onOpenChange(false);
     } catch (error: unknown) {
-      toast.error(errorText(error));
-      if (reasonOf(error).code !== "invalid_credentials") {
+      // A wrong password is tried again here; anything else ends the dialog.
+      if (reasonOf(error).code === "invalid_credentials") {
+        refusal.say(error);
+      } else {
+        toast.error(errorText(error));
         props.onOpenChange(false);
       }
     }
@@ -397,6 +402,7 @@ function SignForm(props: {
         value={password}
         onChange={(event) => setPassword(event.target.value)}
       />
+      <Refusal text={refusal.text} />
       <DialogFooter>
         <Button variant="ghost" onClick={() => props.onOpenChange(false)}>
           {t`Cancel`}

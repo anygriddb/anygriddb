@@ -14,6 +14,13 @@ import { useErrorText } from "../../lib/errors";
 import { reportFailure } from "../../lib/report-failure";
 
 /**
+ * What a dialog's action refuses in its own words, before asking the
+ * server: said in the dialog like what the server refuses, and told to
+ * nobody else.
+ */
+export class Refused extends Error {}
+
+/**
  * What the server refused, kept to be said inside the dialog that asked,
  * just above its buttons. A toast in the window's corner lay over a wide
  * dialog's Save, and stayed there while the pointer went to the button.
@@ -26,6 +33,10 @@ export function useRefusal() {
   return {
     text,
     say: (cause: unknown) => {
+      if (cause instanceof Refused) {
+        setText(cause.message);
+        return;
+      }
       setText(errorText(cause));
       if (!(cause instanceof TRPCClientError)) reportFailure("error", cause);
     },

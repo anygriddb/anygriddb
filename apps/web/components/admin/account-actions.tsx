@@ -16,7 +16,7 @@ import { useCopy } from "../../lib/clipboard";
 import { useErrorText } from "../../lib/errors";
 import { useSession } from "../../lib/session";
 import { trpc, useTRPC } from "../../lib/trpc";
-import { ConfirmDialog } from "../shell/dialogs";
+import { ConfirmDialog, Refused } from "../shell/dialogs";
 import { AccountHandoff } from "./account-handoff";
 import { useStepUp } from "./step-up";
 
@@ -438,13 +438,11 @@ export function useAccountActions({
       case "delete": {
         if (!erase) return;
         if (erase.typed.trim().toLowerCase() !== target.email.toLowerCase()) {
-          toast.error(t`Type the account's email to confirm`);
-          return false;
+          throw new Refused(t`Type the account's email to confirm`);
         }
         const handsOver = erase.soleOwnerBases.length > 0;
         if (handsOver && erase.successor.trim() === "") {
-          toast.error(t`Type the new owner's email`);
-          return false;
+          throw new Refused(t`Type the new owner's email`);
         }
         if (!(await proved())) return false;
         await trpc.admin.erase.mutate({
