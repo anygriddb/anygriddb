@@ -37,7 +37,7 @@ import { FilterBuilder } from "./filter-builder";
 import { useTable } from "./table-context";
 import { useLingui } from "@lingui/react/macro";
 import { Earlier } from "../history/earlier";
-import { ConfirmDialog } from "../shell/dialogs";
+import { ConfirmDialog, Refusal, useRefusal } from "../shell/dialogs";
 import { useErrorText } from "../../lib/errors";
 import { useWhen } from "../../lib/i18n";
 import {
@@ -1140,7 +1140,7 @@ function AutomationEditor(props: {
   onDone: () => void;
 }) {
   const { t } = useLingui();
-  const errorText = useErrorText();
+  const refusal = useRefusal();
   const table = useTable();
   const labels = useLabels();
   const [name, setName] = useState(props.initial?.name ?? "");
@@ -1188,6 +1188,7 @@ function AutomationEditor(props: {
   }
 
   async function save() {
+    refusal.clear();
     setBusy(true);
     try {
       const body = {
@@ -1216,7 +1217,7 @@ function AutomationEditor(props: {
       }
       props.onDone();
     } catch (cause) {
-      toast.error(errorText(cause));
+      refusal.say(cause);
     } finally {
       setBusy(false);
     }
@@ -1230,7 +1231,7 @@ function AutomationEditor(props: {
       });
       setAddress(renewed.webhookUrl);
     } catch (cause) {
-      toast.error(errorText(cause));
+      refusal.say(cause);
     }
   }
 
@@ -1418,6 +1419,7 @@ function AutomationEditor(props: {
           .{" "}
           {t`The automation acts with your access; every write is recorded in the audit trail.`}
         </p>
+        <Refusal text={refusal.text} />
         <DialogFooter>
           <Button variant="ghost" onClick={props.onDone}>
             {t`Cancel`}
@@ -1541,6 +1543,7 @@ export function AutomationsDialog({ onClose }: { onClose: () => void }) {
   const { t } = useLingui();
   const when = useWhen();
   const errorText = useErrorText();
+  const refusal = useRefusal();
   const api = useTRPC();
   const queryClient = useQueryClient();
   const table = useTable();
@@ -1559,11 +1562,12 @@ export function AutomationsDialog({ onClose }: { onClose: () => void }) {
   const refresh = () =>
     queryClient.invalidateQueries({ queryKey: options.queryKey });
   async function act(action: () => Promise<unknown>) {
+    refusal.clear();
     try {
       await action();
       await refresh();
     } catch (cause) {
-      toast.error(errorText(cause));
+      refusal.say(cause);
     }
   }
   const title =
@@ -1643,7 +1647,7 @@ export function AutomationsDialog({ onClose }: { onClose: () => void }) {
                             if (result.status === "success")
                               toast.success(t`Done`);
                             else
-                              toast.error(
+                              refusal.show(
                                 t`Failed: ${{ error: result.error ? errorText(result.error) : "—" }}`,
                               );
                           })
@@ -1691,6 +1695,7 @@ export function AutomationsDialog({ onClose }: { onClose: () => void }) {
                 {t`No automations on this table.`}
               </p>
             ) : null}
+            <Refusal text={refusal.text} />
             <DialogFooter>
               <Button variant="ghost" onClick={onClose}>
                 {t`Close`}

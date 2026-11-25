@@ -13,6 +13,10 @@ first.
 - A map with no basemap (no tile server named, the default) drew its rows
   on the whole globe, so the places of one region stood as one blot: it
   now frames them, and moves and zooms as a map with a basemap does.
+- What the server refuses is said in the dialog that asked, above its
+  buttons, rather than in a toast that could lie over Save on a laptop's
+  screen: the automation editor and list, an import, a new base, a file of
+  people, and every prompt and confirmation.
 
 ## 0.9.2 - 2026-11-25
 

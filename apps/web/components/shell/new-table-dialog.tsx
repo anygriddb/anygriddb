@@ -10,7 +10,7 @@ import { useState, type SubmitEvent } from "react";
 import type { MessageDescriptor } from "@lingui/core";
 import { msg } from "@lingui/core/macro";
 import { useLingui } from "@lingui/react/macro";
-import { useAction } from "./dialogs";
+import { Refusal, useAction } from "./dialogs";
 
 type NewTableStyle = "starter" | "blank";
 
@@ -78,7 +78,7 @@ function NewTableForm(props: {
   }) => unknown;
 }) {
   const { t } = useLingui();
-  const run = useAction();
+  const { run, refusal } = useAction();
   const [name, setName] = useState("");
   const [style, setStyle] = useState<NewTableStyle>("starter");
   const [busy, setBusy] = useState(false);
@@ -145,6 +145,7 @@ function NewTableForm(props: {
           </span>
         </label>
       </fieldset>
+      <Refusal text={refusal} />
       <DialogFooter>
         <Button variant="ghost" onClick={() => props.onOpenChange(false)}>
           {t`Cancel`}

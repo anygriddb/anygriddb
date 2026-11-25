@@ -35,6 +35,7 @@ import { useErrorText } from "../../lib/errors";
 import { useLocale } from "../../lib/i18n";
 import { raw } from "../../lib/known-text";
 import { pastedFile } from "./pasted-data";
+import { Refusal, useRefusal } from "../shell/dialogs";
 
 type Preview = {
   importId: string;
@@ -191,6 +192,7 @@ export function ImportDialog(props: {
   const { locale } = useLocale();
   const jobError = useJobErrorText();
   const errorText = useErrorText();
+  const refusal = useRefusal();
   const { watch } = useJobs();
   const trackJob = useTrackJob();
   /** The job this open dialog still shows; cleared once it moves to a toast. */
@@ -268,6 +270,7 @@ export function ImportDialog(props: {
 
   function reset() {
     shown.current = null;
+    refusal.clear();
     setPreview(null);
     setChoices([]);
     setResult(null);
@@ -302,6 +305,7 @@ export function ImportDialog(props: {
   }
 
   async function upload(file: File) {
+    refusal.clear();
     setBusy(true);
     try {
       const body = new FormData();
@@ -316,7 +320,7 @@ export function ImportDialog(props: {
       });
       const json: unknown = await response.json().catch(() => null);
       if (!response.ok) {
-        toast.error(
+        refusal.show(
           response.status === 413
             ? t`File too large (256 MB, 64 MB for Excel, 20 MB for JSON).`
             : errorText(json),
@@ -330,7 +334,7 @@ export function ImportDialog(props: {
       setChoices(initialChoices(parsed, target));
       setTableName(parsed.filename.replace(/\.[^.]+$/, "").slice(0, 100));
     } catch (cause) {
-      toast.error(errorText(cause));
+      refusal.say(cause);
     } finally {
       setBusy(false);
     }
@@ -353,6 +357,7 @@ export function ImportDialog(props: {
 
   async function commit() {
     if (!preview) return;
+    refusal.clear();
     setBusy(true);
     try {
       const mapping = mapped.map(({ choice, source }) =>
@@ -405,12 +410,12 @@ export function ImportDialog(props: {
         close(false);
       } else {
         const kept = keptSentence(job);
-        toast.error(kept ? `${jobError(job)} ${kept}` : jobError(job));
+        refusal.show(kept ? `${jobError(job)} ${kept}` : jobError(job));
         if (kept) props.onDone?.();
         setPreview(null);
       }
     } catch (cause) {
-      toast.error(errorText(cause));
+      refusal.say(cause);
     } finally {
       setBusy(false);
     }
@@ -452,13 +457,14 @@ export function ImportDialog(props: {
             <p className="text-xs text-muted-foreground">
               {t`You can close this window: the import goes on and stays in the jobs menu.`}
             </p>
+            <Refusal text={refusal.text} />
             <DialogFooter>
               <Button
                 variant="ghost"
                 onClick={() => {
                   trpc.jobs.cancel
                     .mutate({ jobId: running.jobId })
-                    .catch((cause: unknown) => toast.error(errorText(cause)));
+                    .catch((cause: unknown) => refusal.say(cause));
                 }}
               >
                 {t`Cancel the import`}
@@ -575,6 +581,9 @@ export function ImportDialog(props: {
               }}
             />
           </label>
+        ) : null}
+        {!running && !result && !preview ? (
+          <Refusal text={refusal.text} />
         ) : null}
         {!running && !result && !preview ? (
           <div className="mt-3 flex flex-col gap-2">
@@ -867,6 +876,7 @@ export function ImportDialog(props: {
                 ) : null}
               </div>
             ) : null}
+            <Refusal text={refusal.text} />
             <DialogFooter>
               <Button variant="ghost" onClick={reset} disabled={busy}>
                 {t`Choose another file`}
