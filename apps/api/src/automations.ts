@@ -31,6 +31,7 @@ import {
   writeSlackMessage,
   writeTeamsMessage,
   jsonCellText,
+  ceilingOf,
 } from "@anygriddb/core";
 import type { AutomationRow, Database } from "@anygriddb/db";
 import type { Bus } from "./realtime/bus.js";
@@ -97,7 +98,7 @@ export type AutomationDeps = {
   clock?: () => Date;
 };
 
-const RUN_RETENTION_DAYS = 30;
+const RUN_RETENTION_DAYS = ceilingOf("retention.automation_runs_days");
 const MAX_EMAIL_RECIPIENTS = 10;
 
 /* ------------------------------------------------------------------ */

@@ -2,7 +2,7 @@
  * Sends queued daily and weekly digests through the instance mail relay
  * (ADR 0123). One mail per person per period, listing what waited.
  */
-import { trimEndRun } from "@anygriddb/core";
+import { trimEndRun, ceilingOf } from "@anygriddb/core";
 import type { Database } from "@anygriddb/db";
 import type { KeyRing } from "../auth/key-ring.js";
 import { resolveSmtp } from "../integrations/smtp.js";
@@ -16,7 +16,7 @@ import { unsubscribeUrl } from "./unsubscribe.js";
 export const DIGEST_LINES = 50;
 
 /** What waits longer, mail off or an address gone, is no longer sent. */
-const DIGEST_KEEP_DAYS = 30;
+const DIGEST_KEEP_DAYS = ceilingOf("retention.digest_days");
 
 export type DigestDeps = {
   db: Database;

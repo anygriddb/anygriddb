@@ -969,3 +969,13 @@ export {
   readPeopleFile,
   type PeopleFileProblem,
 } from "./people-file";
+export {
+  LIMITS,
+  ceilingOf,
+  type LimitEntry,
+  type LimitId,
+  type LimitKind,
+  type LimitScope,
+  type LimitSetBy,
+  type LimitUnit,
+} from "./limits";

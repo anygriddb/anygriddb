@@ -1,8 +1,9 @@
 import { isLinkArray } from "../../lib/format";
 import type { CatalogColumn, RowItem } from "../../lib/types";
+import { ceilingOf } from "@anygriddb/core";
 
 /** A list nests the rows it has read, this many at most, and says so past it. */
-export const LIST_CEILING = 5_000;
+export const LIST_CEILING = ceilingOf("display.list_rows");
 
 /**
  * The fields a list can nest its rows by: a link to one row of the same

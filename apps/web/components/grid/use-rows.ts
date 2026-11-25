@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { useChannel } from "../../lib/realtime";
 import { trpc, type RouterInputs } from "../../lib/trpc";
 import type { RowItem } from "../../lib/types";
+import { ceilingOf } from "@anygriddb/core";
 
 const PAGE_SIZE = 100;
 /** A page that failed is asked again no sooner than this. */
@@ -513,7 +514,8 @@ export function useRows(
   query: RowsQuery,
   layout: RowsLayout,
 ): RowsState {
-  const pageSize = layout === "onePage" ? 1000 : PAGE_SIZE;
+  const pageSize =
+    layout === "onePage" ? ceilingOf("display.calendar_rows") : PAGE_SIZE;
   const groups =
     layout === "grouped" || layout === "stacks" ? "starts" : "none";
   const key = JSON.stringify([tableId, query, pageSize, groups]);

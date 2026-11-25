@@ -4,11 +4,12 @@ import {
   MAX_READ_LIMIT,
   toCsv,
   toCsvRows,
+  ceilingOf,
 } from "@anygriddb/core";
 import type { RowRecord } from "./rows.js";
 
 /** The most rows one download holds; a larger table goes through a job. */
-const EXPORT_MAX_ROWS = 100_000;
+const EXPORT_MAX_ROWS = ceilingOf("copy.max_rows");
 /** The longest file one answer carries, in characters. */
 export const EXPORT_CSV_MAX_LENGTH = 8_000_000;
 

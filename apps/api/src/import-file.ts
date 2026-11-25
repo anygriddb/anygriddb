@@ -21,22 +21,23 @@ import {
   isFormulaGuarded,
   type InferredField,
   MAX_WORKBOOK_SHEETS,
+  ceilingOf,
 } from "@anygriddb/core";
 import ExcelJS from "exceljs";
 
 export const IMPORT_LIMITS = {
   /** Text formats, read as they arrive. */
-  maxTextBytes: 256 * 1024 * 1024,
+  maxTextBytes: ceilingOf("import.text_bytes"),
   /** A spreadsheet keeps its shared strings in memory while it is read. */
-  maxXlsxBytes: 64 * 1024 * 1024,
+  maxXlsxBytes: ceilingOf("import.xlsx_bytes"),
   /** A JSON file is parsed whole. */
-  maxJsonBytes: 20 * 1024 * 1024,
+  maxJsonBytes: ceilingOf("import.json_bytes"),
   maxColumns: 200,
   maxCell: 20_000,
 } as const;
 
 /** Rows one file may hold when the operator sets nothing (`IMPORT_MAX_ROWS`). */
-export const DEFAULT_IMPORT_MAX_ROWS = 1_000_000;
+export const DEFAULT_IMPORT_MAX_ROWS = ceilingOf("import.max_rows");
 
 const PREVIEW_ROWS = 20;
 const INFER_SAMPLE = 1_000;

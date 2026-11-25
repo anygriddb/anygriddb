@@ -13,6 +13,7 @@ import {
 import { isIsoDateTime } from "./iso-date";
 import { columnNameSchema } from "./names";
 import { AGGREGATE_FNS, groupSpecSchema, rowSortSchema } from "./query/read";
+import { ceilingOf } from "./limits";
 
 const VIEW_TYPES = [
   "grid",
@@ -33,7 +34,7 @@ const ROW_HEIGHTS = ["short", "medium", "tall", "extra"] as const;
 
 /** Soft product ceilings for view chrome (UI + schema stay in lockstep). */
 export const MAX_VIEW_SORTS = 10;
-export const MAX_VIEW_GROUPS = 5;
+export const MAX_VIEW_GROUPS = ceilingOf("view.groups");
 export const MAX_FROZEN_COLUMNS = 10;
 
 const columnList = z.array(columnNameSchema).max(200);
