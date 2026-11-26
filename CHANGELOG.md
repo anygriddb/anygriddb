@@ -6,7 +6,14 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html): until
 1.0, a minor version may change what an operator must do, and says so
 first.
 
-## Unreleased
+## 0.11.0 - 2026-11-26
+
+Before upgrading: an identity provider reached at the machine's own address
+(localhost, 127.0.0.1) or at a cloud's metadata address is now refused, as
+any call out of the instance is. Name it by an address of its network; a
+provider on a private network is reached as before. Migrations 0146 and
+0147 run by themselves; every limit keeps its value of 0.10.2, and no
+quota is set.
 
 ### Changed
 

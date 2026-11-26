@@ -21,7 +21,7 @@ export const OPEN_EXCEPTIONS: ReadonlySet<ExceptionKey> = new Set([
   "unsubscribe",
 ]);
 
-export type Schema = {
+type Schema = {
   type?: string | string[];
   properties?: Record<string, Schema>;
   required?: string[];
@@ -87,7 +87,7 @@ function text(schema: Schema): string {
 }
 
 /** A value of the shape a schema asks for: what it requires, nothing more. */
-export function sample(schema: Schema | undefined): unknown {
+function sample(schema: Schema | undefined): unknown {
   if (!schema) return null;
   if (schema.const !== undefined) return schema.const;
   if (schema.enum && schema.enum.length > 0) return schema.enum[0];
@@ -182,7 +182,7 @@ export type Walked = {
 };
 
 /** The JSON shape of a procedure's input. */
-export function inputShape(input: unknown): Schema {
+function inputShape(input: unknown): Schema {
   return z.toJSONSchema(input as z.ZodType, {
     unrepresentable: "any",
     io: "input",

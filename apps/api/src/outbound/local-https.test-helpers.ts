@@ -10,7 +10,7 @@ import { connect as tlsConnect } from "node:tls";
 import { issueAuthority, issueServer } from "../tls/certificate.js";
 
 export const HOST = "hooks.example.org";
-export const PUBLIC = "203.0.113.10";
+const PUBLIC = "203.0.113.10";
 
 /** An authority and a leaf for the name the call uses. */
 function certificates() {
