@@ -18,7 +18,8 @@ export const OUTBOUND_TIMEOUT_MS = 10_000;
 
 const REDIRECT = new Set([301, 302, 303, 307, 308]);
 
-type OutboundMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE" | "HEAD";
+export type OutboundMethod =
+  "GET" | "POST" | "PUT" | "PATCH" | "DELETE" | "HEAD";
 
 export type OutboundCall = {
   url: string;

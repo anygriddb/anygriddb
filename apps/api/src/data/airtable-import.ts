@@ -5,6 +5,7 @@
  * most, as Airtable allows. Over HTTPS to api.airtable.com only, its
  * certificate verified; the token is never logged nor kept.
  */
+import { outboundFetch } from "../outbound/index.js";
 import {
   AppError,
   type AirtableRecord,
@@ -17,6 +18,8 @@ const API = "https://api.airtable.com/v0";
 /** Airtable allows five requests a second for a base. */
 const SPACING_MS = 220;
 const TIMEOUT_MS = 30_000;
+/** A page of records or of tables is far smaller than this. */
+const ANSWER_MAX_BYTES = 16 * 1024 * 1024;
 /** After a 429, Airtable asks for 30 seconds. */
 const RETRY_MS = 30_000;
 const RETRIES = 3;
@@ -124,7 +127,12 @@ export async function readAirtableBase(
 ): Promise<AirtableBase> {
   const get = client(
     token,
-    options.fetcher ?? fetch,
+    options.fetcher ??
+      outboundFetch({
+        allowPrivate: false,
+        maxBytes: ANSWER_MAX_BYTES,
+        timeoutMs: TIMEOUT_MS,
+      }),
     options.wait ?? ((ms) => new Promise((resolve) => setTimeout(resolve, ms))),
   );
   const meta = metaSchema.parse(await get(`/meta/bases/${baseId}/tables`));

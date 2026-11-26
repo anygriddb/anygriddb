@@ -33,20 +33,46 @@ describe("outbound address policy", () => {
     }
   });
 
-  it("refuses loopback, link-local, metadata names, and .local/.internal", async () => {
+  it("refuses loopback, link-local and metadata names, a private network allowed or not", async () => {
     for (const target of [
       "https://127.0.0.1/hook",
       "https://[::1]/hook",
       "https://localhost/hook",
       "https://app.localhost/hook",
-      "https://printer.local/hook",
-      "https://svc.internal/hook",
       "https://169.254.169.254/latest/meta-data/",
       "https://metadata.google.internal/",
       "https://instance-data/",
     ]) {
       await expect(
         assertOutboundTarget(target, { allowPrivate: true }),
+        target,
+      ).rejects.toMatchObject({ code: "invalid_outbound_target" });
+    }
+  });
+
+  it("reaches a private network's own names only when that network is allowed, and checks what they resolve to", async () => {
+    const onTheNetwork = async () => [{ address: "10.4.0.7", family: 4 }];
+    for (const target of [
+      "https://idp.corp.internal/",
+      "https://sso.example.local/",
+    ]) {
+      await expect(
+        assertOutboundTarget(target, {
+          allowPrivate: false,
+          resolve: onTheNetwork,
+        }),
+        target,
+      ).rejects.toMatchObject({ code: "invalid_outbound_target" });
+      const reached = await assertOutboundTarget(target, {
+        allowPrivate: true,
+        resolve: onTheNetwork,
+      });
+      expect(reached.href).toBe(target);
+      await expect(
+        assertOutboundTarget(target, {
+          allowPrivate: true,
+          resolve: async () => [{ address: "127.0.0.1", family: 4 }],
+        }),
         target,
       ).rejects.toMatchObject({ code: "invalid_outbound_target" });
     }

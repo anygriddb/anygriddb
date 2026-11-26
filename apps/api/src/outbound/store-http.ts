@@ -1,5 +1,6 @@
 /**
- * JSON over HTTPS to a store that is read through a REST API (ADR 0088):
+ * JSON over HTTPS to a store that is read through a REST API (ADR 0088),
+ * part of the outbound service as every connection the instance opens:
  * Node's own client, the certificate verified against the authority the
  * source gives or the system's, every request under the source's time
  * limit. A redirect is not followed: the operator's list of hosts holds
@@ -8,9 +9,9 @@
 import http from "node:http";
 import https from "node:https";
 import { AppError } from "@anygriddb/core";
-import type { SourceConnection } from "../types.js";
-import { connectionError } from "./errors.js";
-import type { ConnectOptions } from "./types.js";
+import type { SourceConnection } from "../sources/types.js";
+import { connectionError } from "../sources/copy/errors.js";
+import type { ConnectOptions } from "../sources/copy/types.js";
 
 /** An answer larger than this is not read: a page of rows is far smaller. */
 const MAX_ANSWER_BYTES = 256 * 1024 * 1024;

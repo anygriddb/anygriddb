@@ -1,3 +1,4 @@
+import { oidcFetch } from "../integrations/oidc.js";
 import { declaredRoute } from "../access/routes.js";
 import type { KeyRing } from "./key-ring.js";
 import { randomBytes, timingSafeEqual } from "node:crypto";
@@ -232,6 +233,17 @@ export function samlAssertionId(parsed: unknown): string | null {
     : null;
 }
 
+/** The OpenID client's calls, through the outbound service (ADR 0135). */
+const providerFetch: oidc.CustomFetch = (url, options) =>
+  oidcFetch(url, {
+    ...options,
+    // A copy that owns its buffer, as every fetch's typing accepts.
+    body:
+      options.body instanceof Uint8Array
+        ? new Uint8Array(options.body)
+        : options.body,
+  });
+
 const DISCOVERY_TTL_MS = 60 * 60 * 1000;
 let discovered:
   | {
@@ -280,10 +292,11 @@ async function oidcDiscovered(
             // eslint-disable-next-line @typescript-eslint/no-deprecated
             execute: [oidc.allowInsecureRequests],
           }
-        : {}),
+        : { [oidc.customFetch]: providerFetch }),
     },
   );
-  if (testing) config[oidc.customFetch] = testing.fetch;
+  // Every later call (the code's exchange, the user's claims) too.
+  config[oidc.customFetch] = testing ? testing.fetch : providerFetch;
   oidc.enableNonRepudiationChecks(config);
   const jwksUri = config.serverMetadata().jwks_uri;
   if (!jwksUri || (!testing && !jwksUri.startsWith("https://"))) {
@@ -291,9 +304,9 @@ async function oidcDiscovered(
   }
   const keys = createRemoteJWKSet(new URL(jwksUri), {
     timeoutDuration: 5_000,
-    ...(testing
-      ? { [customFetch]: testing.fetch as unknown as typeof fetch }
-      : {}),
+    [customFetch]: testing
+      ? (testing.fetch as unknown as typeof fetch)
+      : oidcFetch,
   });
   discovered = { at: Date.now(), for: env, config, keys };
   return discovered;

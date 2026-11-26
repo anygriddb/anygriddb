@@ -2,6 +2,7 @@
  * Operator OIDC stored in the database (ADR 0050). The client secret is
  * sealed; the redirect URL is derived from PUBLIC_URL.
  */
+import { outboundFetch } from "../outbound/index.js";
 import type { KeyRing } from "../auth/key-ring.js";
 import { AppError, trimEndRun } from "@anygriddb/core";
 import type { Database } from "@anygriddb/db";
@@ -192,6 +193,18 @@ export function environmentOidc(
 const DISCOVERY_TIMEOUT_MS = 10_000;
 
 /**
+ * How the identity provider is reached: through the outbound service, its
+ * answers capped and its addresses checked again at the socket. The
+ * administrator named it, so a private address is allowed; a reserved one
+ * (the cloud's metadata) never is.
+ */
+export const oidcFetch = outboundFetch({
+  allowPrivate: true,
+  maxBytes: 1024 * 1024,
+  timeoutMs: DISCOVERY_TIMEOUT_MS,
+});
+
+/**
  * Fetches the issuer's OpenID discovery document over HTTPS and checks it
  * names authorization and token endpoints, and itself by the address
  * asked (ADR 0053): a sign-in refuses a document that names another
@@ -224,7 +237,7 @@ export async function proveOidcIssuer(
     ".well-known/openid-configuration",
     base.href.endsWith("/") ? base.href : `${base.href}/`,
   ).href;
-  const fetchFn = options.fetch ?? globalThis.fetch;
+  const fetchFn = options.fetch ?? oidcFetch;
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), DISCOVERY_TIMEOUT_MS);
   if (options.signal) {

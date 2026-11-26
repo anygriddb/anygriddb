@@ -4,7 +4,7 @@
  */
 import { randomBytes } from "node:crypto";
 import type { Database } from "@anygriddb/db";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { keyRing } from "../auth/key-ring.js";
 import type { Env } from "../env.js";
 import { createTestDatabase } from "../test-database.js";
@@ -37,41 +37,34 @@ EkZDArppZoEDr59zblzByjgGGuAUar+3u+7M28CH14YepWE2p/cJNM7z3d9bbBj8
 yMWKMogCyoWrLW/RY6VH0iwp8/8=
 -----END CERTIFICATE-----`;
 
-function mockOidcDiscovery(): () => void {
-  const previous = globalThis.fetch;
-  globalThis.fetch = (async (input: string | URL | Request) => {
-    const url =
-      typeof input === "string"
-        ? input
-        : input instanceof URL
-          ? input.href
-          : input.url;
-    if (!url.includes(".well-known/openid-configuration")) {
-      return {
-        ok: false,
-        status: 404,
-        json: async () => ({}),
-      };
-    }
-    return {
-      ok: true,
-      status: 200,
-      json: async () => ({
+/**
+ * The identity provider, as the outbound service reaches it: a discovery
+ * document at its well-known address, nothing anywhere else.
+ */
+vi.mock("../outbound/index.js", async (original) => ({
+  ...(await original<typeof import("../outbound/index.js")>()),
+  outboundFetch: () =>
+    (async (input: string | URL | Request) => {
+      const url =
+        typeof input === "string"
+          ? input
+          : input instanceof URL
+            ? input.href
+            : input.url;
+      if (!url.includes(".well-known/openid-configuration")) {
+        return new Response("{}", { status: 404 });
+      }
+      return Response.json({
         issuer: "https://idp.example.org/",
         authorization_endpoint: "https://idp.example.org/authorize",
         token_endpoint: "https://idp.example.org/token",
-      }),
-    };
-  }) as typeof fetch;
-  return () => {
-    globalThis.fetch = previous;
-  };
-}
+      });
+    }) as typeof fetch,
+}));
 
 describe("operator OIDC and SAML", () => {
   let db: Database;
   let close: (() => Promise<void>) | undefined;
-  let restoreFetch: (() => void) | undefined;
   const env = {
     AUTH_ENCRYPTION_KEY: keyRing(randomBytes(32)),
     PUBLIC_URL: "https://grid.example.org",
@@ -86,7 +79,6 @@ describe("operator OIDC and SAML", () => {
   const admin = browser();
 
   beforeAll(async () => {
-    restoreFetch = mockOidcDiscovery();
     const created = await createTestDatabase("sso_ui");
     db = created.db;
     close = created.close;
@@ -102,7 +94,6 @@ describe("operator OIDC and SAML", () => {
   }, 120_000);
 
   afterAll(async () => {
-    restoreFetch?.();
     await close?.();
   });
 

@@ -16,7 +16,11 @@ import type {
   SourceTable,
   TableScope,
 } from "../types.js";
-import { openHttp, type HttpAnswer, type HttpStore } from "./http.js";
+import {
+  openHttp,
+  type HttpAnswer,
+  type HttpStore,
+} from "../../outbound/store-http.js";
 import type {
   ConnectOptions,
   CopyConnector,

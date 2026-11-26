@@ -12,7 +12,6 @@
  */
 import { isIP, type LookupFunction } from "node:net";
 import { hostname } from "node:os";
-import { connect, rootCertificates } from "node:tls";
 import { AppError } from "@anygriddb/core";
 import type { Database } from "@anygriddb/db";
 import { z } from "zod";
@@ -23,6 +22,7 @@ import {
   outboundLookup,
   type OutboundResolve,
 } from "../outbound/index.js";
+import { sendTlsFrame } from "../outbound/tls-frame.js";
 import { addJob, TASKS } from "../queue/jobs.js";
 import { readSettings } from "../settings.js";
 import {
@@ -78,7 +78,8 @@ export function formatTrailLine(
 /**
  * Sends one line, counted in octets (RFC 6587), once the collector's
  * certificate is verified for its name against the system's authorities
- * and the operator's. Any failure rejects, and nothing was sent in clear.
+ * and the operator's (`outbound/tls-frame.ts`). Any failure rejects, and
+ * nothing was sent in clear.
  */
 export function sendSyslogLine(
   collector: SyslogCollector,
@@ -86,37 +87,12 @@ export function sendSyslogLine(
   timeoutMs: number = SEND_TIMEOUT_MS,
   lookup?: LookupFunction,
 ): Promise<void> {
-  const frame = `${String(Buffer.byteLength(line))} ${line}`;
-  return new Promise<void>((resolve, reject) => {
-    const socket = connect({
-      host: collector.host,
-      port: collector.port,
-      // The addresses checked are the ones it connects to.
-      ...(lookup ? { lookup } : {}),
-      // An address has no name to send; its certificate must list it.
-      servername: isIP(collector.host) === 0 ? collector.host : undefined,
-      ca: collector.ca ? [...rootCertificates, collector.ca] : undefined,
-      rejectUnauthorized: true,
-      minVersion: "TLSv1.2",
-    });
-    const fail = (error: Error) => {
-      socket.destroy();
-      reject(error);
-    };
-    // One limit for the whole exchange: a collector that accepts the
-    // connection and then stops answering does not hold a worker.
-    const timer = setTimeout(() => {
-      fail(new Error("syslog collector timed out"));
-    }, timeoutMs);
-    socket.once("error", fail);
-    socket.once("secureConnect", () => {
-      socket.end(frame);
-    });
-    socket.once("close", (hadError) => {
-      clearTimeout(timer);
-      if (!hadError) resolve();
-    });
-  });
+  return sendTlsFrame(
+    collector,
+    `${String(Buffer.byteLength(line))} ${line}`,
+    timeoutMs,
+    lookup,
+  );
 }
 
 /** A host name or an address, as the environment's own is read. */

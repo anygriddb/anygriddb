@@ -3,6 +3,7 @@
  * to this project's GitHub Releases feed: no operator-supplied host, so
  * the call cannot be turned into an SSRF probe. Off by default.
  */
+import { outboundFetch } from "./outbound/index.js";
 import { AppError } from "@anygriddb/core";
 import { z } from "zod";
 
@@ -13,6 +14,8 @@ export const RELEASE_FEED_URL =
 const SEMVER = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/;
 /** A feed that does not answer in this time counts as unreachable. */
 const CHECK_TIMEOUT_MS = 10_000;
+/** A release's description is a few kilobytes: its answer is read up to this. */
+const RELEASE_ANSWER_MAX_BYTES = 1024 * 1024;
 
 const releaseSchema = z.object({
   tag_name: z.string(),
@@ -78,7 +81,13 @@ export async function checkLatestRelease(
   if (!SEMVER.test(current)) {
     throw new AppError("invalid_input", "version");
   }
-  const fetchImpl = options.fetch ?? globalThis.fetch;
+  const fetchImpl: FetchLike =
+    options.fetch ??
+    outboundFetch({
+      allowPrivate: false,
+      maxBytes: RELEASE_ANSWER_MAX_BYTES,
+      timeoutMs: CHECK_TIMEOUT_MS,
+    });
   let response: Awaited<ReturnType<FetchLike>>;
   try {
     response = await fetchImpl(RELEASE_FEED_URL, {
