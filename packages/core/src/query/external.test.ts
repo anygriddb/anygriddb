@@ -7,6 +7,7 @@ import {
   buildGroupAggregates,
   buildReadRows,
   describeColumns,
+  type ReadSpec,
 } from "./read";
 
 const customers: EngineTable = {
@@ -207,6 +208,86 @@ describe("reading a client's table", () => {
     expect(statement.values).toContain(
       JSON.stringify(["0196f0c2-7b8e-7c3a-9f00-000000000001"]),
     );
+  });
+
+  describe("a page that starts after a row", () => {
+    const held = {
+      sourceId: "s",
+      dialect: "sqlserver" as const,
+      schema: "dbo",
+      name: "lines",
+      key: ["region", "no"],
+    };
+    const lines: EngineTable = {
+      id: "l",
+      storage: "external",
+      physicalName: "x_l",
+      external: held,
+      columns: [
+        {
+          id: "l1",
+          name: "region",
+          label: "Region",
+          fieldType: "text",
+          config: {},
+          physical: { name: "region", type: "varchar(8)", zone: "UTC" },
+        },
+        {
+          id: "l2",
+          name: "no",
+          label: "No",
+          fieldType: "number",
+          config: {},
+          physical: { name: "no", type: "int", zone: "UTC" },
+        },
+      ],
+    };
+    const read = (table: EngineTable, spec: Partial<ReadSpec>) =>
+      buildReadRows(
+        { table, tables: new Map([[table.id, table]]), readable: () => true },
+        { limit: 1000, ...spec },
+      );
+
+    it("starts after its key, in the key's order, and not at a count", () => {
+      const single = buildReadRows(catalog, { after: "1000", limit: 1000 });
+      expect(single.text).toContain(`((q."ag_order_0" > $1))`);
+      expect(single.values[0]).toBe("1000");
+      expect(single.text).toMatch(/order by q\."ag_order_0" asc/);
+      // Two columns: each compared in its own type on SQL Server.
+      const pair = read(lines, { after: '{"k0":"eu","k1":7}' });
+      expect(pair.text).toContain(
+        `((q."ag_order_0" > cast($1 as varchar(8))) or (q."ag_order_0" = cast($1 as varchar(8)) and q."ag_order_1" > cast($2 as int)))`,
+      );
+      expect(pair.values.slice(0, 2)).toEqual(["eu", "7"]);
+      // Without a key, rows are in their content's order.
+      const keyless = read(
+        { ...lines, external: { ...held, key: [] } },
+        { after: "0cc175b9c0f1b6a831c399e269772661" },
+      );
+      expect(keyless.text).toContain(`q."ag_order_0" > $1`);
+    });
+
+    it("refuses to start after a row of its own table, or in another order", () => {
+      const native: EngineTable = {
+        id: "n",
+        storage: "native",
+        physicalName: "t_n",
+        columns: [],
+      };
+      expect(() => read(native, { after: "x" })).toThrow(
+        expect.objectContaining({ code: "invalid_offset" }),
+      );
+      expect(() =>
+        read(lines, {
+          after: '{"k0":"eu","k1":7}',
+          sort: [{ column: "no", direction: "desc" }],
+        }),
+      ).toThrow(expect.objectContaining({ code: "invalid_offset" }));
+      // An id that names no key is no row to start after.
+      expect(() => read(lines, { after: "7" })).toThrow(
+        expect.objectContaining({ code: "invalid_row_id" }),
+      );
+    });
   });
 
   describe("an Oracle DATE read as a day", () => {
