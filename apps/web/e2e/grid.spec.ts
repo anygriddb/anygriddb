@@ -1700,5 +1700,38 @@ test("a table takes another status circuit, and a row moves along it", async ({
   await status.getByRole("button", { name: "Approve" }).click();
   await expect(status).toContainText("Approved");
   await expect(status.getByRole("button", { name: "Approve" })).toHaveCount(0);
+
+  // The row's state as a field (ADR 0133): each row's in the circuit's
+  // words, no editor on it, and a filter that chooses among its states.
+  await page.goto(`${base}/t/${tableId}`);
+  await page.getByRole("button", { name: "Add a row", exact: true }).click();
+  await page.getByRole("button", { name: "Add a field" }).click();
+  const dialog = page.getByRole("dialog");
+  await dialog.getByLabel("Field name").fill("State");
+  await pickFieldType(page, dialog, "Row state");
+  await dialog.getByRole("button", { name: "Create field" }).click();
+  await expect(dialog).toBeHidden();
+  const states = page.locator('[role="gridcell"][data-column="state"]');
+  await expect(states).toHaveCount(2);
+  await expect(states.first()).toContainText("Approved");
+  await expect(states.nth(1)).toContainText("Draft");
+  await states.first().dblclick();
+  await expect(page.getByRole("textbox", { name: "State" })).toHaveCount(0);
+  await page.keyboard.press("Escape");
+  await page
+    .getByRole("button", { name: /Filter/ })
+    .first()
+    .click();
+  const filters = page.getByRole("dialog");
+  await filters.getByRole("button", { name: "Add a condition" }).click();
+  await filters.getByLabel("Field", { exact: true }).selectOption("state");
+  await expect(
+    filters.getByLabel("Value", { exact: true }).locator("option"),
+  ).toHaveText(["—", "Draft", "In review", "Approved"]);
+  await filters.getByLabel("Value", { exact: true }).selectOption("approved");
+  expect(await accessibilityViolations(page)).toEqual([]);
+  await filters.getByRole("button", { name: "Apply" }).click();
+  await expect(states).toHaveCount(1);
+  await expect(states.first()).toContainText("Approved");
   expect(blocked).toEqual([]);
 });

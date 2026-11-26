@@ -77,6 +77,7 @@ const FIELD_EDITING = {
   last_modified_by: NONE,
   autonumber: NONE,
   row_id: NONE,
+  row_state: NONE,
   button: { by: "button" },
 } satisfies Record<FieldType, Editing>;
 

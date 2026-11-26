@@ -28,6 +28,7 @@ import {
   Users,
   type LucideIcon,
   MousePointerClick,
+  Waypoints,
 } from "lucide-react";
 import {
   FIELD_DEFINITIONS,
@@ -194,6 +195,11 @@ const FIELD_UI = {
     description: msg`The id the API and links name the row by`,
     width: 290,
   },
+  row_state: {
+    icon: Waypoints,
+    label: msg`Row state`,
+    description: msg`Where the row stands in its table's circuit`,
+  },
   button: {
     icon: MousePointerClick,
     label: msg`Button`,
@@ -282,6 +288,7 @@ export const FIELD_GROUPS: Array<{
       "last_modified_by",
       "autonumber",
       "row_id",
+      "row_state",
       "button",
     ],
   },

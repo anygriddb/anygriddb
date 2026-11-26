@@ -10531,6 +10531,10 @@ msgstr "Row locked"
 msgid "Row not found"
 msgstr "Row not found"
 
+#: components/fields/field-meta.tsx
+msgid "Row state"
+msgstr "Row state"
+
 #: components/record/row-status.tsx
 msgid "Row status"
 msgstr "Row status"
@@ -14817,6 +14821,10 @@ msgstr "Where"
 #: components/shell/welcome-page.tsx
 msgid "Where do you want to start?"
 msgstr "Where do you want to start?"
+
+#: components/fields/field-meta.tsx
+msgid "Where the row stands in its table's circuit"
+msgstr "Where the row stands in its table's circuit"
 
 #: components/fields/formula-docs.ts
 msgid "Where the sought text starts, case included; 0 when it is not there."

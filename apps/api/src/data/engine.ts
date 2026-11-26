@@ -46,6 +46,11 @@ export type CatalogRows = {
    * types. Absent for a read that must reach the client's database.
    */
   syncs?: ReadonlyMap<string, ReadonlyArray<{ name: string; type: string }>>;
+  /**
+   * The keys of each table's states in its circuit's order, for the tables
+   * whose rows a field of their state reads (ADR 0133).
+   */
+  states?: ReadonlyMap<string, readonly string[]>;
 };
 
 /** Parses a stored config, falling back to empty for a corrupt one so reads keep working. */
@@ -268,6 +273,9 @@ function toEngineTable(
     ...(external ? { external } : {}),
     columns: engineColumns,
     ...(primary ? { primaryColumn: primary.name } : {}),
+    ...(rows.states?.has(table.id)
+      ? { states: rows.states.get(table.id) ?? [] }
+      : {}),
     ...(serverVersion ? { serverVersion } : {}),
   };
 }
@@ -372,6 +380,30 @@ const COMPUTED_TYPES: ReadonlySet<string> = new Set([
  * lookup of a lookup then finds its table, and a read of a table whose
  * neighbours compute nothing loads no more than it did.
  */
+/** The keys of each table's states, in its circuit's order. */
+async function circuitOrder(
+  db: Database,
+  tableIds: readonly string[],
+): Promise<ReadonlyMap<string, readonly string[]>> {
+  if (tableIds.length === 0) return new Map();
+  const rows = await db
+    .selectFrom("statusStates as s")
+    .innerJoin("statusCircuits as c", "c.id", "s.circuitId")
+    .select(["c.tableId", "s.key"])
+    .where("c.tableId", "in", [...new Set(tableIds)])
+    .orderBy("c.tableId")
+    .orderBy("s.position")
+    .execute();
+  const order = new Map<string, string[]>();
+  for (const row of rows) {
+    if (row.tableId === null) continue;
+    const keys = order.get(row.tableId) ?? [];
+    keys.push(row.key);
+    order.set(row.tableId, keys);
+  }
+  return order;
+}
+
 export async function loadCatalogRows(
   db: Database,
   tableIds: readonly string[],
@@ -544,10 +576,17 @@ export async function loadCatalogRows(
           .where("columns", "is not", null)
           .execute();
   const control = await controlVersion(db);
+  const states = await circuitOrder(
+    db,
+    allColumns
+      .filter((column) => column.fieldType === "row_state")
+      .map((column) => column.tableId),
+  );
   return {
     tables,
     columns: allColumns,
     relations: allRelations,
+    states,
     ...(control ? { controlVersion: control } : {}),
     sources: new Map(sources.map((source) => [source.id, source])),
     syncs: new Map(

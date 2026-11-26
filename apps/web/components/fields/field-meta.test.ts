@@ -49,6 +49,7 @@ describe("what a screen shows of each field type", () => {
         "lookup",
         "rollup",
         "row_id",
+        "row_state",
       ].sort(),
     );
     expect(FIELD_TYPES.filter(isLinkField).sort()).toEqual([

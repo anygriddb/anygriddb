@@ -10531,6 +10531,10 @@ msgstr "Ligne verrouillée"
 msgid "Row not found"
 msgstr "Ligne introuvable"
 
+#: components/fields/field-meta.tsx
+msgid "Row state"
+msgstr "État de la ligne"
+
 #: components/record/row-status.tsx
 msgid "Row status"
 msgstr "Statut de la ligne"
@@ -14817,6 +14821,10 @@ msgstr "Où"
 #: components/shell/welcome-page.tsx
 msgid "Where do you want to start?"
 msgstr "Par où commencer ?"
+
+#: components/fields/field-meta.tsx
+msgid "Where the row stands in its table's circuit"
+msgstr "Où en est la ligne dans le circuit de sa table"
 
 #: components/fields/formula-docs.ts
 msgid "Where the sought text starts, case included; 0 when it is not there."

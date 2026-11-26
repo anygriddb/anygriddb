@@ -17,6 +17,7 @@ import {
   type RowItem,
 } from "../../lib/types";
 import { FieldEditor, type FieldEditorTarget } from "../fields/field-editor";
+import { useCircuitStates } from "../fields/use-row-states";
 import { GridTips } from "../grid/grid-tips";
 import { GridView } from "../grid/grid-view";
 import { RowsError } from "../grid/rows-error";
@@ -202,6 +203,7 @@ function OpenTable({ baseId, tableId, viewId, rowId }: TableWorkspaceProps) {
     (collaborators.data?.users ?? []).map((person) => [person.id, person]),
   );
   const rowsById = new Map(rows.loadedRows().map((row) => [row.id, row]));
+  const states = useCircuitStates(tableId);
   const aggregates = useAggregates({
     tableId,
     viewId: activeView?.id,
@@ -368,6 +370,7 @@ function OpenTable({ baseId, tableId, viewId, rowId }: TableWorkspaceProps) {
     openRecord: record.open,
     rowsById,
     saveStatus: writes.saveStatus,
+    states,
   };
 
   const tintOf = (row: RowItem) =>

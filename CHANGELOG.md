@@ -8,6 +8,13 @@ first.
 
 ## Unreleased
 
+### Added
+
+- A field of the **row's state** in its table's circuit: added like a created
+  time, it shows each row's state in the circuit's words, and filters,
+  sorts and groups by it, in the circuit's order (migration 0145). A state
+  still changes by a step only. The API and exports give the state's key.
+
 ## 0.10.1 - 2026-11-26
 
 Nothing to do before upgrading: migrations 0143 and 0144 add two

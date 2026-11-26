@@ -93,6 +93,11 @@ export type EngineTable = {
   /** Column whose value labels this table's rows in links. */
   primaryColumn?: string;
   /**
+   * The keys of the rows' states in the table's circuit, in its order: a
+   * field of the row's state sorts by them (ADR 0133).
+   */
+  states?: readonly string[];
+  /**
    * The version of the server that reads the rows (`16.4` is `[16, 4]`):
    * the client's for a table read live, AnyGridDB's otherwise. Unknown
    * when absent, and then taken as recent enough.
