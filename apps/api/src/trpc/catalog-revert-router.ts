@@ -50,8 +50,8 @@ async function guarded(
 
 export const catalogRevertProcedures = {
   earlier: asking({
-    asks: ["rows.read"],
-    also: ["schema.manage", "views.manage"],
+    asks: ["schema.manage"],
+    also: ["rows.read", "views.manage"],
   })
     .input(earlierInputSchema)
     .query(({ ctx, input }) =>
@@ -63,8 +63,8 @@ export const catalogRevertProcedures = {
       }),
     ),
   revert: asking({
-    asks: ["rows.read"],
-    also: ["schema.manage", "views.manage"],
+    asks: ["schema.manage"],
+    also: ["rows.read", "views.manage"],
   })
     .input(revertCatalogInputSchema)
     .mutation(({ ctx, input }) =>

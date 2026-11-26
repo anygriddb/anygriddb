@@ -158,6 +158,17 @@ async function activeAuthor(
   };
 }
 
+/**
+ * A job that makes a base asks, as it runs, what making one asks then: an
+ * instance that keeps bases to its administrators refuses anyone else.
+ */
+async function assertMayMakeBase(db: Database, userId: string): Promise<void> {
+  if ((await readGateSettings(db)).baseCreation !== "admins") return;
+  if (!holds(await loadInstanceFlags(db, userId), "bases.create")) {
+    throw new AppError("base_creation_restricted");
+  }
+}
+
 /** A base's snapshot carries its rows: the base's and an export. */
 function canSnapshot(role: Grant | null): boolean {
   return granted(role, "base.manage") && granted(role, "data.export");
@@ -612,6 +623,7 @@ const runImportSnapshot =
   async ({ job, progress }) => {
     const input = importSnapshotJobInputSchema.parse(job.input);
     const { userId } = await activeAuthor(deps.db, job);
+    await assertMayMakeBase(deps.db, userId);
     const opened = await openStagedSnapshot(
       deps.db,
       deps.files,
@@ -669,6 +681,7 @@ const runImportWorkbook =
   async ({ job, progress }) => {
     const input = importWorkbookJobInputSchema.parse(job.input);
     const { userId } = await activeAuthor(deps.db, job);
+    await assertMayMakeBase(deps.db, userId);
     let baseId: string | undefined;
     try {
       const made = await importWorkbook(
@@ -718,6 +731,7 @@ const runImportAirtable =
     const input = importAirtableJobInputSchema.parse(job.input);
     try {
       const { userId } = await activeAuthor(deps.db, job);
+      await assertMayMakeBase(deps.db, userId);
       if (!input.token || !deps.key)
         throw new AppError("airtable_unauthorized");
       const token = decryptSecret(

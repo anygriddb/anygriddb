@@ -76,8 +76,8 @@ export const catalogTrashProcedures = {
     }),
   ),
   restore: asking({
-    asks: ["rows.read"],
-    also: ["base.manage", "schema.manage"],
+    asks: ["base.manage"],
+    also: ["schema.manage", "rows.read", "views.manage"],
   })
     .input(restoreInputSchema)
     .mutation(({ ctx, input }) =>

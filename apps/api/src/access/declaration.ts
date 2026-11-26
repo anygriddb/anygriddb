@@ -66,8 +66,9 @@ export const EXCEPTIONS = {
 export type ExceptionKey = keyof typeof EXCEPTIONS;
 
 /**
- * What a way in asks. `asks` holds on every call; `also` on some, as the
- * input or what is found says (a copy with its rows asks for an export);
+ * What a way in asks. `asks` holds on a plain call, its input at its
+ * defaults; `also` on others, as the input or what is found says (a copy
+ * with its rows asks for an export, a personal view only to read);
  * `filters` is what a list leaves out rather than refuses.
  */
 export type Declaration = {

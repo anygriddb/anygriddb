@@ -76,8 +76,8 @@ export const automationsRouter = t.router({
       }),
     ),
   create: asking({
-    asks: ["automations.manage", "rows.write"],
-    also: ["data.export"],
+    asks: ["automations.manage"],
+    also: ["rows.write", "data.export"],
   })
     .input(createAutomationInputSchema)
     .mutation(({ ctx, input }) =>
@@ -110,8 +110,8 @@ export const automationsRouter = t.router({
       }),
     ),
   update: asking({
-    asks: ["automations.manage", "rows.write"],
-    also: ["data.export"],
+    asks: ["automations.manage"],
+    also: ["rows.write", "data.export"],
   })
     .input(updateAutomationInputSchema)
     .mutation(({ ctx, input }) =>
