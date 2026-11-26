@@ -40,6 +40,10 @@ msgid "“{field}”: with a comma for decimals, a point here reads two ways. Wr
 msgstr "“{field}”: with a comma for decimals, a point here reads two ways. Write it 1234 or 1,234"
 
 #: components/views/form-files.tsx
+msgid "“{name}” could not be kept: the storage an administrator allows is full"
+msgstr "“{name}” could not be kept: the storage an administrator allows is full"
+
+#: components/views/form-files.tsx
 msgid "“{name}” could not be sent"
 msgstr "“{name}” could not be sent"
 
@@ -6833,6 +6837,10 @@ msgstr "In an emergency"
 msgid "In mail"
 msgstr "In mail"
 
+#: components/admin/limits-tab.tsx
+msgid "In MiB, up to {top}; 0, as shipped, is no quota."
+msgstr "In MiB, up to {top}; 0, as shipped, is no quota."
+
 #: components/table/filter-builder.tsx
 msgid "in N days"
 msgstr "in N days"
@@ -9231,6 +9239,10 @@ msgstr "Notify people when they are assigned"
 #: components/admin/limits-tab.tsx
 msgid "Now: at most {most} for one account; {past} at the limit."
 msgstr "Now: at most {most} for one account; {past} at the limit."
+
+#: components/admin/limits-tab.tsx
+msgid "Now: at most {most} for one base; {past} at the limit."
+msgstr "Now: at most {most} for one base; {past} at the limit."
 
 #: components/fields/field-meta.tsx
 #: lib/aggregate-labels.ts
@@ -14198,8 +14210,12 @@ msgid "This file is too long: at most 200 people in one file"
 msgstr "This file is too long: at most 200 people in one file"
 
 #: lib/errors.ts
-msgid "This file would take the base, or your files, past the storage an administrator allows. Remove files no longer needed, or ask an administrator."
-msgstr "This file would take the base, or your files, past the storage an administrator allows. Remove files no longer needed, or ask an administrator."
+msgid "This file would take the base past the storage an administrator allows: remove files it no longer needs, or ask an administrator"
+msgstr "This file would take the base past the storage an administrator allows: remove files it no longer needs, or ask an administrator"
+
+#: lib/errors.ts
+msgid "This file would take your files past the storage an administrator allows: remove files you no longer need, or ask an administrator"
+msgstr "This file would take your files past the storage an administrator allows: remove files you no longer need, or ask an administrator"
 
 #: lib/errors.ts
 msgid "This filter on a field kept in AnyGridDB matches more than 1,000 rows: narrow it"

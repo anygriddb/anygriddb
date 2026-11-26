@@ -39,10 +39,11 @@ copy of each file, and a base copied or imported gets files of its own
 - **Storage is what is held:** a base's is the size of the files its tables
   hold, an account's of the files it sent and that are held. Released files
   count for nobody.
-- **Two quotas, in the catalogue** (`storage.base_bytes`,
-  `storage.account_bytes`), set in Administration › Limits and usage; 0, the
+- **Two quotas, in the catalogue** (`storage.base_mib`,
+  `storage.account_mib`), set in Administration › Limits and usage in MiB,
+  as an administrator writes a size (ADR 0132 named them in bytes); 0, the
   default, is none. A file is refused when it would take its base or its
-  sender past one (`storage_full`, which names which): a file sent to a
+  sender past one (`base_storage_full`, `account_storage_full`): a file sent to a
   cell, to a form, brought by an import, a copy or a snapshot.
 - **What is shown:** Limits and usage gives, beside each quota, the most a
   base or an account holds; the list of bases keeps each base's size, now

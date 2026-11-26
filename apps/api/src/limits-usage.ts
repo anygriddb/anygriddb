@@ -145,8 +145,8 @@ export async function limitsAndUsage(
     jobsUse(db, settings),
     socketsUse(db, settings),
     storageUse(db, {
-      base: limitIn("storage.base_bytes", settings.limits),
-      account: limitIn("storage.account_bytes", settings.limits),
+      base: limitIn("storage.base_mib", settings.limits),
+      account: limitIn("storage.account_mib", settings.limits),
     }),
   ]);
   const counted = new Set<LimitId>(Object.values(BUCKET_LIMITS));
@@ -157,9 +157,9 @@ export async function limitsAndUsage(
         ? jobs
         : id === "sockets.per_account"
           ? sockets
-          : id === "storage.base_bytes"
+          : id === "storage.base_mib"
             ? storage.base
-            : id === "storage.account_bytes"
+            : id === "storage.account_mib"
               ? storage.account
               : counted.has(id)
                 ? (rates.get(id as SettableLimitId) ?? { most: 0, past: 0 })

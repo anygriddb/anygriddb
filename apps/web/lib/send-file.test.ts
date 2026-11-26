@@ -72,6 +72,23 @@ describe("sendFile", () => {
       sendFile("/api/attachments?tableId=x", new File(["x"], "big.bin")),
     ).rejects.toEqual(new FileRefused("too_large"));
   });
+
+  it("tells a quota of storage from a file too large, by the server's code", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        Response.json(
+          { error: "full", code: "base_storage_full" },
+          { status: 413 },
+        ),
+      ),
+    );
+    await expect(
+      sendFile("/api/attachments?tableId=x", new File(["x"], "small.bin")),
+    ).rejects.toMatchObject({ reason: "full", code: "base_storage_full" });
+    expect(refusalOf(413, "account_storage_full")).toBe("full");
+    expect(refusalOf(413, "invalid_input")).toBe("too_large");
+  });
 });
 
 describe("filesThatFit", () => {

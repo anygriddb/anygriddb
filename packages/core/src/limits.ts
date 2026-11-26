@@ -203,8 +203,9 @@ export const LIMITS = {
   ),
   // What files a base and an account may hold, 0 for no quota (ADR 0136).
   // Set in Administration, up to a tebibyte.
-  "storage.base_bytes": settable("bytes", 0, "base", 0, 1024 ** 4),
-  "storage.account_bytes": settable("bytes", 0, "account", 0, 1024 ** 4),
+  // In MiB, as an administrator writes a quota; 0 is none (ADR 0136).
+  "storage.base_mib": settable("mebibytes", 0, "base", 0, 1024 * 1024),
+  "storage.account_mib": settable("mebibytes", 0, "account", 0, 1024 * 1024),
   // Imports, exports, copies.
   "import.max_rows": rows("IMPORT_MAX_ROWS"),
   "export.max_rows": rows("EXPORT_MAX_ROWS"),

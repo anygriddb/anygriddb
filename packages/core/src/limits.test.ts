@@ -21,8 +21,8 @@ describe("the catalogue of limits", () => {
         Object.entries(LIMITS).map(([id, entry]) => [id, entry.value]),
       ),
     ).toEqual({
-      "storage.base_bytes": 0,
-      "storage.account_bytes": 0,
+      "storage.base_mib": 0,
+      "storage.account_mib": 0,
       "import.call_answer_bytes": 16_777_216,
       "release.answer_bytes": 1_048_576,
       "feed.past_days": 183,
@@ -236,7 +236,7 @@ describe("the catalogue of limits", () => {
 
   it("names each limit as a family and a ceiling, each a positive whole number", () => {
     // A quota of storage alone is 0 by default, which is none (ADR 0136).
-    const none = new Set(["storage.base_bytes", "storage.account_bytes"]);
+    const none = new Set(["storage.base_mib", "storage.account_mib"]);
     for (const [id, entry] of Object.entries(LIMITS)) {
       expect(id, id).toMatch(/^[a-z]+\.[a-z_]+$/);
       expect(
@@ -288,8 +288,8 @@ describe("the limits an administrator sets", () => {
       "jobs.active_per_account",
       "jobs.retention_days",
       "sockets.per_account",
-      "storage.account_bytes",
-      "storage.base_bytes",
+      "storage.account_mib",
+      "storage.base_mib",
     ]);
     expect(SETTABLE_LIMITS).toHaveLength(19);
     for (const id of SETTABLE_LIMITS) {
@@ -308,9 +308,9 @@ describe("the limits an administrator sets", () => {
     });
     expect(limitIn("export.max_rows", {})).toBe(1_000_000);
     // A quota of storage is none unless set, and refuses what is not bytes.
-    expect(limitIn("storage.base_bytes", {})).toBe(0);
+    expect(limitIn("storage.base_mib", {})).toBe(0);
     expect(
-      limitValuesSchema.safeParse({ "storage.base_bytes": -1 }).success,
+      limitValuesSchema.safeParse({ "storage.base_mib": -1 }).success,
     ).toBe(false);
     expect(
       limitValuesSchema.parse({

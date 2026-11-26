@@ -14,6 +14,8 @@ import { addJob, TASKS } from "../queue/jobs.js";
 import { readGateSettings } from "../settings.js";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
+/** A quota is set in MiB. */
+const MIB = 1024 * 1024;
 
 /**
  * A file is sent before the change that names it: one younger than this
@@ -174,15 +176,15 @@ export async function accountStorage(
 
 /**
  * Refuses a file that would take its base or its sender past their quota
- * (`storage_full`, which names which); a quota of 0 is none.
+ * (`base_storage_full`, `account_storage_full`); a quota of 0 is none.
  */
 export async function assertStorageRoom(
   db: Database,
   input: { tableId: string; userId: string; size: number },
 ): Promise<void> {
   const settings = await readGateSettings(db);
-  const perBase = limitIn("storage.base_bytes", settings.limits);
-  const perAccount = limitIn("storage.account_bytes", settings.limits);
+  const perBase = limitIn("storage.base_mib", settings.limits) * MIB;
+  const perAccount = limitIn("storage.account_mib", settings.limits) * MIB;
   if (perBase > 0) {
     const table = await db
       .selectFrom("dataTables")
@@ -190,20 +192,20 @@ export async function assertStorageRoom(
       .where("id", "=", input.tableId)
       .executeTakeFirst();
     if (table && (await baseStorage(db, table.baseId)) + input.size > perBase) {
-      throw new AppError("storage_full", "base");
+      throw new AppError("base_storage_full");
     }
   }
   if (
     perAccount > 0 &&
     (await accountStorage(db, input.userId)) + input.size > perAccount
   ) {
-    throw new AppError("storage_full", "account");
+    throw new AppError("account_storage_full");
   }
 }
 
 /**
- * What a base and an account hold at most, and how many hold their quota or
- * more, for Limits and usage; a quota of 0 has none past it.
+ * What a base and an account hold at most, in bytes, and how many hold their
+ * quota or more, for Limits and usage; a quota (in MiB) of 0 has none past it.
  */
 export async function storageUse(
   db: Database,
@@ -232,7 +234,7 @@ export async function storageUse(
     const held = sizes.map((row) => Number(row.size));
     return {
       most: held.reduce((most, size) => Math.max(most, size), 0),
-      past: quota > 0 ? held.filter((size) => size >= quota).length : 0,
+      past: quota > 0 ? held.filter((size) => size >= quota * MIB).length : 0,
     };
   };
   return {

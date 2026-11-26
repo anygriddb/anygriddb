@@ -185,25 +185,23 @@ describe("files no cell holds", () => {
         await assertStorageRoom(db, { tableId, userId: owner, size });
         return "ok";
       } catch (error) {
-        return error instanceof AppError
-          ? `${error.code}:${String(error.detail)}`
-          : "thrown";
+        return error instanceof AppError ? error.code : "thrown";
       }
     };
     // No quota: nothing is refused.
     expect(await refusal(1024 ** 3)).toBe("ok");
+    // A quota is set in MiB: one MiB here, what the base holds included.
+    const mib = 1024 * 1024;
+    await writeSettings(db, owner, { limits: { "storage.base_mib": 1 } });
+    expect(await refusal(mib - held)).toBe("ok");
+    expect(await refusal(mib - held + 1)).toBe("base_storage_full");
     await writeSettings(db, owner, {
-      limits: { "storage.base_bytes": held + 100 },
+      limits: { "storage.base_mib": 0, "storage.account_mib": 1 },
     });
-    expect(await refusal(100)).toBe("ok");
-    expect(await refusal(101)).toBe("storage_full:base");
-    await writeSettings(db, owner, {
-      limits: { "storage.base_bytes": 0, "storage.account_bytes": held + 10 },
-    });
-    expect(await refusal(11)).toBe("storage_full:account");
+    expect(await refusal(mib - held + 1)).toBe("account_storage_full");
     // As it is refused when the file is sent.
-    await expect(send("too-big.txt", 64)).rejects.toMatchObject({
-      code: "storage_full",
+    await expect(send("too-big.txt", mib)).rejects.toMatchObject({
+      code: "account_storage_full",
     });
     await writeSettings(db, owner, { limits: {} });
     expect(await refusal(64)).toBe("ok");

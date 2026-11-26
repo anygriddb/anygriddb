@@ -240,8 +240,8 @@ export const FAMILY_OF = {
   "import.zip_entries": "files",
   "import.zip_entry_bytes": "files",
   "import.zip_total_bytes": "files",
-  "storage.base_bytes": "files",
-  "storage.account_bytes": "files",
+  "storage.base_mib": "files",
+  "storage.account_mib": "files",
 } as const satisfies Record<LimitId, LimitFamily>;
 
 /** What the page holds of the limits an administrator sets: each as typed. */

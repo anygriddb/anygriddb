@@ -548,7 +548,7 @@ test("an administrator ends a session, reads the sign-ins, and exports access", 
     // A quota of storage (ADR 0136): none by default, set, then none again.
     const quota = page.getByLabel("Files a base holds", { exact: true });
     await expect(quota).toHaveValue("0");
-    for (const typed of ["1048576", "0"]) {
+    for (const typed of ["1024", "0"]) {
       await quota.fill(typed);
       const answered = page.waitForResponse(
         (response) =>
