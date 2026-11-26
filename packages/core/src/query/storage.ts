@@ -5,12 +5,9 @@
  * of the read engine asks here, and is the same for both.
  */
 import { AppError } from "../errors";
-import {
-  isWritableType,
-  physicalSqlType,
-  storedValueKind,
-} from "../field-types";
+import { isWritableType, storedValueKind } from "../field-types";
 import { dialectOf, POSTGRES, type SqlDialect } from "./dialect";
+import { holdsOf, readSqlType } from "./field-sql";
 import type { EngineColumn, EngineTable } from "./engine";
 import { quoteExternalIdent, quoteIdent } from "./params";
 
@@ -85,7 +82,7 @@ export function columnSql(
 ): string {
   if (column.physical === undefined) {
     const ref = `${alias}.${quoteIdent(column.name)}`;
-    return column.fieldType === "json" ? `${ref}::text` : ref;
+    return holdsOf(column.fieldType) === "document" ? `${ref}::text` : ref;
   }
   // A field added since a synced table's last refresh (ADR 0034), or a
   // control-plane enrichment field merged after the client read (ADR 0046).
@@ -104,9 +101,7 @@ export function columnSql(
           : "text",
       );
     }
-    return isWritableType(column.fieldType) && column.fieldType !== "json"
-      ? `null::${physicalSqlType(column.fieldType)}`
-      : "null::text";
+    return `null::${readSqlType(column.fieldType)}`;
   }
   return dialect.readColumn(
     `${alias}.${quoteExternalIdent(column.physical.name)}`,

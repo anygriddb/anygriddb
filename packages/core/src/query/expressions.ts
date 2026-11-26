@@ -2,11 +2,13 @@ import { ceilingOf } from "../limits";
 import { rollupFitsTarget, type RollupFn } from "../field-config";
 import {
   SYSTEM_COLUMN,
+  isComputedType,
   isRelationType,
   isSystemType,
   storedValueKind,
   type ValueKind,
 } from "../field-types";
+import { FIELD_SQL, formulaExprOf, rollupFnOf } from "./field-sql";
 import {
   FORMULA_FN_SPECS,
   formulaChildren,
@@ -517,7 +519,11 @@ function storedTyped(
       return kind === "number" && ctx.d.name === "sqlserver" && column.physical
         ? { sql: ref, kind, digits: columnDigits(column.physical.type) }
         : {
-            sql: column.fieldType === "autonumber" ? `${ref}::numeric` : ref,
+            // The row's number is a bigint: read as any number is.
+            sql:
+              kind === "number" && isSystemType(column.fieldType)
+                ? `${ref}::numeric`
+                : ref,
             kind,
             // A client's column holds what its engine lets it.
             ...(kind === "number" && !column.physical ? { small: true } : {}),
@@ -578,9 +584,8 @@ function rollupOfHidden(
   table: EngineTable,
   column: EngineColumn,
 ): boolean {
-  if (column.fieldType !== "rollup" || column.config.fn === "count") {
-    return false;
-  }
+  const fn = rollupFnOf(column);
+  if (!fn || fn === "count") return false;
   const relation = column.config.relation
     ? findColumn(table, column.config.relation)
     : undefined;
@@ -614,7 +619,8 @@ function compileVisibleColumn(
     throw new AppError("control_plane_formula", column.label);
   }
   const next = [...stack, key];
-  switch (column.fieldType) {
+  const read = FIELD_SQL[column.fieldType].read;
+  switch (read) {
     case "formula": {
       const expr = column.config.expr;
       if (!expr) {
@@ -630,7 +636,7 @@ function compileVisibleColumn(
             ctx.d,
           )
         : compileComputed(ctx, table, alias, column, next);
-    case "button":
+    case "none":
       // A button holds no value: it acts on the row when clicked.
       return nullOf("text", ctx.d);
     case "row_id":
@@ -643,8 +649,7 @@ function compileVisibleColumn(
           : ctx.d.keyText(idSql(table, alias)),
         kind: "text",
       };
-    case "relation_one_to_many":
-    case "relation_many_to_many": {
+    case "links": {
       const target = linkedTable(ctx, column);
       if (!target || !column.relation) {
         return emptyArray("text", ctx.d);
@@ -667,7 +672,10 @@ function compileVisibleColumn(
           : { joined: ctx.d.joinAgg({ ...rows, separator: "', '" }) }),
       };
     }
-    default:
+    case "stored":
+      if (isComputedType(column.fieldType)) {
+        throw new AppError("internal_error", "computed field stored");
+      }
       return storedTyped(ctx, alias, column, storedValueKind(column.fieldType));
   }
 }
@@ -717,11 +725,10 @@ export function computedDuration(
   column: EngineColumn,
   depth = 0,
 ): string | undefined {
-  if (column.fieldType !== "lookup" && column.fieldType !== "rollup") {
-    return undefined;
-  }
-  const fn = column.fieldType === "rollup" ? column.config.fn : undefined;
-  if (column.fieldType === "rollup" && (!fn || !UNIT_KEEPING.has(fn))) {
+  const read = FIELD_SQL[column.fieldType].read;
+  if (read !== "lookup" && read !== "rollup") return undefined;
+  const fn = rollupFnOf(column);
+  if (read === "rollup" && (!fn || !UNIT_KEEPING.has(fn))) {
     return undefined;
   }
   const relation = column.config.relation
@@ -733,7 +740,7 @@ export function computedDuration(
       ? findColumn(target, column.config.target)
       : undefined;
   if (!target || !targetColumn) return undefined;
-  if (targetColumn.fieldType === "duration") {
+  if (FIELD_SQL[targetColumn.fieldType].seconds) {
     return targetColumn.config.durationFormat ?? "h:mm";
   }
   return depth < 4
@@ -785,14 +792,13 @@ function compileComputed(
   const relationColumn = relationName
     ? findColumn(table, relationName)
     : undefined;
-  const fn = column.fieldType === "rollup" ? column.config.fn : undefined;
+  const fn = rollupFnOf(column);
+  const lookup = FIELD_SQL[column.fieldType].read === "lookup";
   const target = relationColumn ? linkedTable(ctx, relationColumn) : undefined;
   const targetColumn =
     target && targetName ? findColumn(target, targetName) : undefined;
   if (!relationColumn?.relation || !target || !targetColumn) {
-    if (column.fieldType === "lookup") {
-      return emptyArray("text", ctx.d);
-    }
+    if (lookup) return emptyArray("text", ctx.d);
     return nullOf(fn === "concatenate" ? "text" : "number", ctx.d);
   }
   // Its target may have changed type since: a sum over words is no sum.
@@ -819,7 +825,7 @@ function compileComputed(
   }
   const order = `order by ${stableOrderSql(target, inner).join(", ")}`;
   const scope = `from ${source.from} where ${source.where}${kept}`;
-  if (column.fieldType === "lookup" || !fn) {
+  if (lookup || !fn) {
     if (value.kind === "array") {
       return {
         sql: `array(select v ${scope.replace(" where ", ` cross join unnest(${value.sql}) v where `)} ${order})`,
@@ -1681,19 +1687,15 @@ function linkedFilterAnd(
     if (!column) throw new AppError("unknown_column", name);
     const typed = compileColumn(ctx, target, alias, column, stack);
     // As the page reads a field's kind (`read.ts`).
-    const kind: FilterKind =
-      column.fieldType === "relation_one_to_many" ||
-      column.fieldType === "relation_many_to_many"
-        ? "links"
-        : column.fieldType === "formula" ||
-            column.fieldType === "lookup" ||
-            column.fieldType === "rollup"
-          ? typed.kind === "array"
-            ? "array"
-            : typed.kind === "null"
-              ? "text"
-              : typed.kind
-          : storedValueKind(column.fieldType);
+    const kind: FilterKind = isRelationType(column.fieldType)
+      ? "links"
+      : isComputedType(column.fieldType)
+        ? typed.kind === "array"
+          ? "array"
+          : typed.kind === "null"
+            ? "text"
+            : typed.kind
+        : storedValueKind(column.fieldType);
     columns.set(name, {
       name,
       kind,
@@ -1776,12 +1778,10 @@ function canFail(
   if (expr.op === "col") {
     const column = findColumn(table, expr.name);
     const key = `${table.id}:${expr.name}`;
-    if (!column || column.fieldType !== "formula" || seen.has(key)) {
-      return false;
-    }
+    const inner = column ? formulaExprOf(column) : undefined;
+    if (!inner || seen.has(key)) return false;
     seen.add(key);
-    const inner = column.config.expr;
-    return inner ? canFail(guarded, table, inner, seen) : false;
+    return canFail(guarded, table, inner, seen);
   }
   return formulaChildren(expr).some((child) =>
     canFail(guarded, table, child, seen),
@@ -1841,8 +1841,7 @@ function formulaError(
   switch (expr.op) {
     case "col": {
       const column = findColumn(table, expr.name);
-      const inner =
-        column?.fieldType === "formula" ? column.config.expr : undefined;
+      const inner = column ? formulaExprOf(column) : undefined;
       if (!column || !inner || isHidden(ctx, table, column)) return undefined;
       const key = `${table.id}:${column.name}`;
       if (stack.includes(key)) throw new AppError("circular_formula");
@@ -1969,8 +1968,7 @@ export function givesLargeObject(
       if (physical && !physical.side && !physical.controlPlane) {
         return ctx.d.holdsLargeObject(physical);
       }
-      const inner =
-        column.fieldType === "formula" ? column.config.expr : undefined;
+      const inner = formulaExprOf(column);
       const key = `${table.id}:${column.name}`;
       if (!inner || stack.includes(key)) return false;
       return givesLargeObject(ctx, table, inner, [...stack, key]);
@@ -2059,8 +2057,8 @@ export function columnError(
       column.fieldType,
     );
   }
-  const expr = column.config.expr;
-  if (column.fieldType !== "formula" || !expr) return undefined;
+  const expr = formulaExprOf(column);
+  if (!expr) return undefined;
   return formulaError(ctx, table, alias, expr, [`${table.id}:${column.name}`]);
 }
 

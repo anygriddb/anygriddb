@@ -10,7 +10,7 @@ import {
   SIDE_FIELD_TYPES,
   sideColumnType,
   type SideFieldType,
-} from "./external-write";
+} from "./field-sql";
 
 const FREEZE_TABLE_ID = "00000000-0000-4000-8000-00000000ft01";
 const FREEZE_LINK_ID = "00000000-0000-4000-8000-00000000ft02";

@@ -8,9 +8,9 @@ import {
   buildSideLock,
   buildSideTable,
   buildSideUpsert,
-  sideColumnType,
   type StoredColumn,
 } from "./external-write";
+import { sideColumnType } from "./field-sql";
 import { readTableSql } from "./storage";
 
 function column(

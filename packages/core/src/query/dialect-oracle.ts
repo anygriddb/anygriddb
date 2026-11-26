@@ -22,6 +22,7 @@ import type {
   WallClockShape,
   HashAlgorithm,
 } from "./dialect";
+import { holdsOf } from "./field-sql";
 import { jsonPathText } from "./json-path";
 import { withoutGroups } from "../plain-text";
 
@@ -375,8 +376,9 @@ function firstRead(
   if (type === "raw") return `rawtohex(${ref})`;
   if (type === "blob") return `rawtohex(dbms_lob.substr(${ref}, 2000))`;
   // A DATE also holds a time of day: a date field reads the day alone.
-  if (fieldType === "date") return `trunc(${ref})`;
-  if (fieldType !== "datetime") return ref;
+  const holds = holdsOf(fieldType);
+  if (holds === "day") return `trunc(${ref})`;
+  if (holds !== "instant") return ref;
   if (type === "timestamp with time zone") {
     return `cast(${ref} at time zone 'UTC' as timestamp(6))`;
   }
@@ -487,7 +489,8 @@ export const ORACLE: SqlDialect = {
       return `(case when ${ref} is not null and not (${floatFits(ref)}) then '!' || to_char(${ref}) end)`;
     }
     // A flag holding another code: unticking it would lose the code.
-    return fieldType === "boolean" &&
+    return fieldType !== undefined &&
+      holdsOf(fieldType) === "flag" &&
       /^number\(\s*1\s*\)$/i.test(physical.type.trim())
       ? `(case when ${ref} not in (0, 1) then '!' || to_char(${ref}) end)`
       : undefined;
@@ -529,7 +532,7 @@ export const ORACLE: SqlDialect = {
   // trunc() would keep a filter off the column's index; a DATE or a
   // TIMESTAMP without a zone compares with midnight bounds as stored.
   comparesStoredDay: (fieldType, physical) =>
-    fieldType === "date" &&
+    holdsOf(fieldType) === "day" &&
     ["date", "timestamp"].includes(typeName(physical.type)),
   keyId: (columns) =>
     columns.length === 1

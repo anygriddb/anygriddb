@@ -18,7 +18,7 @@ import {
 } from "./field-types";
 import { convertCell } from "./cell-conversion";
 import { isConvertible, isMetadataConversion } from "./query/conversion";
-import { isSideFieldType, sideColumnType } from "./query/external-write";
+import { isSideFieldType, sideColumnType } from "./query/field-sql";
 
 const color = { fieldType: "color" as const, config: {} };
 const place = { fieldType: "place" as const, config: {} };

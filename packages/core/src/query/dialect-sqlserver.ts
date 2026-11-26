@@ -15,6 +15,7 @@ import type { FieldType } from "../field-types";
 import type { PhysicalColumn } from "./engine";
 import type { ScalarKind } from "./expressions";
 import type { Bind, JsonKind, SqlDialect, TimeUnit } from "./dialect";
+import { holdsOf } from "./field-sql";
 import { jsonPathText } from "./json-path";
 import { exactMedian } from "./median";
 import { WINDOWS_ZONES } from "./windows-zones";
@@ -351,7 +352,7 @@ function firstRead(
     return `cast(${ref} as nvarchar(max))`;
   }
   if (type === "image") return `cast(${ref} as varbinary(max))`;
-  if (fieldType !== "datetime") return ref;
+  if (holdsOf(fieldType) !== "instant") return ref;
   if (type === "datetimeoffset") {
     return `cast(switchoffset(${ref}, '+00:00') as datetime2(7))`;
   }

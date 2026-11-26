@@ -17,7 +17,11 @@ import {
   storedValueKind,
   type FieldType,
 } from "./field-types";
-import { SIDE_FIELD_TYPES } from "./query/external-write";
+import {
+  FIELD_SQL,
+  isSideFieldType,
+  SIDE_FIELD_TYPES,
+} from "./query/field-sql";
 
 describe("FIELD_DEFINITIONS", () => {
   it("names every FieldType exactly once", () => {
@@ -110,10 +114,13 @@ describe("FIELD_DEFINITIONS", () => {
     }
   });
 
-  it("keeps side-eligible types aligned with SIDE_FIELD_TYPES", () => {
-    expect(
-      FIELD_TYPES.filter((type) => FIELD_DEFINITIONS[type].sideEligible).sort(),
-    ).toEqual([...SIDE_FIELD_TYPES].sort());
+  it("keeps in a side table only what AnyGridDB writes back to a client", () => {
+    for (const type of SIDE_FIELD_TYPES) {
+      expect(isWritableType(type), type).toBe(true);
+      expect(FIELD_SQL[type].writesToClient, type).toBe(true);
+    }
+    expect(isSideFieldType("duration")).toBe(false);
+    expect(isSideFieldType("multi_select")).toBe(false);
   });
 
   it("compares as seen by the kind of value each type keeps", () => {

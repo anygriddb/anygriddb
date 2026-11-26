@@ -14,6 +14,7 @@ import { numberToDecimal } from "../decimal";
 import { AppError } from "../errors";
 import { isTimeZone } from "../field-config";
 import { dialectOf, type DialectName } from "./dialect";
+import { FIELD_SQL, sideColumnType, type SideFieldType } from "./field-sql";
 import { windowsZone } from "./dialect-sqlserver";
 import type { EngineColumn, EngineTable, PhysicalColumn } from "./engine";
 import { parseIsoInstant } from "./iso-instant";
@@ -239,8 +240,12 @@ function writeValue(
   if (value === null) return "null";
   const { physical } = column;
   const type = baseType(physical.type);
-  switch (column.fieldType) {
-    case "boolean":
+  const sql = FIELD_SQL[column.fieldType];
+  if (!sql.writesToClient || sql.holds === null) {
+    throw new AppError("column_is_read_only", column.label);
+  }
+  switch (sql.holds) {
+    case "flag":
       if (typeof value !== "boolean") throw new AppError("invalid_cell");
       // MySQL's boolean is a tinyint; tedious binds a boolean as a bit.
       if (
@@ -254,32 +259,24 @@ function writeValue(
         ? params.bind(value)
         : params.bind(value ? "true" : "false");
     case "number":
-    case "rating":
       return params.bind(decimalOf(column, value));
     case "text":
-    case "long_text":
-    case "single_select":
-    case "email":
-    case "url":
-    case "phone":
-    case "color":
-    case "place":
       if (typeof value !== "string") throw new AppError("invalid_cell");
       return params.bind(value);
-    case "json":
+    case "document":
       if (typeof value !== "string") throw new AppError("invalid_cell");
       // PostgreSQL takes a bound text for text; the other engines read a
       // document out of the text they are given.
       return dialect === "postgres"
         ? `cast(${params.bind(value)} as ${type === "json" ? "json" : "jsonb"})`
         : params.bind(value);
-    case "date":
+    case "day":
       if (typeof value !== "string") throw new AppError("invalid_cell");
       // Oracle reads a bound text by the session's format, which has a time.
       return dialect === "oracle"
         ? `to_date(${params.bind(value)}, 'YYYY-MM-DD')`
         : params.bind(value);
-    case "datetime": {
+    case "instant": {
       if (typeof value !== "string") throw new AppError("invalid_cell");
       const utc = utcTimestamp(value);
       const zone = zoneName(physical.zone);
@@ -318,12 +315,10 @@ function writeValue(
       }
       return params.bind(utc);
     }
-    case "relation_one_to_many":
+    case "link":
       // A link writes the client's own foreign key: the target's key.
       if (typeof value !== "string") throw new AppError("invalid_relation");
       return keyParam(dialect, physical.type, params.bind(value));
-    default:
-      throw new AppError("column_is_read_only", column.label);
   }
 }
 
@@ -549,126 +544,6 @@ export function canonicalDecimal(text: string): string {
 /* ------------------------------------------------------------------ */
 /* Side tables (ADR 0032)                                              */
 /* ------------------------------------------------------------------ */
-
-/** Field types a side table keeps: values AnyGridDB writes back exactly. */
-export const SIDE_FIELD_TYPES = [
-  "text",
-  "long_text",
-  "number",
-  "boolean",
-  "date",
-  "datetime",
-  "single_select",
-  "email",
-  "url",
-  "phone",
-  "color",
-  "place",
-  "json",
-  "rating",
-] as const;
-
-export type SideFieldType = (typeof SIDE_FIELD_TYPES)[number];
-
-export function isSideFieldType(type: string): type is SideFieldType {
-  return (SIDE_FIELD_TYPES as readonly string[]).includes(type);
-}
-
-/**
- * A document is kept in the engine's JSON type where every version
- * AnyGridDB reaches has one (MariaDB's is a long text it checks), and as
- * the long text AnyGridDB checked itself on SQL Server and Oracle.
- */
-const SIDE_TYPES: Record<DialectName, Record<SideFieldType, string>> = {
-  postgres: {
-    text: "text",
-    long_text: "text",
-    number: "numeric",
-    boolean: "boolean",
-    date: "date",
-    datetime: "timestamp with time zone",
-    single_select: "text",
-    email: "text",
-    url: "text",
-    phone: "text",
-    color: "text",
-    place: "text",
-    json: "jsonb",
-    rating: "integer",
-  },
-  mysql: {
-    text: "varchar(1000)",
-    long_text: "mediumtext",
-    number: "decimal(38,10)",
-    boolean: "tinyint(1)",
-    date: "date",
-    datetime: "datetime(6)",
-    single_select: "varchar(200)",
-    email: "varchar(500)",
-    url: "varchar(2000)",
-    phone: "varchar(100)",
-    color: "varchar(7)",
-    place: "varchar(40)",
-    json: "json",
-    rating: "int",
-  },
-  mariadb: {
-    text: "varchar(1000)",
-    long_text: "mediumtext",
-    number: "decimal(38,10)",
-    boolean: "tinyint(1)",
-    date: "date",
-    datetime: "datetime(6)",
-    single_select: "varchar(200)",
-    email: "varchar(500)",
-    url: "varchar(2000)",
-    phone: "varchar(100)",
-    color: "varchar(7)",
-    place: "varchar(40)",
-    json: "json",
-    rating: "int",
-  },
-  sqlserver: {
-    text: "nvarchar(1000)",
-    long_text: "nvarchar(max)",
-    number: "decimal(38,10)",
-    boolean: "bit",
-    date: "date",
-    datetime: "datetime2(7)",
-    single_select: "nvarchar(200)",
-    email: "nvarchar(500)",
-    url: "nvarchar(2000)",
-    phone: "nvarchar(100)",
-    color: "varchar(7)",
-    place: "varchar(40)",
-    json: "nvarchar(max)",
-    rating: "int",
-  },
-  oracle: {
-    text: "varchar2(1000)",
-    long_text: "clob",
-    number: "number(38,10)",
-    boolean: "number(1)",
-    date: "date",
-    datetime: "timestamp(6) with time zone",
-    single_select: "varchar2(200)",
-    email: "varchar2(500)",
-    url: "varchar2(2000)",
-    phone: "varchar2(100)",
-    color: "varchar2(7)",
-    place: "varchar2(40)",
-    json: "clob",
-    rating: "number(10)",
-  },
-};
-
-/** The SQL type a side column of `fieldType` has on an engine. */
-export function sideColumnType(
-  dialect: DialectName,
-  fieldType: SideFieldType,
-): string {
-  return SIDE_TYPES[dialect][fieldType];
-}
 
 function sideSql(table: EngineTable): string {
   const side = external(table).side;
