@@ -5,6 +5,7 @@
  * other page path gets index.html with the document's security policy,
  * and the app's router takes it from there.
  */
+import { doorTo } from "./access/routes.js";
 import { access, readFile } from "node:fs/promises";
 import { join, sep } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -116,28 +117,31 @@ export async function registerWebApp(
   if (built) {
     page = await readFile(indexPath, "utf8");
     privatePage = page.replace("<head>", `<head>\n    ${NOINDEX}`);
-    await app.register(fastifyStatic, {
-      root,
-      prefix: "/",
-      // One route per file of the build, found once at start.
-      wildcard: false,
-      // The build leaves a Brotli and a gzip copy beside each text file:
-      // the one the browser accepts goes out, and they are no pages of
-      // their own.
-      preCompressed: true,
-      globIgnore: ["**/*.br", "**/*.gz"],
-      index: false,
-      // The page itself always goes out with its policy, below.
-      allowedPath: (path) => path !== "/index.html",
-      decorateReply: false,
-      setHeaders: (response, path) => {
-        response.header(
-          "Cache-Control",
-          path.includes(`${sep}assets${sep}`)
-            ? "public, max-age=31536000, immutable"
-            : "no-cache",
-        );
-      },
+    await app.register(async (files) => {
+      doorTo(files, { exception: "page" });
+      await files.register(fastifyStatic, {
+        root,
+        prefix: "/",
+        // One route per file of the build, found once at start.
+        wildcard: false,
+        // The build leaves a Brotli and a gzip copy beside each text file:
+        // the one the browser accepts goes out, and they are no pages of
+        // their own.
+        preCompressed: true,
+        globIgnore: ["**/*.br", "**/*.gz"],
+        index: false,
+        // The page itself always goes out with its policy, below.
+        allowedPath: (path) => path !== "/index.html",
+        decorateReply: false,
+        setHeaders: (response, path) => {
+          response.header(
+            "Cache-Control",
+            path.includes(`${sep}assets${sep}`)
+              ? "public, max-age=31536000, immutable"
+              : "no-cache",
+          );
+        },
+      });
     });
   } else {
     app.log.info({ root }, "no web build: serving the API only");

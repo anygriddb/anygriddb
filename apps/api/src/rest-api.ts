@@ -1,3 +1,4 @@
+import { declaredRoute } from "./access/routes.js";
 import {
   AppError,
   type ErrorCode,
@@ -19,6 +20,7 @@ import {
   getRecord,
   HttpError,
   listBases,
+  OPERATION_ASKS,
   listRecords,
   listTables,
   openApiDocument,
@@ -135,76 +137,98 @@ export function registerRestApi(app: FastifyInstance, deps: Deps): void {
   };
   const shared = apiDeps(deps, log);
 
-  app.get("/api/v1/bases", (request, reply) =>
-    run(request, reply, deps, (actor) => listBases(shared, actor)),
+  app.get(
+    "/api/v1/bases",
+    declaredRoute(OPERATION_ASKS.listBases),
+    (request, reply) =>
+      run(request, reply, deps, (actor) => listBases(shared, actor)),
   );
 
-  app.get("/api/v1/bases/:baseId/tables", (request, reply) =>
-    run(request, reply, deps, async (actor) => {
-      const { baseId } = read(baseParams, request.params);
-      return listTables(shared, actor, baseId);
-    }),
+  app.get(
+    "/api/v1/bases/:baseId/tables",
+    declaredRoute(OPERATION_ASKS.listTables),
+    (request, reply) =>
+      run(request, reply, deps, async (actor) => {
+        const { baseId } = read(baseParams, request.params);
+        return listTables(shared, actor, baseId);
+      }),
   );
 
-  app.get("/api/v1/bases/:baseId/openapi.json", (request, reply) =>
-    run(request, reply, deps, async (actor) => {
-      const { baseId } = read(baseParams, request.params);
-      return openApiDocument(shared, actor, baseId);
-    }),
+  app.get(
+    "/api/v1/bases/:baseId/openapi.json",
+    declaredRoute(OPERATION_ASKS.openApiDocument),
+    (request, reply) =>
+      run(request, reply, deps, async (actor) => {
+        const { baseId } = read(baseParams, request.params);
+        return openApiDocument(shared, actor, baseId);
+      }),
   );
 
-  app.get("/api/v1/tables/:tableId/records", (request, reply) =>
-    run(request, reply, deps, async (actor) => {
-      const { tableId } = read(tableParams, request.params);
-      return listRecords(shared, actor, tableId, request.query);
-    }),
+  app.get(
+    "/api/v1/tables/:tableId/records",
+    declaredRoute(OPERATION_ASKS.listRecords),
+    (request, reply) =>
+      run(request, reply, deps, async (actor) => {
+        const { tableId } = read(tableParams, request.params);
+        return listRecords(shared, actor, tableId, request.query);
+      }),
   );
 
-  app.get("/api/v1/tables/:tableId/records/:recordId", (request, reply) =>
-    run(request, reply, deps, async (actor) => {
-      const { tableId } = read(tableParams, request.params);
-      const { recordId } = read(
-        z.object({ recordId: rowIdSchema }),
-        request.params,
-        "invalid_record_id",
-      );
-      const { fieldKey } = read(
-        recordQuerySchema,
-        request.query,
-        "invalid_query",
-      );
-      return getRecord(shared, actor, tableId, recordId, fieldKey);
-    }),
+  app.get(
+    "/api/v1/tables/:tableId/records/:recordId",
+    declaredRoute(OPERATION_ASKS.getRecord),
+    (request, reply) =>
+      run(request, reply, deps, async (actor) => {
+        const { tableId } = read(tableParams, request.params);
+        const { recordId } = read(
+          z.object({ recordId: rowIdSchema }),
+          request.params,
+          "invalid_record_id",
+        );
+        const { fieldKey } = read(
+          recordQuerySchema,
+          request.query,
+          "invalid_query",
+        );
+        return getRecord(shared, actor, tableId, recordId, fieldKey);
+      }),
   );
 
-  app.post("/api/v1/tables/:tableId/records", (request, reply) =>
-    run(request, reply, deps, async (actor) => {
-      const { tableId } = read(tableParams, request.params);
-      return createRecords(
-        shared,
-        actor,
-        tableId,
-        request.body,
-        reasonOf(request),
-      );
-    }),
+  app.post(
+    "/api/v1/tables/:tableId/records",
+    declaredRoute(OPERATION_ASKS.createRecords),
+    (request, reply) =>
+      run(request, reply, deps, async (actor) => {
+        const { tableId } = read(tableParams, request.params);
+        return createRecords(
+          shared,
+          actor,
+          tableId,
+          request.body,
+          reasonOf(request),
+        );
+      }),
   );
 
-  app.patch("/api/v1/tables/:tableId/records", (request, reply) =>
-    run(request, reply, deps, async (actor) => {
-      const { tableId } = read(tableParams, request.params);
-      return updateRecords(
-        shared,
-        actor,
-        tableId,
-        request.body,
-        reasonOf(request),
-      );
-    }),
+  app.patch(
+    "/api/v1/tables/:tableId/records",
+    declaredRoute(OPERATION_ASKS.updateRecords),
+    (request, reply) =>
+      run(request, reply, deps, async (actor) => {
+        const { tableId } = read(tableParams, request.params);
+        return updateRecords(
+          shared,
+          actor,
+          tableId,
+          request.body,
+          reasonOf(request),
+        );
+      }),
   );
 
   app.post(
     "/api/v1/tables/:tableId/records/:recordId/transition",
+    declaredRoute(OPERATION_ASKS.transitionRecord),
     (request, reply) =>
       run(request, reply, deps, async (actor) => {
         const { tableId } = read(tableParams, request.params);
@@ -217,18 +241,21 @@ export function registerRestApi(app: FastifyInstance, deps: Deps): void {
       }),
   );
 
-  app.delete("/api/v1/tables/:tableId/records", (request, reply) =>
-    run(request, reply, deps, async (actor) => {
-      const { tableId } = read(tableParams, request.params);
-      // Named twice, the parameter is a list and no longer a text.
-      const raw = read(
-        z.string().default(""),
-        (request.query as { records?: unknown }).records,
-        "invalid_record_id",
-      );
-      const ids = recordIds(raw);
-      if (!ids) throw new AppError("invalid_record_id");
-      return deleteRecords(shared, actor, tableId, ids, reasonOf(request));
-    }),
+  app.delete(
+    "/api/v1/tables/:tableId/records",
+    declaredRoute(OPERATION_ASKS.deleteRecords),
+    (request, reply) =>
+      run(request, reply, deps, async (actor) => {
+        const { tableId } = read(tableParams, request.params);
+        // Named twice, the parameter is a list and no longer a text.
+        const raw = read(
+          z.string().default(""),
+          (request.query as { records?: unknown }).records,
+          "invalid_record_id",
+        );
+        const ids = recordIds(raw);
+        if (!ids) throw new AppError("invalid_record_id");
+        return deleteRecords(shared, actor, tableId, ids, reasonOf(request));
+      }),
   );
 }

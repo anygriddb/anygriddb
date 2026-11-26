@@ -22,7 +22,6 @@ import {
   MAX_LOOP_ROWS,
   nextScheduleRun,
   renderTemplate,
-  roleGrants,
   type RowEvent,
   scriptTemplateValues,
   tablesTakenOut,
@@ -33,6 +32,7 @@ import {
   jsonCellText,
   ceilingOf,
 } from "@anygriddb/core";
+import { granted } from "./access/declaration.js";
 import type { AutomationRow, Database } from "@anygriddb/db";
 import type { Bus } from "./realtime/bus.js";
 import { z } from "zod";
@@ -702,10 +702,7 @@ async function creatorEngine(
   const table = await findLiveTable(db, tableId);
   if (
     !table ||
-    !roleGrants(
-      effectiveTableRole(bindings, tableId, table.baseId),
-      "rows.write",
-    )
+    !granted(effectiveTableRole(bindings, tableId, table.baseId), "rows.write")
   ) {
     return null;
   }
@@ -756,7 +753,7 @@ async function authorExports(
   return (
     tables.length === new Set(tableIds).size &&
     tables.every((table) =>
-      roleGrants(
+      granted(
         effectiveTableRole(bindings, table.id, table.baseId),
         "data.export",
       ),

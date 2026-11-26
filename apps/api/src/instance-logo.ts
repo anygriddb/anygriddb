@@ -3,6 +3,7 @@
  * sets it from Administration, through the same guards as any setting;
  * everyone reads it, signed in or not, since the sign-in page shows it.
  */
+import { declaredRoute } from "./access/routes.js";
 import {
   AppError,
   INSTANCE_LOGO_MAX_BYTES,
@@ -102,6 +103,7 @@ export function registerLogoRoute(
 ): void {
   app.get<{ Querystring: { v?: string } }>(
     INSTANCE_LOGO_PATH,
+    declaredRoute({ exception: "page" }),
     async (request, reply) => {
       const logo = await deps.db
         .selectFrom("instanceLogo")

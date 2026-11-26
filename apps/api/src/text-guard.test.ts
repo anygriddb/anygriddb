@@ -2,7 +2,7 @@ import Fastify from "fastify";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import { registerTextGuard } from "./text-guard.js";
-import { procedure, t } from "./trpc/init.js";
+import { baseProcedure as procedure, t } from "./trpc/init.js";
 import type { Context } from "./trpc/context.js";
 
 async function server() {

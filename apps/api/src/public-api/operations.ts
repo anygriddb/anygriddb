@@ -22,6 +22,7 @@ import {
   type RowSort,
   viewFilter,
 } from "@anygriddb/core";
+import { type Declaration, demand } from "../access/declaration.js";
 import { z } from "zod";
 import { enrichAttachments } from "../attachments.js";
 import { readerEngine, readerEngines } from "../data/acl.js";
@@ -98,6 +99,24 @@ function serviceDeps(deps: PublicApiDeps): RowServiceDeps {
   };
 }
 
+/**
+ * What each operation of the API asks, for the REST route and the MCP
+ * tool that run it: a token's calls are a session's, through a role that
+ * lets a token in (`api.access`).
+ */
+export const OPERATION_ASKS = {
+  listBases: { filters: ["rows.read"] },
+  listTables: { filters: ["rows.read"] },
+  openApiDocument: { filters: ["rows.read"] },
+  listRecords: { asks: ["rows.read"] },
+  getRecord: { asks: ["rows.read"] },
+  createRecords: { asks: ["rows.read", "rows.write"] },
+  updateRecords: { asks: ["rows.read", "rows.write"] },
+  transitionRecord: { asks: ["rows.read", "rows.transition"] },
+  deleteRecords: { asks: ["rows.read", "rows.delete"] },
+} as const satisfies Record<string, Declaration>;
+export type Operation = keyof typeof OPERATION_ASKS;
+
 async function tableFor(
   deps: PublicApiDeps,
   actor: Actor,
@@ -108,12 +127,9 @@ async function tableFor(
   const role = table
     ? effectiveTableRole(actor.bindings, table.id, table.baseId)
     : null;
-  if (!table || !roleGrants(role, "rows.read")) {
-    throw new AppError("not_found");
-  }
-  if (!roleGrants(role, permission)) {
-    throw new AppError("access_denied");
-  }
+  if (!table) throw new AppError("not_found");
+  demand(role, "rows.read", "not_found");
+  demand(role, permission);
   return table;
 }
 

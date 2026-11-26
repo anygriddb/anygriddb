@@ -67,13 +67,13 @@ import {
   revokeAdminToken,
   revokeAdminTokenInputSchema,
 } from "../auth/admin-tokens.js";
-import { procedure, requireAdmin } from "./admin-procedure.js";
+import { asking, requireInstance } from "./admin-procedure.js";
 
 /** Provisioning by an identity provider (SCIM 2.0, ADR 0038). */
 export const scimRouter = t.router({
-  settings: procedure.query(({ ctx }) =>
+  settings: asking({ asks: ["settings.manage"] }).query(({ ctx }) =>
     handle(ctx, async () => {
-      await requireAdmin(ctx);
+      await requireInstance(ctx);
       const groups = (await listGroups(ctx.db)).filter(
         (group) => !isLocalGroup(group.provider),
       );
@@ -85,19 +85,19 @@ export const scimRouter = t.router({
     }),
   ),
   /** A new token, shown once. */
-  createToken: procedure
+  createToken: asking({ asks: ["settings.manage"] })
     .input(createScimTokenInputSchema)
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
-        const admin = await requireAdmin(ctx);
+        const admin = await requireInstance(ctx);
         return createScimToken(ctx.db, admin.id, input.name);
       }),
     ),
-  revokeToken: procedure
+  revokeToken: asking({ asks: ["settings.manage"] })
     .input(revokeScimTokenInputSchema)
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
-        const admin = await requireAdmin(ctx);
+        const admin = await requireInstance(ctx);
         await revokeScimToken(ctx.db, admin.id, input.tokenId);
         return { ok: true as const };
       }),
@@ -110,9 +110,9 @@ export const scimRouter = t.router({
  * every change here has.
  */
 export const apiTokensRouter = t.router({
-  list: procedure.query(({ ctx }) =>
+  list: asking({ asks: ["settings.manage"] }).query(({ ctx }) =>
     handle(ctx, async () => {
-      await requireAdmin(ctx);
+      await requireInstance(ctx);
       return {
         url: `${ctx.env.PUBLIC_URL}/api/v1/admin`,
         tokens: await listAdminTokens(ctx.db),
@@ -120,11 +120,11 @@ export const apiTokensRouter = t.router({
     }),
   ),
   /** A new token, shown once. */
-  create: procedure
+  create: asking({ asks: ["settings.manage"] })
     .input(createAdminTokenInputSchema)
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
-        const admin = await requireAdmin(ctx);
+        const admin = await requireInstance(ctx);
         const made = await createAdminToken(ctx.db, admin.id, input);
         ctx.req.log.info(
           { actor: admin.id, token: made.id, scopes: input.scopes },
@@ -133,11 +133,11 @@ export const apiTokensRouter = t.router({
         return made;
       }),
     ),
-  revoke: procedure
+  revoke: asking({ asks: ["settings.manage"] })
     .input(revokeAdminTokenInputSchema)
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
-        const admin = await requireAdmin(ctx);
+        const admin = await requireInstance(ctx);
         await revokeAdminToken(ctx.db, admin.id, input.tokenId);
         ctx.req.log.info(
           { actor: admin.id, token: input.tokenId },
@@ -149,9 +149,9 @@ export const apiTokensRouter = t.router({
 });
 
 export const smtpRouter = t.router({
-  get: procedure.query(({ ctx }) =>
+  get: asking({ asks: ["settings.manage"] }).query(({ ctx }) =>
     handle(ctx, async () => {
-      await requireAdmin(ctx);
+      await requireInstance(ctx);
       const [row, resolved] = await Promise.all([
         loadSmtpRow(ctx.db),
         resolveSmtp(ctx.db, ctx.env),
@@ -165,21 +165,23 @@ export const smtpRouter = t.router({
       };
     }),
   ),
-  update: procedure.input(smtpUpdateSchema).mutation(({ ctx, input }) =>
+  update: asking({ asks: ["settings.manage"] })
+    .input(smtpUpdateSchema)
+    .mutation(({ ctx, input }) =>
+      handle(ctx, async () => {
+        const admin = await requireInstance(ctx);
+        // What the environment sets is its operator's to change (ADR 0083).
+        if ((await resolveSmtp(ctx.db, ctx.env)).source === "env") {
+          throw new AppError("set_by_environment");
+        }
+        return saveSmtp(ctx.db, ctx.env.AUTH_ENCRYPTION_KEY, admin.id, input, {
+          ip: ctx.req.ip,
+        });
+      }),
+    ),
+  clear: asking({ asks: ["settings.manage"] }).mutation(({ ctx }) =>
     handle(ctx, async () => {
-      const admin = await requireAdmin(ctx);
-      // What the environment sets is its operator's to change (ADR 0083).
-      if ((await resolveSmtp(ctx.db, ctx.env)).source === "env") {
-        throw new AppError("set_by_environment");
-      }
-      return saveSmtp(ctx.db, ctx.env.AUTH_ENCRYPTION_KEY, admin.id, input, {
-        ip: ctx.req.ip,
-      });
-    }),
-  ),
-  clear: procedure.mutation(({ ctx }) =>
-    handle(ctx, async () => {
-      const admin = await requireAdmin(ctx);
+      const admin = await requireInstance(ctx);
       await clearSmtp(ctx.db, admin.id, ctx.req.ip);
       return { ok: true as const };
     }),
@@ -187,9 +189,9 @@ export const smtpRouter = t.router({
 });
 
 export const oidcRouter = t.router({
-  get: procedure.query(({ ctx }) =>
+  get: asking({ asks: ["settings.manage"] }).query(({ ctx }) =>
     handle(ctx, async () => {
-      await requireAdmin(ctx);
+      await requireInstance(ctx);
       const [row, resolved] = await Promise.all([
         loadOidcRow(ctx.db),
         resolveOidc(ctx.db, ctx.env),
@@ -203,35 +205,37 @@ export const oidcRouter = t.router({
       };
     }),
   ),
-  update: procedure.input(oidcUpdateSchema).mutation(({ ctx, input }) =>
-    handle(ctx, async () => {
-      const admin = await requireAdmin(ctx);
-      if ((await resolveOidc(ctx.db, ctx.env)).source === "env") {
-        throw new AppError("set_by_environment");
-      }
-      return saveOidc(
-        ctx.db,
-        ctx.env.AUTH_ENCRYPTION_KEY,
-        admin.id,
-        input,
-        ctx.env.PUBLIC_URL,
-        { ip: ctx.req.ip },
-      );
-    }),
-  ),
+  update: asking({ asks: ["settings.manage"] })
+    .input(oidcUpdateSchema)
+    .mutation(({ ctx, input }) =>
+      handle(ctx, async () => {
+        const admin = await requireInstance(ctx);
+        if ((await resolveOidc(ctx.db, ctx.env)).source === "env") {
+          throw new AppError("set_by_environment");
+        }
+        return saveOidc(
+          ctx.db,
+          ctx.env.AUTH_ENCRYPTION_KEY,
+          admin.id,
+          input,
+          ctx.env.PUBLIC_URL,
+          { ip: ctx.req.ip },
+        );
+      }),
+    ),
   /** Proves discovery without saving (ADR 0053). */
-  test: procedure
+  test: asking({ asks: ["settings.manage"] })
     .input(z.object({ issuer: z.url().max(2048) }))
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
-        await requireAdmin(ctx);
+        await requireInstance(ctx);
         await proveOidcIssuer(input.issuer);
         return { ok: true as const };
       }),
     ),
-  clear: procedure.mutation(({ ctx }) =>
+  clear: asking({ asks: ["settings.manage"] }).mutation(({ ctx }) =>
     handle(ctx, async () => {
-      const admin = await requireAdmin(ctx);
+      const admin = await requireInstance(ctx);
       await clearOidc(ctx.db, ctx.env, admin.id, ctx.req.ip);
       return { ok: true as const };
     }),
@@ -239,9 +243,9 @@ export const oidcRouter = t.router({
 });
 
 export const samlRouter = t.router({
-  get: procedure.query(({ ctx }) =>
+  get: asking({ asks: ["settings.manage"] }).query(({ ctx }) =>
     handle(ctx, async () => {
-      await requireAdmin(ctx);
+      await requireInstance(ctx);
       const [row, resolved] = await Promise.all([
         loadSamlRow(ctx.db),
         resolveSaml(ctx.db, ctx.env),
@@ -255,30 +259,32 @@ export const samlRouter = t.router({
       };
     }),
   ),
-  update: procedure.input(samlUpdateSchema).mutation(({ ctx, input }) =>
-    handle(ctx, async () => {
-      const admin = await requireAdmin(ctx);
-      if ((await resolveSaml(ctx.db, ctx.env)).source === "env") {
-        throw new AppError("set_by_environment");
-      }
-      return saveSaml(ctx.db, admin.id, input, ctx.env.PUBLIC_URL, {
-        ip: ctx.req.ip,
-      });
-    }),
-  ),
+  update: asking({ asks: ["settings.manage"] })
+    .input(samlUpdateSchema)
+    .mutation(({ ctx, input }) =>
+      handle(ctx, async () => {
+        const admin = await requireInstance(ctx);
+        if ((await resolveSaml(ctx.db, ctx.env)).source === "env") {
+          throw new AppError("set_by_environment");
+        }
+        return saveSaml(ctx.db, admin.id, input, ctx.env.PUBLIC_URL, {
+          ip: ctx.req.ip,
+        });
+      }),
+    ),
   /** Parses the PEM without saving (ADR 0053). */
-  test: procedure
+  test: asking({ asks: ["settings.manage"] })
     .input(z.object({ idpCert: z.string().trim().min(1).max(16384) }))
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
-        await requireAdmin(ctx);
+        await requireInstance(ctx);
         proveSamlCertificate(input.idpCert);
         return { ok: true as const };
       }),
     ),
-  clear: procedure.mutation(({ ctx }) =>
+  clear: asking({ asks: ["settings.manage"] }).mutation(({ ctx }) =>
     handle(ctx, async () => {
-      const admin = await requireAdmin(ctx);
+      const admin = await requireInstance(ctx);
       await clearSaml(ctx.db, ctx.env, admin.id, ctx.req.ip);
       return { ok: true as const };
     }),
@@ -291,30 +297,32 @@ export const samlRouter = t.router({
  * sets it when the environment does not, and sends one to try it.
  */
 export const syslogRouter = t.router({
-  get: procedure.query(({ ctx }) =>
+  get: asking({ asks: ["settings.manage"] }).query(({ ctx }) =>
     handle(ctx, async () => {
-      await requireAdmin(ctx);
+      await requireInstance(ctx);
       return publicSyslog(ctx.db, ctx.env.SYSLOG);
     }),
   ),
-  update: procedure.input(syslogUpdateSchema).mutation(({ ctx, input }) =>
+  update: asking({ asks: ["settings.manage"] })
+    .input(syslogUpdateSchema)
+    .mutation(({ ctx, input }) =>
+      handle(ctx, async () => {
+        const admin = await requireInstance(ctx);
+        return saveSyslog(ctx.db, ctx.env.SYSLOG, admin.id, input, {
+          ip: ctx.req.ip,
+        });
+      }),
+    ),
+  clear: asking({ asks: ["settings.manage"] }).mutation(({ ctx }) =>
     handle(ctx, async () => {
-      const admin = await requireAdmin(ctx);
-      return saveSyslog(ctx.db, ctx.env.SYSLOG, admin.id, input, {
-        ip: ctx.req.ip,
-      });
-    }),
-  ),
-  clear: procedure.mutation(({ ctx }) =>
-    handle(ctx, async () => {
-      const admin = await requireAdmin(ctx);
+      const admin = await requireInstance(ctx);
       await clearSyslog(ctx.db, admin.id, ctx.req.ip);
       return { ok: true as const };
     }),
   ),
-  test: procedure.mutation(({ ctx }) =>
+  test: asking({ asks: ["settings.manage"] }).mutation(({ ctx }) =>
     handle(ctx, async () => {
-      const admin = await requireAdmin(ctx);
+      const admin = await requireInstance(ctx);
       await sendSyslogTest(ctx.db, ctx.env.SYSLOG, admin.id);
       return { ok: true as const };
     }),
@@ -322,30 +330,32 @@ export const syslogRouter = t.router({
 });
 
 export const siemRouter = t.router({
-  get: procedure.query(({ ctx }) =>
+  get: asking({ asks: ["settings.manage"] }).query(({ ctx }) =>
     handle(ctx, async () => {
-      await requireAdmin(ctx);
+      await requireInstance(ctx);
       return publicSiem(await loadSiemRow(ctx.db));
     }),
   ),
-  update: procedure.input(siemUpdateSchema).mutation(({ ctx, input }) =>
+  update: asking({ asks: ["settings.manage"] })
+    .input(siemUpdateSchema)
+    .mutation(({ ctx, input }) =>
+      handle(ctx, async () => {
+        const admin = await requireInstance(ctx);
+        return saveSiem(ctx.db, ctx.env.AUTH_ENCRYPTION_KEY, admin.id, input, {
+          ip: ctx.req.ip,
+        });
+      }),
+    ),
+  test: asking({ asks: ["settings.manage"] }).mutation(({ ctx }) =>
     handle(ctx, async () => {
-      const admin = await requireAdmin(ctx);
-      return saveSiem(ctx.db, ctx.env.AUTH_ENCRYPTION_KEY, admin.id, input, {
-        ip: ctx.req.ip,
-      });
-    }),
-  ),
-  test: procedure.mutation(({ ctx }) =>
-    handle(ctx, async () => {
-      const admin = await requireAdmin(ctx);
+      const admin = await requireInstance(ctx);
       await sendSiemTest(ctx.db, ctx.env.AUTH_ENCRYPTION_KEY, admin.id);
       return { ok: true as const };
     }),
   ),
-  clear: procedure.mutation(({ ctx }) =>
+  clear: asking({ asks: ["settings.manage"] }).mutation(({ ctx }) =>
     handle(ctx, async () => {
-      const admin = await requireAdmin(ctx);
+      const admin = await requireInstance(ctx);
       await clearSiem(ctx.db, admin.id, ctx.req.ip);
       return { ok: true as const };
     }),
@@ -358,9 +368,9 @@ export const siemRouter = t.router({
  * settings, with the proof.
  */
 export const trailShippingRouter = t.router({
-  status: procedure.query(({ ctx }) =>
+  status: asking({ asks: ["settings.manage"] }).query(({ ctx }) =>
     handle(ctx, async () => {
-      await requireAdmin(ctx);
+      await requireInstance(ctx);
       return trailShippingStatus(ctx.db, ctx.env.SYSLOG);
     }),
   ),

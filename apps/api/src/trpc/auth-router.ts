@@ -145,7 +145,7 @@ import {
   invitationPreview,
   listInvitationsFor,
 } from "../data/sharing.js";
-import { extendSessionCookie, procedure, requireUser, t } from "./init.js";
+import { extendSessionCookie, asking, requireUser, t } from "./init.js";
 import { mapProcedureError } from "./map-error.js";
 
 function clearCookie(ctx: Context, name: string): void {
@@ -482,7 +482,7 @@ export const authRouter = t.router({
    * Public: how sign-up works here, the default language, and what the
    * sign-in page and the app tell everyone (maintenance, the banner).
    */
-  instance: procedure.query(async ({ ctx }) => {
+  instance: asking({ exception: "signIn" }).query(async ({ ctx }) => {
     const settings = await readSettings(ctx.db);
     const mailReady = smtpReady((await resolveSmtp(ctx.db, ctx.env)).config);
     const accounts = await hasAccounts(ctx.db);
@@ -531,7 +531,7 @@ export const authRouter = t.router({
    * waits for its address to be proved: a link is mailed to it, and the
    * answer is the same whether or not the address already has an account.
    */
-  signup: procedure
+  signup: asking({ exception: "signIn" })
     .input(signupInputSchema)
     .mutation(async ({ ctx, input }) => {
       const settings = await readSettings(ctx.db);
@@ -608,7 +608,7 @@ export const authRouter = t.router({
    * no longer taken, password sign-in off) says why before a password is
    * asked for nothing. Only the mailbox that got the link reads it.
    */
-  signupLink: procedure
+  signupLink: asking({ exception: "signIn" })
     .input(z.object({ token: z.string().max(100) }))
     .query(async ({ ctx, input }) => {
       const request = await findSignupRequest(ctx.db, input.token);
@@ -624,7 +624,7 @@ export const authRouter = t.router({
    * the person who opens it made the sign-up; the account is made, every
    * other request for the address goes, and the person is signed in.
    */
-  confirmSignup: procedure
+  confirmSignup: asking({ exception: "signIn" })
     .input(confirmSignupSchema)
     .mutation(async ({ ctx, input }) => {
       const settings = await readSettings(ctx.db);
@@ -653,74 +653,78 @@ export const authRouter = t.router({
       await issueSession(ctx, userId, "signup");
       return { status: "session" as const };
     }),
-  login: procedure.input(loginInputSchema).mutation(async ({ ctx, input }) => {
-    const settings = await readGateSettings(ctx.db);
-    assertSignInAddressAllowed(settings.signInAllowlist, ctx.req.ip);
-    const user = await ctx.db
-      .selectFrom("users as u")
-      .innerJoin("passwordHashes as p", "p.userId", "u.id")
-      .select(["u.id", "p.hash", "u.disabledAt", "u.isAdmin", "u.lockedAt"])
-      .where("u.email", "=", input.email.toLowerCase())
-      .executeTakeFirst();
-    const passwordOk = await verifyPassword(
-      user?.hash ?? DUMMY_PASSWORD_HASH,
-      input.password,
-    );
-    // Under single sign-on only, a password opens nothing for a person: the
-    // same answer whether it is right, wrong, or the account does not exist,
-    // and nothing to count toward a lock.
-    if (settings.ssoOnly && !user?.isAdmin) {
-      await signInFailed(
-        ctx,
-        "password",
-        user?.id ?? null,
-        "invalid_credentials",
+  login: asking({ exception: "signIn" })
+    .input(loginInputSchema)
+    .mutation(async ({ ctx, input }) => {
+      const settings = await readGateSettings(ctx.db);
+      assertSignInAddressAllowed(settings.signInAllowlist, ctx.req.ip);
+      const user = await ctx.db
+        .selectFrom("users as u")
+        .innerJoin("passwordHashes as p", "p.userId", "u.id")
+        .select(["u.id", "p.hash", "u.disabledAt", "u.isAdmin", "u.lockedAt"])
+        .where("u.email", "=", input.email.toLowerCase())
+        .executeTakeFirst();
+      const passwordOk = await verifyPassword(
+        user?.hash ?? DUMMY_PASSWORD_HASH,
+        input.password,
       );
-      throw new AppError("password_sign_in_disabled");
-    }
-    if (user) await refuseLocked(ctx, user, "password");
-    // An address with no account locks as an account does, so that the
-    // lock tells nothing of whether it has one. The trail keeps what
-    // happened: a sign-in that failed on an address nobody has.
-    if (!user && unknownAddressLocked(input.email, settings)) {
-      await signInFailed(ctx, "password", null, "invalid_credentials");
-      throw new AppError("account_locked");
-    }
-    if (!user || !passwordOk) {
-      await signInFailed(
-        ctx,
-        "password",
-        user?.id ?? null,
-        "invalid_credentials",
-      );
-      if (user) await failedAttempt(ctx, user.id);
-      else countUnknownAddressFailure(input.email, settings);
-      // An administrator's mistyped password answers as anyone's does here:
-      // another answer would tell which addresses administer the instance.
-      throw new AppError(
-        settings.ssoOnly ? "password_sign_in_disabled" : "invalid_credentials",
-      );
-    }
-    if (user.disabledAt) {
-      await signInFailed(ctx, "password", user.id, "account_disabled");
-      throw new AppError("account_disabled");
-    }
-    await revokeSession(ctx.db, ctx.req.cookies[SESSION_COOKIE]);
-    const methods = await factorMethods(ctx.db, user.id);
-    if (methods.length > 0) {
-      const challenge = await createLoginChallenge(ctx.db, user.id);
-      clearCookie(ctx, SESSION_COOKIE);
-      ctx.res.setCookie(
-        MFA_COOKIE,
-        challenge.token,
-        sessionCookieOptions(challenge.expiresAt),
-      );
-      return { status: "mfa" as const, methods };
-    }
-    await issueSession(ctx, user.id, "password");
-    return { status: "session" as const, methods };
-  }),
-  logout: procedure.mutation(async ({ ctx }) => {
+      // Under single sign-on only, a password opens nothing for a person: the
+      // same answer whether it is right, wrong, or the account does not exist,
+      // and nothing to count toward a lock.
+      if (settings.ssoOnly && !user?.isAdmin) {
+        await signInFailed(
+          ctx,
+          "password",
+          user?.id ?? null,
+          "invalid_credentials",
+        );
+        throw new AppError("password_sign_in_disabled");
+      }
+      if (user) await refuseLocked(ctx, user, "password");
+      // An address with no account locks as an account does, so that the
+      // lock tells nothing of whether it has one. The trail keeps what
+      // happened: a sign-in that failed on an address nobody has.
+      if (!user && unknownAddressLocked(input.email, settings)) {
+        await signInFailed(ctx, "password", null, "invalid_credentials");
+        throw new AppError("account_locked");
+      }
+      if (!user || !passwordOk) {
+        await signInFailed(
+          ctx,
+          "password",
+          user?.id ?? null,
+          "invalid_credentials",
+        );
+        if (user) await failedAttempt(ctx, user.id);
+        else countUnknownAddressFailure(input.email, settings);
+        // An administrator's mistyped password answers as anyone's does here:
+        // another answer would tell which addresses administer the instance.
+        throw new AppError(
+          settings.ssoOnly
+            ? "password_sign_in_disabled"
+            : "invalid_credentials",
+        );
+      }
+      if (user.disabledAt) {
+        await signInFailed(ctx, "password", user.id, "account_disabled");
+        throw new AppError("account_disabled");
+      }
+      await revokeSession(ctx.db, ctx.req.cookies[SESSION_COOKIE]);
+      const methods = await factorMethods(ctx.db, user.id);
+      if (methods.length > 0) {
+        const challenge = await createLoginChallenge(ctx.db, user.id);
+        clearCookie(ctx, SESSION_COOKIE);
+        ctx.res.setCookie(
+          MFA_COOKIE,
+          challenge.token,
+          sessionCookieOptions(challenge.expiresAt),
+        );
+        return { status: "mfa" as const, methods };
+      }
+      await issueSession(ctx, user.id, "password");
+      return { status: "session" as const, methods };
+    }),
+  logout: asking({ exception: "signIn" }).mutation(async ({ ctx }) => {
     const token = ctx.req.cookies[SESSION_COOKIE];
     const ended = await revokeSession(ctx.db, token);
     if (ended) {
@@ -743,13 +747,13 @@ export const authRouter = t.router({
     return { ok: true as const };
   }),
   totp: t.router({
-    begin: procedure.mutation(async ({ ctx }) => {
+    begin: asking({ exception: "ownAccount" }).mutation(async ({ ctx }) => {
       const user = await requireUser(ctx);
       refuseApiToken(ctx);
       const secret = generateTotpSecret();
       return { secret, otpauthUrl: totpUri(secret, user.displayName) };
     }),
-    confirm: procedure
+    confirm: asking({ exception: "ownAccount" })
       .input(totpConfirmSchema)
       .mutation(async ({ ctx, input }) => {
         const user = await requireUser(ctx);
@@ -778,54 +782,59 @@ export const authRouter = t.router({
         );
         return { backupCodes };
       }),
-    verify: procedure.input(totpCodeSchema).mutation(async ({ ctx, input }) => {
-      const challenge = await requireChallenge(ctx);
-      const row = await readTotpRow(ctx.db, challenge.userId);
-      const secret =
-        row?.confirmedAt === null || row?.confirmedAt === undefined
-          ? null
-          : decryptSecret(
-              row.ciphertext,
-              row.nonce,
-              ctx.env.AUTH_ENCRYPTION_KEY,
-              "totp",
-            );
-      const step =
-        secret === null
-          ? null
-          : acceptedTotpStep(
-              secret,
-              input.code,
-              Date.now(),
-              row?.lastStep ?? null,
-            );
-      // The step is recorded only if newer, in one statement, so a code
-      // replayed in parallel cannot open two sessions.
-      const recorded =
-        step === null || !row
-          ? undefined
-          : await ctx.db
-              .updateTable("totpSecrets")
-              .set({ lastStep: step })
-              .where("userId", "=", challenge.userId)
-              .where((eb) =>
-                eb.or([eb("lastStep", "is", null), eb("lastStep", "<", step)]),
-              )
-              .returning("userId")
-              .executeTakeFirst();
-      if (!recorded) {
-        await failLoginChallenge(ctx.db, challenge.id);
-        await signInFailed(ctx, "totp", challenge.userId, "mfa_failed");
-        await failedAttempt(ctx, challenge.userId);
-        throw new TRPCError({ code: "UNAUTHORIZED" });
-      }
-      await deleteLoginChallenge(ctx.db, challenge.id);
-      await issueSession(ctx, challenge.userId, "totp", challenge.signOn);
-      return { status: "session" as const };
-    }),
+    verify: asking({ exception: "secondFactor" })
+      .input(totpCodeSchema)
+      .mutation(async ({ ctx, input }) => {
+        const challenge = await requireChallenge(ctx);
+        const row = await readTotpRow(ctx.db, challenge.userId);
+        const secret =
+          row?.confirmedAt === null || row?.confirmedAt === undefined
+            ? null
+            : decryptSecret(
+                row.ciphertext,
+                row.nonce,
+                ctx.env.AUTH_ENCRYPTION_KEY,
+                "totp",
+              );
+        const step =
+          secret === null
+            ? null
+            : acceptedTotpStep(
+                secret,
+                input.code,
+                Date.now(),
+                row?.lastStep ?? null,
+              );
+        // The step is recorded only if newer, in one statement, so a code
+        // replayed in parallel cannot open two sessions.
+        const recorded =
+          step === null || !row
+            ? undefined
+            : await ctx.db
+                .updateTable("totpSecrets")
+                .set({ lastStep: step })
+                .where("userId", "=", challenge.userId)
+                .where((eb) =>
+                  eb.or([
+                    eb("lastStep", "is", null),
+                    eb("lastStep", "<", step),
+                  ]),
+                )
+                .returning("userId")
+                .executeTakeFirst();
+        if (!recorded) {
+          await failLoginChallenge(ctx.db, challenge.id);
+          await signInFailed(ctx, "totp", challenge.userId, "mfa_failed");
+          await failedAttempt(ctx, challenge.userId);
+          throw new TRPCError({ code: "UNAUTHORIZED" });
+        }
+        await deleteLoginChallenge(ctx.db, challenge.id);
+        await issueSession(ctx, challenge.userId, "totp", challenge.signOn);
+        return { status: "session" as const };
+      }),
   }),
   backup: t.router({
-    verify: procedure
+    verify: asking({ exception: "secondFactor" })
       .input(backupCodeSchema)
       .mutation(async ({ ctx, input }) => {
         const challenge = await requireChallenge(ctx);
@@ -854,7 +863,7 @@ export const authRouter = t.router({
   email: t.router({
     // The proof a change of factor asks is given here, where the code
     // leaves: only an enrolment begun with it has a code to confirm.
-    begin: procedure
+    begin: asking({ exception: "ownAccount" })
       .input(factorProofSchema.optional())
       .mutation(async ({ ctx, input }) => {
         const user = await requireUser(ctx);
@@ -863,7 +872,7 @@ export const authRouter = t.router({
         await proveFactorChange(ctx, user.id, "email", input ?? {});
         return sendFactorCode(ctx, user.id, "enroll");
       }),
-    confirm: procedure
+    confirm: asking({ exception: "ownAccount" })
       .input(emailOtpCodeSchema)
       .mutation(async ({ ctx, input }) => {
         const user = await requireUser(ctx);
@@ -898,7 +907,7 @@ export const authRouter = t.router({
         );
         return { backupCodes };
       }),
-    disable: procedure
+    disable: asking({ exception: "ownAccount" })
       .input(factorProofSchema)
       .mutation(async ({ ctx, input }) => {
         const user = await requireUser(ctx);
@@ -910,7 +919,7 @@ export const authRouter = t.router({
         await clearEmailFactor(ctx.db, user.id);
         return { ok: true as const };
       }),
-    send: procedure.mutation(async ({ ctx }) => {
+    send: asking({ exception: "secondFactor" }).mutation(async ({ ctx }) => {
       const challenge = await requireChallenge(ctx);
       const methods = await factorMethods(ctx.db, challenge.userId);
       if (!methods.includes("email")) {
@@ -918,7 +927,7 @@ export const authRouter = t.router({
       }
       return sendFactorCode(ctx, challenge.userId, "login");
     }),
-    verify: procedure
+    verify: asking({ exception: "secondFactor" })
       .input(emailOtpCodeSchema)
       .mutation(async ({ ctx, input }) => {
         const challenge = await requireChallenge(ctx);
@@ -944,7 +953,7 @@ export const authRouter = t.router({
       }),
   }),
   webauthn: t.router({
-    registerBegin: procedure
+    registerBegin: asking({ exception: "ownAccount" })
       .input(factorProofSchema.optional())
       .mutation(async ({ ctx, input }) => {
         const user = await requireUser(ctx);
@@ -955,7 +964,7 @@ export const authRouter = t.router({
           mapProcedureError(error, ctx.req.log);
         }
       }),
-    registerFinish: procedure
+    registerFinish: asking({ exception: "ownAccount" })
       .input(registrationResponseSchema)
       .mutation(async ({ ctx, input }) => {
         const user = await requireUser(ctx);
@@ -982,12 +991,12 @@ export const authRouter = t.router({
           mapProcedureError(error, ctx.req.log);
         }
       }),
-    list: procedure.query(async ({ ctx }) => {
+    list: asking({ exception: "ownAccount" }).query(async ({ ctx }) => {
       const user = await requireUser(ctx);
       refuseApiToken(ctx);
       return listPasskeys(ctx.db, user.id);
     }),
-    remove: procedure
+    remove: asking({ exception: "ownAccount" })
       .input(factorProofSchema.extend({ id: z.uuid() }))
       .mutation(async ({ ctx, input }) => {
         const user = await requireUser(ctx);
@@ -996,15 +1005,17 @@ export const authRouter = t.router({
         await removePasskey(ctx.db, user.id, id, ctx.req.ip);
         return { ok: true as const };
       }),
-    authenticateBegin: procedure.mutation(async ({ ctx }) => {
-      const challenge = await requireChallenge(ctx);
-      try {
-        return await beginAuthentication(ctx.db, ctx.env, challenge.userId);
-      } catch (error) {
-        mapProcedureError(error, ctx.req.log);
-      }
-    }),
-    authenticateFinish: procedure
+    authenticateBegin: asking({ exception: "secondFactor" }).mutation(
+      async ({ ctx }) => {
+        const challenge = await requireChallenge(ctx);
+        try {
+          return await beginAuthentication(ctx.db, ctx.env, challenge.userId);
+        } catch (error) {
+          mapProcedureError(error, ctx.req.log);
+        }
+      },
+    ),
+    authenticateFinish: asking({ exception: "secondFactor" })
       .input(authenticationResponseSchema)
       .mutation(async ({ ctx, input }) => {
         const challenge = await requireChallenge(ctx);
@@ -1034,7 +1045,7 @@ export const authRouter = t.router({
    * The second step under way, for a sign-in that started elsewhere (single
    * sign-on): the factors it may use, or null.
    */
-  challenge: procedure.query(async ({ ctx }) => {
+  challenge: asking({ exception: "signIn" }).query(async ({ ctx }) => {
     const challenge = await findLoginChallenge(
       ctx.db,
       ctx.req.cookies[MFA_COOKIE],
@@ -1043,7 +1054,7 @@ export const authRouter = t.router({
     return { methods: await factorMethods(ctx.db, challenge.userId) };
   }),
   /** The person changes their own password; their other sessions end. */
-  changePassword: procedure
+  changePassword: asking({ exception: "ownAccount" })
     .input(
       z.object({
         current: z.string().min(1).max(128),
@@ -1097,7 +1108,7 @@ export const authRouter = t.router({
    * administrator; an identity provider that provisions the account keeps
    * both.
    */
-  rename: procedure
+  rename: asking({ exception: "ownAccount" })
     .input(z.object({ displayName: labelSchema }).strict())
     .mutation(async ({ ctx, input }) => {
       const user = await requireUser(ctx);
@@ -1118,7 +1129,7 @@ export const authRouter = t.router({
    * Public: mails a reset link when the instance lets people ask for one.
    * The answer is the same whether the address has an account or not.
    */
-  requestPasswordReset: procedure
+  requestPasswordReset: asking({ exception: "signIn" })
     .input(z.object({ email: z.email().max(254) }))
     .mutation(async ({ ctx, input }) => {
       const settings = await readSettings(ctx.db);
@@ -1165,7 +1176,7 @@ export const authRouter = t.router({
       return { ok: true as const };
     }),
   /** Public: whether a reset link still works, and the length to choose. */
-  resetLink: procedure
+  resetLink: asking({ exception: "signIn" })
     .input(z.object({ token: z.string().max(100) }))
     .query(async ({ ctx, input }) => {
       const [link, settings] = await Promise.all([
@@ -1178,7 +1189,7 @@ export const authRouter = t.router({
       };
     }),
   /** Public: sets the new password a link allows, once. */
-  resetPassword: procedure
+  resetPassword: asking({ exception: "signIn" })
     .input(
       z.object({
         token: z.string().max(100),
@@ -1211,7 +1222,7 @@ export const authRouter = t.router({
         mapProcedureError(error, ctx.req.log);
       }
     }),
-  erase: procedure
+  erase: asking({ exception: "ownAccount" })
     .input(eraseAccountInputSchema)
     .mutation(async ({ ctx, input }) => {
       const user = await requireUser(ctx);
@@ -1248,11 +1259,11 @@ export const authRouter = t.router({
         mapProcedureError(error, ctx.req.log);
       }
     }),
-  tokens: procedure.query(async ({ ctx }) => {
+  tokens: asking({ exception: "ownAccount" }).query(async ({ ctx }) => {
     const user = await requireUser(ctx);
     return { tokens: await listApiTokens(ctx.db, user.id) };
   }),
-  createToken: procedure
+  createToken: asking({ exception: "ownAccount" })
     .input(createApiTokenInputSchema)
     .mutation(async ({ ctx, input }) => {
       const user = await requireUser(ctx);
@@ -1272,7 +1283,7 @@ export const authRouter = t.router({
         mapProcedureError(error, ctx.req.log);
       }
     }),
-  revokeToken: procedure
+  revokeToken: asking({ exception: "ownAccount" })
     .input(revokeApiTokenInputSchema)
     .mutation(async ({ ctx, input }) => {
       const user = await requireUser(ctx);
@@ -1285,7 +1296,7 @@ export const authRouter = t.router({
       }
     }),
   /** A live client's name and redirect URIs for the consent page. */
-  oauthClient: procedure
+  oauthClient: asking({ exception: "ownAccount" })
     .input(z.object({ clientId: z.string().trim().min(1).max(200) }).strict())
     .query(async ({ ctx, input }) => {
       await requireUser(ctx);
@@ -1295,7 +1306,10 @@ export const authRouter = t.router({
    * Consent for an OAuth client (ADR 0094): issues a one-time code the
    * application exchanges at /oauth/token. Session only; never a bearer.
    */
-  oauthConsent: procedure
+  oauthConsent: asking({
+    exception: "ownAccount",
+    also: ["rows.read", "api.access"],
+  })
     .input(
       z
         .object({
@@ -1324,7 +1338,7 @@ export const authRouter = t.router({
         mapProcedureError(error, ctx.req.log);
       }
     }),
-  invitation: procedure
+  invitation: asking({ exception: "invitation" })
     .input(z.object({ token: z.string().max(100) }))
     .query(async ({ ctx, input }) => {
       try {
@@ -1334,25 +1348,27 @@ export const authRouter = t.router({
       }
     }),
   /** The invitations waiting for the signed-in account's address. */
-  pendingInvitations: procedure.query(async ({ ctx }) => {
-    const user = await requireUser(ctx);
-    try {
-      const rows = await listInvitationsFor(ctx.db, user.email);
-      return {
-        invitations: rows.map((row) => ({
-          id: row.id,
-          role: row.role,
-          baseName: row.baseName,
-          invitedBy: row.invitedBy,
-          expiresAt: row.expiresAt.toISOString(),
-        })),
-      };
-    } catch (error) {
-      mapProcedureError(error, ctx.req.log);
-    }
-  }),
+  pendingInvitations: asking({ exception: "ownAccount" }).query(
+    async ({ ctx }) => {
+      const user = await requireUser(ctx);
+      try {
+        const rows = await listInvitationsFor(ctx.db, user.email);
+        return {
+          invitations: rows.map((row) => ({
+            id: row.id,
+            role: row.role,
+            baseName: row.baseName,
+            invitedBy: row.invitedBy,
+            expiresAt: row.expiresAt.toISOString(),
+          })),
+        };
+      } catch (error) {
+        mapProcedureError(error, ctx.req.log);
+      }
+    },
+  ),
   /** Accepts or declines one of them: no link is needed for one's own. */
-  answerInvitation: procedure
+  answerInvitation: asking({ exception: "ownAccount" })
     .input(z.object({ invitationId: z.uuid(), accept: z.boolean() }))
     .mutation(async ({ ctx, input }) => {
       const user = await requireUser(ctx);
@@ -1368,7 +1384,7 @@ export const authRouter = t.router({
         mapProcedureError(error, ctx.req.log);
       }
     }),
-  acceptInvitation: procedure
+  acceptInvitation: asking({ exception: "ownAccount" })
     .input(z.object({ token: z.string().max(100) }))
     .mutation(async ({ ctx, input }) => {
       const user = await requireUser(ctx);
@@ -1381,7 +1397,7 @@ export const authRouter = t.router({
 });
 
 export const sessionRouter = t.router({
-  providers: procedure.query(async ({ ctx }) => {
+  providers: asking({ exception: "signIn" }).query(async ({ ctx }) => {
     const [oidc, saml] = await Promise.all([
       resolveOidc(ctx.db, ctx.env),
       resolveSaml(ctx.db, ctx.env),
@@ -1391,7 +1407,7 @@ export const sessionRouter = t.router({
       saml: saml.config !== null,
     };
   }),
-  current: procedure.query(async ({ ctx }) => {
+  current: asking({ exception: "signIn" }).query(async ({ ctx }) => {
     const token = ctx.req.cookies[SESSION_COOKIE];
     const user = await findSessionUser(ctx.db, token);
     if (!user) {

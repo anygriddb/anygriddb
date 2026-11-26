@@ -2,6 +2,7 @@
  * Accounts: who they are, what they may do in Administration, and how
  * they sign in.
  */
+import { holds } from "../access/declaration.js";
 import {
   AppError,
   INSTANCE_ROLES,
@@ -68,12 +69,7 @@ import {
 import { enqueueJob } from "../jobs.js";
 import { queueDeps } from "./jobs-router.js";
 import { t } from "./init.js";
-import {
-  procedure,
-  requireAdmin,
-  roleNoticeDeps,
-  requireSupport,
-} from "./admin-procedure.js";
+import { asking, requireInstance, roleNoticeDeps } from "./admin-procedure.js";
 
 /** A gesture that mails people is refused before it starts without mail. */
 async function requireMail(ctx: Context): Promise<void> {
@@ -87,28 +83,30 @@ const peopleFileInputSchema = z
 
 export const adminAccountProcedures = {
   /** Accounts, searched, filtered, and sorted (ROADMAP #18). */
-  users: procedure.input(listUsersInputSchema).query(({ ctx, input }) =>
-    handle(ctx, async () => {
-      await requireSupport(ctx);
-      const [page, smtp] = await Promise.all([
-        listUsers(ctx.db, {
-          ...input,
-          search: input.search || undefined,
-        }),
-        resolveSmtp(ctx.db, ctx.env),
-      ]);
-      return { ...page, smtpReady: smtpReady(smtp.config) };
-    }),
-  ),
+  users: asking({ asks: ["accounts.help"] })
+    .input(listUsersInputSchema)
+    .query(({ ctx, input }) =>
+      handle(ctx, async () => {
+        await requireInstance(ctx);
+        const [page, smtp] = await Promise.all([
+          listUsers(ctx.db, {
+            ...input,
+            search: input.search || undefined,
+          }),
+          resolveSmtp(ctx.db, ctx.env),
+        ]);
+        return { ...page, smtpReady: smtpReady(smtp.config) };
+      }),
+    ),
   /**
    * Corrects an account's name or address. The trail names what changed,
    * and the log neither value.
    */
-  updateAccount: procedure
+  updateAccount: asking({ asks: ["accounts.manage"] })
     .input(updateAccountInputSchema)
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
-        const admin = await requireAdmin(ctx);
+        const admin = await requireInstance(ctx);
         await helpdeskReach(ctx.db, admin, input.userId);
         const changed = await updateAccount(ctx.db, admin.id, input);
         ctx.req.log.info(
@@ -118,11 +116,11 @@ export const adminAccountProcedures = {
         return { ok: true as const };
       }),
     ),
-  setDisabled: procedure
+  setDisabled: asking({ asks: ["accounts.manage"] })
     .input(z.object({ userId: z.uuid(), disabled: z.boolean() }))
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
-        const admin = await requireAdmin(ctx);
+        const admin = await requireInstance(ctx);
         await helpdeskReach(ctx.db, admin, input.userId);
         await setUserDisabled(ctx.db, admin.id, input.userId, input.disabled);
         if (input.disabled) ctx.hub.closeUser(input.userId);
@@ -137,11 +135,11 @@ export const adminAccountProcedures = {
    * Several accounts disabled together (ROADMAP #36), each as one is:
    * sessions ended, tokens stopped, the sign-in trail told.
    */
-  disableAccounts: procedure
+  disableAccounts: asking({ asks: ["accounts.manage"] })
     .input(bulkDisableInputSchema)
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
-        const admin = await requireAdmin(ctx);
+        const admin = await requireInstance(ctx);
         const result = await disableAccounts(ctx.db, admin, input.userIds);
         for (const userId of result.disabled) ctx.hub.closeUser(userId);
         ctx.req.log.info(
@@ -165,57 +163,65 @@ export const adminAccountProcedures = {
    * for email to be set up: there is nobody to hand two hundred links to.
    */
   people: t.router({
-    preview: procedure.input(peopleFileInputSchema).mutation(({ ctx, input }) =>
-      handle(ctx, async () => {
-        await requireAdmin(ctx);
-        await requireMail(ctx);
-        return previewPeople(ctx.db, input.file);
-      }),
-    ),
-    add: procedure.input(peopleFileInputSchema).mutation(({ ctx, input }) =>
-      handle(ctx, async () => {
-        const admin = await requireAdmin(ctx);
-        await requireMail(ctx);
-        const { given, ...result } = await addPeople(ctx.db, admin, input.file);
-        // One notice per base, however many people the file gave a role
-        // on it (ROADMAP #91).
-        const byBase = new Map<string, typeof given>();
-        for (const gift of given) {
-          byBase.set(gift.baseId, [...(byBase.get(gift.baseId) ?? []), gift]);
-        }
-        for (const [baseId, gifts] of byBase) {
-          const [only] = gifts;
-          await tellOwnersOfRole(await roleNoticeDeps(ctx), {
-            baseId,
-            actorId: admin.id,
-            gift:
-              gifts.length === 1 && only
-                ? { to: "person", userId: only.userId, role: only.role }
-                : { to: "people", count: gifts.length },
-          });
-        }
-        ctx.req.log.info(
-          {
-            actor: admin.id,
-            added: result.added,
-            refused: result.refused.length,
-          },
-          "people added from a file",
-        );
-        return result;
-      }),
-    ),
+    preview: asking({ asks: ["accounts.control"] })
+      .input(peopleFileInputSchema)
+      .mutation(({ ctx, input }) =>
+        handle(ctx, async () => {
+          await requireInstance(ctx);
+          await requireMail(ctx);
+          return previewPeople(ctx.db, input.file);
+        }),
+      ),
+    add: asking({ asks: ["accounts.control"] })
+      .input(peopleFileInputSchema)
+      .mutation(({ ctx, input }) =>
+        handle(ctx, async () => {
+          const admin = await requireInstance(ctx);
+          await requireMail(ctx);
+          const { given, ...result } = await addPeople(
+            ctx.db,
+            admin,
+            input.file,
+          );
+          // One notice per base, however many people the file gave a role
+          // on it (ROADMAP #91).
+          const byBase = new Map<string, typeof given>();
+          for (const gift of given) {
+            byBase.set(gift.baseId, [...(byBase.get(gift.baseId) ?? []), gift]);
+          }
+          for (const [baseId, gifts] of byBase) {
+            const [only] = gifts;
+            await tellOwnersOfRole(await roleNoticeDeps(ctx), {
+              baseId,
+              actorId: admin.id,
+              gift:
+                gifts.length === 1 && only
+                  ? { to: "person", userId: only.userId, role: only.role }
+                  : { to: "people", count: gifts.length },
+            });
+          }
+          ctx.req.log.info(
+            {
+              actor: admin.id,
+              added: result.added,
+              refused: result.refused.length,
+            },
+            "people added from a file",
+          );
+          return result;
+        }),
+      ),
   }),
   /**
    * What there is to hand over of a leaving person's (ROADMAP #21): the
    * bases they alone own, the automations and webhooks they made, and
    * how many API tokens they hold. Names only.
    */
-  handoffInfo: procedure
+  handoffInfo: asking({ asks: ["accounts.control"] })
     .input(z.object({ userId: z.uuid() }))
     .query(({ ctx, input }) =>
       handle(ctx, async () => {
-        const admin = await requireAdmin(ctx);
+        const admin = await requireInstance(ctx);
         return handoffInfo(ctx.db, admin.id, input.userId);
       }),
     ),
@@ -224,35 +230,37 @@ export const adminAccountProcedures = {
    * it is; what the successor may not manage stays with the person, and
    * the answer names it.
    */
-  handOver: procedure.input(handOverInputSchema).mutation(({ ctx, input }) =>
-    handle(ctx, async () => {
-      const admin = await requireAdmin(ctx);
-      const result = await handOver(ctx.db, admin.id, input);
-      ctx.req.log.info(
-        {
-          actor: admin.id,
-          target: input.fromUserId,
-          successor: input.toUserId,
-          bases: result.bases,
-          automations: result.automations.moved,
-          webhooks: result.webhooks.moved,
-          tokensRevoked: result.tokensRevoked,
-        },
-        "account handed over",
-      );
-      return result;
-    }),
-  ),
+  handOver: asking({ asks: ["accounts.control"] })
+    .input(handOverInputSchema)
+    .mutation(({ ctx, input }) =>
+      handle(ctx, async () => {
+        const admin = await requireInstance(ctx);
+        const result = await handOver(ctx.db, admin.id, input);
+        ctx.req.log.info(
+          {
+            actor: admin.id,
+            target: input.fromUserId,
+            successor: input.toUserId,
+            bases: result.bases,
+            automations: result.automations.moved,
+            webhooks: result.webhooks.moved,
+            tokensRevoked: result.tokensRevoked,
+          },
+          "account handed over",
+        );
+        return result;
+      }),
+    ),
   /**
    * What the account's page shows of an account's data (ROADMAP #32): its
    * recent writes and account events, as author or as subject, and how
    * many lines the file would hold.
    */
-  accountData: procedure
+  accountData: asking({ asks: ["accounts.control"] })
     .input(z.object({ userId: z.uuid() }))
     .query(({ ctx, input }) =>
       handle(ctx, async () => {
-        await requireAdmin(ctx);
+        await requireInstance(ctx);
         return accountDataSummary(ctx.db, input.userId);
       }),
     ),
@@ -261,11 +269,11 @@ export const adminAccountProcedures = {
    * The file is kept a day, as every export is, for the administrator who
    * asked, and the sign-in trail says who exported whose data.
    */
-  exportAccountData: procedure
+  exportAccountData: asking({ asks: ["accounts.control"] })
     .input(accountExportInputSchema)
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
-        const admin = await requireAdmin(ctx);
+        const admin = await requireInstance(ctx);
         // Refuse an unknown account before the job runs.
         await accountDataSummary(ctx.db, input.userId);
         const job = await enqueueJob(queueDeps(ctx), {
@@ -284,11 +292,11 @@ export const adminAccountProcedures = {
    * What the erase dialog needs: whether the account may be erased, and
    * which live bases still name it as their only owner (ADR 0051).
    */
-  eraseInfo: procedure
+  eraseInfo: asking({ asks: ["accounts.control"] })
     .input(z.object({ userId: z.uuid() }))
     .query(({ ctx, input }) =>
       handle(ctx, async () => {
-        const admin = await requireAdmin(ctx);
+        const admin = await requireInstance(ctx);
         return eraseInfo(ctx.db, admin.id, input.userId);
       }),
     ),
@@ -296,23 +304,25 @@ export const adminAccountProcedures = {
    * Erases a disabled account after the administrator types its email.
    * Same tombstone path as self-service erasure (ADR 0051).
    */
-  erase: procedure.input(adminEraseInputSchema).mutation(({ ctx, input }) =>
-    handle(ctx, async () => {
-      const admin = await requireAdmin(ctx);
-      await eraseOtherAccount(ctx.db, admin.id, input);
-      ctx.hub.closeUser(input.userId);
-      ctx.req.log.info(
-        { actor: admin.id, target: input.userId },
-        "account erased",
-      );
-      return { ok: true as const };
-    }),
-  ),
-  setAdmin: procedure
+  erase: asking({ asks: ["accounts.control"] })
+    .input(adminEraseInputSchema)
+    .mutation(({ ctx, input }) =>
+      handle(ctx, async () => {
+        const admin = await requireInstance(ctx);
+        await eraseOtherAccount(ctx.db, admin.id, input);
+        ctx.hub.closeUser(input.userId);
+        ctx.req.log.info(
+          { actor: admin.id, target: input.userId },
+          "account erased",
+        );
+        return { ok: true as const };
+      }),
+    ),
+  setAdmin: asking({ asks: ["access.grant"] })
     .input(z.object({ userId: z.uuid(), admin: z.boolean() }))
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
-        const admin = await requireAdmin(ctx);
+        const admin = await requireInstance(ctx);
         await setUserAdmin(ctx.db, admin.id, input.userId, input.admin);
         ctx.req.log.info(
           { actor: admin.id, target: input.userId, admin: input.admin },
@@ -326,14 +336,17 @@ export const adminAccountProcedures = {
    * the bases chosen, and a first link valid a week. With email set up it
    * goes to the person; without, the administrator gets it to pass on.
    */
-  createAccount: procedure
+  createAccount: asking({ asks: ["accounts.manage"], also: ["access.grant"] })
     .input(createAccountInputSchema)
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
-        const admin = await requireAdmin(ctx);
+        const admin = await requireInstance(ctx);
         // An account manager makes people, never an administrator nor a
         // member of a base: those stay an administrator's (ADR 0126).
-        if (!admin.isAdmin && (input.admin || input.memberships.length > 0)) {
+        if (
+          (input.admin || input.memberships.length > 0) &&
+          !holds(admin, "access.grant")
+        ) {
           throw new AppError("access_denied");
         }
         const created = await createAccount(ctx.db, admin.id, input);
@@ -369,11 +382,11 @@ export const adminAccountProcedures = {
    * One account's page (ROADMAP #19). Support reads it too: it holds no
    * secret, and Support already sees the accounts and their sign-ins.
    */
-  account: procedure
+  account: asking({ asks: ["accounts.help"] })
     .input(z.object({ userId: z.uuid() }))
     .query(({ ctx, input }) =>
       handle(ctx, async () => {
-        await requireSupport(ctx);
+        await requireInstance(ctx);
         const [account, smtp] = await Promise.all([
           getAccountDetail(ctx.db, input.userId),
           resolveSmtp(ctx.db, ctx.env),
@@ -381,11 +394,11 @@ export const adminAccountProcedures = {
         return { ...account, smtpReady: smtpReady(smtp.config) };
       }),
     ),
-  setSupport: procedure
+  setSupport: asking({ asks: ["access.grant"] })
     .input(z.object({ userId: z.uuid(), support: z.boolean() }))
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
-        const admin = await requireAdmin(ctx);
+        const admin = await requireInstance(ctx);
         await setUserSupport(ctx.db, admin.id, input.userId, input.support);
         ctx.req.log.info(
           { actor: admin.id, target: input.userId, support: input.support },
@@ -397,11 +410,11 @@ export const adminAccountProcedures = {
   /**
    * Makes an account an auditor, or no longer one (ADR 0071).
    */
-  setAuditor: procedure
+  setAuditor: asking({ asks: ["access.grant"] })
     .input(z.object({ userId: z.uuid(), auditor: z.boolean() }))
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
-        const admin = await requireAdmin(ctx);
+        const admin = await requireInstance(ctx);
         await setUserAuditor(ctx.db, admin.id, input.userId, input.auditor);
         ctx.req.log.info(
           { actor: admin.id, target: input.userId, auditor: input.auditor },
@@ -414,7 +427,7 @@ export const adminAccountProcedures = {
    * Gives a part of Administration, or takes it away (ROADMAP #34, ADR
    * 0126): an administrator's alone, as every role of Administration is.
    */
-  setInstanceRole: procedure
+  setInstanceRole: asking({ asks: ["access.grant"] })
     .input(
       z.object({
         userId: z.uuid(),
@@ -424,8 +437,7 @@ export const adminAccountProcedures = {
     )
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
-        const admin = await requireAdmin(ctx);
-        if (!admin.isAdmin) throw new AppError("access_denied");
+        const admin = await requireInstance(ctx);
         await setInstanceRole(ctx.db, admin.id, input);
         ctx.req.log.info(
           {
@@ -439,7 +451,7 @@ export const adminAccountProcedures = {
         return { ok: true as const };
       }),
     ),
-  sessions: procedure
+  sessions: asking({ asks: ["accounts.help"] })
     .input(
       z.object({
         limit: z.int().min(1).max(100).default(50),
@@ -448,7 +460,7 @@ export const adminAccountProcedures = {
     )
     .query(({ ctx, input }) =>
       handle(ctx, async () => {
-        const admin = await requireSupport(ctx);
+        const admin = await requireInstance(ctx);
         const listed = await listSessions(ctx.db, input);
         return {
           total: listed.total,
@@ -459,11 +471,11 @@ export const adminAccountProcedures = {
         };
       }),
     ),
-  endSession: procedure
+  endSession: asking({ asks: ["accounts.help"] })
     .input(z.object({ sessionId: z.uuid() }))
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
-        const admin = await requireSupport(ctx);
+        const admin = await requireInstance(ctx);
         const owner = await ctx.db
           .selectFrom("sessions")
           .select("userId")
@@ -475,11 +487,11 @@ export const adminAccountProcedures = {
         return { ok: true as const };
       }),
     ),
-  endUserSessions: procedure
+  endUserSessions: asking({ asks: ["accounts.help"] })
     .input(z.object({ userId: z.uuid() }))
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
-        const admin = await requireSupport(ctx);
+        const admin = await requireInstance(ctx);
         if (input.userId === admin.id) throw new AppError("invalid_account");
         await helpdeskReach(ctx.db, admin, input.userId);
         const count = await endUserSessions(ctx.db, admin.id, input.userId);
@@ -487,9 +499,9 @@ export const adminAccountProcedures = {
         return { count };
       }),
     ),
-  endOtherSessions: procedure.mutation(({ ctx }) =>
+  endOtherSessions: asking({ asks: ["sessions.end"] }).mutation(({ ctx }) =>
     handle(ctx, async () => {
-      const admin = await requireSupport(ctx);
+      const admin = await requireInstance(ctx);
       const ended = await endOtherSessions(
         ctx.db,
         admin.id,
@@ -500,19 +512,19 @@ export const adminAccountProcedures = {
     }),
   ),
   /** Offered when single sign-on only is turned on: not done unasked. */
-  endPasswordAccess: procedure.mutation(({ ctx }) =>
+  endPasswordAccess: asking({ asks: ["settings.manage"] }).mutation(({ ctx }) =>
     handle(ctx, async () => {
-      const admin = await requireAdmin(ctx);
+      const admin = await requireInstance(ctx);
       const { users, ...ended } = await endPasswordAccess(ctx.db, admin.id);
       for (const userId of users) ctx.hub.closeUser(userId);
       return ended;
     }),
   ),
-  clearFactors: procedure
+  clearFactors: asking({ asks: ["accounts.help"] })
     .input(z.object({ userId: z.uuid() }))
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
-        const admin = await requireSupport(ctx);
+        const admin = await requireInstance(ctx);
         await helpdeskReach(ctx.db, admin, input.userId);
         await clearFactors(ctx.db, admin.id, input.userId);
         ctx.hub.closeUser(input.userId);
@@ -525,21 +537,21 @@ export const adminAccountProcedures = {
       }),
     ),
   /** Lets an account bind to another provider subject at its next sign-on. */
-  unlinkSignOn: procedure
+  unlinkSignOn: asking({ asks: ["accounts.help"] })
     .input(z.object({ userId: z.uuid() }))
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
-        const admin = await requireSupport(ctx);
+        const admin = await requireInstance(ctx);
         await helpdeskReach(ctx.db, admin, input.userId);
         return { count: await unlinkSignOn(ctx.db, admin.id, input.userId) };
       }),
     ),
   /** Lifts a lock set by failed sign-ins (ADR 0043). */
-  unlock: procedure
+  unlock: asking({ asks: ["accounts.help"] })
     .input(z.object({ userId: z.uuid() }))
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
-        const admin = await requireSupport(ctx);
+        const admin = await requireInstance(ctx);
         await otherAccount(ctx.db, admin.id, input.userId);
         await helpdeskReach(ctx.db, admin, input.userId);
         await unlockAccount(ctx.db, admin.id, input.userId);
@@ -551,11 +563,11 @@ export const adminAccountProcedures = {
    * set up it goes to their own address and the administrator never sees
    * it; without, the administrator gets it to pass on (ADR 0043).
    */
-  sendPasswordReset: procedure
+  sendPasswordReset: asking({ asks: ["accounts.help"] })
     .input(z.object({ userId: z.uuid() }))
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
-        const admin = await requireSupport(ctx);
+        const admin = await requireInstance(ctx);
         await otherAccount(ctx.db, admin.id, input.userId);
         await helpdeskReach(ctx.db, admin, input.userId);
         const link = await createResetLink(ctx.db, {
@@ -587,11 +599,11 @@ export const adminAccountProcedures = {
         };
       }),
     ),
-  revokeTokens: procedure
+  revokeTokens: asking({ asks: ["accounts.help"] })
     .input(z.object({ userId: z.uuid() }))
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
-        const admin = await requireSupport(ctx);
+        const admin = await requireInstance(ctx);
         await helpdeskReach(ctx.db, admin, input.userId);
         return {
           count: await revokeUserTokens(ctx.db, admin.id, input.userId),
@@ -599,7 +611,7 @@ export const adminAccountProcedures = {
       }),
     ),
   /** Act with this person's rights for thirty minutes (ADR 0091). */
-  startActing: procedure
+  startActing: asking({ asks: ["accounts.control"] })
     .input(
       z.object({
         userId: z.uuid(),
@@ -608,7 +620,7 @@ export const adminAccountProcedures = {
     )
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
-        const admin = await requireAdmin(ctx);
+        const admin = await requireInstance(ctx);
         if (!admin.sessionId) throw new AppError("cannot_act_as");
         const { config: smtp } = await resolveSmtp(ctx.db, ctx.env);
         return startActing(
@@ -632,9 +644,9 @@ export const adminAccountProcedures = {
       }),
     ),
   /** Leave the other person's rights. Asks for no proof. */
-  stopActing: procedure.mutation(({ ctx }) =>
+  stopActing: asking({ asks: ["accounts.control"] }).mutation(({ ctx }) =>
     handle(ctx, async () => {
-      const admin = await requireAdmin(ctx);
+      const admin = await requireInstance(ctx);
       if (!admin.sessionId) return { stopped: false };
       return stopActing(ctx.db, {
         actorId: admin.id,
@@ -644,9 +656,9 @@ export const adminAccountProcedures = {
     }),
   ),
   /** Every API token of the instance, revoked at once (ROADMAP #24). */
-  revokeAllTokens: procedure.mutation(({ ctx }) =>
+  revokeAllTokens: asking({ asks: ["access.oversee"] }).mutation(({ ctx }) =>
     handle(ctx, async () => {
-      const admin = await requireAdmin(ctx);
+      const admin = await requireInstance(ctx);
       const count = await revokeAllTokens(ctx.db, admin.id);
       ctx.req.log.info({ actor: admin.id, count }, "every API token revoked");
       return { count };

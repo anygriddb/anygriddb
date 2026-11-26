@@ -2,7 +2,7 @@ import { AppError } from "@anygriddb/core";
 import { TRPCError } from "@trpc/server";
 import { describe, expect, it, vi } from "vitest";
 import type { Context } from "./context.js";
-import { procedure, t } from "./init.js";
+import { baseProcedure as procedure, t } from "./init.js";
 import { describeTRPCError, mapProcedureError } from "./map-error.js";
 
 const router = t.router({

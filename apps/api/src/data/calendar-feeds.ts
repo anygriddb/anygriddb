@@ -16,9 +16,9 @@ import {
   describeColumns,
   effectiveTableRole,
   normalizeViewConfig,
-  roleGrants,
   viewFilter,
 } from "@anygriddb/core";
+import { granted } from "../access/declaration.js";
 import type { Database } from "@anygriddb/db";
 import { authorBindings } from "../auth/access.js";
 import type { ReadBudget } from "../read-budget.js";
@@ -66,7 +66,7 @@ async function feedView(db: Database, viewId: string, userId: string) {
   // A feed is read without its owner: their roles now, none if disabled.
   const bindings = await authorBindings(db, userId);
   const role = effectiveTableRole(bindings, view.tableId, view.baseId);
-  if (!roleGrants(role, "data.export")) return undefined;
+  if (!granted(role, "data.export")) return undefined;
   return { ...view, bindings };
 }
 

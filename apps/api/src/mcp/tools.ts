@@ -1,6 +1,7 @@
 import { AppError, publicError, rowIdSchema } from "@anygriddb/core";
 import type { McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
+import { runDeclared } from "../access/declaration.js";
 import {
   type Actor,
   createRecords,
@@ -10,6 +11,8 @@ import {
   listRecords,
   listTables,
   openApiDocument,
+  OPERATION_ASKS,
+  type Operation,
   type PublicApiDeps,
   transitionBodySchema,
   transitionRecord,
@@ -83,9 +86,19 @@ export function registerPublicApiTools(
   actor: Actor,
 ): void {
   refuseArgumentsAsTools(server);
-  const run = async <T>(body: (actor: Actor) => Promise<T>) => {
+  const run = async <T>(
+    operation: Operation,
+    body: (actor: Actor) => Promise<T>,
+  ) => {
     try {
-      return ok(await body(actor));
+      return ok(
+        await runDeclared(
+          `mcp.${operation}`,
+          OPERATION_ASKS[operation],
+          () => body(actor),
+          (message) => deps.log(new Error(message), "undeclared permission"),
+        ),
+      );
     } catch (error) {
       if (!(error instanceof AppError)) {
         deps.log(error, "mcp tool failed");
@@ -104,7 +117,7 @@ export function registerPublicApiTools(
       inputSchema: z.object({}),
       annotations: reads,
     },
-    async () => run((actor) => listBases(deps, actor)),
+    async () => run("listBases", (actor) => listBases(deps, actor)),
   );
 
   server.registerTool(
@@ -115,7 +128,8 @@ export function registerPublicApiTools(
       inputSchema: z.object({ baseId: z.uuid() }),
       annotations: reads,
     },
-    async ({ baseId }) => run((actor) => listTables(deps, actor, baseId)),
+    async ({ baseId }) =>
+      run("listTables", (actor) => listTables(deps, actor, baseId)),
   );
 
   server.registerTool(
@@ -126,7 +140,8 @@ export function registerPublicApiTools(
       inputSchema: z.object({ baseId: z.uuid() }),
       annotations: reads,
     },
-    async ({ baseId }) => run((actor) => openApiDocument(deps, actor, baseId)),
+    async ({ baseId }) =>
+      run("openApiDocument", (actor) => openApiDocument(deps, actor, baseId)),
   );
 
   server.registerTool(
@@ -150,7 +165,7 @@ export function registerPublicApiTools(
       annotations: reads,
     },
     async ({ tableId, ...query }) =>
-      run((actor) => listRecords(deps, actor, tableId, query)),
+      run("listRecords", (actor) => listRecords(deps, actor, tableId, query)),
   );
 
   server.registerTool(
@@ -166,7 +181,7 @@ export function registerPublicApiTools(
       annotations: reads,
     },
     async ({ tableId, recordId, fieldKey }) =>
-      run((actor) =>
+      run("getRecord", (actor) =>
         getRecord(deps, actor, tableId, recordId, fieldKey ?? "name"),
       ),
   );
@@ -186,7 +201,9 @@ export function registerPublicApiTools(
       },
     },
     async ({ tableId, reason, ...body }) =>
-      run((actor) => createRecords(deps, actor, tableId, body, reason)),
+      run("createRecords", (actor) =>
+        createRecords(deps, actor, tableId, body, reason),
+      ),
   );
 
   server.registerTool(
@@ -204,7 +221,9 @@ export function registerPublicApiTools(
       },
     },
     async ({ tableId, reason, ...body }) =>
-      run((actor) => updateRecords(deps, actor, tableId, body, reason)),
+      run("updateRecords", (actor) =>
+        updateRecords(deps, actor, tableId, body, reason),
+      ),
   );
 
   server.registerTool(
@@ -227,7 +246,7 @@ export function registerPublicApiTools(
       },
     },
     async ({ tableId, recordId, transition, reason }) =>
-      run((actor) =>
+      run("transitionRecord", (actor) =>
         transitionRecord(deps, actor, tableId, recordId, {
           transition,
           reason,
@@ -257,6 +276,8 @@ export function registerPublicApiTools(
       },
     },
     async ({ tableId, recordIds, reason }) =>
-      run((actor) => deleteRecords(deps, actor, tableId, recordIds, reason)),
+      run("deleteRecords", (actor) =>
+        deleteRecords(deps, actor, tableId, recordIds, reason),
+      ),
   );
 }

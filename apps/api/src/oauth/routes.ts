@@ -4,6 +4,7 @@
  * and where it gives a grant back. Consent lives in the app (session and
  * tRPC); these take form bodies from the application itself.
  */
+import { declaredRoute } from "../access/routes.js";
 import type { Database } from "@anygriddb/db";
 import { AppError, trimEndRun } from "@anygriddb/core";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
@@ -150,25 +151,33 @@ export function registerOauth(
   app: FastifyInstance,
   deps: { db: Database; publicUrl: string },
 ): void {
-  app.get("/.well-known/oauth-authorization-server", (_request, reply) =>
-    reply
-      .header("cache-control", "public, max-age=3600")
-      .send(authorizationServerMetadata(deps.publicUrl)),
+  app.get(
+    "/.well-known/oauth-authorization-server",
+    declaredRoute({ exception: "application" }),
+    (_request, reply) =>
+      reply
+        .header("cache-control", "public, max-age=3600")
+        .send(authorizationServerMetadata(deps.publicUrl)),
   );
 
   /**
    * Starts the browser grant: sends the person to the consent page with
    * the same query string. The SPA requires a session.
    */
-  app.get("/oauth/authorize", async (request, reply) => {
-    const query = request.url.includes("?")
-      ? request.url.slice(request.url.indexOf("?"))
-      : "";
-    return reply.redirect(`/oauth/consent${query}`);
-  });
+  app.get(
+    "/oauth/authorize",
+    declaredRoute({ exception: "application" }),
+    async (request, reply) => {
+      const query = request.url.includes("?")
+        ? request.url.slice(request.url.indexOf("?"))
+        : "";
+      return reply.redirect(`/oauth/consent${query}`);
+    },
+  );
 
   app.post(
     "/oauth/token",
+    declaredRoute({ exception: "application" }),
     async (request: FastifyRequest, reply: FastifyReply) => {
       const form = formOf(request.body);
       const client = clientProof(request.headers.authorization, form);
@@ -216,6 +225,7 @@ export function registerOauth(
 
   app.post(
     "/oauth/revoke",
+    declaredRoute({ exception: "application" }),
     async (request: FastifyRequest, reply: FastifyReply) => {
       const form = formOf(request.body);
       const client = clientProof(request.headers.authorization, form);

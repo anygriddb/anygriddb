@@ -13,6 +13,7 @@ import {
   sessionCookieOptions,
 } from "../auth/session.js";
 import { runActing } from "../data/acting-context.js";
+import { type Declaration, runDeclared } from "../access/declaration.js";
 import type { SessionUser } from "../auth/session.js";
 import type { Context } from "./context.js";
 import { describeTRPCError, toTRPCError } from "./map-error.js";
@@ -23,27 +24,30 @@ import { madeNamesFor } from "../settings.js";
 import { RIGHTS_CHANGES } from "./rights-rule.js";
 import { tokenMayCall } from "./token-rule.js";
 
-export const t = initTRPC.context<Context>().create({
-  errorFormatter({ shape, error }) {
-    const reason = describeTRPCError(error);
-    return {
-      ...shape,
-      message:
-        reason.code === "internal_error"
-          ? "Internal error"
-          : // What a schema said of the input stays in the server's log.
-            reason.code === "invalid_input"
-            ? "Invalid input"
-            : shape.message,
-      data: {
-        ...shape.data,
-        stack: undefined,
-        // What the client translates (ADR 0013); the message is for logs.
-        reason: { code: reason.code, detail: reason.detail },
-      },
-    };
-  },
-});
+export const t = initTRPC
+  .context<Context>()
+  .meta<Declaration>()
+  .create({
+    errorFormatter({ shape, error }) {
+      const reason = describeTRPCError(error);
+      return {
+        ...shape,
+        message:
+          reason.code === "internal_error"
+            ? "Internal error"
+            : // What a schema said of the input stays in the server's log.
+              reason.code === "invalid_input"
+              ? "Invalid input"
+              : shape.message,
+        data: {
+          ...shape.data,
+          stack: undefined,
+          // What the client translates (ADR 0013); the message is for logs.
+          reason: { code: reason.code, detail: reason.detail },
+        },
+      };
+    },
+  });
 
 /** What a page read and sends back to compare, as a client's database holds it. */
 const READ_BACK: ReadonlySet<string> = new Set(["expected", "seen"]);
@@ -52,8 +56,8 @@ const READ_BACK: ReadonlySet<string> = new Set(["expected", "seen"]);
  * The base of every procedure: a public error thrown anywhere in a body
  * reaches the client with its status and code, never as an internal one.
  */
-export const procedure = t.procedure.use(
-  async ({ ctx, next, path, type, getRawInput }) => {
+export const baseProcedure = t.procedure.use(
+  async ({ ctx, next, path, type, getRawInput, meta }) => {
     const raw = await getRawInput();
     if (nestsPast(raw) || holdsUnwritableText(raw, READ_BACK)) {
       throw toTRPCError(new AppError("invalid_input"));
@@ -71,7 +75,18 @@ export const procedure = t.procedure.use(
       : null;
     // Timed and traced per procedure, under its HTTP request (ADR 0018).
     const run = () =>
-      measureProcedure(path, ctx.req, () => runActing(acting, () => next()));
+      measureProcedure(path, ctx.req, () =>
+        runActing(acting, () =>
+          runDeclared(
+            path,
+            meta ?? {},
+            () => next(),
+            (message) => {
+              ctx.req.log.warn(message);
+            },
+          ),
+        ),
+      );
     const subject =
       request && checksCredential(path)
         ? guessSubject(path, request, await getRawInput())
@@ -97,6 +112,15 @@ export const procedure = t.procedure.use(
     return result;
   },
 );
+
+/**
+ * A procedure, with what it asks said where it is defined
+ * (`access/declaration.ts`): `trpc/declared.integration.test.ts` refuses
+ * one that does not.
+ */
+export function asking(declaration: Declaration) {
+  return baseProcedure.meta(declaration);
+}
 
 /**
  * A token's scope, asked per call: the calls of one request may differ in

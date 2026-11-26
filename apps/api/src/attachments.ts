@@ -1,3 +1,4 @@
+import { declaredRoute } from "./access/routes.js";
 import type { KeyRing } from "./auth/key-ring.js";
 import { randomBytes } from "node:crypto";
 import { createReadStream, createWriteStream } from "node:fs";
@@ -20,8 +21,8 @@ import {
   isImageAttachmentMime,
   isInlineAttachmentMime,
   resolveAttachmentMaxBytes,
-  roleGrants,
 } from "@anygriddb/core";
+import { granted } from "./access/declaration.js";
 import type { Database } from "@anygriddb/db";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import sharp from "sharp";
@@ -402,7 +403,7 @@ async function tableAccess(
     .where(liveBase("b"))
     .executeTakeFirst();
   if (!table) return false;
-  return roleGrants(
+  return granted(
     effectiveTableRole(bindings, table.id, table.baseId),
     permission,
   );
@@ -533,64 +534,72 @@ export async function registerAttachmentRoutes(
     limits: { fileSize: ATTACHMENT_MAX_BYTES_CEILING, files: 1, fields: 4 },
   });
 
-  app.post("/api/attachments", async (request, reply) => {
-    const query = uploadQuery.safeParse(request.query);
-    if (!query.success) return deny(reply, 400);
-    const actor = await actorOf(deps.db, request);
-    if (!actor) return deny(reply, 401);
-    if (
-      !(await tableAccess(
-        deps.db,
-        actor.bindings,
-        query.data.tableId,
-        "rows.write",
-      ))
-    )
-      return deny(reply, 403);
-    return receiveAttachment(
-      deps,
-      request,
-      reply,
-      { tableId: query.data.tableId, userId: actor.user.id },
-      (meta) => meta,
-    );
-  });
+  app.post(
+    "/api/attachments",
+    declaredRoute({ asks: ["rows.write"] }),
+    async (request, reply) => {
+      const query = uploadQuery.safeParse(request.query);
+      if (!query.success) return deny(reply, 400);
+      const actor = await actorOf(deps.db, request);
+      if (!actor) return deny(reply, 401);
+      if (
+        !(await tableAccess(
+          deps.db,
+          actor.bindings,
+          query.data.tableId,
+          "rows.write",
+        ))
+      )
+        return deny(reply, 403);
+      return receiveAttachment(
+        deps,
+        request,
+        reply,
+        { tableId: query.data.tableId, userId: actor.user.id },
+        (meta) => meta,
+      );
+    },
+  );
 
   // A file for a public form's answer, sent before the answer (ADR 0062).
   // The link is its only credential: it must open a form, as its creator,
   // that shows this attachment field and lets them write it. The file
   // waits for that link's answer; nothing serves it until then, and the
   // answer only gets its name, size, and key back.
-  app.post("/api/shares/:token/attachments", async (request, reply) => {
-    const params = shareParams.safeParse(request.params);
-    const query = shareQuery.safeParse(request.query);
-    const access = shareAccess.safeParse(request.headers["x-share-access"]);
-    if (!params.success || !query.success || !access.success)
-      return deny(reply, 404);
-    let opened: Awaited<ReturnType<typeof openShare>>;
-    try {
-      opened = await openShare(
-        { db: deps.db, encryptionKey: deps.encryptionKey },
-        { token: params.data.token, access: access.data },
-        "rows.write",
+  app.post(
+    "/api/shares/:token/attachments",
+    declaredRoute({ exception: "publicLink", asks: ["rows.write", "publish"] }),
+    async (request, reply) => {
+      const params = shareParams.safeParse(request.params);
+      const query = shareQuery.safeParse(request.query);
+      const access = shareAccess.safeParse(request.headers["x-share-access"]);
+      if (!params.success || !query.success || !access.success)
+        return deny(reply, 404);
+      let opened: Awaited<ReturnType<typeof openShare>>;
+      try {
+        opened = await openShare(
+          { db: deps.db, encryptionKey: deps.encryptionKey },
+          { token: params.data.token, access: access.data },
+          "rows.write",
+        );
+      } catch (error) {
+        if (error instanceof AppError) return deny(reply, 404);
+        throw error;
+      }
+      if (!acceptsFormFile(opened, query.data.field)) return deny(reply, 404);
+      return receiveAttachment(
+        deps,
+        request,
+        reply,
+        {
+          tableId: opened.table.id,
+          userId: opened.share.createdBy,
+          stagedShareId: opened.share.id,
+        },
+        (meta) => ({ key: meta.key, filename: meta.filename, size: meta.size }),
       );
-    } catch (error) {
-      if (error instanceof AppError) return deny(reply, 404);
-      throw error;
-    }
-    if (!acceptsFormFile(opened, query.data.field)) return deny(reply, 404);
-    return receiveAttachment(
-      deps,
-      request,
-      reply,
-      {
-        tableId: opened.table.id,
-        userId: opened.share.createdBy,
-        stagedShareId: opened.share.id,
-      },
-      (meta) => ({ key: meta.key, filename: meta.filename, size: meta.size }),
-    );
-  });
+    },
+  );
 
   async function serve(
     request: FastifyRequest,
@@ -652,10 +661,14 @@ export async function registerAttachmentRoutes(
     return reply.send(body);
   }
 
-  app.get("/api/attachments/:key", (request, reply) =>
-    serve(request, reply, false),
+  app.get(
+    "/api/attachments/:key",
+    declaredRoute({ asks: ["rows.read"] }),
+    (request, reply) => serve(request, reply, false),
   );
-  app.get("/api/attachments/:key/thumb", (request, reply) =>
-    serve(request, reply, true),
+  app.get(
+    "/api/attachments/:key/thumb",
+    declaredRoute({ asks: ["rows.read"] }),
+    (request, reply) => serve(request, reply, true),
   );
 }

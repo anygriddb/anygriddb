@@ -1,3 +1,4 @@
+import { declaredRoute } from "./access/routes.js";
 import { rulesOwner } from "./data/acting-context.js";
 import { once } from "node:events";
 import { createReadStream, createWriteStream, type WriteStream } from "node:fs";
@@ -23,13 +24,13 @@ import {
   normalizeViewConfig,
   pruneViewConfig,
   type ReadSpec,
-  roleGrants,
   roleFor,
   snapshotSummary,
   toCsv,
   toCsvRows,
   viewFilter,
 } from "@anygriddb/core";
+import { granted, holds } from "./access/declaration.js";
 import type { Database } from "@anygriddb/db";
 import ExcelJS from "exceljs";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
@@ -145,7 +146,7 @@ function allowed(
   table: { id: string; baseId: string },
   permission: Permission,
 ): boolean {
-  return roleGrants(
+  return granted(
     effectiveTableRole(bindings, table.id, table.baseId),
     permission,
   );
@@ -537,90 +538,92 @@ export function registerDataTransferRoutes(
    * import into the table; a new table needs it on the base, with the
    * right to shape its tables.
    */
-  app.post("/api/import/preview", async (request, reply) => {
-    const query = previewQuery.safeParse(request.query);
-    if (!query.success) return deny(reply, 400);
-    const actor = await actorOf(deps.db, request);
-    if (!actor) return deny(reply, 401);
-    if ("tableId" in query.data) {
-      const table = await loadTable(deps.db, query.data.tableId);
-      if (!table || !allowed(actor.bindings, table, "data.import"))
-        return deny(reply, 403);
-    } else {
-      const role = roleFor(actor.bindings, "base", query.data.baseId);
-      if (
-        !roleGrants(role, "schema.manage") ||
-        !roleGrants(role, "data.import")
-      ) {
-        return deny(reply, 403);
-      }
-    }
-    const release = deps.uploads.take(`user:${actor.user.id}`);
-    if (!release) return denyBusy(reply);
-    const received = cutIdleUpload(request.raw, reply.raw);
-    const folder = await localFolder("import");
-    try {
-      const path = join(folder.path, "upload");
-      let filename: string;
-      let size: number;
-      try {
-        const file = await request.file({
-          limits: {
-            fileSize: IMPORT_LIMITS.maxTextBytes,
-            files: 1,
-            fields: 2,
-          },
-        });
-        if (!file) return await deny(reply, 400);
-        filename = cleanFilename(file.filename);
-        await pipeline(
-          file.file,
-          createWriteStream(path, { flags: "wx", mode: 0o600 }),
-        );
-        size = (await stat(path)).size;
-        if (file.file.truncated) return await deny(reply, 413);
-      } catch (error) {
-        request.log.warn({ err: error }, "import upload refused");
-        return await deny(reply, uploadRefusal(error));
-      } finally {
-        received();
-        release();
-      }
-      if (size === 0) return await deny(reply, 413);
-      let preview: Record<string, unknown>;
-      try {
-        const format = detectImportFormat(filename);
-        if (size > maxImportBytes(format)) return await deny(reply, 413);
-        const scanned = await scanImportFileIsolated(
-          format,
-          path,
-          await importCeiling(deps.db, deps.rowsFixed),
-          (await madeNamesFor(deps.db, request.headers["accept-language"]))
-            .field,
-        );
-        const importId = await stageImport(deps.db, deps.files, {
-          userId: actor.user.id,
-          filename,
-          path,
-          size,
-          shape: scanned.shape,
-        });
-        preview = { importId, filename, format, ...scanned.preview };
-      } catch (error) {
-        if (
-          error instanceof AppError &&
-          (error.code === "invalid_import" || error.code === "import_too_large")
-        ) {
-          return await deny(reply, 400, error.code);
+  app.post(
+    "/api/import/preview",
+    declaredRoute({ asks: ["data.import"], also: ["schema.manage"] }),
+    async (request, reply) => {
+      const query = previewQuery.safeParse(request.query);
+      if (!query.success) return deny(reply, 400);
+      const actor = await actorOf(deps.db, request);
+      if (!actor) return deny(reply, 401);
+      if ("tableId" in query.data) {
+        const table = await loadTable(deps.db, query.data.tableId);
+        if (!table || !allowed(actor.bindings, table, "data.import"))
+          return deny(reply, 403);
+      } else {
+        const role = roleFor(actor.bindings, "base", query.data.baseId);
+        if (!granted(role, "schema.manage") || !granted(role, "data.import")) {
+          return deny(reply, 403);
         }
-        request.log.error({ err: error }, "import preview failed");
-        return await deny(reply, 500);
       }
-      return await reply.send(preview);
-    } finally {
-      await folder.remove();
-    }
-  });
+      const release = deps.uploads.take(`user:${actor.user.id}`);
+      if (!release) return denyBusy(reply);
+      const received = cutIdleUpload(request.raw, reply.raw);
+      const folder = await localFolder("import");
+      try {
+        const path = join(folder.path, "upload");
+        let filename: string;
+        let size: number;
+        try {
+          const file = await request.file({
+            limits: {
+              fileSize: IMPORT_LIMITS.maxTextBytes,
+              files: 1,
+              fields: 2,
+            },
+          });
+          if (!file) return await deny(reply, 400);
+          filename = cleanFilename(file.filename);
+          await pipeline(
+            file.file,
+            createWriteStream(path, { flags: "wx", mode: 0o600 }),
+          );
+          size = (await stat(path)).size;
+          if (file.file.truncated) return await deny(reply, 413);
+        } catch (error) {
+          request.log.warn({ err: error }, "import upload refused");
+          return await deny(reply, uploadRefusal(error));
+        } finally {
+          received();
+          release();
+        }
+        if (size === 0) return await deny(reply, 413);
+        let preview: Record<string, unknown>;
+        try {
+          const format = detectImportFormat(filename);
+          if (size > maxImportBytes(format)) return await deny(reply, 413);
+          const scanned = await scanImportFileIsolated(
+            format,
+            path,
+            await importCeiling(deps.db, deps.rowsFixed),
+            (await madeNamesFor(deps.db, request.headers["accept-language"]))
+              .field,
+          );
+          const importId = await stageImport(deps.db, deps.files, {
+            userId: actor.user.id,
+            filename,
+            path,
+            size,
+            shape: scanned.shape,
+          });
+          preview = { importId, filename, format, ...scanned.preview };
+        } catch (error) {
+          if (
+            error instanceof AppError &&
+            (error.code === "invalid_import" ||
+              error.code === "import_too_large")
+          ) {
+            return await deny(reply, 400, error.code);
+          }
+          request.log.error({ err: error }, "import preview failed");
+          return await deny(reply, 500);
+        }
+        return await reply.send(preview);
+      } finally {
+        await folder.remove();
+      }
+    },
+  );
 
   /**
    * Keeps an uploaded workbook for `catalog.importWorkbook` (ADR 0078):
@@ -628,299 +631,323 @@ export function registerDataTransferRoutes(
    * worksheets, then staged as it came. Making a base needs the right to
    * make one, which the import asks again with its second factor.
    */
-  app.post("/api/import/workbook", async (request, reply) => {
-    const actor = await actorOf(deps.db, request);
-    if (!actor) return deny(reply, 401);
-    if (keptFromNewBases(actor)) return deny(reply, 403, "access_denied");
-    if (
-      !actor.user.isAdmin &&
-      (await readGateSettings(deps.db)).baseCreation === "admins"
-    ) {
-      return deny(reply, 403, "base_creation_restricted");
-    }
-    const release = deps.uploads.take(`user:${actor.user.id}`);
-    if (!release) return denyBusy(reply);
-    const received = cutIdleUpload(request.raw, reply.raw);
-    const folder = await localFolder("import");
-    try {
-      const path = join(folder.path, "upload");
-      let filename: string;
-      let size: number;
-      try {
-        const file = await request.file({
-          limits: {
-            fileSize: IMPORT_LIMITS.maxXlsxBytes,
-            files: 1,
-            fields: 2,
-          },
-        });
-        if (!file) return await deny(reply, 400);
-        filename = cleanFilename(file.filename);
-        await pipeline(
-          file.file,
-          createWriteStream(path, { flags: "wx", mode: 0o600 }),
-        );
-        size = (await stat(path)).size;
-        if (file.file.truncated) return await deny(reply, 413);
-      } catch (error) {
-        request.log.warn({ err: error }, "workbook upload refused");
-        return await deny(reply, uploadRefusal(error));
-      } finally {
-        received();
-        release();
+  app.post(
+    "/api/import/workbook",
+    declaredRoute({ asks: ["bases.create"] }),
+    async (request, reply) => {
+      const actor = await actorOf(deps.db, request);
+      if (!actor) return deny(reply, 401);
+      if (keptFromNewBases(actor)) return deny(reply, 403, "access_denied");
+      if (
+        (await readGateSettings(deps.db)).baseCreation === "admins" &&
+        !holds(actor.user, "bases.create")
+      ) {
+        return deny(reply, 403, "base_creation_restricted");
       }
-      if (size === 0) return await deny(reply, 413);
+      const release = deps.uploads.take(`user:${actor.user.id}`);
+      if (!release) return denyBusy(reply);
+      const received = cutIdleUpload(request.raw, reply.raw);
+      const folder = await localFolder("import");
       try {
-        if (detectImportFormat(filename) !== "xlsx") {
-          return await deny(reply, 400, "invalid_import");
+        const path = join(folder.path, "upload");
+        let filename: string;
+        let size: number;
+        try {
+          const file = await request.file({
+            limits: {
+              fileSize: IMPORT_LIMITS.maxXlsxBytes,
+              files: 1,
+              fields: 2,
+            },
+          });
+          if (!file) return await deny(reply, 400);
+          filename = cleanFilename(file.filename);
+          await pipeline(
+            file.file,
+            createWriteStream(path, { flags: "wx", mode: 0o600 }),
+          );
+          size = (await stat(path)).size;
+          if (file.file.truncated) return await deny(reply, 413);
+        } catch (error) {
+          request.log.warn({ err: error }, "workbook upload refused");
+          return await deny(reply, uploadRefusal(error));
+        } finally {
+          received();
+          release();
         }
-        const staged = await stageWorkbook(deps.db, deps.files, {
-          userId: actor.user.id,
-          filename,
-          path,
-          size,
-          sheets: await scanWorkbookIsolated(
+        if (size === 0) return await deny(reply, 413);
+        try {
+          if (detectImportFormat(filename) !== "xlsx") {
+            return await deny(reply, 400, "invalid_import");
+          }
+          const staged = await stageWorkbook(deps.db, deps.files, {
+            userId: actor.user.id,
+            filename,
             path,
-            await importCeiling(deps.db, deps.rowsFixed),
-            (await madeNamesFor(deps.db, request.headers["accept-language"]))
-              .field,
-          ),
-        });
-        return await reply.send({
-          importId: staged.importId,
-          filename,
-          sheets: staged.sheets.map((sheet) => ({
-            sheet: sheet.sheet,
-            name: sheet.name,
-            hidden: sheet.hidden,
-            rows: sheet.total,
-            fields: sheet.headers.length,
-            formulas: sheet.formulas,
-            emptyFormulas: sheet.emptyFormulas,
-          })),
-        });
-      } catch (error) {
-        if (
-          error instanceof AppError &&
-          (error.code === "invalid_import" || error.code === "import_too_large")
-        ) {
-          return await deny(reply, 400, error.code);
+            size,
+            sheets: await scanWorkbookIsolated(
+              path,
+              await importCeiling(deps.db, deps.rowsFixed),
+              (await madeNamesFor(deps.db, request.headers["accept-language"]))
+                .field,
+            ),
+          });
+          return await reply.send({
+            importId: staged.importId,
+            filename,
+            sheets: staged.sheets.map((sheet) => ({
+              sheet: sheet.sheet,
+              name: sheet.name,
+              hidden: sheet.hidden,
+              rows: sheet.total,
+              fields: sheet.headers.length,
+              formulas: sheet.formulas,
+              emptyFormulas: sheet.emptyFormulas,
+            })),
+          });
+        } catch (error) {
+          if (
+            error instanceof AppError &&
+            (error.code === "invalid_import" ||
+              error.code === "import_too_large")
+          ) {
+            return await deny(reply, 400, error.code);
+          }
+          request.log.error({ err: error }, "workbook preview failed");
+          return await deny(reply, 500);
         }
-        request.log.error({ err: error }, "workbook preview failed");
-        return await deny(reply, 500);
+      } finally {
+        await folder.remove();
       }
-    } finally {
-      await folder.remove();
-    }
-  });
+    },
+  );
 
   /**
    * A table or one of its views as CSV, JSON, or XLSX, up to 100,000 rows:
    * written to a local file as it is read, then sent from it. A larger
    * view goes through an export job.
    */
-  app.get("/api/export/:tableId", async (request, reply) => {
-    const params = exportParams.safeParse(request.params);
-    const query = exportQuery.safeParse(request.query);
-    if (!params.success || !query.success) return deny(reply, 400);
-    const actor = await actorOf(deps.db, request);
-    if (!actor) return deny(reply, 401);
-    const table = await loadTable(deps.db, params.data.tableId);
-    if (!table || !allowed(actor.bindings, table, "rows.read"))
-      return deny(reply, 404);
-    if (!allowed(actor.bindings, table, "data.export")) return deny(reply, 403);
-    const folder = await localFolder("export");
-    const path = join(folder.path, "export");
-    let size: number;
-    try {
-      const exported = await exportTable(
-        deps,
-        { userId: actor.user.id, bindings: actor.bindings },
-        table,
-        query.data,
-        { path, maxRows: MAX_COPY_ROWS },
-      );
-      size = exported.size;
-      await recordExport(deps.db, {
-        userId: actor.user.id,
-        tableId: table.id,
-        source: actor.scope ? "api" : "web",
-        export: {
-          kind: "view",
-          format: query.data.format,
-          rows: exported.rows,
-          ...(query.data.viewId ? { viewId: query.data.viewId } : {}),
-        },
-      });
-      request.log.info(
-        {
+  app.get(
+    "/api/export/:tableId",
+    declaredRoute({ asks: ["rows.read", "data.export"] }),
+    async (request, reply) => {
+      const params = exportParams.safeParse(request.params);
+      const query = exportQuery.safeParse(request.query);
+      if (!params.success || !query.success) return deny(reply, 400);
+      const actor = await actorOf(deps.db, request);
+      if (!actor) return deny(reply, 401);
+      const table = await loadTable(deps.db, params.data.tableId);
+      if (!table || !allowed(actor.bindings, table, "rows.read"))
+        return deny(reply, 404);
+      if (!allowed(actor.bindings, table, "data.export"))
+        return deny(reply, 403);
+      const folder = await localFolder("export");
+      const path = join(folder.path, "export");
+      let size: number;
+      try {
+        const exported = await exportTable(
+          deps,
+          { userId: actor.user.id, bindings: actor.bindings },
+          table,
+          query.data,
+          { path, maxRows: MAX_COPY_ROWS },
+        );
+        size = exported.size;
+        await recordExport(deps.db, {
+          userId: actor.user.id,
           tableId: table.id,
-          format: query.data.format,
-          rows: exported.rows,
-          max: MAX_COPY_ROWS,
-        },
-        "table exported",
-      );
-    } catch (error) {
-      await folder.remove();
-      if (
-        error instanceof AppError &&
-        (error.code === "invalid_view" ||
-          error.code === "export_too_large" ||
-          error.code === "export_no_columns")
-      ) {
-        return deny(reply, 400, error.code);
+          source: actor.scope ? "api" : "web",
+          export: {
+            kind: "view",
+            format: query.data.format,
+            rows: exported.rows,
+            ...(query.data.viewId ? { viewId: query.data.viewId } : {}),
+          },
+        });
+        request.log.info(
+          {
+            tableId: table.id,
+            format: query.data.format,
+            rows: exported.rows,
+            max: MAX_COPY_ROWS,
+          },
+          "table exported",
+        );
+      } catch (error) {
+        await folder.remove();
+        if (
+          error instanceof AppError &&
+          (error.code === "invalid_view" ||
+            error.code === "export_too_large" ||
+            error.code === "export_no_columns")
+        ) {
+          return deny(reply, 400, error.code);
+        }
+        request.log.error({ err: error }, "export failed");
+        return deny(reply, 500);
       }
-      request.log.error({ err: error }, "export failed");
-      return deny(reply, 500);
-    }
-    // The folder goes once the answer has left, or was cut short.
-    reply.raw.once("close", () => {
-      void folder.remove();
-    });
-    return reply
-      .header("Content-Type", MIME[query.data.format])
-      .header("Content-Length", size)
-      .header(
-        "Content-Disposition",
-        contentDisposition(
-          `${cleanFilename(table.name)}.${query.data.format}`,
-          false,
-        ),
-      )
-      .header("Cache-Control", "no-store")
-      .send(createReadStream(path));
-  });
+      // The folder goes once the answer has left, or was cut short.
+      reply.raw.once("close", () => {
+        void folder.remove();
+      });
+      return reply
+        .header("Content-Type", MIME[query.data.format])
+        .header("Content-Length", size)
+        .header(
+          "Content-Disposition",
+          contentDisposition(
+            `${cleanFilename(table.name)}.${query.data.format}`,
+            false,
+          ),
+        )
+        .header("Cache-Control", "no-store")
+        .send(createReadStream(path));
+    },
+  );
 
   /** The file of a finished export or snapshot job, for its author, 24 hours. */
-  app.get("/api/jobs/:jobId/file", async (request, reply) => {
-    const params = jobFileParams.safeParse(request.params);
-    if (!params.success) return deny(reply, 400);
-    const actor = await actorOf(deps.db, request);
-    if (!actor) return deny(reply, 401);
-    let job: Awaited<ReturnType<typeof loadOwnJob>>;
-    try {
-      job = await loadOwnJob(
-        deps.db,
-        actor.user.id,
-        params.data.jobId,
-        actor.scope,
-      );
-    } catch (error) {
-      request.log.warn({ err: error }, "job file denied");
-      return deny(reply, 404);
-    }
-    const result = jobFileResultSchema.safeParse(job.result);
-    if (
-      (job.kind !== "export" &&
-        job.kind !== "export_snapshot" &&
-        job.kind !== "account_export") ||
-      job.status !== "done" ||
-      !job.fileKey ||
-      !job.fileExpiresAt ||
-      job.fileExpiresAt.getTime() <= Date.now() ||
-      !result.success ||
-      !(await jobFileReadableBy(deps.db, job, actor))
-    ) {
-      return deny(reply, 404);
-    }
-    const type =
-      result.data.format === "json"
-        ? "application/json; charset=utf-8"
-        : result.data.format === "zip"
-          ? "application/zip"
-          : MIME[result.data.format];
-    let file: { body: Readable; size: number } | undefined;
-    try {
-      file = await deps.files.open(job.fileKey);
-    } catch (error) {
-      request.log.error({ err: error }, "job file read failed");
-      return deny(reply, 500);
-    }
-    if (!file) return deny(reply, 404);
-    reply
-      .header("Content-Type", type)
-      .header(
-        "Content-Disposition",
-        contentDisposition(result.data.filename, false),
-      )
-      .header("Cache-Control", "no-store");
-    reply.header("Content-Length", file.size);
-    return reply.send(file.body);
-  });
+  app.get(
+    "/api/jobs/:jobId/file",
+    declaredRoute({
+      exception: "ownAccount",
+      also: ["data.export", "base.manage"],
+    }),
+    async (request, reply) => {
+      const params = jobFileParams.safeParse(request.params);
+      if (!params.success) return deny(reply, 400);
+      const actor = await actorOf(deps.db, request);
+      if (!actor) return deny(reply, 401);
+      let job: Awaited<ReturnType<typeof loadOwnJob>>;
+      try {
+        job = await loadOwnJob(
+          deps.db,
+          actor.user.id,
+          params.data.jobId,
+          actor.scope,
+        );
+      } catch (error) {
+        request.log.warn({ err: error }, "job file denied");
+        return deny(reply, 404);
+      }
+      const result = jobFileResultSchema.safeParse(job.result);
+      if (
+        (job.kind !== "export" &&
+          job.kind !== "export_snapshot" &&
+          job.kind !== "account_export") ||
+        job.status !== "done" ||
+        !job.fileKey ||
+        !job.fileExpiresAt ||
+        job.fileExpiresAt.getTime() <= Date.now() ||
+        !result.success ||
+        !(await jobFileReadableBy(deps.db, job, actor))
+      ) {
+        return deny(reply, 404);
+      }
+      const type =
+        result.data.format === "json"
+          ? "application/json; charset=utf-8"
+          : result.data.format === "zip"
+            ? "application/zip"
+            : MIME[result.data.format];
+      let file: { body: Readable; size: number } | undefined;
+      try {
+        file = await deps.files.open(job.fileKey);
+      } catch (error) {
+        request.log.error({ err: error }, "job file read failed");
+        return deny(reply, 500);
+      }
+      if (!file) return deny(reply, 404);
+      reply
+        .header("Content-Type", type)
+        .header(
+          "Content-Disposition",
+          contentDisposition(result.data.filename, false),
+        )
+        .header("Cache-Control", "no-store");
+      reply.header("Content-Length", file.size);
+      return reply.send(file.body);
+    },
+  );
 
   /**
    * Stages a base snapshot for `catalog.importSnapshot`: a JSON file, or
    * an archive with its files, written to a local file as it arrives.
    */
-  app.post("/api/snapshot/upload", async (request, reply) => {
-    const actor = await actorOf(deps.db, request);
-    if (!actor) return deny(reply, 401);
-    if (keptFromNewBases(actor)) return deny(reply, 403, "access_denied");
-    const release = deps.uploads.take(`user:${actor.user.id}`);
-    if (!release) return denyBusy(reply);
-    const received = cutIdleUpload(request.raw, reply.raw);
-    const folder = await localFolder("snapshot");
-    try {
-      const upload = await request
-        .file({
-          limits: {
-            fileSize: MAX_SNAPSHOT_ARCHIVE_BYTES,
-            files: 1,
-            fields: 2,
-          },
-        })
-        .catch((error: unknown) => {
-          request.log.warn({ err: error }, "snapshot upload refused");
-          return uploadRefusal(error);
-        });
-      if (upload === 413) return await deny(reply, 413, "too_large_snapshot");
-      if (upload === 415) return await deny(reply, 415);
-      if (!upload) return await deny(reply, 400, "invalid_snapshot");
-      const path = join(folder.path, "upload");
+  app.post(
+    "/api/snapshot/upload",
+    declaredRoute({ asks: ["bases.create"] }),
+    async (request, reply) => {
+      const actor = await actorOf(deps.db, request);
+      if (!actor) return deny(reply, 401);
+      if (keptFromNewBases(actor)) return deny(reply, 403, "access_denied");
+      const release = deps.uploads.take(`user:${actor.user.id}`);
+      if (!release) return denyBusy(reply);
+      const received = cutIdleUpload(request.raw, reply.raw);
+      const folder = await localFolder("snapshot");
       try {
-        await pipeline(
-          upload.file,
-          createWriteStream(path, { flags: "wx", mode: 0o600 }),
-        );
-      } catch (error) {
-        request.log.warn({ err: error }, "snapshot upload failed");
-        return await deny(reply, 413, "too_large_snapshot");
-      }
-      received();
-      const { size } = await stat(path);
-      if (upload.file.truncated)
-        return await deny(reply, 413, "too_large_snapshot");
-      if (size === 0) return await deny(reply, 400, "invalid_snapshot");
-      let staged: Awaited<ReturnType<typeof stageSnapshotFile>>;
-      try {
-        staged = await stageSnapshotFile(deps.db, deps.files, {
-          userId: actor.user.id,
-          path,
-          size,
-          filename: cleanFilename(upload.filename || "base.anygriddb.json"),
-        });
-      } catch (error) {
-        if (error instanceof AppError && error.code === "too_large_snapshot") {
+        const upload = await request
+          .file({
+            limits: {
+              fileSize: MAX_SNAPSHOT_ARCHIVE_BYTES,
+              files: 1,
+              fields: 2,
+            },
+          })
+          .catch((error: unknown) => {
+            request.log.warn({ err: error }, "snapshot upload refused");
+            return uploadRefusal(error);
+          });
+        if (upload === 413) return await deny(reply, 413, "too_large_snapshot");
+        if (upload === 415) return await deny(reply, 415);
+        if (!upload) return await deny(reply, 400, "invalid_snapshot");
+        const path = join(folder.path, "upload");
+        try {
+          await pipeline(
+            upload.file,
+            createWriteStream(path, { flags: "wx", mode: 0o600 }),
+          );
+        } catch (error) {
+          request.log.warn({ err: error }, "snapshot upload failed");
           return await deny(reply, 413, "too_large_snapshot");
         }
-        if (
-          (error instanceof AppError && error.code === "invalid_snapshot") ||
-          (error instanceof Error && error.name === "ZodError")
-        ) {
-          return await deny(reply, 400, "invalid_snapshot");
+        received();
+        const { size } = await stat(path);
+        if (upload.file.truncated)
+          return await deny(reply, 413, "too_large_snapshot");
+        if (size === 0) return await deny(reply, 400, "invalid_snapshot");
+        let staged: Awaited<ReturnType<typeof stageSnapshotFile>>;
+        try {
+          staged = await stageSnapshotFile(deps.db, deps.files, {
+            userId: actor.user.id,
+            path,
+            size,
+            filename: cleanFilename(upload.filename || "base.anygriddb.json"),
+          });
+        } catch (error) {
+          if (
+            error instanceof AppError &&
+            error.code === "too_large_snapshot"
+          ) {
+            return await deny(reply, 413, "too_large_snapshot");
+          }
+          if (
+            (error instanceof AppError && error.code === "invalid_snapshot") ||
+            (error instanceof Error && error.name === "ZodError")
+          ) {
+            return await deny(reply, 400, "invalid_snapshot");
+          }
+          request.log.error({ err: error }, "snapshot upload failed");
+          return await deny(reply, 500);
         }
-        request.log.error({ err: error }, "snapshot upload failed");
-        return await deny(reply, 500);
+        return await reply.send({
+          snapshotId: staged.snapshotId,
+          ...snapshotSummary(staged.snapshot, actor.user.email),
+        });
+      } finally {
+        received();
+        await folder.remove();
+        release();
       }
-      return await reply.send({
-        snapshotId: staged.snapshotId,
-        ...snapshotSummary(staged.snapshot, actor.user.email),
-      });
-    } finally {
-      received();
-      await folder.remove();
-      release();
-    }
-  });
+    },
+  );
 }

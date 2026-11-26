@@ -8,7 +8,7 @@ import { listEarlier, locateRevert, revertCatalog } from "../data/revert.js";
 import { publishCatalog } from "../realtime/channels.js";
 import { authorize, baseAccess, handle, tableAccess } from "./guard.js";
 import type { Context } from "./context.js";
-import { procedure } from "./init.js";
+import { asking } from "./init.js";
 
 function logPublish(ctx: Context) {
   return (error: unknown) =>
@@ -49,26 +49,36 @@ async function guarded(
 }
 
 export const catalogRevertProcedures = {
-  earlier: procedure.input(earlierInputSchema).query(({ ctx, input }) =>
-    handle(ctx, async () => {
-      const { loaded } = await guarded(ctx, input.kind, input.id);
-      return {
-        events: await listEarlier(ctx.db, input.kind, input.id, loaded),
-      };
-    }),
-  ),
-  revert: procedure.input(revertCatalogInputSchema).mutation(({ ctx, input }) =>
-    handle(ctx, async () => {
-      const { userId, loaded } = await guarded(ctx, input.kind, input.id);
-      await revertCatalog(
-        ctx.db,
-        userId,
-        input,
-        loaded,
-        ctx.env.AUTH_ENCRYPTION_KEY,
-      );
-      await publishCatalog(ctx.bus, loaded.baseId, logPublish(ctx));
-      return { ok: true as const };
-    }),
-  ),
+  earlier: asking({
+    asks: ["rows.read"],
+    also: ["schema.manage", "views.manage"],
+  })
+    .input(earlierInputSchema)
+    .query(({ ctx, input }) =>
+      handle(ctx, async () => {
+        const { loaded } = await guarded(ctx, input.kind, input.id);
+        return {
+          events: await listEarlier(ctx.db, input.kind, input.id, loaded),
+        };
+      }),
+    ),
+  revert: asking({
+    asks: ["rows.read"],
+    also: ["schema.manage", "views.manage"],
+  })
+    .input(revertCatalogInputSchema)
+    .mutation(({ ctx, input }) =>
+      handle(ctx, async () => {
+        const { userId, loaded } = await guarded(ctx, input.kind, input.id);
+        await revertCatalog(
+          ctx.db,
+          userId,
+          input,
+          loaded,
+          ctx.env.AUTH_ENCRYPTION_KEY,
+        );
+        await publishCatalog(ctx.bus, loaded.baseId, logPublish(ctx));
+        return { ok: true as const };
+      }),
+    ),
 };

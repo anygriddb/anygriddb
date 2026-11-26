@@ -11,11 +11,8 @@ import { insertBase } from "./data/schema-ops.js";
 import type { Env } from "./env.js";
 import { createTestDatabase } from "./test-database.js";
 import { adminRouter } from "./trpc/admin-router.js";
-import {
-  AUDITOR_EXPORTS,
-  AUDITOR_KEPT_OUT,
-  auditorMayCall,
-} from "./trpc/auditor-rule.js";
+import { declarationSchema } from "./access/declaration.js";
+import { auditorOpen } from "./trpc/admin-procedure.js";
 import {
   browserFactory,
   enrollTotp,
@@ -30,11 +27,12 @@ const PASSWORD = "correct horse battery staple";
 const PROCEDURES = Object.entries(
   adminRouter._def.procedures as unknown as Record<
     string,
-    { _def: { type: "query" | "mutation" | "subscription" } }
+    { _def: { type: "query" | "mutation" | "subscription"; meta?: unknown } }
   >,
 ).map(([path, procedure]) => ({
   path: `admin.${path}`,
   type: procedure._def.type,
+  declaration: declarationSchema.parse(procedure._def.meta),
 }));
 
 describe("the auditor", () => {
@@ -164,19 +162,24 @@ describe("the auditor", () => {
 
   it("changes nothing: every procedure that is not a read refuses it before reading its input", async () => {
     const changes = PROCEDURES.filter(
-      ({ type, path }) => !auditorMayCall(type, path),
+      ({ type, declaration }) => !auditorOpen(type, declaration),
     );
     // The rule leaves the auditor three mutations, and takes one read away.
     expect(
       PROCEDURES.filter(
-        ({ type, path }) => type === "mutation" && auditorMayCall(type, path),
+        ({ type, declaration }) =>
+          type === "mutation" && auditorOpen(type, declaration),
       )
         .map(({ path }) => path)
         .sort(),
-    ).toEqual([...AUDITOR_EXPORTS].sort());
+    ).toEqual([
+      "admin.accessReport",
+      "admin.exportAudit",
+      "admin.exportAuthAudit",
+    ]);
     expect(
       changes.filter(({ type }) => type === "query").map(({ path }) => path),
-    ).toEqual([...AUDITOR_KEPT_OUT]);
+    ).toEqual(["admin.sources.tables"]);
     expect(changes.length).toBeGreaterThan(60);
 
     const before = await db
@@ -201,7 +204,8 @@ describe("the auditor", () => {
 
   it("is let into every read: none answers that access is denied", async () => {
     const reads = PROCEDURES.filter(
-      ({ type, path }) => type === "query" && auditorMayCall(type, path),
+      ({ type, declaration }) =>
+        type === "query" && auditorOpen(type, declaration),
     );
     expect(reads.length).toBeGreaterThan(30);
     const refused: string[] = [];

@@ -20,10 +20,10 @@ import {
   MAX_READ_LIMIT,
   placeTarget,
   resolveChangeReason,
-  roleGrants,
   takesTransition,
   type RowPlace,
 } from "@anygriddb/core";
+import { demand } from "../access/declaration.js";
 import type { Database } from "@anygriddb/db";
 import { assertAttachmentKeys } from "../attachments.js";
 import { DUMMY_PASSWORD_HASH, verifyPassword } from "../auth/argon2.js";
@@ -303,9 +303,7 @@ async function assertLinkAllowed(
           targetTable.baseId,
         )
       : undefined;
-  if (!roleGrants(role, writesOther ? "rows.write" : "rows.read")) {
-    throw new AppError("access_denied");
-  }
+  demand(role, writesOther ? "rows.write" : "rows.read");
   const target = scope.engine.tables.get(relation.targetTableId);
   if (target) {
     const targetEngine = { ...scope.engine, table: target };

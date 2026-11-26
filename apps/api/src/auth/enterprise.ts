@@ -1,3 +1,4 @@
+import { declaredRoute } from "../access/routes.js";
 import type { KeyRing } from "./key-ring.js";
 import { randomBytes, timingSafeEqual } from "node:crypto";
 import type { Database } from "@anygriddb/db";
@@ -413,231 +414,254 @@ async function signInRefused(
 }
 
 export function registerEnterpriseAuth(app: FastifyInstance, deps: Deps): void {
-  app.get("/auth/oidc/start", async (request, reply) => {
-    const { config: oidcEnv } = await resolveOidc(deps.db, deps.env);
-    if (!oidcEnv) {
-      return reply.code(404).send({ error: "Not found" });
-    }
-    const config = await oidcConfig(deps, oidcEnv);
-    const verifier = oidc.randomPKCECodeVerifier();
-    const nonce = oidc.randomNonce();
-    const state = await saveState(
-      deps.db,
-      deps.env.AUTH_ENCRYPTION_KEY,
-      "oidc",
-      { verifier, nonce, browser: browserValue(request, reply, "oidc") },
-    );
-    const authorize = oidc.buildAuthorizationUrl(config, {
-      redirect_uri: oidcEnv.OIDC_REDIRECT_URL,
-      scope: "openid email profile",
-      state,
-      nonce,
-      code_challenge: await oidc.calculatePKCECodeChallenge(verifier),
-      code_challenge_method: "S256",
-      ...(request.cookies[SSO_AGAIN_COOKIE] ? { prompt: "login" } : {}),
-    });
-    return reply.redirect(authorize.href);
-  });
-
-  app.get("/auth/oidc/callback", async (request, reply) => {
-    const { config: oidcEnv } = await resolveOidc(deps.db, deps.env);
-    if (!oidcEnv) {
-      return reply.code(404).send({ error: "Not found" });
-    }
-    const query = request.query as { code?: unknown; state?: unknown };
-    let next: string;
-    try {
-      if (typeof query.code !== "string" || typeof query.state !== "string") {
-        throw new AppError("challenge_expired");
+  app.get(
+    "/auth/oidc/start",
+    declaredRoute({ exception: "provider" }),
+    async (request, reply) => {
+      const { config: oidcEnv } = await resolveOidc(deps.db, deps.env);
+      if (!oidcEnv) {
+        return reply.code(404).send({ error: "Not found" });
       }
-      const saved = await takeState(
+      const config = await oidcConfig(deps, oidcEnv);
+      const verifier = oidc.randomPKCECodeVerifier();
+      const nonce = oidc.randomNonce();
+      const state = await saveState(
         deps.db,
         deps.env.AUTH_ENCRYPTION_KEY,
         "oidc",
-        query.state,
-        request,
+        { verifier, nonce, browser: browserValue(request, reply, "oidc") },
       );
-      const config = await oidcConfig(deps, oidcEnv);
-      // The callback as the provider called it: the registered redirect URL
-      // with the query it appended (code, state, and maybe iss).
-      const current = new URL(oidcEnv.OIDC_REDIRECT_URL);
-      const raw = request.raw.url ?? "";
-      current.search = raw.includes("?") ? raw.slice(raw.indexOf("?")) : "";
-      const tokens = await oidc.authorizationCodeGrant(config, current, {
-        pkceCodeVerifier: saved.verifier,
-        expectedNonce: saved.nonce,
-        expectedState: query.state,
-        idTokenExpected: true,
+      const authorize = oidc.buildAuthorizationUrl(config, {
+        redirect_uri: oidcEnv.OIDC_REDIRECT_URL,
+        scope: "openid email profile",
+        state,
+        nonce,
+        code_challenge: await oidc.calculatePKCECodeChallenge(verifier),
+        code_challenge_method: "S256",
+        ...(request.cookies[SSO_AGAIN_COOKIE] ? { prompt: "login" } : {}),
       });
-      const claims = tokens.claims();
-      if (!claims) throw new AppError("invalid_credentials");
-      const email = typeof claims.email === "string" ? claims.email : null;
-      // The subject finds a bound account, whatever the address says. A
-      // first binding reads the address: only a boolean `true` reaches an
-      // account that exists, and one marked unverified makes no account.
-      const reached = await userForIdentity(
-        deps.db,
-        { provider: "oidc", issuer: claims.iss, subject: claims.sub },
-        email,
-        typeof claims.name === "string" ? claims.name : (email ?? ""),
-        deps.env.ADMIN_EMAILS,
-        {
-          linkExisting: claims.email_verified === true,
-          mayCreate: claims.email_verified !== false,
-          otherProtocolLive:
-            (await resolveSaml(deps.db, deps.env)).config !== null,
-          onBound: tellOfBinding(deps, request),
-        },
-      );
-      next = await finishSignIn(deps, request, reply, reached.userId, {
-        provider: "oidc",
-        proofFirst: reached.proofFirst,
-        binding: reached.binding,
-        sidHash:
-          typeof claims.sid === "string"
-            ? hashProviderSession(claims.iss, claims.sid)
-            : null,
-        oneFactor: oidcAnnouncesOneFactor(claims),
-      });
-    } catch (error) {
-      request.log.warn({ err: error }, "authentication failed");
-      await signInRefused(deps.db, request, "oidc", error);
-      next = `/login?refused=${signOnRefusal(error)}`;
-    }
-    // Signed in or told why, the browser goes back to the app.
-    return reply.redirect(next);
-  });
+      return reply.redirect(authorize.href);
+    },
+  );
+
+  app.get(
+    "/auth/oidc/callback",
+    declaredRoute({ exception: "provider" }),
+    async (request, reply) => {
+      const { config: oidcEnv } = await resolveOidc(deps.db, deps.env);
+      if (!oidcEnv) {
+        return reply.code(404).send({ error: "Not found" });
+      }
+      const query = request.query as { code?: unknown; state?: unknown };
+      let next: string;
+      try {
+        if (typeof query.code !== "string" || typeof query.state !== "string") {
+          throw new AppError("challenge_expired");
+        }
+        const saved = await takeState(
+          deps.db,
+          deps.env.AUTH_ENCRYPTION_KEY,
+          "oidc",
+          query.state,
+          request,
+        );
+        const config = await oidcConfig(deps, oidcEnv);
+        // The callback as the provider called it: the registered redirect URL
+        // with the query it appended (code, state, and maybe iss).
+        const current = new URL(oidcEnv.OIDC_REDIRECT_URL);
+        const raw = request.raw.url ?? "";
+        current.search = raw.includes("?") ? raw.slice(raw.indexOf("?")) : "";
+        const tokens = await oidc.authorizationCodeGrant(config, current, {
+          pkceCodeVerifier: saved.verifier,
+          expectedNonce: saved.nonce,
+          expectedState: query.state,
+          idTokenExpected: true,
+        });
+        const claims = tokens.claims();
+        if (!claims) throw new AppError("invalid_credentials");
+        const email = typeof claims.email === "string" ? claims.email : null;
+        // The subject finds a bound account, whatever the address says. A
+        // first binding reads the address: only a boolean `true` reaches an
+        // account that exists, and one marked unverified makes no account.
+        const reached = await userForIdentity(
+          deps.db,
+          { provider: "oidc", issuer: claims.iss, subject: claims.sub },
+          email,
+          typeof claims.name === "string" ? claims.name : (email ?? ""),
+          deps.env.ADMIN_EMAILS,
+          {
+            linkExisting: claims.email_verified === true,
+            mayCreate: claims.email_verified !== false,
+            otherProtocolLive:
+              (await resolveSaml(deps.db, deps.env)).config !== null,
+            onBound: tellOfBinding(deps, request),
+          },
+        );
+        next = await finishSignIn(deps, request, reply, reached.userId, {
+          provider: "oidc",
+          proofFirst: reached.proofFirst,
+          binding: reached.binding,
+          sidHash:
+            typeof claims.sid === "string"
+              ? hashProviderSession(claims.iss, claims.sid)
+              : null,
+          oneFactor: oidcAnnouncesOneFactor(claims),
+        });
+      } catch (error) {
+        request.log.warn({ err: error }, "authentication failed");
+        await signInRefused(deps.db, request, "oidc", error);
+        next = `/login?refused=${signOnRefusal(error)}`;
+      }
+      // Signed in or told why, the browser goes back to the app.
+      return reply.redirect(next);
+    },
+  );
 
   // The provider, not a browser: it is told plainly whether this counted.
-  app.post("/auth/oidc/backchannel-logout", async (request, reply) => {
-    const { config: oidcEnv } = await resolveOidc(deps.db, deps.env);
-    if (!oidcEnv) {
-      return reply.code(404).send({ error: "Not found" });
-    }
-    void reply.header("cache-control", "no-store");
-    try {
-      const { keys } = await oidcDiscovered(deps, oidcEnv);
-      const body = request.body as { logout_token?: unknown } | null;
-      const claims = await verifyLogoutToken(body?.logout_token, {
-        issuer: oidcEnv.OIDC_ISSUER,
-        clientId: oidcEnv.OIDC_CLIENT_ID,
-        keys,
-      });
-      await spendLogoutToken(
-        deps.db,
-        deps.env.AUTH_ENCRYPTION_KEY,
-        oidcEnv.OIDC_ISSUER,
-        claims.jti,
-      );
-      const ended = await endProviderSessions(deps.db, {
-        issuer: oidcEnv.OIDC_ISSUER,
-        ...(claims.subject ? { subject: claims.subject } : {}),
-        ...(claims.sid ? { sid: claims.sid } : {}),
-      });
-      for (const tokenHash of ended) deps.closeSession?.(tokenHash);
-      return await reply.code(200).send({ ok: true });
-    } catch (error) {
-      request.log.warn({ err: error }, "provider sign-out refused");
-      return reply.code(400).send({ error: "invalid_request" });
-    }
-  });
-
-  app.get("/auth/saml/start", async (request, reply) => {
-    const { config: samlEnv } = await resolveSaml(deps.db, deps.env);
-    if (!samlEnv) {
-      return reply.code(404).send({ error: "Not found" });
-    }
-    const state = await saveState(
-      deps.db,
-      deps.env.AUTH_ENCRYPTION_KEY,
-      "saml",
-      {
-        verifier: randomBytes(16).toString("base64url"),
-        nonce: randomBytes(16).toString("base64url"),
-        browser: browserValue(request, reply, "saml"),
-      },
-    );
-    const url = await samlClient(
-      deps,
-      samlEnv,
-      Boolean(request.cookies[SSO_AGAIN_COOKIE]),
-    ).getAuthorizeUrlAsync(state, undefined, {});
-    return reply.redirect(url);
-  });
-
-  app.post("/auth/saml/acs", async (request, reply) => {
-    const { config: samlEnv } = await resolveSaml(deps.db, deps.env);
-    if (!samlEnv) {
-      return reply.code(404).send({ error: "Not found" });
-    }
-    let next: string;
-    try {
-      const body = request.body as {
-        SAMLResponse?: unknown;
-        RelayState?: unknown;
-      };
-      if (
-        typeof body.SAMLResponse !== "string" ||
-        typeof body.RelayState !== "string"
-      ) {
-        throw new AppError("challenge_expired");
+  app.post(
+    "/auth/oidc/backchannel-logout",
+    declaredRoute({ exception: "provider" }),
+    async (request, reply) => {
+      const { config: oidcEnv } = await resolveOidc(deps.db, deps.env);
+      if (!oidcEnv) {
+        return reply.code(404).send({ error: "Not found" });
       }
-      await takeState(
+      void reply.header("cache-control", "no-store");
+      try {
+        const { keys } = await oidcDiscovered(deps, oidcEnv);
+        const body = request.body as { logout_token?: unknown } | null;
+        const claims = await verifyLogoutToken(body?.logout_token, {
+          issuer: oidcEnv.OIDC_ISSUER,
+          clientId: oidcEnv.OIDC_CLIENT_ID,
+          keys,
+        });
+        await spendLogoutToken(
+          deps.db,
+          deps.env.AUTH_ENCRYPTION_KEY,
+          oidcEnv.OIDC_ISSUER,
+          claims.jti,
+        );
+        const ended = await endProviderSessions(deps.db, {
+          issuer: oidcEnv.OIDC_ISSUER,
+          ...(claims.subject ? { subject: claims.subject } : {}),
+          ...(claims.sid ? { sid: claims.sid } : {}),
+        });
+        for (const tokenHash of ended) deps.closeSession?.(tokenHash);
+        return await reply.code(200).send({ ok: true });
+      } catch (error) {
+        request.log.warn({ err: error }, "provider sign-out refused");
+        return reply.code(400).send({ error: "invalid_request" });
+      }
+    },
+  );
+
+  app.get(
+    "/auth/saml/start",
+    declaredRoute({ exception: "provider" }),
+    async (request, reply) => {
+      const { config: samlEnv } = await resolveSaml(deps.db, deps.env);
+      if (!samlEnv) {
+        return reply.code(404).send({ error: "Not found" });
+      }
+      const state = await saveState(
         deps.db,
         deps.env.AUTH_ENCRYPTION_KEY,
         "saml",
-        body.RelayState,
-        request,
+        {
+          verifier: randomBytes(16).toString("base64url"),
+          nonce: randomBytes(16).toString("base64url"),
+          browser: browserValue(request, reply, "saml"),
+        },
       );
-      const result = await samlClient(deps, samlEnv).validatePostResponseAsync({
-        SAMLResponse: body.SAMLResponse,
-      });
-      const profile = result.profile;
-      if (!profile) throw new AppError("invalid_credentials");
-      const assertion = profile.getAssertion?.();
-      if (!samlRecipientHolds(assertion, samlEnv.SAML_CALLBACK_URL)) {
-        throw new AppError("invalid_credentials");
+      const url = await samlClient(
+        deps,
+        samlEnv,
+        Boolean(request.cookies[SSO_AGAIN_COOKIE]),
+      ).getAuthorizeUrlAsync(state, undefined, {});
+      return reply.redirect(url);
+    },
+  );
+
+  app.post(
+    "/auth/saml/acs",
+    declaredRoute({ exception: "provider" }),
+    async (request, reply) => {
+      const { config: samlEnv } = await resolveSaml(deps.db, deps.env);
+      if (!samlEnv) {
+        return reply.code(404).send({ error: "Not found" });
       }
-      const mustEndAt = samlSessionEnd(assertion);
-      const named = profile.email ?? profile.mail ?? profile.nameID;
-      const email =
-        typeof named === "string" && named.includes("@") ? named : null;
-      await spendSamlAssertion(deps, profile);
-      // A persistent NameID binds the account, and finds it from then on;
-      // a transient or address-shaped one says nothing lasting. An
-      // assertion does not say its address was verified: a first sign-in
-      // reaches an account that exists only when an administrator says
-      // this provider verifies addresses (ADR 0111).
-      const reached = await userForIdentity(
-        deps.db,
-        {
+      let next: string;
+      try {
+        const body = request.body as {
+          SAMLResponse?: unknown;
+          RelayState?: unknown;
+        };
+        if (
+          typeof body.SAMLResponse !== "string" ||
+          typeof body.RelayState !== "string"
+        ) {
+          throw new AppError("challenge_expired");
+        }
+        await takeState(
+          deps.db,
+          deps.env.AUTH_ENCRYPTION_KEY,
+          "saml",
+          body.RelayState,
+          request,
+        );
+        const result = await samlClient(
+          deps,
+          samlEnv,
+        ).validatePostResponseAsync({
+          SAMLResponse: body.SAMLResponse,
+        });
+        const profile = result.profile;
+        if (!profile) throw new AppError("invalid_credentials");
+        const assertion = profile.getAssertion?.();
+        if (!samlRecipientHolds(assertion, samlEnv.SAML_CALLBACK_URL)) {
+          throw new AppError("invalid_credentials");
+        }
+        const mustEndAt = samlSessionEnd(assertion);
+        const named = profile.email ?? profile.mail ?? profile.nameID;
+        const email =
+          typeof named === "string" && named.includes("@") ? named : null;
+        await spendSamlAssertion(deps, profile);
+        // A persistent NameID binds the account, and finds it from then on;
+        // a transient or address-shaped one says nothing lasting. An
+        // assertion does not say its address was verified: a first sign-in
+        // reaches an account that exists only when an administrator says
+        // this provider verifies addresses (ADR 0111).
+        const reached = await userForIdentity(
+          deps.db,
+          {
+            provider: "saml",
+            issuer: profile.issuer,
+            subject: stableNameId(profile.nameID, profile.nameIDFormat),
+          },
+          email,
+          email ?? "",
+          deps.env.ADMIN_EMAILS,
+          {
+            linkExisting: samlEnv.SAML_TRUST_ADDRESSES,
+            otherProtocolLive:
+              (await resolveOidc(deps.db, deps.env)).config !== null,
+            onBound: tellOfBinding(deps, request),
+          },
+        );
+        next = await finishSignIn(deps, request, reply, reached.userId, {
           provider: "saml",
-          issuer: profile.issuer,
-          subject: stableNameId(profile.nameID, profile.nameIDFormat),
-        },
-        email,
-        email ?? "",
-        deps.env.ADMIN_EMAILS,
-        {
-          linkExisting: samlEnv.SAML_TRUST_ADDRESSES,
-          otherProtocolLive:
-            (await resolveOidc(deps.db, deps.env)).config !== null,
-          onBound: tellOfBinding(deps, request),
-        },
-      );
-      next = await finishSignIn(deps, request, reply, reached.userId, {
-        provider: "saml",
-        proofFirst: reached.proofFirst,
-        binding: reached.binding,
-        mustEndAt,
-        oneFactor: samlAnnouncesOneFactor(assertion),
-      });
-    } catch (error) {
-      request.log.warn({ err: error }, "authentication failed");
-      await signInRefused(deps.db, request, "saml", error);
-      next = `/login?refused=${signOnRefusal(error)}`;
-    }
-    // Signed in or told why, the browser goes back to the app.
-    return reply.redirect(next);
-  });
+          proofFirst: reached.proofFirst,
+          binding: reached.binding,
+          mustEndAt,
+          oneFactor: samlAnnouncesOneFactor(assertion),
+        });
+      } catch (error) {
+        request.log.warn({ err: error }, "authentication failed");
+        await signInRefused(deps.db, request, "saml", error);
+        next = `/login?refused=${signOnRefusal(error)}`;
+      }
+      // Signed in or told why, the browser goes back to the app.
+      return reply.redirect(next);
+    },
+  );
 }

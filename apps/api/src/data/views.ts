@@ -8,13 +8,13 @@ import {
   normalizeViewConfig,
   pruneViewConfig,
   type Grant,
-  roleGrants,
   type ViewConfig,
   viewConfigColumns,
   viewConfigForReader,
   type ViewConfigPatch,
   type ViewType,
 } from "@anygriddb/core";
+import { granted } from "../access/declaration.js";
 import type { Database, ViewRow } from "@anygriddb/db";
 import { sql as sqlTag } from "kysely";
 import { withAudit } from "./audit-context.js";
@@ -137,7 +137,7 @@ export function canEditView(
   if (view.ownerId) {
     return view.ownerId === userId;
   }
-  return roleGrants(role, view.locked ? "schema.manage" : "views.manage");
+  return granted(role, view.locked ? "schema.manage" : "views.manage");
 }
 
 export async function createView(

@@ -11,6 +11,7 @@ import { purgeUsageDaily, snapshotUsage } from "../usage-stats.js";
 import type { RowEvent } from "@anygriddb/core";
 import type { Database } from "@anygriddb/db";
 import type { Task, TaskList } from "graphile-worker";
+import { type Declaration, runDeclared } from "../access/declaration.js";
 import type { Bus } from "../realtime/bus.js";
 import { z } from "zod";
 import {
@@ -555,7 +556,7 @@ export function taskGroups(deps: TaskDeps): WorkerGroup[] {
   const once = { maxAttempts: 1, backfillPeriod: 0 };
   return [
     {
-      tasks: events,
+      tasks: declaredTasks(events, deps.log),
       concurrency: deps.env.WORKER_CONCURRENCY,
       cron: [
         {
@@ -678,6 +679,78 @@ export function taskGroups(deps: TaskDeps): WorkerGroup[] {
         },
       ],
     },
-    { tasks: jobs, concurrency: deps.env.JOB_CONCURRENCY },
+    {
+      tasks: declaredTasks(jobs, deps.log),
+      concurrency: deps.env.JOB_CONCURRENCY,
+    },
   ];
+}
+
+/**
+ * What each task asks, of whose name it works in: a webhook's or an
+ * automation's author, the readers a notification goes to. A task the
+ * instance does for itself names that exception.
+ */
+export const TASK_ASKS: Record<TaskName, Declaration> = {
+  row_events: { exception: "instance" },
+  webhooks_event: { asks: ["rows.read", "data.export"] },
+  delivery_attempt: { exception: "instance" },
+  webhook_attempt: { exception: "instance" },
+  integration_delivery: { exception: "instance" },
+  assignments_event: { filters: ["rows.read"] },
+  automations_event: { exception: "instance", also: ["rows.write"] },
+  automation_run: {
+    asks: ["rows.write"],
+    also: ["rows.read", "rows.delete", "data.export"],
+  },
+  product_job: { exception: "instance" },
+  automation_schedules: { exception: "instance" },
+  jobs_recover: { exception: "instance" },
+  delivery_sweep: { exception: "instance" },
+  purge: { exception: "instance" },
+  alerts: { exception: "instance" },
+  audit_purge: { exception: "instance" },
+  trash_purge: { exception: "instance" },
+  file_sweep: { exception: "instance" },
+  external_settle: { exception: "instance" },
+  external_watch: { exception: "instance" },
+  external_watches: { exception: "instance" },
+  external_seals: { exception: "instance" },
+  external_sync: { exception: "instance" },
+  external_syncs: { exception: "instance" },
+  external_sync_drop: { exception: "instance" },
+  release_check: { exception: "instance" },
+  operator_mail: { exception: "instance" },
+  siem_event: { exception: "instance" },
+  syslog_event: { exception: "instance" },
+  trail_ship: { exception: "instance" },
+  account_welcome: { exception: "instance" },
+  usage_snapshot: { exception: "instance" },
+  notification_digest_daily: { filters: ["rows.read"] },
+  notification_digest_weekly: { filters: ["rows.read"] },
+};
+
+/** Each task run under what it declares (`access/declaration.ts`). */
+function declaredTasks(
+  tasks: TaskList,
+  log: (error: unknown, message: string) => void,
+): TaskList {
+  return Object.fromEntries(
+    Object.entries(tasks).flatMap(([name, task]) =>
+      task === undefined
+        ? []
+        : [
+            [
+              name,
+              ((payload, helpers) =>
+                runDeclared(
+                  `task.${name}`,
+                  TASK_ASKS[name as TaskName],
+                  () => task(payload, helpers),
+                  (message) => log(new Error(message), "undeclared permission"),
+                )) satisfies Task,
+            ],
+          ],
+    ),
+  );
 }

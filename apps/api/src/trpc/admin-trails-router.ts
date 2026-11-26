@@ -14,7 +14,7 @@ import { recordExport } from "../data/export-audit.js";
 import { instanceAudit } from "../admin.js";
 import { readSettings } from "../settings.js";
 import { handle } from "./guard.js";
-import { procedure, requireAdmin, requireSupport } from "./admin-procedure.js";
+import { asking, requireInstance } from "./admin-procedure.js";
 
 const auditInputSchema = z.object({
   userId: z.uuid().optional(),
@@ -82,11 +82,11 @@ const authActionSchema = z.enum([
 const exportLimit = z.int().min(1).max(10_000).default(10_000);
 
 export const adminTrailProcedures = {
-  audit: procedure
+  audit: asking({ asks: ["trails.read"] })
     .input(withinRange(auditInputSchema))
     .query(({ ctx, input }) =>
       handle(ctx, async () => {
-        await requireSupport(ctx);
+        await requireInstance(ctx);
         return instanceAudit(ctx.db, {
           ...input,
           source: input.source || undefined,
@@ -94,7 +94,7 @@ export const adminTrailProcedures = {
       }),
     ),
   /** The sign-in trail (ADR 0042), newest first. */
-  authAudit: procedure
+  authAudit: asking({ asks: ["trails.read"] })
     .input(
       z
         .object({
@@ -112,7 +112,7 @@ export const adminTrailProcedures = {
     )
     .query(({ ctx, input }) =>
       handle(ctx, async () => {
-        await requireSupport(ctx);
+        await requireInstance(ctx);
         const [page, total, settings] = await Promise.all([
           instanceAuthAudit(ctx.db, input),
           authEventCount(ctx.db),
@@ -122,11 +122,11 @@ export const adminTrailProcedures = {
       }),
     ),
   /** CSV downloads of both trails, up to 10,000 events, as filtered. */
-  exportAudit: procedure
+  exportAudit: asking({ asks: ["trails.export"] })
     .input(withinRange(auditInputSchema.extend({ limit: exportLimit })))
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
-        const admin = await requireAdmin(ctx);
+        const admin = await requireInstance(ctx);
         const page = await instanceAudit(ctx.db, {
           ...input,
           source: input.source || undefined,
@@ -144,7 +144,7 @@ export const adminTrailProcedures = {
         return { csv: auditEventsCsv(page.events) };
       }),
     ),
-  exportAuthAudit: procedure
+  exportAuthAudit: asking({ asks: ["trails.export"] })
     .input(
       z
         .object({
@@ -162,7 +162,7 @@ export const adminTrailProcedures = {
     )
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
-        const admin = await requireAdmin(ctx);
+        const admin = await requireInstance(ctx);
         const page = await instanceAuthAudit(ctx.db, input);
         await recordExport(ctx.db, {
           userId: admin.id,
@@ -177,9 +177,9 @@ export const adminTrailProcedures = {
         return { csv: authEventsCsv(page.events) };
       }),
     ),
-  accessReport: procedure.mutation(({ ctx }) =>
+  accessReport: asking({ asks: ["trails.export"] }).mutation(({ ctx }) =>
     handle(ctx, async () => {
-      const admin = await requireAdmin(ctx);
+      const admin = await requireInstance(ctx);
       const csv = await accessReportCsv(ctx.db);
       await recordExport(ctx.db, {
         userId: admin.id,

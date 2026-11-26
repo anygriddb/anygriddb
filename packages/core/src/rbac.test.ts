@@ -1,8 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
+  callersHold,
+  callersPermissions,
   can,
   effectiveTableRole,
   enrollmentGate,
+  INSTANCE_PERMISSIONS,
+  instanceCallers,
   madePermissions,
   type MadeRole,
   mayGive,
@@ -316,5 +320,45 @@ describe("made roles", () => {
       });
     expect(gate(STEWARD)).toBe("enroll");
     expect(gate(REVIEWER)).toBe("ok");
+  });
+});
+
+describe("what each caller of Administration holds", () => {
+  it("gives an administrator every permission, and support the helpdesk", () => {
+    const admin = instanceCallers({
+      isAdmin: true,
+      isSupport: false,
+      isAuditor: false,
+      instanceRoles: [],
+    });
+    expect(callersPermissions(admin)).toEqual([...INSTANCE_PERMISSIONS]);
+    expect(callersHold(["support"], "accounts.help")).toBe(true);
+    expect(callersHold(["account_manager"], "groups.manage")).toBe(true);
+    expect(callersHold(["source_manager"], "sources.browse")).toBe(true);
+  });
+
+  it("gives nobody else what gives access, the settings or the whole account", () => {
+    const parts = [
+      "support",
+      "auditor",
+      "account_manager",
+      "source_manager",
+    ] as const;
+    for (const permission of [
+      "access.grant",
+      "accounts.control",
+      "settings.manage",
+      "roles.manage",
+    ] as const) {
+      expect(callersHold(parts, permission), permission).toBe(false);
+    }
+    expect(
+      instanceCallers({
+        isAdmin: false,
+        isSupport: false,
+        isAuditor: false,
+        instanceRoles: [],
+      }),
+    ).toEqual([]);
   });
 });

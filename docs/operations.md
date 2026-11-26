@@ -679,6 +679,7 @@ scrape_configs:
 | `anygriddb_websocket_connections`, `anygriddb_websocket_refused_total`                 | sockets / refusals                            |
 | `anygriddb_automation_scripts_total`, `anygriddb_automation_runs_paced_total`          | scripts / pacing                              |
 | `anygriddb_acting_as_total` / `anygriddb_build_info`                                   | acting-as / version                           |
+| `anygriddb_undeclared_permission_total`                                                | a check its way in did not declare: report it |
 
 Plus process/node defaults. Starter alerts:
 

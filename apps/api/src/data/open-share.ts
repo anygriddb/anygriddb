@@ -11,11 +11,11 @@ import {
   LINK_PERMISSIONS,
   normalizeViewConfig,
   roleGrants,
-  roleGrantsAll,
   roleFor,
   type ViewConfig,
   withRequiredFormFields,
 } from "@anygriddb/core";
+import { granted } from "../access/declaration.js";
 import type { Database } from "@anygriddb/db";
 import { authorBindings } from "../auth/access.js";
 import { readerEngine } from "./acl.js";
@@ -58,8 +58,8 @@ export async function openShare(
   );
   const kind = resolved.view.viewType === "form" ? "form" : "view";
   if (
-    !roleGrants(role, permission) ||
-    !roleGrantsAll(role, LINK_PERMISSIONS[kind])
+    !granted(role, permission) ||
+    !LINK_PERMISSIONS[kind].every((asked) => granted(role, asked))
   ) {
     throw new AppError("unknown_share");
   }
@@ -143,8 +143,8 @@ export async function openBaseShare(
   };
   const held = roleFor(reader.bindings, "base", resolved.base.id);
   if (
-    !roleGrants(held, "rows.read") ||
-    !roleGrantsAll(held, LINK_PERMISSIONS.base)
+    !granted(held, "rows.read") ||
+    !LINK_PERMISSIONS.base.every((asked) => granted(held, asked))
   ) {
     throw new AppError("unknown_share");
   }

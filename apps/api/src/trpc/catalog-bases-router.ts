@@ -2,6 +2,7 @@
  * Bases: what a person sees of theirs, and making, copying, importing,
  * and exporting one.
  */
+import { holds } from "../access/declaration.js";
 import { sourceReachable } from "../sources/impact.js";
 import { isHomeDialect, isHomeTable } from "@anygriddb/core";
 import {
@@ -66,7 +67,7 @@ import {
   guardBase,
   handle,
 } from "./guard.js";
-import { procedure, requestNames } from "./init.js";
+import { asking, requestNames } from "./init.js";
 import { queueDeps } from "./jobs-router.js";
 import { encryptSecret } from "../auth/crypto.js";
 import { publicColumns, logPublish } from "./catalog-shared.js";
@@ -141,7 +142,7 @@ function groupBy<Item>(
 }
 
 export const catalogBaseProcedures = {
-  list: procedure.query(({ ctx }) =>
+  list: asking({ exception: "ownBases" }).query(({ ctx }) =>
     handle(ctx, async () => {
       const { user, bindings } = await authorize(ctx);
       const { baseRows, rows, readableIds } = await visibleCatalog(
@@ -302,78 +303,80 @@ export const catalogBaseProcedures = {
    * database. A table whose rows are filtered for them has no last change:
    * it could tell of rows they cannot see.
    */
-  activity: procedure.input(tableActivityInputSchema).query(({ ctx, input }) =>
-    handle(ctx, async () => {
-      const { user, bindings } = await authorize(ctx);
-      const { rows, readableIds } = await visibleCatalog(ctx, bindings);
-      const wanted = new Set(input.tableIds);
-      const readableSet = new Set(readableIds);
-      const tables = rows.tables.filter(
-        (table) =>
-          wanted.has(table.id) &&
-          readableSet.has(table.id) &&
-          table.storage !== "external",
-      );
-      if (tables.length === 0) return [];
-      const readable = readableTables(bindings, baseIndex(rows));
-      const access = await readerAccess(
-        ctx.db,
-        { userId: user.id, bindings },
-        rows.tables,
-      );
-      const index = indexCatalog(rows);
-      const engines = tables.map((table) => ({
-        ...assembleEngine(table.id, rows, readable, index),
-        ...(access ? { access } : {}),
-      }));
-      const counts: Array<{ total: number; estimated: boolean }> = [];
-      for (const engine of engines) {
-        counts.push(await countVisibleRows(ctx.db, engine));
-      }
-      const open = engines
-        .filter((engine) => !engine.access?.rowFilter(engine.table.id))
-        .map((engine) => engine.table.id);
-      const changes =
-        open.length === 0
-          ? []
-          : await ctx.db
-              .selectFrom("auditEvents")
-              .innerJoin("users", "users.id", "auditEvents.userId")
-              .distinctOn("auditEvents.tableId")
-              .select([
-                "auditEvents.tableId",
-                "auditEvents.occurredAt",
-                "auditEvents.userId",
-                "users.displayName",
-              ])
-              .where("auditEvents.tableId", "in", open)
-              // Taking rows out, or opening a table, changes nothing
-              // (ROADMAP #31).
-              .where("auditEvents.action", "not in", ["export", "open"])
-              .orderBy("auditEvents.tableId")
-              .orderBy("auditEvents.occurredAt", "desc")
-              .execute();
-      const last = new Map(changes.map((change) => [change.tableId, change]));
-      return tables.map((table, index) => {
-        const change = last.get(table.id);
-        return {
-          tableId: table.id,
-          rows: counts[index] ?? null,
-          changed: change
-            ? {
-                at: change.occurredAt.toISOString(),
-                by: { id: change.userId, name: change.displayName },
-              }
-            : null,
-        };
-      });
-    }),
-  ),
+  activity: asking({ exception: "ownBases" })
+    .input(tableActivityInputSchema)
+    .query(({ ctx, input }) =>
+      handle(ctx, async () => {
+        const { user, bindings } = await authorize(ctx);
+        const { rows, readableIds } = await visibleCatalog(ctx, bindings);
+        const wanted = new Set(input.tableIds);
+        const readableSet = new Set(readableIds);
+        const tables = rows.tables.filter(
+          (table) =>
+            wanted.has(table.id) &&
+            readableSet.has(table.id) &&
+            table.storage !== "external",
+        );
+        if (tables.length === 0) return [];
+        const readable = readableTables(bindings, baseIndex(rows));
+        const access = await readerAccess(
+          ctx.db,
+          { userId: user.id, bindings },
+          rows.tables,
+        );
+        const index = indexCatalog(rows);
+        const engines = tables.map((table) => ({
+          ...assembleEngine(table.id, rows, readable, index),
+          ...(access ? { access } : {}),
+        }));
+        const counts: Array<{ total: number; estimated: boolean }> = [];
+        for (const engine of engines) {
+          counts.push(await countVisibleRows(ctx.db, engine));
+        }
+        const open = engines
+          .filter((engine) => !engine.access?.rowFilter(engine.table.id))
+          .map((engine) => engine.table.id);
+        const changes =
+          open.length === 0
+            ? []
+            : await ctx.db
+                .selectFrom("auditEvents")
+                .innerJoin("users", "users.id", "auditEvents.userId")
+                .distinctOn("auditEvents.tableId")
+                .select([
+                  "auditEvents.tableId",
+                  "auditEvents.occurredAt",
+                  "auditEvents.userId",
+                  "users.displayName",
+                ])
+                .where("auditEvents.tableId", "in", open)
+                // Taking rows out, or opening a table, changes nothing
+                // (ROADMAP #31).
+                .where("auditEvents.action", "not in", ["export", "open"])
+                .orderBy("auditEvents.tableId")
+                .orderBy("auditEvents.occurredAt", "desc")
+                .execute();
+        const last = new Map(changes.map((change) => [change.tableId, change]));
+        return tables.map((table, index) => {
+          const change = last.get(table.id);
+          return {
+            tableId: table.id,
+            rows: counts[index] ?? null,
+            changed: change
+              ? {
+                  at: change.occurredAt.toISOString(),
+                  by: { id: change.userId, name: change.displayName },
+                }
+              : null,
+          };
+        });
+      }),
+    ),
   /**
    * What was done in a base, newest first, as the caller may read it:
    * the tables and fields they see, never a value.
    */
-  baseActivity: procedure
+  baseActivity: asking({ asks: ["rows.read"] })
     .input(baseActivityInputSchema)
     .query(({ ctx, input }) =>
       handle(ctx, async () => {
@@ -385,7 +388,7 @@ export const catalogBaseProcedures = {
         return baseActivity(ctx.db, { userId: user.id, bindings }, input);
       }),
     ),
-  collaborators: procedure
+  collaborators: asking({ exception: "ownBases" })
     .input(collaboratorsInputSchema)
     .query(({ ctx, input }) =>
       handle(ctx, async () => {
@@ -411,7 +414,7 @@ export const catalogBaseProcedures = {
         return { users: await listCollaborators(ctx.db, input.baseId) };
       }),
     ),
-  templates: procedure.query(({ ctx }) =>
+  templates: asking({ exception: "ownBases" }).query(({ ctx }) =>
     handle(ctx, async () => {
       await authorize(ctx);
       return BASE_TEMPLATES.map((template) => ({
@@ -422,10 +425,10 @@ export const catalogBaseProcedures = {
       }));
     }),
   ),
-  sourceHomes: procedure.query(({ ctx }) =>
+  sourceHomes: asking({ exception: "ownBases" }).query(({ ctx }) =>
     handle(ctx, async () => {
       const { user } = await authorize(ctx, true);
-      if (!user.isAdmin) return [];
+      if (!holds(user, "bases.create")) return [];
       const rows = await ctx.db
         .selectFrom("sources")
         .select(["id", "name", "engine"])
@@ -435,7 +438,7 @@ export const catalogBaseProcedures = {
         .map((row) => ({ id: row.id, name: row.name, engine: row.engine }));
     }),
   ),
-  createBase: procedure
+  createBase: asking({ asks: ["bases.create"] })
     .input(createBaseInputSchema)
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
@@ -444,7 +447,7 @@ export const catalogBaseProcedures = {
         if (input.template && !template) {
           throw new AppError("unknown_template");
         }
-        if (input.sourceId && !user.isAdmin) {
+        if (input.sourceId && !holds(user, "bases.create")) {
           throw new AppError("access_denied");
         }
         // A template's sample rows and links are written as AnyGridDB's
@@ -495,7 +498,7 @@ export const catalogBaseProcedures = {
         return created;
       }),
     ),
-  updateBase: procedure
+  updateBase: asking({ asks: ["base.manage"] })
     .input(updateBaseInputSchema)
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
@@ -504,7 +507,7 @@ export const catalogBaseProcedures = {
         return { ok: true as const };
       }),
     ),
-  deleteBase: procedure
+  deleteBase: asking({ asks: ["base.manage"] })
     .input(deleteBaseInputSchema)
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
@@ -515,7 +518,7 @@ export const catalogBaseProcedures = {
       }),
     ),
   /** Builds a portable JSON of the base in the background. */
-  exportSnapshot: procedure
+  exportSnapshot: asking({ asks: ["data.export", "base.manage"] })
     .input(exportSnapshotJobInputSchema)
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
@@ -539,7 +542,7 @@ export const catalogBaseProcedures = {
    * goes into the job sealed with the instance's key, and leaves it when
    * the job ends.
    */
-  importAirtable: procedure
+  importAirtable: asking({ asks: ["bases.create"] })
     .input(startAirtableImportInputSchema)
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
@@ -567,7 +570,7 @@ export const catalogBaseProcedures = {
       }),
     ),
   /** Creates a new base from a staged snapshot upload. */
-  importSnapshot: procedure
+  importSnapshot: asking({ asks: ["bases.create"] })
     .input(importSnapshotJobInputSchema)
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
@@ -585,7 +588,7 @@ export const catalogBaseProcedures = {
    * (ADR 0078): the job's result names the base. Making a base needs a
    * second factor.
    */
-  importWorkbook: procedure
+  importWorkbook: asking({ asks: ["bases.create"] })
     .input(importWorkbookInputSchema)
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
@@ -616,7 +619,7 @@ export const catalogBaseProcedures = {
    * Copies a base in the background, through its snapshot: the job's
    * result names the copy. Making a base needs a second factor.
    */
-  duplicateBase: procedure
+  duplicateBase: asking({ asks: ["base.manage"], also: ["data.export"] })
     .input(duplicateBaseInputSchema)
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
@@ -653,7 +656,7 @@ export const catalogBaseProcedures = {
    * A base's restore points (ADR 0077), newest first, and how long the
    * instance keeps each one.
    */
-  restorePoints: procedure
+  restorePoints: asking({ asks: ["base.manage"] })
     .input(listRestorePointsInputSchema)
     .query(({ ctx, input }) =>
       handle(ctx, async () => {
@@ -665,7 +668,7 @@ export const catalogBaseProcedures = {
       }),
     ),
   /** Makes a restore point of the base, in the background. */
-  makeRestorePoint: procedure
+  makeRestorePoint: asking({ asks: ["base.manage"] })
     .input(restorePointJobInputSchema)
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
@@ -683,7 +686,7 @@ export const catalogBaseProcedures = {
    * Reads a restore point back into a new base, in the background: the
    * job's result names it. Making a base needs a second factor.
    */
-  restoreBase: procedure
+  restoreBase: asking({ asks: ["data.export", "base.manage"] })
     .input(restoreBaseJobInputSchema)
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
@@ -718,7 +721,7 @@ export const catalogBaseProcedures = {
       }),
     ),
   /** Deletes a restore point and its file. */
-  deleteRestorePoint: procedure
+  deleteRestorePoint: asking({ asks: ["base.manage"] })
     .input(restorePointIdInputSchema)
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
