@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { assertCellValue, coerceCellValue } from "./cell-values";
 import { isConvertible, isMetadataConversion } from "./query/conversion";
-import { isSideFieldType, sideColumnType } from "./query/external-write";
+import { isSideFieldType, sideColumnType } from "./query/field-sql";
 import {
   JSON_MAX_CHARS,
   JSON_MAX_DEPTH,

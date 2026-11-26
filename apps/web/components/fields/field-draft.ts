@@ -3,6 +3,7 @@ import {
   canBeRequired,
   type FieldType,
   type FilterGroup,
+  isFieldType,
   isPrimaryType,
   isTimeZone,
   type LinkSelection,
@@ -283,87 +284,104 @@ function appearanceAmong(
     : {};
 }
 
+type Settings = (
+  draft: FieldDraft,
+  stored: Record<string, unknown>,
+) => Record<string, unknown>;
+
+const NO_SETTINGS: Settings = () => ({});
+
+/** How a text, a link, or a row's number or id is drawn: a code or not. */
+const drawn: Settings = (draft) => {
+  const drawnAs = codeAppearance(draft);
+  return drawnAs ? { appearance: drawnAs } : {};
+};
+
+const dated: Settings = (draft) => ({ date: { format: draft.dateFormat } });
+
 /**
- * The settings of the type chosen, as the server keeps them. `stored` is
- * what the field holds now: a text's default, given through the API, has
- * no control here and stays.
+ * The settings of each type, as the server keeps them: one entry per type,
+ * which the compiler refuses to leave out. `stored` is what the field holds
+ * now: a text's default, given through the API, has no control here and
+ * stays.
  */
+const SETTINGS: Record<FieldType, Settings> = {
+  text: (draft, stored) => ({
+    ...(typeof stored.defaultValue === "string"
+      ? { defaultValue: stored.defaultValue }
+      : {}),
+    ...drawn(draft, stored),
+  }),
+  long_text: NO_SETTINGS,
+  number: (draft) => ({
+    number: {
+      ...(draft.precision === "" ? {} : { precision: Number(draft.precision) }),
+      style: draft.numberStyle,
+      ...(draft.numberStyle === "currency" ? { currency: draft.currency } : {}),
+    },
+    ...(draft.nonNegative ? { nonNegative: true } : {}),
+  }),
+  boolean: (draft) => appearanceAmong(draft, BOOLEAN_APPEARANCES),
+  date: dated,
+  datetime: dated,
+  single_select: (draft) => ({
+    options: optionsOf(draft),
+    ...appearanceAmong(draft, SINGLE_SELECT_APPEARANCES),
+  }),
+  multi_select: (draft) => ({
+    options: optionsOf(draft),
+    ...appearanceAmong(draft, MULTI_SELECT_APPEARANCES),
+  }),
+  email: NO_SETTINGS,
+  url: drawn,
+  phone: NO_SETTINGS,
+  color: NO_SETTINGS,
+  place: NO_SETTINGS,
+  json: NO_SETTINGS,
+  rating: (draft) => ({
+    ratingMax: Number(draft.ratingMax),
+    ...(draft.ratingIcon !== "star" ? { ratingIcon: draft.ratingIcon } : {}),
+    ...(draft.ratingColor ? { ratingColor: draft.ratingColor } : {}),
+  }),
+  duration: (draft) => ({ durationFormat: draft.durationFormat }),
+  user: (draft) => ({
+    multiple: draft.multiple,
+    ...(draft.notify ? {} : { notify: false }),
+  }),
+  attachment: NO_SETTINGS,
+  relation_one_to_many: NO_SETTINGS,
+  relation_many_to_many: NO_SETTINGS,
+  formula: NO_SETTINGS,
+  lookup: NO_SETTINGS,
+  rollup: NO_SETTINGS,
+  created_time: dated,
+  last_modified_time: dated,
+  created_by: NO_SETTINGS,
+  last_modified_by: NO_SETTINGS,
+  autonumber: drawn,
+  row_id: drawn,
+  row_state: NO_SETTINGS,
+  button: (draft) => ({
+    button: {
+      label: draft.buttonLabel.trim() || draft.label.trim() || "Action",
+      color: draft.buttonColor,
+      action: draft.buttonAction,
+      ...(draft.buttonAction === "open_url"
+        ? { url: draft.buttonUrl.trim() }
+        : {}),
+    },
+  }),
+};
+
+/** The settings of the type chosen, as the server keeps them. */
 export function configOf(
   draft: FieldDraft,
   stored: Record<string, unknown>,
 ): Record<string, unknown> {
-  const drawnAs = codeAppearance(draft);
-  switch (draft.fieldType) {
-    case "single_select":
-      return {
-        options: optionsOf(draft),
-        ...appearanceAmong(draft, SINGLE_SELECT_APPEARANCES),
-      };
-    case "multi_select":
-      return {
-        options: optionsOf(draft),
-        ...appearanceAmong(draft, MULTI_SELECT_APPEARANCES),
-      };
-    case "boolean":
-      return appearanceAmong(draft, BOOLEAN_APPEARANCES);
-    case "text":
-    case "url":
-    case "autonumber":
-    case "row_id":
-      return {
-        ...(draft.fieldType === "text" &&
-        typeof stored.defaultValue === "string"
-          ? { defaultValue: stored.defaultValue }
-          : {}),
-        ...(drawnAs ? { appearance: drawnAs } : {}),
-      };
-    case "number":
-      return {
-        number: {
-          ...(draft.precision === ""
-            ? {}
-            : { precision: Number(draft.precision) }),
-          style: draft.numberStyle,
-          ...(draft.numberStyle === "currency"
-            ? { currency: draft.currency }
-            : {}),
-        },
-        ...(draft.nonNegative ? { nonNegative: true } : {}),
-      };
-    case "date":
-    case "datetime":
-    case "created_time":
-    case "last_modified_time":
-      return { date: { format: draft.dateFormat } };
-    case "rating":
-      return {
-        ratingMax: Number(draft.ratingMax),
-        ...(draft.ratingIcon !== "star"
-          ? { ratingIcon: draft.ratingIcon }
-          : {}),
-        ...(draft.ratingColor ? { ratingColor: draft.ratingColor } : {}),
-      };
-    case "duration":
-      return { durationFormat: draft.durationFormat };
-    case "user":
-      return {
-        multiple: draft.multiple,
-        ...(draft.notify ? {} : { notify: false }),
-      };
-    case "button":
-      return {
-        button: {
-          label: draft.buttonLabel.trim() || draft.label.trim() || "Action",
-          color: draft.buttonColor,
-          action: draft.buttonAction,
-          ...(draft.buttonAction === "open_url"
-            ? { url: draft.buttonUrl.trim() }
-            : {}),
-        },
-      };
-    default:
-      return {};
-  }
+  // A link to make (`link`) is no type of its own, and sends no settings.
+  return isFieldType(draft.fieldType)
+    ? SETTINGS[draft.fieldType](draft, stored)
+    : {};
 }
 
 /**
@@ -608,6 +626,61 @@ export const DRAFT_SPOT_CONTROLS: Record<DraftSpot, string> = {
   buttonUrl: "button-url",
 };
 
+type Problems = (draft: FieldDraft, isNew: boolean) => DraftSpot[];
+
+const NONE: Problems = () => [];
+
+/** A list offers something to choose. */
+const optionsMissing: Problems = (draft) =>
+  draft.options.length === 0 ? ["options"] : [];
+
+/** Once made, a lookup's link and field are no longer the dialog's. */
+const linkMissing: Problems = (draft, isNew) =>
+  isNew
+    ? [
+        ...(draft.relation ? [] : (["relation"] as const)),
+        ...(draft.targetColumn ? [] : (["target"] as const)),
+      ]
+    : [];
+
+/** What each type still needs before the server makes it: one entry each. */
+const PROBLEMS: Record<FieldType, Problems> = {
+  text: NONE,
+  long_text: NONE,
+  number: NONE,
+  boolean: NONE,
+  date: NONE,
+  datetime: NONE,
+  single_select: optionsMissing,
+  multi_select: optionsMissing,
+  email: NONE,
+  url: NONE,
+  phone: NONE,
+  color: NONE,
+  place: NONE,
+  json: NONE,
+  rating: NONE,
+  duration: NONE,
+  user: NONE,
+  attachment: NONE,
+  relation_one_to_many: NONE,
+  relation_many_to_many: NONE,
+  formula: NONE,
+  lookup: linkMissing,
+  rollup: linkMissing,
+  created_time: NONE,
+  last_modified_time: NONE,
+  created_by: NONE,
+  last_modified_by: NONE,
+  autonumber: NONE,
+  row_id: NONE,
+  row_state: NONE,
+  button: (draft) =>
+    draft.buttonAction === "open_url" && !draft.buttonUrl.trim()
+      ? ["buttonUrl"]
+      : [],
+};
+
 /**
  * What the dialog still needs before the server can make the field, in
  * the order the dialog shows it: a list without options, a lookup or a
@@ -615,23 +688,7 @@ export const DRAFT_SPOT_CONTROLS: Record<DraftSpot, string> = {
  * address. The server would refuse each without saying which part.
  */
 export function draftProblems(draft: FieldDraft, isNew: boolean): DraftSpot[] {
-  switch (draft.fieldType) {
-    case "single_select":
-    case "multi_select":
-      return draft.options.length === 0 ? ["options"] : [];
-    case "lookup":
-    case "rollup":
-      // Once made, a lookup's link and field are no longer the dialog's.
-      if (!isNew) return [];
-      return [
-        ...(draft.relation ? [] : (["relation"] as const)),
-        ...(draft.targetColumn ? [] : (["target"] as const)),
-      ];
-    case "button":
-      return draft.buttonAction === "open_url" && !draft.buttonUrl.trim()
-        ? ["buttonUrl"]
-        : [];
-    default:
-      return [];
-  }
+  return isFieldType(draft.fieldType)
+    ? PROBLEMS[draft.fieldType](draft, isNew)
+    : [];
 }

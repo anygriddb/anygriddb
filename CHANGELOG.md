@@ -6,6 +6,15 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html): until
 1.0, a minor version may change what an operator must do, and says so
 first.
 
+## Unreleased
+
+### Changed
+
+- A rating or a duration on a client's floating-point column reads as a
+  number field does: an infinity or a NaN reads empty and is said beside
+  the value, where PostgreSQL 13 refused the whole page. A text-like field
+  on MySQL's JSON or long text reads as its text, as a text did.
+
 ## 0.11.0 - 2026-11-26
 
 Before upgrading: an identity provider reached at the machine's own address

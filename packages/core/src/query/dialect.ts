@@ -23,6 +23,7 @@ import {
 import type { EngineTable, PhysicalColumn } from "./engine";
 import type { ScalarKind } from "./expressions";
 import { ORACLE } from "./dialect-oracle";
+import { holdsOf } from "./field-sql";
 import { SQLSERVER } from "./dialect-sqlserver";
 import { exactMedian } from "./median";
 import { withoutGroups } from "../plain-text";
@@ -587,7 +588,7 @@ function isPostgresFloat(
 ): boolean {
   const stored = typeName(physical.type);
   return (
-    fieldType === "number" &&
+    holdsOf(fieldType) === "number" &&
     (stored === "real" || stored === "double precision")
   );
 }
@@ -604,7 +605,7 @@ function firstPostgresRead(
 ): string {
   if (!isWritableType(fieldType)) return ref;
   // A document is read as its text, as a table of AnyGridDB's own is.
-  if (fieldType === "json") return `(${ref})::text`;
+  if (holdsOf(fieldType) === "document") return `(${ref})::text`;
   const wanted = physicalSqlType(fieldType);
   const stored = typeName(physical.type);
   if (stored === wanted || stored === SAME_TYPE[wanted]) return ref;
@@ -1195,10 +1196,9 @@ function firstMysqlRead(
   const type = typeName(physical.type);
   // A JSON document (MySQL's JSON, MariaDB's LONGTEXT alias) shows as
   // its text: JSON_OBJECT would nest it as an object otherwise.
+  const holds = holdsOf(fieldType);
   if (
-    (fieldType === "text" ||
-      fieldType === "long_text" ||
-      fieldType === "json") &&
+    (holds === "text" || holds === "document") &&
     (type === "json" || type === "longtext")
   ) {
     return `cast(${ref} as char)`;
@@ -1209,7 +1209,7 @@ function firstMysqlRead(
     return `lpad(bin(${ref}), ${width}, '0')`;
   }
   if (MYSQL_SPATIAL.has(type)) return `st_astext(${ref})`;
-  if (fieldType !== "datetime") return ref;
+  if (holds !== "instant") return ref;
   // TIMESTAMP reads in the session's zone, UTC; DATETIME has none:
   // it is in the source's.
   if (type !== "datetime" || physical.zone === "UTC") return ref;
@@ -1299,7 +1299,7 @@ function mysqlDialect(name: "mysql" | "mariadb"): SqlDialect {
         return `concat('0x', hex(left(${ref}, 1000)))`;
       }
       // A flag holding 2 is checked: the grid, a filter and a group agree.
-      if (fieldType === "boolean" && type.startsWith("tinyint")) {
+      if (holdsOf(fieldType) === "flag" && type.startsWith("tinyint")) {
         return `(${ref} <> 0)`;
       }
       return firstMysqlRead(ref, fieldType, physical);

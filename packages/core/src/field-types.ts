@@ -42,6 +42,11 @@ export const FIELD_TYPES = [
 
 export type FieldType = (typeof FIELD_TYPES)[number];
 
+/** Whether a word names a field type. */
+export function isFieldType(value: string): value is FieldType {
+  return (FIELD_TYPES as readonly string[]).includes(value);
+}
+
 /** Types a user writes through row values. Links go through `setLinks`. */
 export const WRITABLE_TYPES = [
   "text",
@@ -109,8 +114,6 @@ export type FieldTypeDefinition = {
   storedValueKind: ValueKind | null;
   primaryEligible: boolean;
   requiredAllowed: boolean;
-  /** Fields AnyGridDB may keep in a client's side table (ADR 0032). */
-  sideEligible: boolean;
   comparedAs: ComparedAs;
 };
 
@@ -119,10 +122,7 @@ function writable(
   kind: ValueKind,
   comparedAs: ComparedAs,
   extras: Partial<
-    Pick<
-      FieldTypeDefinition,
-      "primaryEligible" | "requiredAllowed" | "sideEligible"
-    >
+    Pick<FieldTypeDefinition, "primaryEligible" | "requiredAllowed">
   > = {},
 ): FieldTypeDefinition {
   return {
@@ -130,7 +130,6 @@ function writable(
     storedValueKind: kind,
     primaryEligible: extras.primaryEligible ?? false,
     requiredAllowed: extras.requiredAllowed ?? true,
-    sideEligible: extras.sideEligible ?? false,
     comparedAs,
   };
 }
@@ -141,7 +140,6 @@ function system(column: string, kind: ValueKind): FieldTypeDefinition {
     storedValueKind: kind,
     primaryEligible: column === "ag_seq" || column === "id",
     requiredAllowed: false,
-    sideEligible: false,
     comparedAs: "value",
   };
 }
@@ -154,50 +152,40 @@ function system(column: string, kind: ValueKind): FieldTypeDefinition {
 export const FIELD_DEFINITIONS = {
   text: writable("text", "text", "text", {
     primaryEligible: true,
-    sideEligible: true,
   }),
   long_text: writable("text", "text", "text", {
     primaryEligible: true,
-    sideEligible: true,
   }),
   number: writable("numeric", "number", "value", {
     primaryEligible: true,
-    sideEligible: true,
   }),
   boolean: writable("boolean", "boolean", "checkbox", {
     requiredAllowed: false,
-    sideEligible: true,
   }),
   date: writable("date", "date", "instant", {
     primaryEligible: true,
-    sideEligible: true,
   }),
   datetime: writable("timestamptz", "datetime", "instant", {
     primaryEligible: true,
-    sideEligible: true,
   }),
   single_select: writable("text", "text", "text", {
     primaryEligible: true,
-    sideEligible: true,
   }),
   multi_select: writable("text[]", "options", "value"),
   email: writable("text", "text", "text", {
     primaryEligible: true,
-    sideEligible: true,
   }),
   url: writable("text", "text", "text", {
     primaryEligible: true,
-    sideEligible: true,
   }),
   phone: writable("text", "text", "text", {
     primaryEligible: true,
-    sideEligible: true,
   }),
-  color: writable("text", "text", "text", { sideEligible: true }),
-  place: writable("text", "text", "text", { sideEligible: true }),
+  color: writable("text", "text", "text"),
+  place: writable("text", "text", "text"),
   // Read as its text: a filter, a sort and a formula take it as one.
-  json: writable("jsonb", "text", "document", { sideEligible: true }),
-  rating: writable("numeric", "number", "value", { sideEligible: true }),
+  json: writable("jsonb", "text", "document"),
+  rating: writable("numeric", "number", "value"),
   duration: writable("numeric", "number", "value"),
   user: writable("uuid[]", "users", "value", { requiredAllowed: false }),
   attachment: writable("text[]", "files", "files", { requiredAllowed: false }),
@@ -206,7 +194,6 @@ export const FIELD_DEFINITIONS = {
     storedValueKind: "links",
     primaryEligible: false,
     requiredAllowed: false,
-    sideEligible: false,
     comparedAs: "value",
   },
   relation_many_to_many: {
@@ -214,7 +201,6 @@ export const FIELD_DEFINITIONS = {
     storedValueKind: "links",
     primaryEligible: false,
     requiredAllowed: false,
-    sideEligible: false,
     comparedAs: "value",
   },
   formula: {
@@ -222,7 +208,6 @@ export const FIELD_DEFINITIONS = {
     storedValueKind: null,
     primaryEligible: true,
     requiredAllowed: false,
-    sideEligible: false,
     comparedAs: "value",
   },
   lookup: {
@@ -230,7 +215,6 @@ export const FIELD_DEFINITIONS = {
     storedValueKind: null,
     primaryEligible: false,
     requiredAllowed: false,
-    sideEligible: false,
     comparedAs: "value",
   },
   rollup: {
@@ -238,7 +222,6 @@ export const FIELD_DEFINITIONS = {
     storedValueKind: null,
     primaryEligible: false,
     requiredAllowed: false,
-    sideEligible: false,
     comparedAs: "value",
   },
   created_time: system("ag_created_at", "datetime"),
@@ -256,7 +239,6 @@ export const FIELD_DEFINITIONS = {
     storedValueKind: "text",
     primaryEligible: false,
     requiredAllowed: false,
-    sideEligible: false,
     comparedAs: "value",
   },
 } satisfies Record<FieldType, FieldTypeDefinition>;

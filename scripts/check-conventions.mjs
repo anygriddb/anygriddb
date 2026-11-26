@@ -16,7 +16,9 @@
  *   `roleGrants` itself (`hand-refusals.mjs`): what each way in asks is
  *   declared and noted;
  * - a ceiling is declared in the catalogue of limits, never as a constant
- *   of its own (`ceilings.mjs`), but the few named there with why.
+ *   of its own (`ceilings.mjs`), but the few named there with why;
+ * - the queries read a type's entry, never test a type by its name
+ *   (`type-tests.mjs`).
  * Only files Git tracks are read. Exits 1 with one line per problem.
  */
 import { execFileSync } from "node:child_process";
@@ -25,6 +27,7 @@ import { basename } from "node:path";
 import { conflictMarkers } from "./conflict-markers.mjs";
 import { CEILING_EXCEPTIONS, ceilingsIn } from "./ceilings.mjs";
 import { handRefusals } from "./hand-refusals.mjs";
+import { TYPE_TESTS_REFUSED, typeTestsIn } from "./type-tests.mjs";
 
 const SCOPES = ["apps/", "packages/", "scripts/", "docker/", "docs/"];
 const KEBAB = /^[a-z0-9]+(-[a-z0-9]+)*(\.[a-z0-9]+(-[a-z0-9]+)*)*$/;
@@ -145,6 +148,19 @@ for (const stale of excepted) {
   problems.push(
     `scripts/ceilings.mjs: ${stale} is excepted, and is no longer there`,
   );
+}
+
+for (const path of tracked.filter(
+  (file) =>
+    TYPE_TESTS_REFUSED.some((pattern) => pattern.test(file)) &&
+    !NOT_SHIPPED.test(file) &&
+    existsSync(file),
+)) {
+  for (const line of typeTestsIn(readFileSync(path, "utf8"))) {
+    problems.push(
+      `${path}:${line}: a field type tested by its name: read its entry (packages/core/src/query/field-sql.ts)`,
+    );
+  }
 }
 
 const { version } = JSON.parse(readFileSync("package.json", "utf8"));

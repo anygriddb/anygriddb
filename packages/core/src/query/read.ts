@@ -1,6 +1,11 @@
 import { z } from "zod";
 import { selectOptionNames } from "../field-config";
-import { isRelationType, storedValueKind } from "../field-types";
+import {
+  isComputedType,
+  isRelationType,
+  storedValueKind,
+} from "../field-types";
+import { FIELD_SQL, formulaExprOf } from "./field-sql";
 import { isFilterGroup, type FilterGroup, type FilterKind } from "../filter";
 import { columnNameSchema } from "../names";
 import {
@@ -155,7 +160,7 @@ function holdsLargeObject(
       ctx.d.holdsLargeObject?.(physical) === true
     );
   }
-  const expr = column.fieldType === "formula" ? column.config.expr : undefined;
+  const expr = formulaExprOf(column);
   const { table } = ctx.catalog;
   // Most tables hold none: their formulas are not walked for one.
   const holdsOne = table.columns.some(
@@ -174,10 +179,11 @@ function projectColumn(
   column: EngineColumn,
 ): ProjectedColumn {
   const table = ctx.catalog.table;
+  const choices = FIELD_SQL[column.fieldType].choices;
   const options =
-    column.fieldType === "single_select" || column.fieldType === "multi_select"
+    choices === "options"
       ? selectOptionNames(column.config)
-      : column.fieldType === "row_state"
+      : choices === "states"
         ? table.states
         : undefined;
   if (isRelationType(column.fieldType)) {
@@ -200,18 +206,17 @@ function projectColumn(
     // around the error, is no value of its cell. A formula that is only
     // an error is blank already, and SQL Server refuses a CASE of nulls.
     const sql =
-      column.fieldType === "formula" && errorSql && typed.kind !== "null"
+      FIELD_SQL[column.fieldType].read === "formula" &&
+      errorSql &&
+      typed.kind !== "null"
         ? `(case when ${errorSql} is null then ${typed.sql} end)`
         : typed.sql;
     const duration = computedDuration(ctx, table, column);
     const base: ProjectedColumn = {
       name: column.name,
-      kind:
-        column.fieldType === "formula" ||
-        column.fieldType === "lookup" ||
-        column.fieldType === "rollup"
-          ? kindOf(typed)
-          : storedValueKind(column.fieldType),
+      kind: isComputedType(column.fieldType)
+        ? kindOf(typed)
+        : storedValueKind(column.fieldType),
       column,
       sql,
       options,

@@ -8,7 +8,7 @@
  */
 import { AppError } from "../errors";
 import type { DialectName } from "./dialect";
-import { sideColumnType, type SideFieldType } from "./external-write";
+import { sideColumnType, type SideFieldType } from "./field-sql";
 import { quoteExternalIdent, type ParameterizedSql } from "./params";
 
 /** The engines that can hold a base. Oracle's schema is its account. */

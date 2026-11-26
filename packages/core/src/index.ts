@@ -124,6 +124,7 @@ export {
 } from "./field-config";
 
 export {
+  isFieldType,
   FIELD_DEFINITIONS,
   FIELD_TYPES,
   PRIMARY_TYPES,
@@ -602,16 +603,26 @@ export {
   buildSideLock,
   buildSideTable,
   buildSideUpsert,
-  isSideFieldType,
-  SIDE_FIELD_TYPES,
-  sideColumnType,
   buildInsertedId,
   keyValues,
   sameCell,
   type ExternalValue,
-  type SideFieldType,
   type StoredColumn,
 } from "./query/external-write";
+
+export {
+  FIELD_SQL,
+  formulaExprOf,
+  holdsOf,
+  isSideFieldType,
+  rollupFnOf,
+  SIDE_FIELD_TYPES,
+  sideColumnType,
+  type FieldSql,
+  type ReadRule,
+  type SideFieldType,
+  type SqlValue,
+} from "./query/field-sql";
 
 export {
   buildCreateHome,

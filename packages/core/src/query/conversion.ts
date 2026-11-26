@@ -6,6 +6,7 @@ import {
   type FieldType,
 } from "../field-types";
 import { assertUserColumn, ownerCall } from "./ddl";
+import { holdsOf } from "./field-sql";
 import {
   assertIdentifier,
   quoteIdent,
@@ -188,7 +189,7 @@ export function buildConversionRead(input: {
 /** A value of a JSON document in a field's stored type. Never raises. */
 export function storedFromJson(fieldType: FieldType, json: string): string {
   const text = `(${json} #>> '{}')`;
-  if (fieldType === "relation_one_to_many") return `${text}::uuid`;
+  if (holdsOf(fieldType) === "link") return `${text}::uuid`;
   const sqlType = physicalSqlType(fieldType);
   switch (sqlType) {
     case "text":

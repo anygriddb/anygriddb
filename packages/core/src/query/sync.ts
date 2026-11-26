@@ -10,7 +10,7 @@
  * one transaction; a read never sees half a copy.
  */
 import { AppError } from "../errors";
-import { isWritableType, physicalSqlType } from "../field-types";
+import { readSqlType } from "./field-sql";
 import type { EngineTable } from "./engine";
 import { quoteExternalIdent, type ParameterizedSql } from "./params";
 import { sealedFields } from "./seal";
@@ -82,9 +82,7 @@ export function copyColumns(
       type: link
         ? keyType(declared.get(physical.name))
         : // A document arrives as its text, and is kept and read as such.
-          isWritableType(column.fieldType) && column.fieldType !== "json"
-          ? physicalSqlType(column.fieldType)
-          : "text",
+          readSqlType(column.fieldType),
       source: { kind: "field", name: column.name, link },
     });
   }
