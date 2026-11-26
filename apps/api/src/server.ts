@@ -3,7 +3,7 @@ import { budgetFor } from "./read-budget.js";
 import cookie from "@fastify/cookie";
 import websocket from "@fastify/websocket";
 import { migrationNames, type Database } from "@anygriddb/db";
-import { AppError, ERRORS, mapTileOrigin } from "@anygriddb/core";
+import { AppError, ERRORS, limitIn, mapTileOrigin } from "@anygriddb/core";
 import { TRPCError } from "@trpc/server";
 import { fastifyTRPCPlugin } from "@trpc/server/adapters/fastify";
 import {
@@ -518,8 +518,11 @@ export async function createApp(deps: {
     };
     socket.on("message", hold);
     const sessionToken = request.cookies[SESSION_COOKIE];
-    void findSessionUser(deps.db, sessionToken)
-      .then((user) => {
+    void Promise.all([
+      findSessionUser(deps.db, sessionToken),
+      readGateSettings(deps.db),
+    ])
+      .then(([user, settings]) => {
         socket.off("message", hold);
         if (!user || !isSessionToken(sessionToken)) {
           request.log.warn("access denied");
@@ -533,6 +536,7 @@ export async function createApp(deps: {
           user.actingAs?.displayName || user.displayName,
           early,
           hashSessionToken(sessionToken),
+          limitIn("sockets.per_account", settings.limits),
         );
       })
       .catch((error: unknown) => {

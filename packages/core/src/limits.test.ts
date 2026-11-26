@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import { MAX_AUTOMATION_ACTIONS } from "./automation";
-import { MAX_ACTIVE_JOBS } from "./jobs";
 import {
   ceilingOf,
   limitIn,
@@ -78,7 +77,6 @@ describe("the catalogue of limits", () => {
   });
 
   it("is what the code reads, and nothing else", () => {
-    expect(MAX_ACTIVE_JOBS).toBe(ceilingOf("jobs.active_per_account"));
     expect(MAX_READ_LIMIT).toBe(ceilingOf("read.rows_per_page"));
     expect(MAX_AUTOMATION_ACTIONS).toBe(ceilingOf("automation.max_actions"));
     // A ceiling the catalogue does not hold is no ceiling.
@@ -105,11 +103,20 @@ describe("the days kept that Settings and Security set", () => {
 });
 
 describe("the limits an administrator sets", () => {
-  it("are the rates and the rows of a file, each set within its bounds, the shipped value among them", () => {
+  it("are the rates, the rows of a file, jobs, sockets and an automation's pace, each set within its bounds, the shipped value among them", () => {
     expect(
       SETTABLE_LIMITS.filter((id) => !id.startsWith("rate.")).sort(),
-    ).toEqual(["export.max_rows", "import.max_rows"]);
-    expect(SETTABLE_LIMITS).toHaveLength(11);
+    ).toEqual([
+      "automation.max_delay_minutes",
+      "automation.runs_per_minute",
+      "export.file_hours",
+      "export.max_rows",
+      "import.max_rows",
+      "jobs.active_per_account",
+      "jobs.retention_days",
+      "sockets.per_account",
+    ]);
+    expect(SETTABLE_LIMITS).toHaveLength(17);
     for (const id of SETTABLE_LIMITS) {
       const [floor, top] = LIMITS[id].bounds;
       expect(floor <= LIMITS[id].value && LIMITS[id].value <= top, id).toBe(
@@ -125,6 +132,15 @@ describe("the limits an administrator sets", () => {
       "import.max_rows": 2_500_000,
     });
     expect(limitIn("export.max_rows", {})).toBe(1_000_000);
+    expect(
+      limitValuesSchema.parse({
+        "jobs.active_per_account": 50,
+        "automation.max_delay_minutes": 10_080,
+      }),
+    ).toEqual({
+      "jobs.active_per_account": 50,
+      "automation.max_delay_minutes": 10_080,
+    });
   });
 
   it("names the environment's variable that fixes the rows of a file", () => {
@@ -144,6 +160,9 @@ describe("the limits an administrator sets", () => {
       { "rate.api": 600.5 },
       { "read.rows_per_page": 500 },
       { "import.max_rows": 99_999 },
+      { "jobs.active_per_account": 0 },
+      { "sockets.per_account": 257 },
+      { "sockets.channels_per_socket": 64 },
       { "export.max_rows": 10_000_001 },
     ]) {
       expect(

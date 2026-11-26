@@ -80,6 +80,14 @@ As built (family 2): the requests a minute are the limits set there; the
 sign-in trail says who changed the limits, as it says for every setting
 (ADR 0043), and the values before and after go to the log beside it.
 
+As built (family 3): the jobs one account may have queued or running, how
+long finished jobs are listed and an export file kept, the sockets one
+account may hold, and an automation's pace (runs a minute, longest wait)
+are set there, within their bounds, and read where they are held: a job's
+insert (under its advisory lock), its end and the hourly purge, a socket's
+opening, a run's place. The jobs' usage is counted against the value set.
+The sockets of an account are still counted by each process.
+
 As built (family 4): the rows one file brings in and one export writes
 out (`import.max_rows`, `export.max_rows`) are set there, within their
 bounds, and read when a file or a job starts, through the settings' cache.

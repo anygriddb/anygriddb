@@ -1,5 +1,6 @@
 import websocket from "@fastify/websocket";
 import Fastify from "fastify";
+import { ceilingOf } from "@anygriddb/core";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { RIGHTS_CHANNEL } from "./realtime/channels.js";
 import {
@@ -7,11 +8,13 @@ import {
   MAX_BUFFERED_BYTES,
   MAX_CHANNELS_PER_SOCKET,
   MAX_QUEUED_MESSAGES,
-  MAX_SOCKETS_PER_ACCOUNT,
   parseClientMessage,
   PRESENCE_BURST,
   SOCKET_OPTIONS,
 } from "./ws.js";
+
+/** The sockets an account may have open, as shipped. */
+const SOCKETS_SHIPPED = ceilingOf("sockets.per_account");
 
 describe("the socket server", () => {
   it("takes a message up to the parser's limit and closes on a longer one", async () => {
@@ -547,7 +550,7 @@ describe("GridHub under the rights held now", () => {
         return answer;
       },
     );
-    function open(userId: string, sessionHash = "") {
+    function open(userId: string, sessionHash = "", allowed?: number) {
       const sent: Array<Record<string, unknown>> = [];
       const closed: number[] = [];
       const socket = Object.assign(new EventEmitter(), {
@@ -567,7 +570,7 @@ describe("GridHub under the rights held now", () => {
           socket.readyState = 3;
         },
       });
-      grid.add(socket as never, userId, userId, [], sessionHash);
+      grid.add(socket as never, userId, userId, [], sessionHash, allowed);
       return { socket, sent, closed };
     }
     return {
@@ -950,7 +953,7 @@ describe("GridHub under the rights held now", () => {
 
   it("refuses a socket past an account's limit, and only that account's", async () => {
     const { open } = await rig();
-    for (let count = 0; count < MAX_SOCKETS_PER_ACCOUNT; count += 1) {
+    for (let count = 0; count < SOCKETS_SHIPPED; count += 1) {
       expect(open("busy").closed).toEqual([]);
     }
     const refused = open("busy");
@@ -959,10 +962,20 @@ describe("GridHub under the rights held now", () => {
     expect(open("other").closed).toEqual([]);
   });
 
+  it("holds the sockets an account may have open as Administration sets them", async () => {
+    const { open } = await rig();
+    for (let count = 0; count < 4; count += 1) {
+      expect(open("busy", "", 4).closed).toEqual([]);
+    }
+    expect(open("busy", "", 4).closed).toEqual([1013]);
+    // Raised, the next one is taken.
+    expect(open("busy", "", 5).closed).toEqual([]);
+  });
+
   it("makes room when one of an account's sockets closes", async () => {
     const { open } = await rig();
     const first = open("busy");
-    for (let count = 1; count < MAX_SOCKETS_PER_ACCOUNT; count += 1) {
+    for (let count = 1; count < SOCKETS_SHIPPED; count += 1) {
       open("busy");
     }
     first.socket.emit("close");

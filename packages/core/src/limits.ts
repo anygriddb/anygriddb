@@ -87,16 +87,27 @@ type SettableEntry = LimitEntry & {
   bounds: readonly [number, number];
 };
 
-/** A rate an administrator may set, between its floor and its top. */
-function rate(value: number, floor: number, top: number): SettableEntry {
+/** A limit an administrator may set, between its floor and its top. */
+function settable(
+  unit: LimitUnit,
+  value: number,
+  scope: LimitScope,
+  floor: number,
+  top: number,
+): SettableEntry {
   return {
-    unit: "requests per minute",
+    unit,
     value,
-    scope: "address",
+    scope,
     kind: "enforce",
     setBy: "limits",
     bounds: [floor, top],
   };
+}
+
+/** A rate of requests a client's address may send, between its bounds. */
+function rate(value: number, floor: number, top: number): SettableEntry {
+  return settable("requests per minute", value, "address", floor, top);
 }
 
 /** A limit set in Settings or Security, between its bounds. */
@@ -122,12 +133,7 @@ function kept(
  */
 function rows(fixedBy: "IMPORT_MAX_ROWS" | "EXPORT_MAX_ROWS"): SettableEntry {
   return {
-    unit: "rows",
-    value: 1_000_000,
-    scope: "instance",
-    kind: "enforce",
-    setBy: "limits",
-    bounds: [100_000, 10_000_000],
+    ...settable("rows", 1_000_000, "instance", 100_000, 10_000_000),
     fixedBy,
   };
 }
@@ -149,13 +155,26 @@ export const LIMITS = {
   "rate.report": rate(30, 5, 300),
   "rate.app": rate(3_000, 300, 30_000),
   // Jobs, sockets, an automation's pace.
-  "jobs.active_per_account": enforce("jobs", 5, "account"),
-  "jobs.retention_days": enforce("days", 7, "instance"),
-  "export.file_hours": enforce("hours", 24, "instance"),
-  "sockets.per_account": enforce("sockets", 64, "account"),
+  // Set in Administration, between the bounds ADR 0132 records.
+  "jobs.active_per_account": settable("jobs", 5, "account", 1, 50),
+  "jobs.retention_days": settable("days", 7, "instance", 1, 90),
+  "export.file_hours": settable("hours", 24, "instance", 1, 168),
+  "sockets.per_account": settable("sockets", 64, "account", 4, 256),
   "sockets.channels_per_socket": enforce("channels", 128, "socket"),
-  "automation.runs_per_minute": enforce("runs per minute", 300, "automation"),
-  "automation.max_delay_minutes": enforce("minutes", 24 * 60, "automation"),
+  "automation.runs_per_minute": settable(
+    "runs per minute",
+    300,
+    "automation",
+    30,
+    3_000,
+  ),
+  "automation.max_delay_minutes": settable(
+    "minutes",
+    24 * 60,
+    "automation",
+    60,
+    7 * 24 * 60,
+  ),
   // Imports, exports, copies.
   "import.max_rows": rows("IMPORT_MAX_ROWS"),
   "export.max_rows": rows("EXPORT_MAX_ROWS"),

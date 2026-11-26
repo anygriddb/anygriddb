@@ -35,8 +35,6 @@ const BEAT = JSON.stringify({ type: "beat" });
  * this process's memory, and reads again what it shows when it comes back.
  */
 export const MAX_BUFFERED_BYTES = 1_048_576;
-/** One tab is one socket: this is many tabs, and refuses an account's flood. */
-export const MAX_SOCKETS_PER_ACCOUNT = ceilingOf("sockets.per_account");
 /** A page follows a few channels; a dashboard, one per table it shows. */
 export const MAX_CHANNELS_PER_SOCKET = ceilingOf("sockets.channels_per_socket");
 /** Messages of one socket waiting: all its channels asked again, and more. */
@@ -356,7 +354,8 @@ export class GridHub {
   /**
    * Takes a signed-in socket. `early` is what the page sent while its
    * session was looked up, handled first and in order: a page subscribes
-   * as soon as its link opens.
+   * as soon as its link opens. One tab is one socket: `allowed` is many
+   * tabs, as Administration sets it, and refuses an account's flood.
    */
   add(
     socket: WebSocket,
@@ -364,9 +363,10 @@ export class GridHub {
     name = "",
     early: readonly unknown[] = [],
     sessionTokenHash = "",
+    allowed: number = ceilingOf("sockets.per_account"),
   ): void {
     const open = this.perAccount.get(userId) ?? 0;
-    if (open >= MAX_SOCKETS_PER_ACCOUNT) {
+    if (open >= allowed) {
       websocketRefused("too_many_sockets");
       this.log("warn", undefined, "too many sockets for one account");
       socket.close(1013, "Too many connections");

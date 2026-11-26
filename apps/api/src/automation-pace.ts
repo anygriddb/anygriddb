@@ -7,13 +7,21 @@
  */
 import type { Executor } from "@anygriddb/db";
 import { sql } from "kysely";
-import { ceilingOf } from "@anygriddb/core";
+import { limitIn, type LimitValues } from "@anygriddb/core";
 
-/** Runs one automation may start per minute, whatever triggers it. */
-export const RUNS_PER_MINUTE = ceilingOf("automation.runs_per_minute");
+/**
+ * Runs one automation may start per minute, whatever triggers it, and how
+ * long a run may wait for its turn: past it, it is dropped and said so.
+ */
+export type Pace = { perMinute: number; maxDelayMinutes: number };
 
-/** How long a run may wait for its turn: past it, it is dropped and said so. */
-export const MAX_DELAY_MINUTES = ceilingOf("automation.max_delay_minutes");
+/** The pace as Administration sets it, else the catalogue's (ADR 0132). */
+export function paceIn(values: LimitValues): Pace {
+  return {
+    perMinute: limitIn("automation.runs_per_minute", values),
+    maxDelayMinutes: limitIn("automation.max_delay_minutes", values),
+  };
+}
 
 /** A minute's waiting runs start spread over this much of it. */
 const SPREAD_MS = 55_000;
@@ -31,12 +39,13 @@ function instant(at: Date | undefined) {
 export async function reserveMinute(
   executor: Executor,
   automationId: string,
+  pace: Pace,
   at?: Date,
 ): Promise<{ due: boolean; runAt: Date } | null> {
   const now = instant(at);
   const minute = sql`date_trunc('minute', ${now})`;
   // The last minute given stays within the bound, its last place included.
-  const last = MAX_DELAY_MINUTES - 1;
+  const last = pace.maxDelayMinutes - 1;
   const { rows } = await sql<{ minute: Date; place: number; due: boolean }>`
     insert into automation_run_pace as p
       (automation_id, started_minute, started, reserved_minute, reserved)
@@ -45,24 +54,24 @@ export async function reserveMinute(
       reserved_minute = case
         when p.reserved_minute < excluded.reserved_minute
           then excluded.reserved_minute
-        when p.reserved >= ${RUNS_PER_MINUTE}
+        when p.reserved >= ${pace.perMinute}
           then p.reserved_minute + interval '1 minute'
         else p.reserved_minute
       end,
       reserved = case
         when p.reserved_minute < excluded.reserved_minute then 1
-        when p.reserved >= ${RUNS_PER_MINUTE} then 1
+        when p.reserved >= ${pace.perMinute} then 1
         else p.reserved + 1
       end
     where p.reserved_minute
             < excluded.reserved_minute + make_interval(mins => ${last}::int)
-       or p.reserved < ${RUNS_PER_MINUTE}
+       or p.reserved < ${pace.perMinute}
     returning reserved_minute as minute, reserved as place,
               reserved_minute <= ${minute} as due
   `.execute(executor);
   const [row] = rows;
   if (!row) return null;
-  const within = Math.floor(((row.place - 1) * SPREAD_MS) / RUNS_PER_MINUTE);
+  const within = Math.floor(((row.place - 1) * SPREAD_MS) / pace.perMinute);
   return { due: row.due, runAt: new Date(row.minute.getTime() + within) };
 }
 
@@ -74,6 +83,7 @@ export async function reserveMinute(
 export async function startRun(
   executor: Executor,
   automationId: string,
+  pace: Pace,
   at?: Date,
 ): Promise<Date | null> {
   const now = instant(at);
@@ -89,7 +99,7 @@ export async function startRun(
         else p.started + 1
       end
     where p.started_minute < excluded.started_minute
-       or p.started < ${RUNS_PER_MINUTE}
+       or p.started < ${pace.perMinute}
     returning ${now} as started_at
   `.execute(executor);
   return rows[0]?.startedAt ?? null;

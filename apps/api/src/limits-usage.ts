@@ -68,8 +68,11 @@ async function rateUse(
 }
 
 /** Jobs queued or running: the most one account holds, and how many hold all they may. */
-async function jobsUse(db: Database): Promise<LimitUse> {
-  const limit = LIMITS["jobs.active_per_account"].value;
+async function jobsUse(
+  db: Database,
+  settings: InstanceSettings,
+): Promise<LimitUse> {
+  const limit = limitIn("jobs.active_per_account", settings.limits);
   const { rows } = await sql<{ most: number; past: number }>`
     select coalesce(max(n), 0)::int as most,
            count(*) filter (where n >= ${limit})::int as past
@@ -114,7 +117,10 @@ export async function limitsAndUsage(
   env: Env,
   settings: InstanceSettings,
 ): Promise<LimitRow[]> {
-  const [rates, jobs] = await Promise.all([rateUse(db, settings), jobsUse(db)]);
+  const [rates, jobs] = await Promise.all([
+    rateUse(db, settings),
+    jobsUse(db, settings),
+  ]);
   const counted = new Set<LimitId>(Object.values(BUCKET_LIMITS));
   return (Object.keys(LIMITS) as LimitId[]).map((id) => {
     const entry: LimitEntry = LIMITS[id];

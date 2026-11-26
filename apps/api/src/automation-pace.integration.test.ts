@@ -13,7 +13,11 @@ import type { TaskList } from "graphile-worker";
 import pg from "pg";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { loadBindings } from "./auth/access.js";
-import { reserveMinute, RUNS_PER_MINUTE, startRun } from "./automation-pace.js";
+import { paceIn, reserveMinute, startRun } from "./automation-pace.js";
+
+/** The pace as shipped. */
+const PACE = paceIn({});
+const RUNS_PER_MINUTE = PACE.perMinute;
 import {
   type AutomationDeps,
   runAutomation,
@@ -246,11 +250,11 @@ describe("an automation past its limit of runs", () => {
   it("holds one count across concurrent workers", async () => {
     const saved = await automation();
     const started = await Promise.all(
-      Array.from({ length: 400 }, () => startRun(db, saved.id, now)),
+      Array.from({ length: 400 }, () => startRun(db, saved.id, PACE, now)),
     );
     expect(started.filter(Boolean)).toHaveLength(RUNS_PER_MINUTE);
     const given = await Promise.all(
-      Array.from({ length: 700 }, () => reserveMinute(db, saved.id, now)),
+      Array.from({ length: 700 }, () => reserveMinute(db, saved.id, PACE, now)),
     );
     const byMinute = new Map<number, number>();
     for (const place of given) {
@@ -261,6 +265,25 @@ describe("an automation past its limit of runs", () => {
     expect([...byMinute.values()].sort((a, b) => b - a)).toEqual([
       300, 300, 100,
     ]);
+  });
+
+  it("holds the pace Administration sets, and the wait it allows", async () => {
+    const saved = await automation();
+    const pace = paceIn({
+      "automation.runs_per_minute": 30,
+      "automation.max_delay_minutes": 60,
+    });
+    const started = await Promise.all(
+      Array.from({ length: 40 }, () => startRun(db, saved.id, pace, now)),
+    );
+    expect(started.filter(Boolean)).toHaveLength(30);
+    // An hour of 30 a minute: the run past it has no minute left.
+    const given = [];
+    for (let index = 0; index < 60 * 30 + 1; index += 1) {
+      given.push(await reserveMinute(db, saved.id, pace, now));
+    }
+    expect(given.filter(Boolean)).toHaveLength(60 * 30);
+    expect(given.at(-1)).toBeNull();
   });
 
   it("does not let runs that wait hold the limit shut", async () => {
@@ -340,13 +363,13 @@ describe("an automation past its limit of runs", () => {
   it("gives back the minutes of waiting runs when switched off", async () => {
     const saved = await automation();
     for (let index = 0; index < RUNS_PER_MINUTE * 2 + 1; index += 1) {
-      await reserveMinute(db, saved.id, now);
+      await reserveMinute(db, saved.id, PACE, now);
     }
-    const before = await reserveMinute(db, saved.id, now);
+    const before = await reserveMinute(db, saved.id, PACE, now);
     expect(before?.due).toBe(false);
     await setAutomationEnabled(db, owner, saved.id, false);
     await setAutomationEnabled(db, owner, saved.id, true);
-    expect((await reserveMinute(db, saved.id, now))?.due).toBe(true);
+    expect((await reserveMinute(db, saved.id, PACE, now))?.due).toBe(true);
   });
 
   it("answers a press of a button at once when the minute is full", async () => {
@@ -358,7 +381,7 @@ describe("an automation past its limit of runs", () => {
       .executeTakeFirstOrThrow();
     await Promise.all(
       Array.from({ length: RUNS_PER_MINUTE }, () =>
-        startRun(db, saved.id, now),
+        startRun(db, saved.id, PACE, now),
       ),
     );
     await expect(
@@ -378,12 +401,12 @@ describe("an automation past its limit of runs", () => {
       .execute();
     await Promise.all(
       Array.from({ length: RUNS_PER_MINUTE }, () =>
-        startRun(db, saved.id, now),
+        startRun(db, saved.id, PACE, now),
       ),
     );
     await Promise.all(
       Array.from({ length: RUNS_PER_MINUTE }, () =>
-        reserveMinute(db, saved.id, now),
+        reserveMinute(db, saved.id, PACE, now),
       ),
     );
     expect(await runDueSchedules(deps)).toBe(1);
