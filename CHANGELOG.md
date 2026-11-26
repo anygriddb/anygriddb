@@ -10,6 +10,10 @@ first.
 
 ### Changed
 
+- Whether an administrator hears of an account that locks, and how, is one
+  of their notification preferences, as every other notice is; Administration's
+  alerts no longer offer a second switch for it (migration 0148). An
+  administrator who had turned it off there keeps it off.
 - A rating or a duration on a client's floating-point column reads as a
   number field does: an infinity or a NaN reads empty and is said beside
   the value, where PostgreSQL 13 refused the whole page. A text-like field

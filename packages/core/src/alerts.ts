@@ -20,9 +20,10 @@ export type AlertKind = (typeof ALERT_KINDS)[number];
 
 /**
  * What an administrator may ask not to be told about (ROADMAP #48): each
- * alert above, and an account that locks.
+ * alert above. An account that locks is an event of their notification
+ * preferences (ADR 0123), with its channels.
  */
-export const ALERT_CHOICES = [...ALERT_KINDS, "account_locked"] as const;
+export const ALERT_CHOICES = ALERT_KINDS;
 export type AlertChoice = (typeof ALERT_CHOICES)[number];
 
 /** Hours between two mails about an alert that stays open. */

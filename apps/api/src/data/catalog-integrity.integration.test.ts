@@ -1138,6 +1138,71 @@ describe("notification preferences on a catalog that had one email switch", () =
   });
 });
 
+describe("the lock of an account on a catalog that had two switches for it", () => {
+  it("keeps it off for whoever turned it off in Administration, and only that", async () => {
+    const { db, pool, close } = await catalogBefore(
+      "0148_lock_alert_preference",
+    );
+    try {
+      const { rows } = await pool.query<{ id: string; name: string }>(
+        `insert into users (email, display_name, is_admin)
+         values ($1, 'spared', true), ($2, 'mailed', true), ($3, 'told', true)
+         returning id, display_name as name`,
+        [
+          `spared-${suffix}@example.com`,
+          `mailed-${suffix}@example.com`,
+          `told-${suffix}@example.com`,
+        ],
+      );
+      const id = (name: string) =>
+        rows.find((row) => row.name === name)?.id ?? "";
+      // Spared a lock and a late backup; spared a lock though mailed one.
+      await pool.query(
+        `insert into alert_optouts (user_id, kind)
+         values ($1, 'account_locked'), ($1, 'backup_late'), ($2, 'account_locked')`,
+        [id("spared"), id("mailed")],
+      );
+      await pool.query(
+        `insert into notification_preferences (user_id, event, channels)
+         values ($1, 'account_locked', '["email_immediate"]'),
+                ($2, 'account_locked', '["in_app"]')`,
+        [id("mailed"), id("told")],
+      );
+
+      const ran = await migrateDb(pool);
+      expect(ran[0]).toBe("0148_lock_alert_preference");
+      const kept = await db
+        .selectFrom("notificationPreferences")
+        .select(["userId", "channels"])
+        .where("event", "=", "account_locked")
+        .where("userId", "in", [id("spared"), id("mailed"), id("told")])
+        .execute();
+      const channels = (name: string) =>
+        JSON.stringify(kept.find((row) => row.userId === id(name))?.channels);
+      expect([
+        channels("spared"),
+        channels("mailed"),
+        channels("told"),
+      ]).toEqual(["[]", "[]", '["in_app"]']);
+      const left = await db
+        .selectFrom("alertOptouts")
+        .select(["userId", "kind"])
+        .where("userId", "in", [id("spared"), id("mailed")])
+        .execute();
+      expect(left).toEqual([{ userId: id("spared"), kind: "backup_late" }]);
+      // The lock is no alert choice any more.
+      await expect(
+        pool.query(
+          `insert into alert_optouts (user_id, kind) values ($1, 'account_locked')`,
+          [id("told")],
+        ),
+      ).rejects.toThrow(/alert_optouts_kind_check/);
+    } finally {
+      await close();
+    }
+  });
+});
+
 describe("one journal of deliveries on a catalog that kept two", () => {
   it("moves a webhook's and a channel's deliveries, each with its id", async () => {
     const { db, pool, close } = await catalogBefore("0139");
