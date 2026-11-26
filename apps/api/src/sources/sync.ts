@@ -634,10 +634,14 @@ async function loadNext(
     return { columns, ...loaded };
   }
   let read = 0;
-  for (let offset = 0; ; offset += PAGE) {
+  // Each page starts after the last row read, not at a count of rows: a
+  // row the client deletes meanwhile moves no other out of the copy.
+  let after: string | undefined;
+  for (;;) {
+    const spec = { fields, limit: PAGE, timeZone: "UTC" };
     const page = await readTransaction(deps.db, plain, (run) =>
       run(
-        buildReadRows(plain, { fields, offset, limit: PAGE, timeZone: "UTC" }),
+        buildReadRows(plain, after === undefined ? spec : { ...spec, after }),
       ),
     );
     if (page.length === 0) break;
@@ -659,6 +663,7 @@ async function loadNext(
       ),
     );
     if (page.length < PAGE) break;
+    after = String(page[page.length - 1]?.id);
   }
   return { columns, rows: read, leftOut: 0 };
 }

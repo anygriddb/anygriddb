@@ -19,6 +19,13 @@ first.
   the value, where PostgreSQL 13 refused the whole page. A text-like field
   on MySQL's JSON or long text reads as its text, as a text did.
 
+### Fixed
+
+- A synced client table could lose a row from its copy when the client
+  deleted another row while the copy was read: the row was told deleted to
+  open grids, webhooks and automations, and came back at the next refresh.
+  Each page of the copy now starts after the last row read, by its key.
+
 ## 0.11.0 - 2026-11-26
 
 Before upgrading: an identity provider reached at the machine's own address

@@ -8,6 +8,7 @@ import { addComment, countComments } from "../data/comments.js";
 import { randomBytes } from "node:crypto";
 import { AppError, buildReadRows } from "@anygriddb/core";
 import type { Database } from "@anygriddb/db";
+import { sql } from "kysely";
 import {
   GenericContainer,
   Wait,
@@ -28,7 +29,9 @@ import { createTestDatabase } from "../test-database.js";
 import { exposeTables, refreshExposedTable } from "./expose.js";
 import { exerciseHostedBase } from "./host-table.test-helpers.js";
 import { readExternalAudit } from "./writes.js";
+import { recordingBus } from "../realtime/recording-bus.test-helpers.js";
 import { setSourcePools, SourcePools } from "./pools.js";
+import { runSync, setTableSync } from "./sync.js";
 import {
   checkConnection,
   createSource,
@@ -849,5 +852,92 @@ describe("PostgreSQL sources", () => {
           ])
         )?.output.trim() ?? "",
     });
+  });
+
+  it("copies every row the client keeps, though rows go while the copy is read", async () => {
+    const deps = { db, key, settings };
+    pools ??= new SourcePools({ db, key, settings, log: () => undefined });
+    setSourcePools(pools);
+    const psql = (command: string) =>
+      server?.exec(["psql", "-U", "postgres", "-d", "erp", "-c", command]);
+    await psql(
+      [
+        "create table postings (id int primary key, note text not null)",
+        "insert into postings select g, 'line ' || g from generate_series(1, 2500) g",
+        "grant select on postings to anygriddb",
+      ].join("; "),
+    );
+    const source = await createSource(deps, admin, {
+      name: "Postings",
+      ...connection(),
+      connectionLimit: 2,
+    });
+    const base = await insertBase(db, admin, { name: "Postings" });
+    const {
+      tableIds: [postingsId = ""],
+    } = await exposeTables(deps, admin, {
+      sourceId: source.id,
+      baseId: base.id,
+      tables: [{ schema: "public", name: "postings" }],
+    });
+    await setTableSync(db, admin, { tableId: postingsId, intervalMinutes: 15 });
+    const { bus, published } = recordingBus();
+    const syncDeps = { db, bus, log: () => undefined };
+    expect(await runSync(syncDeps, postingsId)).toBe(15 * 60);
+    published.length = 0;
+    // The next copy is read a page at a time: once its first page is read,
+    // the client deletes its first row.
+    const sourcePools = pools;
+    const read = sourcePools.read.bind(sourcePools);
+    let deleted = false;
+    const spy = vi
+      .spyOn(sourcePools, "read")
+      .mockImplementation((sourceId, body) =>
+        read(sourceId, body).then(async (result) => {
+          if (!deleted && Array.isArray(result) && result.length === 1000) {
+            deleted = true;
+            await psql("delete from postings where id = 1");
+          }
+          return result;
+        }),
+      );
+    try {
+      expect(await runSync(syncDeps, postingsId)).toBe(15 * 60);
+    } finally {
+      spy.mockRestore();
+    }
+    expect(deleted).toBe(true);
+    // No webhook or automation is told that a row went, nor any open grid.
+    const { rows: told } = await sql<{ event: string | null }>`
+      select payload -> 'event' ->> 'event' as "event"
+        from graphile_worker._private_jobs
+       where payload -> 'event' ->> 'tableId' = ${postingsId}
+    `.execute(db);
+    expect(told.filter(({ event }) => event === "delete")).toEqual([]);
+    expect(
+      published.filter(
+        ({ message }) => (message as { op?: string }).op === "delete",
+      ),
+    ).toEqual([]);
+    const { engine } = await loadEngine(db, postingsId, () => true);
+    expect(engine.table.external?.synced).toBe(true);
+    const id = engine.table.columns.find(
+      (column) => column.physical?.name === "id",
+    )?.name;
+    const ids = new Set<string>();
+    for (const offset of [0, 1000, 2000]) {
+      const page = await readPage(
+        db,
+        engine,
+        { limit: 1000, offset, timeZone: "UTC" },
+        { total: false },
+      );
+      for (const row of page.rows) ids.add(String(row[id ?? ""]));
+    }
+    // Every row the client kept is in the copy: none is read as deleted.
+    const missing = Array.from({ length: 2499 }, (_, index) =>
+      String(index + 2),
+    ).filter((value) => !ids.has(value));
+    expect(missing).toEqual([]);
   });
 });

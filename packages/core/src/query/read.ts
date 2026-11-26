@@ -55,6 +55,7 @@ import {
 } from "./storage";
 import { AppError, type ErrorCode } from "../errors";
 import { numberToDecimal } from "../decimal";
+import { keyAfter } from "./external-write";
 import type { SourceLimit } from "./limits";
 import { ceilingOf } from "../limits";
 
@@ -99,6 +100,14 @@ export type ReadSpec = {
   excludeRowIds?: readonly string[];
   limit: number;
   offset?: number;
+  /**
+   * A client's rows after the one this id names, in its key's order (its
+   * content's, for a table without a key): a table read whole a page at a
+   * time misses none of the rows it keeps, whatever rows go meanwhile,
+   * where an offset would skip one. Not with sorts or groups, which order
+   * rows otherwise.
+   */
+  after?: string;
   timeZone?: string;
   me?: string;
   /**
@@ -264,6 +273,27 @@ function assertBounds(spec: ReadSpec): void {
   if (!Number.isInteger(offset) || offset < 0 || offset > MAX_READ_OFFSET) {
     throw new AppError("invalid_offset");
   }
+}
+
+/** Where a page that starts after a client's row starts (`ReadSpec.after`). */
+function afterClause(
+  table: EngineTable,
+  spec: ReadSpec,
+  params: SqlParams,
+): string {
+  const after = spec.after ?? "";
+  if (
+    !table.external ||
+    (spec.sort?.length ?? 0) > 0 ||
+    (spec.groupBy?.length ?? 0) > 0 ||
+    spec.newestFirst
+  ) {
+    throw new AppError("invalid_offset");
+  }
+  const at = (index: number) => `q."ag_order_${String(index)}"`;
+  return table.external.key.length > 0
+    ? keyAfter(table, after, params, at)
+    : `${at(0)} > ${params.bind(after)}`;
 }
 
 /** Every column a filter tree reads. */
@@ -499,6 +529,9 @@ function prepare(catalog: EngineCatalog, spec: ReadSpec): Prepared {
           : `not (q."id" = any(${list}::uuid[]))`,
       );
     }
+  }
+  if (spec.after !== undefined) {
+    clauses.push(afterClause(table, spec, params));
   }
   const present = clauses.filter((clause): clause is string => clause !== null);
   const where = present.length > 0 ? ` where ${present.join(" and ")}` : "";

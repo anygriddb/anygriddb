@@ -1953,6 +1953,21 @@ describe("conformance of formulas across engines", () => {
         { total: false },
       );
       trace.push(pairRows.rows.map((row) => row[pair("v")]));
+      // A page that starts after a row reads past both columns of its key,
+      // in their order, as a synced table's copy reads its table.
+      const past = async (after: string) =>
+        (
+          await readPage(
+            db,
+            pairs.engine,
+            { limit: 10, timeZone: "UTC", after },
+            { total: false },
+          )
+        ).rows.map((row) => row.id);
+      expect(await past(pairId), engine).toEqual([]);
+      expect(await past(pairId.replace('"x"', '"w"')), engine).toEqual([
+        pairId,
+      ]);
       // The team lists its pairs, whose ids hold two key columns: T-SQL
       // aggregates no subquery, so the ids are built before STRING_AGG.
       const teamsTable = await db

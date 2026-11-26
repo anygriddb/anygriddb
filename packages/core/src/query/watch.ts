@@ -19,6 +19,7 @@
 import { AppError } from "../errors";
 import { dialectOf, type DialectName } from "./dialect";
 import type { EngineTable } from "./engine";
+import { keysAfter } from "./external-write";
 import { quoteExternalIdent, SqlParams, type ParameterizedSql } from "./params";
 import { tableSql } from "./storage";
 import { withoutGroups } from "../plain-text";
@@ -224,20 +225,6 @@ function keyValue(
     : placeholder;
 }
 
-/**
- * `(a, b) > (x, y)` written out, which SQL Server has no syntax for: the
- * rows after a key in the key's order.
- */
-function after(refs: readonly string[], values: readonly string[]): string {
-  const terms = refs.map((ref, index) => {
-    const equal = refs
-      .slice(0, index)
-      .map((left, at) => `${left} = ${values[at] ?? ""}`);
-    return [...equal, `${ref} > ${values[index] ?? ""}`].join(" and ");
-  });
-  return terms.map((term) => `(${term})`).join(" or ");
-}
-
 function limitClause(
   dialect: DialectName,
   limit: number,
@@ -323,7 +310,7 @@ export function buildWatchPage(
     const bound = key.map((name, index) =>
       keyValue(dialect, keyType(table, name), params.bind(mark.key?.[index])),
     );
-    where = `(${where} or (${ref} = ${again} and (${after(keys, bound)})))`;
+    where = `(${where} or (${ref} = ${again} and (${keysAfter(keys, bound)})))`;
   }
   if (kind === "version") where += ` and ${ref} < min_active_rowversion()`;
   if (kind === "time" && upTo !== undefined) {
@@ -468,7 +455,7 @@ export function buildChangeTracking(
     const bound = key.map((name, index) =>
       keyValue(dialect, keyType(table, name), params.bind(resume.key[index])),
     );
-    where += ` and (${version} > ${at} or (${version} = ${again} and (${after(keys, bound)})))`;
+    where += ` and (${version} > ${at} or (${version} = ${again} and (${keysAfter(keys, bound)})))`;
   }
   const since$ = params.bind(since);
   const columns = [
