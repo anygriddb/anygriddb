@@ -207,6 +207,56 @@ describe("files no cell holds", () => {
     expect(await refusal(64)).toBe("ok");
   });
 
+  it("refuses what would go past a quota, though files are sent together", async () => {
+    const mib = 1024 * 1024;
+    // Each file fits alone; two of them do not.
+    const size = Math.ceil((mib - (await accountStorage(db, owner))) * 0.6);
+    const stored = async () => {
+      const keys: string[] = [];
+      for await (const entry of files.list()) keys.push(entry.key);
+      return keys.length;
+    };
+    const held = async () =>
+      Math.max(await accountStorage(db, owner), await baseStorage(db, baseId));
+    for (const limits of [
+      { "storage.account_mib": 1 },
+      { "storage.base_mib": 1 },
+    ]) {
+      await writeSettings(db, owner, { limits });
+      const before = await stored();
+      const outcomes = await Promise.allSettled(
+        ["one", "two", "three"].map((name) => send(`${name}.bin`, size)),
+      );
+      try {
+        // A file refused once sent leaves nothing in the store.
+        expect(await stored()).toBe(before + 1);
+        expect(
+          outcomes.map((outcome) =>
+            outcome.status === "fulfilled"
+              ? "stored"
+              : outcome.reason instanceof AppError
+                ? outcome.reason.code
+                : "thrown",
+          ),
+        ).toEqual(
+          expect.arrayContaining(["stored", expect.stringMatching(/_full$/)]),
+        );
+        expect(
+          outcomes.filter((outcome) => outcome.status === "fulfilled"),
+        ).toHaveLength(1);
+        expect(await held()).toBeLessThanOrEqual(mib);
+      } finally {
+        await writeSettings(db, owner, { limits: {} });
+        // What this round stored counts for nobody in the next.
+        await db
+          .updateTable("attachments")
+          .set({ releasedAt: new Date() })
+          .where("filename", "like", "%.bin")
+          .execute();
+      }
+    }
+  });
+
   it("queues one look a little after changes of a table that holds files, and none for one that holds none", async () => {
     const queued = async (key: string) =>
       Number(

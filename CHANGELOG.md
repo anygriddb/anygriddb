@@ -25,6 +25,10 @@ first.
   deleted another row while the copy was read: the row was told deleted to
   open grids, webhooks and automations, and came back at the next refresh.
   Each page of the copy now starts after the last row read, by its key.
+- Files sent together could all be taken past a base's or an account's
+  storage quota, each counted without the others. The room is now asked
+  again as each file is recorded, one after the other, and a file refused
+  then leaves nothing in the store.
 
 ## 0.11.0 - 2026-11-26
 
