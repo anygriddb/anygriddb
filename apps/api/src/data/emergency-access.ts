@@ -5,6 +5,7 @@
  * and until when. The same notice goes out when an administrator gives
  * themselves a role on a base, which is the other way in.
  */
+import { isAdminOf } from "../auth/instance-roles.js";
 import { holdersOf, holdsOnBase } from "./attributions.js";
 import { AppError, type Binding, trimEndRun, ceilingOf } from "@anygriddb/core";
 import type { Database } from "@anygriddb/db";
@@ -114,7 +115,7 @@ export async function openBasesOf(
     .where("e.userId", "in", [...userIds])
     .where("e.endedAt", "is", null)
     .where("e.expiresAt", ">", sql<Date>`now()`)
-    .where("u.isAdmin", "=", true)
+    .where(isAdminOf("u.id"))
     .where("u.disabledAt", "is", null)
     .where(liveBase())
     .execute();
@@ -156,7 +157,7 @@ export async function listOpenAccess(db: Database, baseId: string) {
     .where("e.baseId", "=", baseId)
     .where("e.endedAt", "is", null)
     .where("e.expiresAt", ">", sql<Date>`now()`)
-    .where("u.isAdmin", "=", true)
+    .where(isAdminOf("u.id"))
     .where("u.disabledAt", "is", null)
     .orderBy("e.openedAt", "asc")
     .execute();

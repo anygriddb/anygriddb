@@ -2,6 +2,7 @@
  * A passkey does not finish a password sign-in begun before "single sign-on
  * only". The ceremony itself is someone else's test: here it succeeds.
  */
+import { giveInstanceRole } from "./instance-roles.test-helpers.js";
 import { randomBytes } from "node:crypto";
 import type { Database } from "@anygriddb/db";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
@@ -46,18 +47,18 @@ describe("a passkey under single sign-on only", () => {
   };
   const browser = browserFactory({ db: () => db, env, hub });
 
-  const account = async (label: string, isAdmin = false) =>
-    (
-      await db
-        .insertInto("users")
-        .values({
-          email: `${label}-${suffix}@example.org`,
-          displayName: label,
-          isAdmin,
-        })
-        .returning("id")
-        .executeTakeFirstOrThrow()
-    ).id;
+  const account = async (label: string, isAdmin = false) => {
+    const { id } = await db
+      .insertInto("users")
+      .values({
+        email: `${label}-${suffix}@example.org`,
+        displayName: label,
+      })
+      .returning("id")
+      .executeTakeFirstOrThrow();
+    if (isAdmin) await giveInstanceRole(db, id);
+    return id;
+  };
 
   const challenged = async (
     userId: string,

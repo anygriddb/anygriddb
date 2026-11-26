@@ -298,7 +298,7 @@ async function tablesAccess(
     .execute();
   for (const row of roles) {
     const role = snapshotRoleOf(givenOf(row));
-    if (!role) continue;
+    if (!role || row.tableId === null) continue;
     const current = entry(row.tableId, row.email);
     current.role = role;
     const rows = rowsOf(row.rowFilter);

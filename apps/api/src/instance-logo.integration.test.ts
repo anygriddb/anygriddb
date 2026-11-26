@@ -3,6 +3,7 @@
  * administrator sets, who may set it, how anyone reads it, and the name,
  * sender and signature every mail then carries.
  */
+import { giveInstanceRole } from "./auth/instance-roles.test-helpers.js";
 import { randomBytes } from "node:crypto";
 import type { Database } from "@anygriddb/db";
 import Fastify, { type FastifyInstance } from "fastify";
@@ -181,11 +182,7 @@ describe("the instance's name, logo and mail", () => {
     expect(await code(member.call().admin.removeLogo())).toBe("access_denied");
     // An auditor reads the settings, the logo's version among them, and
     // changes nothing.
-    await db
-      .updateTable("users")
-      .set({ isAuditor: true })
-      .where("id", "=", memberId)
-      .execute();
+    await giveInstanceRole(db, memberId, "auditor", true);
     expect((await member.call().admin.settings()).logo).toMatch(/^[0-9a-f]+$/);
     expect(await code(member.call().admin.setLogo({ data }))).toBe(
       "access_denied",

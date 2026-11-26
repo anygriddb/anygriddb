@@ -1,6 +1,7 @@
 /**
  * Load by source (ROADMAP #41): minute buckets every process writes.
  */
+import { giveInstanceRole } from "./auth/instance-roles.test-helpers.js";
 import { randomBytes } from "node:crypto";
 import type { Database } from "@anygriddb/db";
 import { sql } from "kysely";
@@ -33,11 +34,11 @@ describe("source load buckets", () => {
         .values({
           email: `load-${suffix}@example.org`,
           displayName: "Load",
-          isAdmin: true,
         })
         .returning("id")
         .executeTakeFirstOrThrow()
     ).id;
+    await giveInstanceRole(db, admin);
     sourceId = await withAudit(db, { userId: admin, source: "test" }, (tx) =>
       tx
         .insertInto("sources")

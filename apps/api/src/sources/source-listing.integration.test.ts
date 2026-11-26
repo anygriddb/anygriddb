@@ -3,6 +3,7 @@
  * cut and a search reaches the rest, and what asks for one table by its
  * name never depends on where the cut fell.
  */
+import { giveInstanceRole } from "../auth/instance-roles.test-helpers.js";
 import { randomBytes } from "node:crypto";
 import { AppError } from "@anygriddb/core";
 import type { Database } from "@anygriddb/db";
@@ -70,11 +71,11 @@ describe("a source of more than 2,000 tables", () => {
         .values({
           email: "admin@example.com",
           displayName: "Admin",
-          isAdmin: true,
         })
         .returning("id")
         .executeTakeFirstOrThrow()
     ).id;
+    await giveInstanceRole(db, actor, "administrator");
     baseId = (await insertBase(db, actor, { name: "Listing" })).id;
     pools = new SourcePools({ db, key, settings, log: () => undefined });
     setSourcePools(pools);

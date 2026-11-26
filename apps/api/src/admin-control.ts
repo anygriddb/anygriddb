@@ -11,7 +11,13 @@ import { AppError } from "@anygriddb/core";
 import { sql as sqlTag } from "kysely";
 import { z } from "zod";
 import { recordAuthEvent } from "./auth/auth-events.js";
-import { holdsInstanceRole } from "./auth/instance-roles.js";
+import {
+  holdsAnyInstanceRole,
+  holdsInstanceRole,
+  isAdminOf,
+  isAuditorOf,
+  isSupportOf,
+} from "./auth/instance-roles.js";
 import { withAudit } from "./data/audit-context.js";
 import type { DeliveryOrigin } from "./outbound/deliveries.js";
 import { eraseAccount, ERASED_USER_ID } from "./data/erasure.js";
@@ -244,11 +250,9 @@ export async function listSessions(
       "s.userId",
       "u.email",
       "u.displayName",
-      "u.isAdmin",
+      isAdminOf("u.id").as("isAdmin"),
       // Whom support and an account manager leave alone (`helpdeskReach`).
-      sqlTag<boolean>`(u.is_admin or u.is_support or u.is_auditor or ${holdsInstanceRole("u.id")})`.as(
-        "holdsRole",
-      ),
+      holdsAnyInstanceRole("u.id").as("holdsRole"),
       "s.createdAt",
       "s.expiresAt",
     ])
@@ -333,7 +337,10 @@ export async function endOtherSessions(
       .where("userId", "<>", actorId)
       .$if(scope === "non_admins", (query) =>
         query.where("userId", "in", (eb) =>
-          eb.selectFrom("users").select("id").where("isAdmin", "=", false),
+          eb
+            .selectFrom("users")
+            .select("id")
+            .where((eb) => eb.not(isAdminOf("users.id"))),
         ),
       )
       .$if(scope === "no_role", (query) =>
@@ -341,9 +348,9 @@ export async function endOtherSessions(
           eb
             .selectFrom("users")
             .select("id")
-            .where("isAdmin", "=", false)
-            .where("isSupport", "=", false)
-            .where("isAuditor", "=", false)
+            .where((eb) => eb.not(isAdminOf("users.id")))
+            .where((eb) => eb.not(isSupportOf("users.id")))
+            .where((eb) => eb.not(isAuditorOf("users.id")))
             .where(sqlTag<boolean>`not ${holdsInstanceRole("users.id")}`),
         ),
       )
@@ -402,9 +409,9 @@ export async function helpdeskReach(
   const target = await db
     .selectFrom("users")
     .select([
-      "isAdmin",
-      "isSupport",
-      "isAuditor",
+      isAdminOf("users.id").as("isAdmin"),
+      isSupportOf("users.id").as("isSupport"),
+      isAuditorOf("users.id").as("isAuditor"),
       holdsInstanceRole("users.id").as("hasInstanceRole"),
     ])
     .where("id", "=", userId)
@@ -582,7 +589,10 @@ export async function endPasswordAccess(
       .deleteFrom("sessions")
       .where("signOn", "is", null)
       .where("userId", "in", (eb) =>
-        eb.selectFrom("users").select("id").where("isAdmin", "=", false),
+        eb
+          .selectFrom("users")
+          .select("id")
+          .where((eb) => eb.not(isAdminOf("users.id"))),
       )
       .returning("userId")
       .execute();
@@ -599,7 +609,7 @@ export async function endPasswordAccess(
       .innerJoin("users as u", "u.id", "k.userId")
       .select("k.userId")
       .distinct()
-      .where("u.isAdmin", "=", false)
+      .where((eb) => eb.not(isAdminOf("u.id")))
       .execute();
     let tokens = 0;
     for (const { userId } of holders) {
@@ -721,7 +731,7 @@ export async function accessReportCsv(db: Database): Promise<string> {
       "u.id",
       "u.email",
       "u.displayName",
-      "u.isAdmin",
+      isAdminOf("u.id").as("isAdmin"),
       "u.disabledAt",
       "u.lastSignInAt as lastSignIn",
     ])

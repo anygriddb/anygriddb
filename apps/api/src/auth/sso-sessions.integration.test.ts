@@ -2,6 +2,7 @@
  * A sign-on against two real protocols: which account it reaches, what it
  * proves, how long its session lasts, and what ends it.
  */
+import { giveInstanceRole } from "./instance-roles.test-helpers.js";
 import { randomBytes } from "node:crypto";
 import cookie from "@fastify/cookie";
 import type { Database } from "@anygriddb/db";
@@ -84,11 +85,11 @@ describe("single sign-on, end to end", () => {
         .values({
           email: `operator-${suffix}@example.org`,
           displayName: "Olga Operator",
-          isAdmin: true,
         })
         .returning("id")
         .executeTakeFirstOrThrow()
     ).id;
+    await giveInstanceRole(db, operator);
     await writeSettings(db, operator, { signup: "open" });
     oidc = await oidcProvider(OIDC_ISSUER, CLIENT);
     [current, next, stranger] = await Promise.all([
@@ -193,9 +194,10 @@ describe("single sign-on, end to end", () => {
     const email = address(label);
     const row = await db
       .insertInto("users")
-      .values({ email, displayName: label, isAdmin })
+      .values({ email, displayName: label })
       .returning("id")
       .executeTakeFirstOrThrow();
+    if (isAdmin) await giveInstanceRole(db, row.id);
     return { email, id: row.id };
   };
 
@@ -366,11 +368,7 @@ describe("single sign-on, end to end", () => {
       await oidcSignIn({ sub, email, email_verified: true });
       const id = (await idOf(email)) ?? "";
       if (isAdmin) {
-        await db
-          .updateTable("users")
-          .set({ isAdmin: true })
-          .where("id", "=", id)
-          .execute();
+        await giveInstanceRole(db, id, "administrator", true);
       }
       return { email, sub, id };
     };

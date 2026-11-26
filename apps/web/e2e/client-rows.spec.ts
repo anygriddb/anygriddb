@@ -3,6 +3,7 @@ import pg from "pg";
 import {
   accessibilityViolations,
   clusterUrl,
+  MAKE_ADMINISTRATOR,
   signUpWithTable,
   uniqueStamp,
   watchPolicy,
@@ -81,9 +82,7 @@ test("a client's rows: locked, signed, told when changed elsewhere, in a circuit
 
     // An administrator declares the source and shows the table in a base.
     const { email } = await signUpWithTable(page, "Admin Rows");
-    await control.query("update users set is_admin = true where email = $1", [
-      email,
-    ]);
+    await control.query(MAKE_ADMINISTRATOR, [email]);
     const baseId = (
       await control.query<{ id: string }>(
         "select r.scope_id as id from attributions r join users u on u.id = r.user_id where u.email = $1 and r.scope = 'base' and r.role = 'owner'",

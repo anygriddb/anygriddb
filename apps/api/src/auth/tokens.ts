@@ -1,3 +1,4 @@
+import { isAdminOf, isAuditorOf, isSupportOf } from "./instance-roles.js";
 import { createHash, randomBytes } from "node:crypto";
 import type { Database, Executor, Tx } from "@anygriddb/db";
 import type { SessionUser } from "./session.js";
@@ -87,9 +88,9 @@ export async function findApiToken(
       "u.id",
       "u.email",
       "u.displayName",
-      "u.isAdmin",
-      "u.isSupport",
-      "u.isAuditor",
+      isAdminOf("u.id").as("isAdmin"),
+      isSupportOf("u.id").as("isSupport"),
+      isAuditorOf("u.id").as("isAuditor"),
       "k.id as tokenId",
       "k.baseIds",
       "k.readOnly",
@@ -99,7 +100,7 @@ export async function findApiToken(
     .where("k.tokenHash", "=", hashApiToken(token))
     .where("k.expiresAt", ">", new Date())
     .where("k.createdAt", ">", oldest)
-    .$if(apiTokens === "admins", (query) => query.where("u.isAdmin", "=", true))
+    .$if(apiTokens === "admins", (query) => query.where(isAdminOf("u.id")))
     .where("u.disabledAt", "is", null)
     .executeTakeFirst();
   if (!row) {

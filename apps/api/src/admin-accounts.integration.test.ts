@@ -4,6 +4,7 @@
  * first link, the list filtered and sorted, an account's page, and pending
  * invitations sent again.
  */
+import { giveInstanceRole } from "./auth/instance-roles.test-helpers.js";
 import { randomBytes } from "node:crypto";
 import type { Database } from "@anygriddb/db";
 import { sql } from "kysely";
@@ -357,7 +358,8 @@ describe("accounts in Administration", () => {
       await make("Bravo", { disabledAt: new Date() });
       await make("Charlie", { lockedAt: new Date() });
       await make("Delta", { scimUserName: `delta-${suffix}` });
-      const echo = await make("Echo", { isAdmin: true });
+      const echo = await make("Echo");
+      await giveInstanceRole(db, echo.id);
       await db
         .insertInto("ssoIdentities")
         .values({

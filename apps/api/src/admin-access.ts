@@ -145,7 +145,7 @@ export async function effectiveAccess(
 
   const sourced: SourcedBinding[] = bindings.flatMap((row) => {
     const role = givenOf(row);
-    return role === null
+    return role === null || row.scopeId === null
       ? []
       : [
           {

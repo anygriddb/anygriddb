@@ -3,6 +3,7 @@
  * with a self-signed certificate that the test pastes as an administrator
  * would, and reading what their dedicated account may see.
  */
+import { giveInstanceRole } from "../auth/instance-roles.test-helpers.js";
 import { randomBytes } from "node:crypto";
 import dns from "node:dns";
 import { AppError, describeColumns } from "@anygriddb/core";
@@ -129,11 +130,11 @@ describe.each(FLAVORS)("$engine sources", (flavor) => {
         .values({
           email: "admin@example.com",
           displayName: "Admin",
-          isAdmin: true,
         })
         .returning("id")
         .executeTakeFirstOrThrow()
     ).id;
+    await giveInstanceRole(db, admin, "administrator");
   });
 
   afterAll(async () => {

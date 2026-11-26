@@ -1,3 +1,4 @@
+import { isAdminOf } from "../auth/instance-roles.js";
 import { sql } from "kysely";
 import type { Database, Tx } from "@anygriddb/db";
 import { z } from "zod";
@@ -80,7 +81,7 @@ export async function eraseAccount(
         .selectFrom("users")
         .select([
           "email",
-          "isAdmin",
+          isAdminOf("users.id").as("isAdmin"),
           "disabledAt",
           "scimUserName",
           "deprovisionedAt",
@@ -107,7 +108,7 @@ export async function eraseAccount(
         const others = await tx
           .selectFrom("users")
           .select("id")
-          .where("isAdmin", "=", true)
+          .where(isAdminOf("users.id"))
           .where("disabledAt", "is", null)
           .where("id", "<>", userId)
           .forUpdate()

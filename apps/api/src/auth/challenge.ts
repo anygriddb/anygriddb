@@ -1,3 +1,4 @@
+import { isAdminOf } from "./instance-roles.js";
 import { ceilingOf } from "@anygriddb/core";
 import { randomBytes } from "node:crypto";
 import type { Database } from "@anygriddb/db";
@@ -94,7 +95,10 @@ export async function dropPasswordChallenges(db: Database): Promise<void> {
     .deleteFrom("loginChallenges")
     .where("signOn", "is", null)
     .where("userId", "in", (eb) =>
-      eb.selectFrom("users").select("id").where("isAdmin", "=", false),
+      eb
+        .selectFrom("users")
+        .select("id")
+        .where((eb) => eb.not(isAdminOf("users.id"))),
     )
     .execute();
 }

@@ -1,3 +1,4 @@
+import { giveInstanceRole } from "../auth/instance-roles.test-helpers.js";
 import { randomBytes } from "node:crypto";
 import type { Database } from "@anygriddb/db";
 import { sql } from "kysely";
@@ -45,13 +46,13 @@ describe("every public link and calendar feed, for an administrator", () => {
         {
           email: `admin-${suffix}@example.org`,
           displayName: "Admin",
-          isAdmin: true,
         },
       ])
       .returning("id")
       .execute();
     owner = people[0]?.id ?? "";
     admin = people[1]?.id ?? "";
+    await giveInstanceRole(db, admin);
     const baseId = (await insertBase(db, owner, { name: "Ventes" })).id;
     tableId = (
       await insertTable(db, owner, {

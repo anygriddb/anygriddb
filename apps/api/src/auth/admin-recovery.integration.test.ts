@@ -5,6 +5,8 @@
  * only when asked, every change on the sign-in trail as done from the
  * command line, and nothing done for an address it must not touch.
  */
+import { giveInstanceRole } from "./instance-roles.test-helpers.js";
+import { isAdminOf } from "./instance-roles.js";
 import { randomBytes } from "node:crypto";
 import type { Database } from "@anygriddb/db";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -51,13 +53,13 @@ describe("an operator's way back in", () => {
       .values({
         email: address(name),
         displayName: name,
-        isAdmin: values.isAdmin ?? false,
         ...(values.disabled
           ? { disabledAt: new Date(), disabledReason: "admin" }
           : {}),
       })
       .returning("id")
       .executeTakeFirstOrThrow();
+    if (values.isAdmin) await giveInstanceRole(db, row.id);
     return row.id;
   }
 
@@ -81,7 +83,11 @@ describe("an operator's way back in", () => {
   const accountOf = (userId: string) =>
     db
       .selectFrom("users")
-      .select(["isAdmin", "disabledAt", "disabledReason"])
+      .select([
+        isAdminOf("users.id").as("isAdmin"),
+        "disabledAt",
+        "disabledReason",
+      ])
       .where("id", "=", userId)
       .executeTakeFirstOrThrow();
 
@@ -243,7 +249,12 @@ describe("an operator's way back in", () => {
     expect(done.changed).toEqual(["created"]);
     const made = await db
       .selectFrom("users")
-      .select(["email", "displayName", "isAdmin", "disabledAt"])
+      .select([
+        "email",
+        "displayName",
+        isAdminOf("users.id").as("isAdmin"),
+        "disabledAt",
+      ])
       .where("id", "=", done.userId)
       .executeTakeFirstOrThrow();
     expect(made).toEqual({

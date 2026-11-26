@@ -1,3 +1,4 @@
+import { isAdminOf } from "./instance-roles.js";
 import { oidcFetch } from "../integrations/oidc.js";
 import { declaredRoute } from "../access/routes.js";
 import type { KeyRing } from "./key-ring.js";
@@ -360,7 +361,7 @@ async function finishSignIn(
   assertSignInAddressAllowed(policy.signInAllowlist, request.ip);
   const account = await deps.db
     .selectFrom("users")
-    .select(["disabledAt", "isAdmin"])
+    .select(["disabledAt", isAdminOf("users.id").as("isAdmin")])
     .where("id", "=", userId)
     .executeTakeFirst();
   if (!account || account.disabledAt) throw new AppError("account_disabled");

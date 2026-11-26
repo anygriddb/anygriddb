@@ -8,6 +8,7 @@
  * A sign-in, a token used, or an administrator enabling the account again
  * starts the count over.
  */
+import { isAdminOf } from "./instance-roles.js";
 import { inactivityDates, type InstanceSettings } from "@anygriddb/core";
 import type { Database } from "@anygriddb/db";
 import { resolveSmtp } from "../integrations/smtp.js";
@@ -28,7 +29,7 @@ function eligible(db: Database) {
   return db
     .selectFrom("users")
     .where("disabledAt", "is", null)
-    .where("isAdmin", "=", false)
+    .where((eb) => eb.not(isAdminOf("users.id")))
     .where("scimUserName", "is", null)
     .where("deprovisionedAt", "is", null);
 }

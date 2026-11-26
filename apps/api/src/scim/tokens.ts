@@ -3,6 +3,7 @@
  * administrator makes one; it shows once, only its SHA-256 is kept, and it
  * works while its maker is an active administrator.
  */
+import { isAdminOf } from "../auth/instance-roles.js";
 import { createHash, randomBytes } from "node:crypto";
 import { AppError, labelSchema } from "@anygriddb/core";
 import type { Database } from "@anygriddb/db";
@@ -54,7 +55,9 @@ export async function listScimTokens(db: Database) {
       "t.expiresAt",
       "t.lastUsedAt",
       "u.displayName as createdBy",
-      sql<boolean>`(u.is_admin and u.disabled_at is null)`.as("active"),
+      sql<boolean>`(${isAdminOf("u.id")} and u.disabled_at is null)`.as(
+        "active",
+      ),
     ])
     .orderBy("t.createdAt", "desc")
     .execute();
@@ -100,7 +103,7 @@ export async function scimActor(
     .select(["t.id", "t.createdBy"])
     .where("t.tokenHash", "=", tokenHash(token))
     .where("t.expiresAt", ">", new Date())
-    .where("u.isAdmin", "=", true)
+    .where(isAdminOf("u.id"))
     .where("u.disabledAt", "is", null)
     .executeTakeFirst();
   if (!row) return null;

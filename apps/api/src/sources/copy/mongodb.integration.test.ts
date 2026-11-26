@@ -3,6 +3,7 @@
  * (ADR 0088), against a real FerretDB over verified TLS: declared,
  * listed, exposed, copied, refreshed, and refused what a copy cannot do.
  */
+import { giveInstanceRole } from "../../auth/instance-roles.test-helpers.js";
 import { createPrivateKey, randomBytes, X509Certificate } from "node:crypto";
 import { AppError, type EngineCatalog } from "@anygriddb/core";
 import { runStatement, type Database } from "@anygriddb/db";
@@ -205,11 +206,11 @@ describe("a MongoDB-protocol source, read from a copy", () => {
         .values({
           email: "admin@example.com",
           displayName: "Admin",
-          isAdmin: true,
         })
         .returning("id")
         .executeTakeFirstOrThrow()
     ).id;
+    await giveInstanceRole(db, admin, "administrator");
     pools = new SourcePools({ db, key, settings, log: () => undefined });
     setSourcePools(pools);
   }, 400_000);

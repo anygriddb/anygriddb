@@ -2,6 +2,7 @@
  * Accounts by the dozen (ROADMAP #36): several disabled together, and the
  * people of a file added at once, their first link mailed by the queue.
  */
+import { isAdminOf } from "./auth/instance-roles.js";
 import { randomBytes } from "node:crypto";
 import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -57,7 +58,12 @@ describe("accounts by the dozen", () => {
   const account = (email: string) =>
     db
       .selectFrom("users")
-      .select(["id", "displayName", "isAdmin", "disabledAt"])
+      .select([
+        "id",
+        "displayName",
+        isAdminOf("users.id").as("isAdmin"),
+        "disabledAt",
+      ])
       .where("email", "=", email)
       .executeTakeFirst();
   const queued = async () =>

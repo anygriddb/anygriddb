@@ -12,7 +12,12 @@ import { deliverPersonNotices } from "../notify/deliver-person.js";
 import { actingAsCounted } from "../observability.js";
 import type { Publisher } from "../realtime/bus.js";
 import { readMailVoice } from "../settings.js";
-import { holdsInstanceRole } from "../auth/instance-roles.js";
+import {
+  holdsInstanceRole,
+  isAdminOf,
+  isAuditorOf,
+  isSupportOf,
+} from "../auth/instance-roles.js";
 import { ERASED_USER_ID } from "./erasure.js";
 
 const ACTING_MS = ceilingOf("protocol.acting_as_ms");
@@ -105,9 +110,9 @@ export async function startActing(
       "id",
       "displayName",
       "email",
-      "isAdmin",
-      "isSupport",
-      "isAuditor",
+      isAdminOf("users.id").as("isAdmin"),
+      isSupportOf("users.id").as("isSupport"),
+      isAuditorOf("users.id").as("isAuditor"),
       holdsInstanceRole("users.id").as("hasInstanceRole"),
       "disabledAt",
     ])

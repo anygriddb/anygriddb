@@ -2,6 +2,7 @@
  * SCIM 2.0 against a real database: what an identity provider sends, and
  * what it does to accounts, groups, and the access groups give.
  */
+import { giveInstanceRole } from "../auth/instance-roles.test-helpers.js";
 import { randomBytes } from "node:crypto";
 import { roleFor } from "@anygriddb/core";
 import type { Database } from "@anygriddb/db";
@@ -51,11 +52,11 @@ describe("SCIM 2.0", () => {
         .values({
           email: `admin-${suffix}@corp.example`,
           displayName: "Admin",
-          isAdmin: true,
         })
         .returning("id")
         .executeTakeFirstOrThrow()
     ).id;
+    await giveInstanceRole(db, admin);
     baseId = (await insertBase(db, admin, { name: "Ventes" })).id;
     ({ token, id: tokenId } = await createScimToken(db, admin, "Okta"));
     app = Fastify();
@@ -390,11 +391,7 @@ describe("SCIM 2.0", () => {
     expect((await call("GET", "/Users", undefined, other.token)).status).toBe(
       200,
     );
-    await db
-      .updateTable("users")
-      .set({ isAdmin: false })
-      .where("id", "=", admin)
-      .execute();
+    await giveInstanceRole(db, admin, "administrator", false);
     expect((await call("GET", "/Users", undefined, other.token)).status).toBe(
       401,
     );

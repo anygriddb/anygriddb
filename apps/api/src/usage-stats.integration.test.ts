@@ -1,6 +1,7 @@
 /**
  * Usage figures (ROADMAP #40): live counts and the daily snapshot.
  */
+import { giveInstanceRole } from "./auth/instance-roles.test-helpers.js";
 import { randomBytes } from "node:crypto";
 import type { Database } from "@anygriddb/db";
 import { sql } from "kysely";
@@ -36,12 +37,12 @@ describe("usage figures", () => {
         .values({
           email: `active-${suffix}@example.org`,
           displayName: "Active",
-          isAdmin: true,
           activeAt: now,
         })
         .returning("id")
         .executeTakeFirstOrThrow()
     ).id;
+    await giveInstanceRole(db, admin);
     quiet = (
       await db
         .insertInto("users")

@@ -2,6 +2,7 @@
  * What SCIM requests do to accounts and groups (ADR 0038). Every change
  * runs as the token's administrator, audited with the source `scim`.
  */
+import { isAdminOf } from "../auth/instance-roles.js";
 import { dropAccountTokens } from "../auth/tokens.js";
 import {
   parseScimGroup,
@@ -56,7 +57,6 @@ type Account = Pick<
   | "id"
   | "email"
   | "displayName"
-  | "isAdmin"
   | "disabledAt"
   | "createdAt"
   | "scimExternalId"
@@ -64,13 +64,13 @@ type Account = Pick<
   | "scimGivenName"
   | "scimUserName"
   | "deprovisionedAt"
->;
+> & { isAdmin: boolean };
 
 const ACCOUNT_COLUMNS = [
   "id",
   "email",
   "displayName",
-  "isAdmin",
+  isAdminOf("users.id").as("isAdmin"),
   "disabledAt",
   "createdAt",
   "scimExternalId",
@@ -218,7 +218,7 @@ async function assertNotLastAdmin(tx: AuditTx, account: Account) {
   const others = await tx
     .selectFrom("users")
     .select("id")
-    .where("isAdmin", "=", true)
+    .where(isAdminOf("users.id"))
     .where("disabledAt", "is", null)
     .where("id", "<>", account.id)
     .forUpdate()

@@ -3,6 +3,7 @@
  * forces encryption with a self-signed certificate the test pastes as an
  * administrator would, and reading what its dedicated account may see.
  */
+import { giveInstanceRole } from "../auth/instance-roles.test-helpers.js";
 import { randomBytes } from "node:crypto";
 import { AppError } from "@anygriddb/core";
 import type { Database } from "@anygriddb/db";
@@ -127,11 +128,11 @@ describe("SQL Server sources", () => {
         .values({
           email: "admin@example.com",
           displayName: "Admin",
-          isAdmin: true,
         })
         .returning("id")
         .executeTakeFirstOrThrow()
     ).id;
+    await giveInstanceRole(db, admin, "administrator");
   }, 300_000);
 
   afterAll(async () => {

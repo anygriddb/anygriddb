@@ -1,3 +1,4 @@
+import { MAKE_ADMINISTRATOR } from "./setup";
 import { journeysDatabaseUrl } from "./database-url";
 import { expect, test, type Page } from "./journey";
 import pg from "pg";
@@ -823,9 +824,7 @@ test.describe("a map over tiles", () => {
     const control = new pg.Client({ connectionString: controlUrl });
     await control.connect();
     try {
-      await control.query("update users set is_admin = true where email = $1", [
-        email,
-      ]);
+      await control.query(MAKE_ADMINISTRATOR, [email]);
     } finally {
       await control.end();
     }

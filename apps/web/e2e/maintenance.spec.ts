@@ -2,6 +2,7 @@ import { journeysDatabaseUrl } from "./database-url";
 import { expect, test } from "./journey";
 import pg from "pg";
 import {
+  MAKE_ADMINISTRATOR,
   proveItIsYou,
   signUp,
   signUpWithTable,
@@ -33,9 +34,7 @@ test("maintenance keeps everyone but administrators out, and an announcement sho
   await control.connect();
   try {
     const { email } = await signUpWithTable(page, "Admin Maintenance");
-    await control.query("update users set is_admin = true where email = $1", [
-      email,
-    ]);
+    await control.query(MAKE_ADMINISTRATOR, [email]);
     const other = await browser.newContext(from("198.51.100.41"));
     const member = await other.newPage();
     const stamp = uniqueStamp();

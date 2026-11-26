@@ -79,8 +79,8 @@ export function fieldsOf(
 export function bindingsFrom(
   rows: ReadonlyArray<
     GivenRow & {
-      scope: Binding["scope"];
-      scopeId: string;
+      scope: string;
+      scopeId: string | null;
       rowFilter?: unknown;
       fieldAccess?: Readonly<Record<string, string>> | null;
     }
@@ -88,6 +88,9 @@ export function bindingsFrom(
 ): Binding[] {
   const bindings: Binding[] = [];
   for (const row of rows) {
+    // A role of Administration gives nothing on a base or a table.
+    if (row.scope !== "base" && row.scope !== "table") continue;
+    if (row.scopeId === null) continue;
     const role = givenOf(row);
     if (role === null) continue;
     const rows = rowsOf(row.rowFilter);

@@ -7,6 +7,7 @@
  * refused, and the others go through the rules the screen has; what a
  * token does is on the trails under its maker's name.
  */
+import { isAdminOf, isAuditorOf, isSupportOf } from "./auth/instance-roles.js";
 import { randomBytes } from "node:crypto";
 import cookie from "@fastify/cookie";
 import { API_SETTING_KEYS } from "@anygriddb/core";
@@ -417,7 +418,11 @@ describe("the administration API", () => {
     expect(mail).toContain("Ada Admin");
     const account = await db
       .selectFrom("users")
-      .select(["isAdmin", "isSupport", "isAuditor"])
+      .select([
+        isAdminOf("users.id").as("isAdmin"),
+        isSupportOf("users.id").as("isSupport"),
+        isAuditorOf("users.id").as("isAuditor"),
+      ])
       .where("id", "=", answer.userId)
       .executeTakeFirstOrThrow();
     expect(account).toEqual({

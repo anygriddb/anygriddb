@@ -9,6 +9,7 @@ import {
   findAccount,
   mailedLink,
   mailedMessage,
+  MAKE_ADMINISTRATOR,
   nextTotp,
   openAdmin,
   proveItIsYou,
@@ -74,9 +75,7 @@ test("an administrator sets the lock, unlocks an account, and sends a reset link
   await control.connect();
   try {
     const { email } = await signUpWithTable(page, "Security Admin");
-    await control.query("update users set is_admin = true where email = $1", [
-      email,
-    ]);
+    await control.query(MAKE_ADMINISTRATOR, [email]);
 
     await page.goto("/admin/security");
     await page.getByLabel("Lock an account after").selectOption("3");
@@ -306,9 +305,7 @@ test("an administrator revokes every token and turns public links off", async ({
   await control.connect();
   try {
     const { email } = await signUpWithTable(page, "Emergency Admin");
-    await control.query("update users set is_admin = true where email = $1", [
-      email,
-    ]);
+    await control.query(MAKE_ADMINISTRATOR, [email]);
     const made = await page.evaluate(async () => {
       const answer = await fetch("/trpc/auth.createToken", {
         method: "POST",
@@ -408,9 +405,7 @@ test("an administrator names a tile server, and maps draw their background from 
   });
   try {
     const { email } = await signUpWithTable(page, "Tia Tiler");
-    await control.query("update users set is_admin = true where email = $1", [
-      email,
-    ]);
+    await control.query(MAKE_ADMINISTRATOR, [email]);
     const tableId =
       /\/t\/([^/]+)/.exec(new URL(page.url()).pathname)?.[1] ?? "";
     const post = (path: string, body: unknown) =>
@@ -525,9 +520,7 @@ test("an administrator names the instance, and the sign-in page and its mail car
   await control.connect();
   try {
     const { email } = await signUpWithTable(page, "Identity Admin");
-    await control.query("update users set is_admin = true where email = $1", [
-      email,
-    ]);
+    await control.query(MAKE_ADMINISTRATOR, [email]);
 
     await page.goto("/admin");
     await openAdmin(page, "Instance", "Name and logo");
@@ -639,9 +632,7 @@ test("an administrator makes a token for a script, which changes a setting, and 
   await control.connect();
   try {
     const { email } = await signUpWithTable(page, "Tess Token");
-    await control.query("update users set is_admin = true where email = $1", [
-      email,
-    ]);
+    await control.query(MAKE_ADMINISTRATOR, [email]);
     await page.goto("/admin");
     await openAdmin(page, "Connections", "Administration API");
     await expect(

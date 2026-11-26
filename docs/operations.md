@@ -155,7 +155,8 @@ account is bound.
 SELECT u.email, i.provider, i.issuer, i.subject, i.created_at, i.last_seen_at
 FROM sso_identities i JOIN users u ON u.id = i.user_id
 WHERE i.provider = 'saml' AND i.created_at > u.created_at
-ORDER BY u.is_admin DESC, i.created_at;
+ORDER BY EXISTS (SELECT 1 FROM attributions a WHERE a.user_id = u.id
+  AND a.instance_role = 'administrator') DESC, i.created_at;
 ```
 
 Unlink in Administration, then end sessions.

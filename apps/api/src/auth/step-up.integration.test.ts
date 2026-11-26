@@ -2,6 +2,8 @@
  * Administration step-up (ROADMAP #28): a fresh password or second factor
  * before sensitive actions, stamped on the session for five minutes.
  */
+import { isAdminOf } from "./instance-roles.js";
+import { giveInstanceRole } from "./instance-roles.test-helpers.js";
 import { randomBytes } from "node:crypto";
 import type { Database } from "@anygriddb/db";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -111,7 +113,7 @@ describe("administration step-up", () => {
       (
         await db
           .selectFrom("users")
-          .select("isAdmin")
+          .select(isAdminOf("users.id").as("isAdmin"))
           .where("id", "=", personId)
           .executeTakeFirstOrThrow()
       ).isAdmin,
@@ -125,7 +127,7 @@ describe("administration step-up", () => {
       (
         await db
           .selectFrom("users")
-          .select("isAdmin")
+          .select(isAdminOf("users.id").as("isAdmin"))
           .where("email", "=", `second-${suffix}@example.org`)
           .executeTakeFirstOrThrow()
       ).isAdmin,
@@ -167,7 +169,7 @@ describe("administration step-up", () => {
       (
         await db
           .selectFrom("users")
-          .select("isAdmin")
+          .select(isAdminOf("users.id").as("isAdmin"))
           .where("id", "=", personId)
           .executeTakeFirstOrThrow()
       ).isAdmin,
@@ -181,11 +183,7 @@ describe("administration step-up", () => {
       displayName: "Guesser",
       password: PASSWORD,
     });
-    await db
-      .updateTable("users")
-      .set({ isAdmin: true })
-      .where("id", "=", guesserId)
-      .execute();
+    await giveInstanceRole(db, guesserId, "administrator", true);
     await enrollTotp(guesser);
     // Ten wrong passwords lock the account, as ten at sign-in would.
     for (let attempt = 0; attempt < 10; attempt += 1) {

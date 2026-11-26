@@ -3,6 +3,7 @@
  * not a member of, for an hour, with a reason, and its owners are told.
  * The same notice goes out when an administrator gives themselves a role.
  */
+import { giveInstanceRole } from "../auth/instance-roles.test-helpers.js";
 import { randomBytes } from "node:crypto";
 import type { Database } from "@anygriddb/db";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -250,17 +251,9 @@ describe("emergency access to a base", () => {
 
     // No longer an administrator: the opening stops counting at once.
     await open();
-    await db
-      .updateTable("users")
-      .set({ isAdmin: false })
-      .where("id", "=", adminId)
-      .execute();
+    await giveInstanceRole(db, adminId, "administrator", false);
     expect(await code(read(admin))).not.toBe("ok");
-    await db
-      .updateTable("users")
-      .set({ isAdmin: true })
-      .where("id", "=", adminId)
-      .execute();
+    await giveInstanceRole(db, adminId, "administrator", true);
     await admin.call().admin.baseOverview.close({ baseId });
   });
 

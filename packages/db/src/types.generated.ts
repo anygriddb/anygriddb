@@ -147,7 +147,7 @@ export type RelationKind = "many_to_many" | "one_to_many";
 
 export type Role = "commenter" | "editor" | "owner" | "viewer";
 
-export type Scope = "base" | "column" | "row" | "table";
+export type Scope = "base" | "column" | "instance" | "row" | "table";
 
 export type SourceEngine =
   | "mariadb"
@@ -229,11 +229,12 @@ export interface Attributions {
   givenBy: string | null;
   groupId: string | null;
   id: Generated<string>;
+  instanceRole: string | null;
   madeRoleId: string | null;
   role: Role | null;
   rowFilter: Record<string, unknown> | null;
   scope: Scope;
-  scopeId: string;
+  scopeId: string | null;
   userId: string | null;
 }
 
@@ -665,12 +666,6 @@ export interface InstanceOidc {
   issuer: string;
   updatedAt: Generated<Timestamp>;
   updatedBy: string | null;
-}
-
-export interface InstanceRoles {
-  grantedAt: Generated<Timestamp>;
-  role: string;
-  userId: string;
 }
 
 export interface InstanceSaml {
@@ -1176,9 +1171,6 @@ export interface Users {
   failedSignIns: Generated<number>;
   id: Generated<string>;
   inactivityWarnedAt: Timestamp | null;
-  isAdmin: Generated<boolean>;
-  isAuditor: Generated<boolean>;
-  isSupport: Generated<boolean>;
   lastSignInAt: Timestamp | null;
   lockedAt: Timestamp | null;
   scimExternalId: string | null;
@@ -1280,7 +1272,6 @@ export interface DB {
   instanceIntegrations: InstanceIntegrations;
   instanceLogo: InstanceLogo;
   instanceOidc: InstanceOidc;
-  instanceRoles: InstanceRoles;
   instanceSaml: InstanceSaml;
   instanceSettings: InstanceSettings;
   instanceSiem: InstanceSiem;

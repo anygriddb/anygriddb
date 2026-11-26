@@ -8,6 +8,7 @@ import {
   findAccount,
   mailedLink,
   mailedMessage,
+  MAKE_ADMINISTRATOR,
   openAdmin,
   proveItIsYou,
   signIn,
@@ -45,9 +46,7 @@ test("an administrator ends a session, reads the sign-ins, and exports access", 
   await control.connect();
   try {
     const { email } = await signUpWithTable(page, "Admin Controls");
-    await control.query("update users set is_admin = true where email = $1", [
-      email,
-    ]);
+    await control.query(MAKE_ADMINISTRATOR, [email]);
 
     // Someone else signs up in their own browser.
     const other = await browser.newContext(from("198.51.100.31"));
@@ -852,9 +851,7 @@ test("an administrator deletes a departed owner and names who takes the base", a
   await control.connect();
   try {
     const { email: adminEmail } = await signUpWithTable(page, "Erase Admin");
-    await control.query("update users set is_admin = true where email = $1", [
-      adminEmail,
-    ]);
+    await control.query(MAKE_ADMINISTRATOR, [adminEmail]);
 
     // The person who will leave alone owns the base they make.
     const theirs = await browser.newContext(from("198.51.100.32"));
@@ -960,9 +957,7 @@ test("an auditor reads every page of Administration and changes nothing", async 
   await control.connect();
   try {
     const { email: adminEmail } = await signUpWithTable(page, "Audit Admin");
-    await control.query("update users set is_admin = true where email = $1", [
-      adminEmail,
-    ]);
+    await control.query(MAKE_ADMINISTRATOR, [adminEmail]);
     // A row of their own, for the trail to hold a creation.
     await page.getByRole("button", { name: "Add a row", exact: true }).click();
     await expect
@@ -1114,9 +1109,7 @@ test("an account manager adds a person, and reaches nothing else", async ({
   await control.connect();
   try {
     const { email: adminEmail } = await signUpWithTable(page, "Delegate Admin");
-    await control.query("update users set is_admin = true where email = $1", [
-      adminEmail,
-    ]);
+    await control.query(MAKE_ADMINISTRATOR, [adminEmail]);
     const theirs = await browser.newContext(from("198.51.100.36"));
     const manager = await theirs.newPage();
     const stamp = uniqueStamp();
@@ -1255,9 +1248,7 @@ test("an administrator opens a base to read it, and its owner is told why", asyn
     expect(baseId).toBeTruthy();
 
     const { email } = await signUpWithTable(page, "Opening Admin");
-    await control.query("update users set is_admin = true where email = $1", [
-      email,
-    ]);
+    await control.query(MAKE_ADMINISTRATOR, [email]);
 
     // Not a member: the base's address answers that there is no such base.
     await page.goto(`/admin/bases/${String(baseId)}`);
@@ -1383,9 +1374,7 @@ test("an administrator hands a leaving person's base to someone who stays", asyn
     );
     await theirs.close();
     const { email } = await signUpWithTable(page, "Staying Admin");
-    await control.query("update users set is_admin = true where email = $1", [
-      email,
-    ]);
+    await control.query(MAKE_ADMINISTRATOR, [email]);
 
     await page.goto("/admin/people/accounts");
     await findAccount(page, leavingEmail);
@@ -1474,9 +1463,7 @@ test("an administrator allows scripts, and an automation runs one", async ({
   await control.connect();
   try {
     const { email } = await signUpWithTable(page, "Script Admin");
-    await control.query("update users set is_admin = true where email = $1", [
-      email,
-    ]);
+    await control.query(MAKE_ADMINISTRATOR, [email]);
     const table = page.url();
     const dialog = page.getByRole("dialog");
     const openAutomations = async () => {
@@ -1658,9 +1645,7 @@ test("an administrator allows scripts, and an automation runs one", async ({
 async function makeAdministrator(email: string): Promise<void> {
   const control = new pg.Client({ connectionString: controlUrl });
   await control.connect();
-  await control
-    .query("update users set is_admin = true where email = $1", [email])
-    .finally(() => control.end());
+  await control.query(MAKE_ADMINISTRATOR, [email]).finally(() => control.end());
 }
 
 test("an administrator makes a role, and whoever holds it does what it gives", async ({

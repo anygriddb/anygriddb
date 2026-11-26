@@ -1,3 +1,4 @@
+import { giveOwnInstanceRole, isAdminOf } from "../auth/instance-roles.js";
 import { z } from "zod";
 import {
   AppError,
@@ -448,16 +449,19 @@ async function createAccount(
     return await ctx.db.transaction().execute(async (tx) => {
       const inserted = await tx
         .insertInto("users")
-        .values({
-          email: input.email,
-          displayName: input.displayName,
-          isAdmin: input.isAdmin,
-        })
+        .values({ email: input.email, displayName: input.displayName })
         .returning("id")
         .executeTakeFirst();
       const id = inserted?.id;
       if (!id) {
         throw new AppError("no_row");
+      }
+      if (input.isAdmin) {
+        await giveOwnInstanceRole(tx, {
+          userId: id,
+          role: "administrator",
+          source: "signup",
+        });
       }
       await tx
         .insertInto("passwordHashes")
@@ -661,7 +665,13 @@ export const authRouter = t.router({
       const user = await ctx.db
         .selectFrom("users as u")
         .innerJoin("passwordHashes as p", "p.userId", "u.id")
-        .select(["u.id", "p.hash", "u.disabledAt", "u.isAdmin", "u.lockedAt"])
+        .select([
+          "u.id",
+          "p.hash",
+          "u.disabledAt",
+          isAdminOf("u.id").as("isAdmin"),
+          "u.lockedAt",
+        ])
         .where("u.email", "=", input.email.toLowerCase())
         .executeTakeFirst();
       const passwordOk = await verifyPassword(
