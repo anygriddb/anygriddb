@@ -1,16 +1,17 @@
+import { ceilingOf } from "../limits";
 /** How long the same subject is not sent again to the same channel. */
-export const NOTIFY_DEDUPE_MS = 5 * 60 * 1000;
+export const NOTIFY_DEDUPE_MS = ceilingOf("channel.same_subject_ms");
 
 /** How many deliveries one channel may start in a window. */
-export const NOTIFY_RATE_MAX = 20;
+export const NOTIFY_RATE_MAX = ceilingOf("channel.deliveries_per_window");
 
-export const NOTIFY_RATE_WINDOW_MS = 60 * 60 * 1000;
+export const NOTIFY_RATE_WINDOW_MS = ceilingOf("channel.rate_window_ms");
 
 /** Exhausted deliveries in a row before a channel is paused. */
-export const NOTIFY_FAILURE_LIMIT = 5;
+export const NOTIFY_FAILURE_LIMIT = ceilingOf("channel.failures_before_pause");
 
 /** How many channels one instance may have. */
-export const MAX_INTEGRATIONS = 50;
+export const MAX_INTEGRATIONS = ceilingOf("channel.per_instance");
 
 export type RateState = {
   now: number;

@@ -3,7 +3,7 @@
  * Access tokens are normal api_tokens rows so REST and MCP stay one path.
  */
 import { randomBytes } from "node:crypto";
-import { AppError, roleFor } from "@anygriddb/core";
+import { AppError, roleFor, ceilingOf } from "@anygriddb/core";
 import { granted } from "../access/declaration.js";
 import type { Database, Tx } from "@anygriddb/db";
 import { sql } from "kysely";
@@ -15,8 +15,8 @@ import { findLiveOauthClient } from "./clients.js";
 import { sha256Hex } from "./hash.js";
 import { isCodeChallenge, verifyPkce } from "./pkce.js";
 
-const CODE_TTL_MS = 10 * 60_000;
-const REFRESH_DAYS = 90;
+const CODE_TTL_MS = ceilingOf("protocol.oauth_code_ms");
+const REFRESH_DAYS = ceilingOf("protocol.oauth_refresh_days");
 
 export type ConsentInput = {
   clientId: string;

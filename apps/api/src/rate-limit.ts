@@ -86,7 +86,7 @@ function trpcCalls(url: string): string[] {
 }
 
 /** More than a public page ever asks for at once. */
-const MAX_SHARE_CALLS = 10;
+const MAX_SHARE_CALLS = ceilingOf("request.link_calls");
 
 /** Whether a request names more public-link calls than any page sends. */
 export function tooManyShareCalls(url: string): boolean {

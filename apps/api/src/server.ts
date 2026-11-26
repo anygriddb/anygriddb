@@ -4,7 +4,13 @@ import { budgetFor } from "./read-budget.js";
 import cookie from "@fastify/cookie";
 import websocket from "@fastify/websocket";
 import { migrationNames, type Database } from "@anygriddb/db";
-import { AppError, ERRORS, limitIn, mapTileOrigin } from "@anygriddb/core";
+import {
+  AppError,
+  ERRORS,
+  limitIn,
+  mapTileOrigin,
+  ceilingOf,
+} from "@anygriddb/core";
 import { TRPCError } from "@trpc/server";
 import { fastifyTRPCPlugin } from "@trpc/server/adapters/fastify";
 import {
@@ -81,7 +87,7 @@ import { registerWebApp } from "./web-app.js";
 import { GridHub, SOCKET_OPTIONS } from "./ws.js";
 
 /** Messages a page may send before its session is looked up. */
-const MAX_EARLY_MESSAGES = 64;
+const MAX_EARLY_MESSAGES = ceilingOf("sockets.early_messages");
 
 /** What administrators are shown of the certificate served. */
 export type TlsInfo = {

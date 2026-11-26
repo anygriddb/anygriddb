@@ -14,13 +14,16 @@
  *   table or a quote, where it passes the format check;
  * - the API refuses through `demand` and `granted`, never from
  *   `roleGrants` itself (`hand-refusals.mjs`): what each way in asks is
- *   declared and noted.
+ *   declared and noted;
+ * - a ceiling is declared in the catalogue of limits, never as a constant
+ *   of its own (`ceilings.mjs`), but the few named there with why.
  * Only files Git tracks are read. Exits 1 with one line per problem.
  */
 import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { basename } from "node:path";
 import { conflictMarkers } from "./conflict-markers.mjs";
+import { CEILING_EXCEPTIONS, ceilingsIn } from "./ceilings.mjs";
 import { handRefusals } from "./hand-refusals.mjs";
 
 const SCOPES = ["apps/", "packages/", "scripts/", "docker/", "docs/"];
@@ -117,6 +120,31 @@ for (const path of tracked.filter(
       `${path}:${line}: a refusal from roleGrants: use demand or granted (access/declaration.ts)`,
     );
   }
+}
+
+const SOURCE = /^(?:apps|packages)\/.*\.tsx?$/;
+const NOT_SHIPPED =
+  /\.(?:test|test-helpers|integration\.test|spec)\.tsx?$|\/e2e\//;
+const CATALOGUE = "packages/core/src/limits.ts";
+const excepted = new Set(Object.keys(CEILING_EXCEPTIONS));
+for (const path of tracked.filter(
+  (file) =>
+    SOURCE.test(file) &&
+    !NOT_SHIPPED.test(file) &&
+    file !== CATALOGUE &&
+    existsSync(file),
+)) {
+  for (const { name, line } of ceilingsIn(readFileSync(path, "utf8"))) {
+    if (excepted.delete(`${path}:${name}`)) continue;
+    problems.push(
+      `${path}:${line}: ${name} is a ceiling outside the catalogue of limits (packages/core/src/limits.ts)`,
+    );
+  }
+}
+for (const stale of excepted) {
+  problems.push(
+    `scripts/ceilings.mjs: ${stale} is excepted, and is no longer there`,
+  );
 }
 
 const { version } = JSON.parse(readFileSync("package.json", "utf8"));

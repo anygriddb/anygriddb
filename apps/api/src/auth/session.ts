@@ -1,6 +1,11 @@
 import { createHash, randomBytes } from "node:crypto";
 import type { Database } from "@anygriddb/db";
-import { AppError, type InstanceRole, sessionWindows } from "@anygriddb/core";
+import {
+  AppError,
+  type InstanceRole,
+  sessionWindows,
+  ceilingOf,
+} from "@anygriddb/core";
 import { recordAuthEvent } from "./auth-events.js";
 import {
   holdsInstanceRole,
@@ -43,7 +48,7 @@ export function sessionCookieOptions(expiresAt: Date) {
  * not sign the last person back in with one click.
  */
 export const SSO_AGAIN_COOKIE = "__Host-ag_sso_again";
-const SSO_AGAIN_MAX_AGE_S = 30 * 24 * 60 * 60;
+const SSO_AGAIN_MAX_AGE_S = ceilingOf("protocol.sign_on_again_seconds");
 
 export function ssoAgainOptions(maxAge: number = SSO_AGAIN_MAX_AGE_S) {
   return {

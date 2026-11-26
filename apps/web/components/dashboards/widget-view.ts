@@ -1,4 +1,9 @@
-import { aggregatesOfField, cellText, type FilterKind } from "@anygriddb/core";
+import {
+  aggregatesOfField,
+  cellText,
+  type FilterKind,
+  ceilingOf,
+} from "@anygriddb/core";
 import { cellDisplay } from "../../lib/format";
 import type { CatalogColumn, Collaborator } from "../../lib/types";
 import { canGroupBy } from "../table/field-roles";
@@ -126,7 +131,7 @@ export function lastValueText(
 }
 
 /** Rows a view's widget shows: a glance, the view itself is a click away. */
-export const WIDGET_ROWS = 20;
+export const WIDGET_ROWS = ceilingOf("widget.rows");
 
 /**
  * How many rows of its view a widget leaves out, for the line under them

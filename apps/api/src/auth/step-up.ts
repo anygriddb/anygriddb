@@ -1,4 +1,4 @@
-import { AppError } from "@anygriddb/core";
+import { AppError, ceilingOf } from "@anygriddb/core";
 import type { Database } from "@anygriddb/db";
 import { factorMethods } from "./access.js";
 import { verifyPassword } from "./argon2.js";
@@ -10,7 +10,7 @@ import { consumeTotpCode } from "./totp.js";
 import type { Context } from "../trpc/context.js";
 
 /** How long a proved step-up stays fresh for sensitive Administration acts. */
-export const FRESH_STEP_UP_MS = 5 * 60_000;
+export const FRESH_STEP_UP_MS = ceilingOf("protocol.proof_ms");
 
 /**
  * What proving a step-up found: `missing` when a proof was left out,

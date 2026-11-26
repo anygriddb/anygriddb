@@ -1,8 +1,8 @@
 import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
-import { AppError, trimEndRun } from "@anygriddb/core";
+import { AppError, trimEndRun, ceilingOf } from "@anygriddb/core";
 
 const BASE32 = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
-const STEP_MS = 30_000;
+const STEP_MS = ceilingOf("protocol.totp_step_ms");
 
 export function encodeBase32(bytes: Buffer): string {
   let value = 0;

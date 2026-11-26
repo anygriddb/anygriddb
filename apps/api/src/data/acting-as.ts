@@ -2,7 +2,7 @@
  * An administrator acts with another person's rights for thirty minutes
  * (ADR 0091). The session stays theirs. The change trail names both.
  */
-import { AppError } from "@anygriddb/core";
+import { AppError, ceilingOf } from "@anygriddb/core";
 import type { Database } from "@anygriddb/db";
 import type { KeyRing } from "../auth/key-ring.js";
 import { recordAuthEvent } from "../auth/auth-events.js";
@@ -15,8 +15,8 @@ import { readMailVoice } from "../settings.js";
 import { holdsInstanceRole } from "../auth/instance-roles.js";
 import { ERASED_USER_ID } from "./erasure.js";
 
-const ACTING_MS = 30 * 60 * 1000;
-const REASON_MAX = 200;
+const ACTING_MS = ceilingOf("protocol.acting_as_ms");
+const REASON_MAX = ceilingOf("auth.acting_reason_chars");
 
 export function cleanActingReason(raw: string): string {
   const reason = raw

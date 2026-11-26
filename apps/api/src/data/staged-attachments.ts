@@ -4,13 +4,13 @@
  * is written: that write claims it in the row's own transaction, once. A
  * file never claimed is removed after its deadline.
  */
-import { AppError } from "@anygriddb/core";
+import { AppError, ceilingOf } from "@anygriddb/core";
 import type { Database, Executor } from "@anygriddb/db";
 import { sql } from "kysely";
 import { deleteFiles, type FileStore } from "../files/index.js";
 
 /** How long a file waits for its answer: a form left open for the day. */
-const STAGED_ATTACHMENT_HOURS = 24;
+const STAGED_ATTACHMENT_HOURS = ceilingOf("retention.staged_file_hours");
 
 /** The deadline of a file staged now, in the database's own clock. */
 export function stagedDeadline() {

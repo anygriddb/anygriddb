@@ -56,7 +56,7 @@ import { ceilingOf } from "../limits";
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export const MAX_READ_LIMIT = ceilingOf("read.rows_per_page");
-const MAX_READ_OFFSET = 10_000_000;
+const MAX_READ_OFFSET = ceilingOf("read.offset");
 export const MAX_GROUPS = ceilingOf("read.groups");
 
 export const rowSortSchema = z.object({
@@ -691,7 +691,7 @@ function isComputed(ref: ProjectedColumn): boolean {
  * cell. Past it the cell is empty and carries an error, so that one formula
  * cannot make a page too large to hold.
  */
-export const MAX_COMPUTED_TEXT = 100_000;
+export const MAX_COMPUTED_TEXT = ceilingOf("formula.computed_chars");
 
 function boundsText(ref: ProjectedColumn): boolean {
   return isComputed(ref) && ref.kind === "text";
@@ -996,7 +996,7 @@ export function buildGroupAggregates(
 }
 
 /** The most bins a histogram has: as many as a chart shows categories. */
-export const MAX_HISTOGRAM_BINS = 40;
+export const MAX_HISTOGRAM_BINS = ceilingOf("chart.histogram_bins");
 
 /**
  * The rows counted in equal bins of a number field, where the rows live:

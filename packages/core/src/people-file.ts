@@ -4,6 +4,7 @@
  * the page and the server agree on it; what needs the database (an address
  * already taken, a base's name) is the server's to say.
  */
+import { ceilingOf } from "./limits";
 import { z } from "zod";
 import { DelimitedReader, detectDelimiter } from "./csv";
 import { AppError } from "./errors";
@@ -11,10 +12,10 @@ import { labelSchema } from "./names";
 import type { Role } from "./rbac";
 
 /** People one file may add. A longer file is refused, never cut short. */
-export const PEOPLE_FILE_MAX = 200;
-export const PEOPLE_FILE_MAX_BYTES = 256_000;
+export const PEOPLE_FILE_MAX = ceilingOf("people.file_rows");
+export const PEOPLE_FILE_MAX_BYTES = ceilingOf("people.file_bytes");
 /** Bases one person reaches from the start, as when one person is added. */
-const PEOPLE_FILE_MAX_BASES = 20;
+const PEOPLE_FILE_MAX_BASES = ceilingOf("people.file_bases");
 
 /**
  * Why a line adds nobody. The first five are read off the file; the

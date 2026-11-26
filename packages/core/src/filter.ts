@@ -1,3 +1,4 @@
+import { ceilingOf } from "./limits";
 import { z } from "zod";
 import { isIsoDate } from "./iso-date";
 import type { ValueKind } from "./field-types";
@@ -138,8 +139,8 @@ export type FilterGroup = {
   conditions: Array<FilterCondition | FilterGroup>;
 };
 
-export const MAX_FILTER_DEPTH = 5;
-export const MAX_FILTER_CONDITIONS = 100;
+export const MAX_FILTER_DEPTH = ceilingOf("filter.depth");
+export const MAX_FILTER_CONDITIONS = ceilingOf("filter.conditions");
 
 const groupNode: z.ZodType<FilterGroup> = z.lazy(() =>
   z

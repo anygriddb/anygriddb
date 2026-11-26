@@ -1,9 +1,9 @@
 import type { Database } from "@anygriddb/db";
 import { sql } from "kysely";
-import { AppError } from "@anygriddb/core";
+import { AppError, ceilingOf } from "@anygriddb/core";
 
 /** Comments of a row listed at once: its latest, oldest first. */
-const MAX_COMMENTS_LISTED = 500;
+const MAX_COMMENTS_LISTED = ceilingOf("comments.listed");
 
 export async function listComments(
   db: Database,

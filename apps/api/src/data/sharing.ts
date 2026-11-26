@@ -9,6 +9,7 @@ import {
   type Role,
   roleFor,
   storedEmbedOrigins,
+  ceilingOf,
 } from "@anygriddb/core";
 import type { Database, ShareRow, TableRow, ViewRow } from "@anygriddb/db";
 import { sql } from "kysely";
@@ -23,8 +24,8 @@ import {
 } from "./made-roles.js";
 import { readGateSettings } from "../settings.js";
 
-const INVITATION_TTL_MS = 14 * 24 * 60 * 60 * 1000;
-const SHARE_ACCESS_TTL_MS = 12 * 60 * 60 * 1000;
+const INVITATION_TTL_MS = ceilingOf("protocol.invitation_ms");
+const SHARE_ACCESS_TTL_MS = ceilingOf("protocol.link_unlocked_ms");
 const TOKEN = /^[A-Za-z0-9_-]{32,64}$/;
 
 function newToken(): string {
@@ -865,8 +866,8 @@ export async function resolveBaseShare(
   return { share, base, ...(await unlockShare(db, key, share, input)) };
 }
 
-const SHARE_PASSWORD_ATTEMPTS = 10;
-const SHARE_LOCK_MINUTES = 15;
+const SHARE_PASSWORD_ATTEMPTS = ceilingOf("link.password_attempts");
+const SHARE_LOCK_MINUTES = ceilingOf("link.lock_minutes");
 
 /**
  * Counts a wrong password in one statement, so guesses sent at the same

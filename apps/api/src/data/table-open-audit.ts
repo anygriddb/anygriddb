@@ -4,12 +4,13 @@
  * so every page of every table does not write an event. At most one event
  * per person and table in an hour.
  */
+import { ceilingOf } from "@anygriddb/core";
 import type { Database } from "@anygriddb/db";
 import { sql } from "kysely";
 import { liveTable } from "./live.js";
 
 /** One open per person and table inside this window. */
-export const TABLE_OPEN_DEDUP_HOURS = 1;
+export const TABLE_OPEN_DEDUP_HOURS = ceilingOf("trail.table_open_hours");
 
 /**
  * Writes one open on the trail when the table records them, and none has

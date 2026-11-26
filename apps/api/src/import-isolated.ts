@@ -3,7 +3,7 @@ import { readdir, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Worker } from "node:worker_threads";
-import { AppError, type ImportFormat } from "@anygriddb/core";
+import { AppError, type ImportFormat, ceilingOf } from "@anygriddb/core";
 import type {
   ImportPreview,
   SheetRow,
@@ -19,13 +19,13 @@ import { assertZipFileWithinLimits } from "./zip-limits.js";
  * batches apart.
  */
 export const PARSE_LIMITS = {
-  heapMb: 512,
-  scanMs: 300_000,
-  batchMs: 60_000,
+  heapMb: ceilingOf("import.parse_heap_mb"),
+  scanMs: ceilingOf("import.scan_ms"),
+  batchMs: ceilingOf("import.batch_ms"),
   zip: {
-    maxEntries: 2_000,
-    maxEntryBytes: 1024 * 1024 * 1024,
-    maxTotalBytes: 2048 * 1024 * 1024,
+    maxEntries: ceilingOf("import.zip_entries"),
+    maxEntryBytes: ceilingOf("import.zip_entry_bytes"),
+    maxTotalBytes: ceilingOf("import.zip_total_bytes"),
   },
 } as const;
 
@@ -72,7 +72,7 @@ function workerEntry(): { url: URL; execArgv: string[] } {
 const PARSE_FOLDER = "anygriddb-parse-";
 
 /** Past this age, a parser's folder was left by a process that died. */
-const PARSE_FOLDER_MAX_AGE_MS = 60 * 60 * 1000;
+const PARSE_FOLDER_MAX_AGE_MS = ceilingOf("retention.parse_folder_ms");
 
 /**
  * Removes what parsers of a process that died left behind. The folders of

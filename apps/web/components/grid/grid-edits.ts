@@ -1,10 +1,11 @@
+import { ceilingOf } from "@anygriddb/core";
 import type { CatalogColumn, RowItem } from "../../lib/types";
 import type { CellUpdate } from "../table/row-writes";
 import type { CellValue } from "../table/table-context";
 import { fillValues, isEditableColumn } from "./grid-clipboard";
 
 /** How many rows a series typed in figures reaches: each page is a read. */
-export const MAX_SERIES_ROWS = 1000;
+export const MAX_SERIES_ROWS = ceilingOf("grid.series_rows");
 
 /** What a row holds in a field, as a write takes it. */
 function held(row: RowItem, column: CatalogColumn): CellValue {

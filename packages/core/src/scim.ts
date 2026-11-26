@@ -3,6 +3,7 @@
  * keep accounts and groups (ADR 0038): parsing what it sends, and the
  * resources AnyGridDB answers with. No database here.
  */
+import { ceilingOf } from "./limits";
 import { z } from "zod";
 import { isEmail } from "./cell-values";
 import { madeNames } from "./made-names";
@@ -19,9 +20,9 @@ const SCIM_RESOURCE_TYPE = "urn:ietf:params:scim:schemas:core:2.0:ResourceType";
 const SCIM_SCHEMA = "urn:ietf:params:scim:schemas:core:2.0:Schema";
 
 /** Results one page of a list holds, at most. */
-const SCIM_MAX_PAGE = 200;
+const SCIM_MAX_PAGE = ceilingOf("scim.page_rows");
 /** Members one group holds, at most. */
-const SCIM_MAX_MEMBERS = 10_000;
+const SCIM_MAX_MEMBERS = ceilingOf("scim.group_members");
 
 type ScimErrorType =
   | "invalidFilter"

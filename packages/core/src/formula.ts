@@ -1,3 +1,4 @@
+import { ceilingOf } from "./limits";
 import { z } from "zod";
 import { isDecimalString, numberToDecimal, toDecimalString } from "./decimal";
 import { AppError, type ErrorCode } from "./errors";
@@ -187,9 +188,9 @@ const BINARY_OPS = [
 
 const COLUMN_REF = /^[a-z_][a-z0-9_]*$/;
 
-const MAX_FORMULA_NODES = 500;
-const MAX_FORMULA_DEPTH = 40;
-const MAX_FORMULA_SOURCE = 4_000;
+const MAX_FORMULA_NODES = ceilingOf("formula.nodes");
+const MAX_FORMULA_DEPTH = ceilingOf("formula.depth");
+const MAX_FORMULA_SOURCE = ceilingOf("formula.source_chars");
 
 const nodeSchema: z.ZodType<FormulaExpr> = z.lazy(() =>
   z.union([

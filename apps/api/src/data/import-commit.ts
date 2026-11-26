@@ -17,6 +17,7 @@ import {
   resolveChangeReason,
   type SelectOption,
   type WriteColumn,
+  ceilingOf,
 } from "@anygriddb/core";
 import type { Database } from "@anygriddb/db";
 import type { FileStore } from "../files/index.js";
@@ -40,9 +41,9 @@ import {
   stageUploadFile,
 } from "./staged-uploads.js";
 
-const IMPORT_TTL_SECONDS = 30 * 60;
-const MAX_ERRORS = 200;
-const MAX_OPTIONS = 200;
+const IMPORT_TTL_SECONDS = ceilingOf("retention.staged_import_seconds");
+const MAX_ERRORS = ceilingOf("import.errors_listed");
+const MAX_OPTIONS = ceilingOf("import.options_added");
 /** How long an import's event waits for the next batch to update it. */
 const IMPORT_EVENT_DELAY_MS = 30_000;
 /** Rows read, checked, and written together. */
@@ -142,7 +143,7 @@ export async function copyStagedImport(
 }
 
 /** A queued import keeps its file for two hours, enough to wait its turn. */
-const IMPORT_JOB_TTL_SECONDS = 2 * 60 * 60;
+const IMPORT_JOB_TTL_SECONDS = ceilingOf("retention.queued_import_seconds");
 
 export async function keepStagedImport(
   db: Database,

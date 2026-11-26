@@ -99,7 +99,7 @@ export type AutomationDeps = {
 };
 
 const RUN_RETENTION_DAYS = ceilingOf("retention.automation_runs_days");
-const MAX_EMAIL_RECIPIENTS = 10;
+const MAX_EMAIL_RECIPIENTS = ceilingOf("automation.email_recipients");
 
 /* ------------------------------------------------------------------ */
 /* Records                                                             */

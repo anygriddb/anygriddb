@@ -1,8 +1,9 @@
+import { ceilingOf } from "./limits";
 import { z } from "zod";
 import { WEBHOOK_EVENTS } from "./schemas";
 
 /** Automations may write rows that trigger automations, this deep at most. */
-export const MAX_EVENT_DEPTH = 3;
+export const MAX_EVENT_DEPTH = ceilingOf("automation.event_depth");
 
 /**
  * A change to rows of one table, queued for webhooks and automations.
@@ -37,7 +38,7 @@ export function nextRetryDelay(attempts: number): number | null {
 }
 
 /** Consecutive failed deliveries before a webhook switches itself off. */
-export const WEBHOOK_FAILURE_LIMIT = 10;
+export const WEBHOOK_FAILURE_LIMIT = ceilingOf("webhook.failures_before_off");
 
 /**
  * Whether a webhook or automation watching `watched` cares about an update

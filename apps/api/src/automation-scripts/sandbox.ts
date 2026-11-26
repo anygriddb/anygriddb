@@ -1,3 +1,4 @@
+import { ceilingOf } from "@anygriddb/core";
 import { type ChildProcess, fork } from "node:child_process";
 import { existsSync, realpathSync } from "node:fs";
 import { dirname, join, sep } from "node:path";
@@ -11,25 +12,25 @@ import { z } from "zod";
  * a heap of its own to carry the answers.
  */
 export const SCRIPT_LIMITS = {
-  timeMs: 10_000,
+  timeMs: ceilingOf("automation.script_time_ms"),
   /** What the scripts of one automation run may take together. */
-  runMs: 60_000,
+  runMs: ceilingOf("automation.script_run_ms"),
   /** The interpreter starts with 16 MiB: a ceiling under that is 16 MiB. */
-  memoryBytes: 64 * 1024 * 1024,
+  memoryBytes: ceilingOf("automation.script_memory_bytes"),
   /** Reads and writes one script may ask for. */
-  maxCalls: 100,
+  maxCalls: ceilingOf("automation.script_calls"),
   /** What one call may carry to the instance. */
-  maxCallBytes: 256 * 1024,
+  maxCallBytes: ceilingOf("automation.script_call_bytes"),
   /** What the instance may answer to one call. */
-  maxReplyBytes: 4 * 1024 * 1024,
+  maxReplyBytes: ceilingOf("automation.script_reply_bytes"),
   /** What a script may hand to the actions after it. */
-  maxOutputBytes: 64 * 1024,
+  maxOutputBytes: ceilingOf("automation.script_output_bytes"),
   /** The heap of the process the interpreter lives in. */
-  heapMb: 128,
+  heapMb: ceilingOf("automation.script_heap_mb"),
   /** How long that process may take to start. */
-  startMs: 10_000,
+  startMs: ceilingOf("automation.script_start_ms"),
   /** How long past a script's time its process is left before it is ended. */
-  graceMs: 2_000,
+  graceMs: ceilingOf("automation.script_grace_ms"),
 } as const;
 
 export type ScriptLimits = { [Key in keyof typeof SCRIPT_LIMITS]: number };

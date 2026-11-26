@@ -1,3 +1,4 @@
+import { ceilingOf } from "./limits";
 import { z } from "zod";
 
 /**
@@ -14,7 +15,7 @@ export const INSTANCE_LOGO_TYPES = [
 type InstanceLogoType = (typeof INSTANCE_LOGO_TYPES)[number];
 
 /** Largest logo taken: it is drawn 32 px high. */
-export const INSTANCE_LOGO_MAX_BYTES = 262_144;
+export const INSTANCE_LOGO_MAX_BYTES = ceilingOf("logo.bytes");
 
 const PNG = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
 

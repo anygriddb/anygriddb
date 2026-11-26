@@ -1,3 +1,4 @@
+import { ceilingOf } from "../limits";
 import { rollupFitsTarget, type RollupFn } from "../field-config";
 import {
   SYSTEM_COLUMN,
@@ -1523,7 +1524,7 @@ function nestNullableExtreme(
 }
 
 /** The longest text REPT writes; past it, its cell carries an error. */
-const MAX_REPT_TEXT = 10_000;
+const MAX_REPT_TEXT = ceilingOf("formula.repeat_chars");
 
 /** One past the limit, so that a count too large is still seen as one. */
 function reptCount(ctx: ExprContext, sql: string): string {
@@ -2287,7 +2288,7 @@ function parsePlan(format: string): ParsePlan {
  * calls and chained fields grow geometrically: past this, the formula is
  * refused instead of built.
  */
-const MAX_FORMULA_SQL = 1_000_000;
+const MAX_FORMULA_SQL = ceilingOf("formula.sql_chars");
 
 export function compileFormula(
   ctx: ExprContext,

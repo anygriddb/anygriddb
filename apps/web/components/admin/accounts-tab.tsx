@@ -1,3 +1,4 @@
+import { ceilingOf } from "@anygriddb/core";
 import type { InstanceRole } from "@anygriddb/core";
 import {
   Avatar,
@@ -583,7 +584,7 @@ type Membership = {
 };
 
 /** At most this many bases at creation, as the server allows. */
-const MAX_BASES = 20;
+const MAX_BASES = ceilingOf("people.file_bases");
 
 /**
  * Adding a person (ROADMAP #67): who they are, whether they administer

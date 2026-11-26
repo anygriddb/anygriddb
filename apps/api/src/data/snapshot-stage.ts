@@ -23,6 +23,7 @@ import {
   snapshotCommentsEntry,
   snapshotRowsEntry,
   type SnapshotComment,
+  ceilingOf,
 } from "@anygriddb/core";
 import type { Database } from "@anygriddb/db";
 import type { FileStore } from "../files/index.js";
@@ -42,9 +43,9 @@ import { isZip, ZipError, ZipReader } from "./zip.js";
 
 type SnapshotColumns = BaseSnapshot["tables"][number]["columns"];
 
-const STAGE_TTL = 30 * 60;
+const STAGE_TTL = ceilingOf("retention.staged_snapshot_seconds");
 /** Kept two hours once the import job is queued. */
-const QUEUED_TTL = 2 * 60 * 60;
+const QUEUED_TTL = ceilingOf("retention.queued_snapshot_seconds");
 
 async function head(path: string): Promise<Buffer> {
   const handle = await open(path, "r");

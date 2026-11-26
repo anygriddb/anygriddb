@@ -1,3 +1,4 @@
+import { ceilingOf } from "./limits";
 import { z } from "zod";
 import { isDecimalString, numberToDecimal } from "./decimal";
 import {
@@ -55,7 +56,7 @@ export function parseColor(text: string): string | undefined {
 /** Decimal degrees keep six decimals: a tenth of a metre. */
 const PLACE_DECIMALS = 6;
 /** What a person types for a place is short: anything longer is no place. */
-const PLACE_MAX_CHARS = 64;
+const PLACE_MAX_CHARS = ceilingOf("cell.place_chars");
 // Read once every run of spaces is one space, so that no part of either
 // pattern can take the same characters as its neighbour: a long run of
 // spaces is then read once, not once per way of sharing it out.
@@ -113,10 +114,10 @@ export function isPlace(value: string): boolean {
   return place !== undefined && formatPlace(place) === value;
 }
 
-const MAX_ARRAY_ITEMS = 100;
+const MAX_ARRAY_ITEMS = ceilingOf("cell.list_items");
 
 /** The most files one attachment cell holds. */
-export const MAX_CELL_FILES = 20;
+export const MAX_CELL_FILES = ceilingOf("cell.files");
 
 /** Wire shape of a cell. Arrays hold option names, user ids, or file keys. */
 export const cellValueSchema = z.union([

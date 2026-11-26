@@ -47,6 +47,7 @@ import {
   pruneViewConfig,
   stripColumnFromConfig,
   viewFilter,
+  ceilingOf,
 } from "@anygriddb/core";
 
 export { PRIMARY_TYPES };
@@ -972,7 +973,7 @@ export type ColumnUpdate = {
 const CONVERSION_JOB_ROWS = 20_000;
 /** The most values a preview reads: past them, it says what it saw. */
 const PREVIEW_VALUES = 100_000;
-const MAX_OPTIONS = 200;
+const MAX_OPTIONS = ceilingOf("conversion.options_added");
 
 /** The options a list field takes from the values it is converted from. */
 async function conversionOptions(

@@ -11,7 +11,7 @@ import type { RowRecord } from "./rows.js";
 /** The most rows one download holds; a larger table goes through a job. */
 const EXPORT_MAX_ROWS = ceilingOf("copy.max_rows");
 /** The longest file one answer carries, in characters. */
-export const EXPORT_CSV_MAX_LENGTH = 8_000_000;
+export const EXPORT_CSV_MAX_LENGTH = ceilingOf("export.csv_chars");
 
 /**
  * A table as CSV, read one page at a time so its rows are never all held

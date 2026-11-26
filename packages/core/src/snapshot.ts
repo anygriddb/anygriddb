@@ -1,3 +1,4 @@
+import { ceilingOf } from "./limits";
 import { z } from "zod";
 import { columnAclEntrySchema } from "./acl";
 import {
@@ -35,21 +36,21 @@ export const SNAPSHOT_VERSION = 3 as const;
 export const SNAPSHOT_KEPT_VERSION = 4 as const;
 
 /** The most rows a version 1 or 2 snapshot carries inside its JSON. */
-export const MAX_SNAPSHOT_ROWS = 100_000;
+export const MAX_SNAPSHOT_ROWS = ceilingOf("snapshot.rows");
 /** One row's line in a version 3 entry. */
-export const MAX_SNAPSHOT_LINE_BYTES = 4 * 1024 * 1024;
-export const MAX_SNAPSHOT_TABLES = 100;
+export const MAX_SNAPSHOT_LINE_BYTES = ceilingOf("snapshot.line_bytes");
+export const MAX_SNAPSHOT_TABLES = ceilingOf("snapshot.tables");
 /** Past these, a snapshot keeps the folders that hold a table. */
-export const MAX_SNAPSHOT_FOLDERS = 500;
-export const MAX_SNAPSHOT_BYTES = 40 * 1024 * 1024;
+export const MAX_SNAPSHOT_FOLDERS = ceilingOf("snapshot.folders");
+export const MAX_SNAPSHOT_BYTES = ceilingOf("snapshot.bytes");
 /** An archive with files: under ZIP's 4 GiB without ZIP64. */
-export const MAX_SNAPSHOT_ARCHIVE_BYTES = 2 * 1024 * 1024 * 1024;
-export const MAX_SNAPSHOT_FILES = 50_000;
+export const MAX_SNAPSHOT_ARCHIVE_BYTES = ceilingOf("snapshot.archive_bytes");
+export const MAX_SNAPSHOT_FILES = ceilingOf("snapshot.files");
 /** The most comments one table brings in an instance's own copy. */
-export const MAX_SNAPSHOT_COMMENTS = 1_000_000;
-export const MAX_SNAPSHOT_DASHBOARDS = 500;
+export const MAX_SNAPSHOT_COMMENTS = ceilingOf("snapshot.comments");
+export const MAX_SNAPSHOT_DASHBOARDS = ceilingOf("snapshot.dashboards");
 /** The widgets of one dashboard. */
-export const MAX_SNAPSHOT_WIDGETS = 500;
+export const MAX_SNAPSHOT_WIDGETS = ceilingOf("snapshot.widgets");
 /** The JSON inside an archive. */
 export const SNAPSHOT_ENTRY = "snapshot.json";
 

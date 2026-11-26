@@ -5,15 +5,16 @@
  * tables was used in the window (`lastActivity`): each table's newest
  * event is read by the trails' indexes, never by scanning a trail.
  */
+import { ceilingOf } from "@anygriddb/core";
 import type { Database } from "@anygriddb/db";
 import { sql } from "kysely";
 import { ERASED_USER_ID } from "./data/erasure.js";
 import { lastActivity } from "./data/table-activity.js";
 
 const DAY_MS = 86_400_000;
-const WINDOW_DAYS = 30;
+const WINDOW_DAYS = ceilingOf("usage.active_days");
 /** How many daily points Health keeps and shows. */
-export const USAGE_TREND_DAYS = 90;
+export const USAGE_TREND_DAYS = ceilingOf("usage.trend_days");
 
 export type UsageSnapshot = {
   day: string;

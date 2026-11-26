@@ -1,3 +1,4 @@
+import { ceilingOf } from "./limits";
 import { z } from "zod";
 import { columnNameSchema, labelSchema } from "./names";
 import { AGGREGATE_FNS, MAX_HISTOGRAM_BINS } from "./query/read";
@@ -26,7 +27,7 @@ export type ChartType = (typeof CHART_TYPES)[number];
 /** The bins of a histogram that does not say how many it has. */
 export const DEFAULT_HISTOGRAM_BINS = 12;
 /** The categories a chart draws, at most: the rest are counted. */
-export const MAX_CHART_CATEGORIES = 40;
+export const MAX_CHART_CATEGORIES = ceilingOf("chart.categories");
 /**
  * A chart's categories in their field's own order (a list's options,
  * else the alphabet, a date's days), or by their value, greatest first.

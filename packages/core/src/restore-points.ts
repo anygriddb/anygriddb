@@ -1,3 +1,4 @@
+import { ceilingOf } from "./limits";
 import { z } from "zod";
 import { labelSchema } from "./names";
 
@@ -9,7 +10,7 @@ import { labelSchema } from "./names";
  */
 
 /** Restore points one base keeps at once. */
-export const MAX_RESTORE_POINTS = 20;
+export const MAX_RESTORE_POINTS = ceilingOf("restore.points_per_base");
 
 /** What the person who made it says about a restore point. */
 const restorePointNoteSchema = z.string().trim().min(1).max(200);

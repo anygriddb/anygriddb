@@ -1,3 +1,4 @@
+import { ceilingOf } from "./limits";
 /**
  * The text of a JSON field: an object or a list, in one spelling, a space
  * after each colon and each comma and none elsewhere, which is how
@@ -8,13 +9,13 @@
  */
 
 /** The longest document a JSON field takes, in its kept spelling. */
-export const JSON_MAX_CHARS = 20_000;
+export const JSON_MAX_CHARS = ceilingOf("cell.json_chars");
 
 /**
  * How deep a document nests at most: what MySQL's JSON type takes, the
  * lowest of the engines' limits.
  */
-export const JSON_MAX_DEPTH = 100;
+export const JSON_MAX_DEPTH = ceilingOf("cell.json_depth");
 
 const SPACE = new Set([" ", "\t", "\n", "\r"]);
 

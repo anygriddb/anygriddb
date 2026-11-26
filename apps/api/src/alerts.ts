@@ -14,6 +14,7 @@ import {
   type AlertKind,
   type DueAlert,
   trimEndRun,
+  ceilingOf,
 } from "@anygriddb/core";
 import type { Database } from "@anygriddb/db";
 import { sql } from "kysely";
@@ -28,8 +29,8 @@ import { readMailVoice, readSettings } from "./settings.js";
 
 const DAY_MS = 86_400_000;
 /** How long a closed alert and a backup's report are kept. */
-const CLOSED_ALERT_DAYS = 90;
-const BACKUP_RUN_DAYS = 400;
+const CLOSED_ALERT_DAYS = ceilingOf("retention.closed_alerts_days");
+const BACKUP_RUN_DAYS = ceilingOf("retention.backup_runs_days");
 
 type BackupRun = {
   id: string;

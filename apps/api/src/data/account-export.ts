@@ -14,7 +14,7 @@
 import { once } from "node:events";
 import { createWriteStream, type WriteStream } from "node:fs";
 import { stat } from "node:fs/promises";
-import { AppError, compareCodeUnits } from "@anygriddb/core";
+import { AppError, compareCodeUnits, ceilingOf } from "@anygriddb/core";
 import type { Database } from "@anygriddb/db";
 import { z } from "zod";
 import { listApiTokens } from "../auth/tokens.js";
@@ -22,7 +22,7 @@ import { ERASED_USER_ID } from "./erasure.js";
 import { liveBase, liveTable } from "./live.js";
 
 /** The most rows of each long list the file holds; it says when one is cut. */
-const ACCOUNT_LIST_LIMIT = 10_000;
+const ACCOUNT_LIST_LIMIT = ceilingOf("export.account_list_rows");
 /** Rows read at a time while the file is written: never a list whole. */
 const ACCOUNT_DATA_PAGE = 500;
 /** Recent rows shown on the account's page. */

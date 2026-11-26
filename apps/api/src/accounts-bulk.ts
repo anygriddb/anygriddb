@@ -10,6 +10,7 @@ import {
   readPeopleFile,
   type PeopleFileProblem,
   type Role,
+  ceilingOf,
 } from "@anygriddb/core";
 import type { Database } from "@anygriddb/db";
 import { sql } from "kysely";
@@ -28,7 +29,7 @@ import { addJob, TASKS } from "./queue/jobs.js";
 import { readGateSettings } from "./settings.js";
 
 /** Accounts one gesture may disable. */
-const BULK_ACCOUNTS_MAX = 100;
+const BULK_ACCOUNTS_MAX = ceilingOf("accounts.bulk");
 
 export const bulkDisableInputSchema = z
   .object({ userIds: z.array(z.uuid()).min(1).max(BULK_ACCOUNTS_MAX) })

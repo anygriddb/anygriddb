@@ -5,7 +5,7 @@
  * and until when. The same notice goes out when an administrator gives
  * themselves a role on a base, which is the other way in.
  */
-import { AppError, type Binding, trimEndRun } from "@anygriddb/core";
+import { AppError, type Binding, trimEndRun, ceilingOf } from "@anygriddb/core";
 import type { Database } from "@anygriddb/db";
 import { sql } from "kysely";
 import type { KeyRing } from "../auth/key-ring.js";
@@ -49,7 +49,7 @@ export function accessRecordOf(value: unknown): AccessRecord | null {
 }
 
 /** How long a base stays open, in minutes. */
-const EMERGENCY_ACCESS_MINUTES = 60;
+const EMERGENCY_ACCESS_MINUTES = ceilingOf("protocol.base_opening_minutes");
 
 export type AccessNoticeDeps = {
   db: Database;

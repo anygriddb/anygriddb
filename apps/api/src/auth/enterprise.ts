@@ -45,7 +45,7 @@ import {
 } from "../integrations/saml.js";
 import { assertSignInAddressAllowed } from "./sign-in-allowlist.js";
 import { readSettings } from "../settings.js";
-import { AppError, signOnRefusal } from "@anygriddb/core";
+import { AppError, signOnRefusal, ceilingOf } from "@anygriddb/core";
 
 type Deps = {
   env: Env;
@@ -57,7 +57,7 @@ type Deps = {
 };
 
 /** How long a sign-in started at the provider may take to come back. */
-const STATE_TTL_MS = 10 * 60 * 1000;
+const STATE_TTL_MS = ceilingOf("protocol.sign_on_state_ms");
 
 /**
  * The browser that starts a single sign-on gets a random value of its own,
@@ -244,7 +244,7 @@ const providerFetch: oidc.CustomFetch = (url, options) =>
         : options.body,
   });
 
-const DISCOVERY_TTL_MS = 60 * 60 * 1000;
+const DISCOVERY_TTL_MS = ceilingOf("protocol.provider_discovery_ms");
 let discovered:
   | {
       at: number;

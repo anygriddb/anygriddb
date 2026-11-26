@@ -5,13 +5,14 @@
  * them apart: a TLS handshake starts with 0x16, an HTTP request with a
  * letter.
  */
+import { ceilingOf } from "@anygriddb/core";
 import type { Socket } from "node:net";
 import type { Server } from "node:tls";
 
 /** At most this much of a plain request is read to find its host. */
 const HEAD_LIMIT = 8 * 1024;
 /** A connection that says nothing for this long is closed. */
-const SNIFF_TIMEOUT_MS = 10_000;
+const SNIFF_TIMEOUT_MS = ceilingOf("timeout.first_bytes_ms");
 
 const HOST = /^[a-z0-9.-]+(?::\d{1,5})?$|^\[[0-9a-f:.]+\](?::\d{1,5})?$/i;
 const TARGET = /^\/[\x21-\x7e]*$/;

@@ -11,15 +11,16 @@ import {
   type AirtableRecord,
   type AirtableTable,
   MAX_SNAPSHOT_ROWS,
+  ceilingOf,
 } from "@anygriddb/core";
 import { z } from "zod";
 
 const API = "https://api.airtable.com/v0";
 /** Airtable allows five requests a second for a base. */
 const SPACING_MS = 220;
-const TIMEOUT_MS = 30_000;
+const TIMEOUT_MS = ceilingOf("timeout.import_call_ms");
 /** A page of records or of tables is far smaller than this. */
-const ANSWER_MAX_BYTES = 16 * 1024 * 1024;
+const ANSWER_MAX_BYTES = ceilingOf("import.call_answer_bytes");
 /** After a 429, Airtable asks for 30 seconds. */
 const RETRY_MS = 30_000;
 const RETRIES = 3;

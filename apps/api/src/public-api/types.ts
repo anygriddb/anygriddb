@@ -1,3 +1,4 @@
+import { ceilingOf } from "@anygriddb/core";
 import type { Binding } from "@anygriddb/core";
 import type { Database } from "@anygriddb/db";
 import type { Bus } from "../realtime/bus.js";
@@ -6,7 +7,7 @@ import type { TokenScope } from "../auth/tokens.js";
 import type { ReadBudget } from "../read-budget.js";
 import { z } from "zod";
 
-export const MAX_RECORDS = 100;
+export const MAX_RECORDS = ceilingOf("api.records_per_call");
 
 /**
  * A whole number as a query writes one: digits and nothing else. `Number`

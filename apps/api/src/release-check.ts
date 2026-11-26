@@ -4,7 +4,7 @@
  * the call cannot be turned into an SSRF probe. Off by default.
  */
 import { outboundFetch } from "./outbound/index.js";
-import { AppError } from "@anygriddb/core";
+import { AppError, ceilingOf } from "@anygriddb/core";
 import { z } from "zod";
 
 /** Hard-coded feed; never take a host from settings or the request. */
@@ -13,9 +13,9 @@ export const RELEASE_FEED_URL =
 
 const SEMVER = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/;
 /** A feed that does not answer in this time counts as unreachable. */
-const CHECK_TIMEOUT_MS = 10_000;
+const CHECK_TIMEOUT_MS = ceilingOf("timeout.release_check_ms");
 /** A release's description is a few kilobytes: its answer is read up to this. */
-const RELEASE_ANSWER_MAX_BYTES = 1024 * 1024;
+const RELEASE_ANSWER_MAX_BYTES = ceilingOf("release.answer_bytes");
 
 const releaseSchema = z.object({
   tag_name: z.string(),

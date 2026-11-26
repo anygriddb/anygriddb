@@ -3,10 +3,10 @@
  * of its fields a copy can keep, and what a field's values make it.
  */
 import { createHash } from "node:crypto";
-import { compareCodeUnits, type MappedField } from "@anygriddb/core";
+import { compareCodeUnits, type MappedField, ceilingOf } from "@anygriddb/core";
 
 /** A row id is a text of this many characters at most. */
-const ID_MAX = 500;
+const ID_MAX = ceilingOf("copy.id_chars");
 
 /**
  * The id of a row from the values of its key: the value itself for one

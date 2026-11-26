@@ -4,7 +4,7 @@
  * who sent it, for which client, and that it is a logout and nothing else;
  * it ends the sessions that provider opened, and no other.
  */
-import { AppError } from "@anygriddb/core";
+import { AppError, ceilingOf } from "@anygriddb/core";
 import type { Database } from "@anygriddb/db";
 import { jwtVerify, type JWTVerifyGetKey } from "jose";
 import { recordAuthEvent } from "./auth-events.js";
@@ -27,8 +27,8 @@ const ALGORITHMS = [
   "ES512",
   "EdDSA",
 ];
-const MAX_TOKEN_LENGTH = 8_192;
-const MAX_TOKEN_AGE_S = 300;
+const MAX_TOKEN_LENGTH = ceilingOf("protocol.logout_token_chars");
+const MAX_TOKEN_AGE_S = ceilingOf("protocol.logout_token_seconds");
 /** Longer than a token is accepted: it cannot come back once forgotten. */
 const SPENT_FOR_MS = 2 * MAX_TOKEN_AGE_S * 1000;
 
