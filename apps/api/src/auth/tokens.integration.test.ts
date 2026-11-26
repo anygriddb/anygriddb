@@ -7,6 +7,7 @@ import { randomBytes } from "node:crypto";
 import cookie from "@fastify/cookie";
 import type { Database } from "@anygriddb/db";
 import Fastify, { type FastifyInstance } from "fastify";
+import { sql } from "kysely";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { Env } from "../env.js";
 import { recordingBus } from "../realtime/recording-bus.test-helpers.js";
@@ -144,5 +145,56 @@ describe("an API token that writes without deleting", () => {
     });
     expect(deleted.statusCode).toBe(200);
     expect(await titles()).not.toContain("Goes");
+  });
+
+  it("is on the change trail when made and revoked, never its secret, and stays revoked", async () => {
+    const made = await owner.call().auth.createToken({ name: "short" });
+    expect(
+      (
+        await app.inject({
+          method: "GET",
+          url: `/api/v1/tables/${tableId}/records`,
+          headers: bearer(made.token),
+        })
+      ).statusCode,
+    ).toBe(200);
+    await owner.call().auth.revokeToken({ tokenId: made.id });
+    expect(
+      (
+        await app.inject({
+          method: "GET",
+          url: `/api/v1/tables/${tableId}/records`,
+          headers: bearer(made.token),
+        })
+      ).statusCode,
+    ).toBe(401);
+    const events = await db
+      .selectFrom("auditEvents")
+      .select(["newValue", "oldValue"])
+      .where("catalogTable", "=", "delegated_accesses")
+      .where(sql<boolean>`coalesce(new_value, old_value) ->> 'id' = ${made.id}`)
+      .orderBy("occurredAt")
+      .execute();
+    type Kept = { name?: string; revoked_at?: string | null } | null;
+    expect(
+      events.map((event) => [
+        (event.oldValue as Kept)?.name ?? null,
+        Boolean((event.newValue as Kept)?.revoked_at),
+      ]),
+    ).toEqual([
+      [null, false],
+      ["short", true],
+    ]);
+    expect(JSON.stringify(events)).not.toMatch(/[0-9a-f]{64}/);
+    // It stays, revoked, out of the list of tokens.
+    expect(
+      (await owner.call().auth.tokens()).tokens.map((token) => token.id),
+    ).not.toContain(made.id);
+    const kept = await db
+      .selectFrom("delegatedAccesses")
+      .select("revokedAt")
+      .where("id", "=", made.id)
+      .executeTakeFirst();
+    expect(kept?.revokedAt).not.toBeNull();
   });
 });

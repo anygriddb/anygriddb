@@ -285,10 +285,12 @@ describe("single sign-on only", () => {
       expect(ended.tokens).toBeGreaterThanOrEqual(1);
 
       expect(await localTab.call().session.current()).toBeNull();
+      // Revoked, they stay, and act on nothing.
       const tokens = await db
-        .selectFrom("apiTokens")
+        .selectFrom("delegatedAccesses")
         .select("id")
-        .where("userId", "=", local.id)
+        .where("authorId", "=", local.id)
+        .where("revokedAt", "is", null)
         .execute();
       expect(tokens).toEqual([]);
       expect(token).toBeTruthy();

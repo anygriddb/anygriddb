@@ -6,7 +6,8 @@
   "outFile": "src/types.generated.ts",
   "overrides": {
     "columns": {
-      "api_tokens.base_ids": "string[] | null",
+      "delegated_accesses.kind": "\"admin_token\" | \"api_token\" | \"application\" | \"feed\" | \"inbound_hook\" | \"link\" | \"scim_token\"",
+      "delegated_accesses.details": "Generated<Record<string, unknown>>",
       "made_roles.permissions": "string[]",
       "audit_events.new_value": "unknown",
       "audit_events.old_value": "unknown",

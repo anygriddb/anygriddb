@@ -14783,6 +14783,7 @@ msgstr "Today's date, in the reader's time zone."
 
 #: components/admin/access-tab.tsx
 #: components/admin/notifications-tab.tsx
+#: components/admin/trails.tsx
 msgid "Token"
 msgstr "Token"
 

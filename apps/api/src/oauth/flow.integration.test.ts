@@ -112,9 +112,10 @@ describe("oauth authorization code", () => {
       refreshToken: first.refresh_token,
     });
     expect(await findApiToken(db, `Bearer ${first.access_token}`)).toBeNull();
-    expect(
-      (await findApiToken(db, `Bearer ${second.access_token}`))?.user.id,
-    ).toBe(person);
+    const renewed = await findApiToken(db, `Bearer ${second.access_token}`);
+    expect(renewed?.user.id).toBe(person);
+    // A renewal is the same grant with a new secret: one access.
+    expect(renewed?.scope.tokenId).toBe(found?.scope.tokenId);
 
     await revokeGrantToken(db, {
       clientId,
@@ -122,6 +123,21 @@ describe("oauth authorization code", () => {
       token: second.refresh_token,
     });
     expect(await findApiToken(db, `Bearer ${second.access_token}`)).toBeNull();
+    // Revoked, the grant stays, with its refresh token, and renews nothing.
+    const kept = await db
+      .selectFrom("delegatedAccesses")
+      .select(["kind", "revokedAt"])
+      .where("id", "=", found?.scope.tokenId ?? "")
+      .executeTakeFirst();
+    expect(kept?.kind).toBe("application");
+    expect(kept?.revokedAt).not.toBeNull();
+    await expect(
+      refreshAccessToken(db, {
+        clientId,
+        clientSecret,
+        refreshToken: second.refresh_token,
+      }),
+    ).rejects.toThrow();
   });
 
   const verifier = `v_${"b".repeat(43)}`;

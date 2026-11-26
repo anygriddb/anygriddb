@@ -299,9 +299,10 @@ export const adminBaseProcedures = {
         handle(ctx, async () => {
           const admin = await requireInstance(ctx);
           const token = await ctx.db
-            .selectFrom("apiTokens")
-            .select("userId")
+            .selectFrom("delegatedAccesses")
+            .select("authorId as userId")
             .where("id", "=", input.id)
+            .where("kind", "in", ["api_token", "application"])
             .executeTakeFirst();
           if (!token) throw new AppError("no_row");
           await revokeApiToken(ctx.db, token.userId, input.id, {

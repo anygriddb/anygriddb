@@ -158,6 +158,13 @@ async function writeScope(
   tableId: string,
   permission: "rows.write" | "rows.delete" = "rows.write",
 ): Promise<RowScope> {
+  // A token kept from deleting is refused by what it was entrusted; it
+  // is told why, which says nothing of the table. Who calls is read first:
+  // the token's scope comes with it.
+  await requireUser(ctx);
+  if (permission === "rows.delete" && ctx.tokenScope?.allowDelete === false) {
+    throw new AppError("token_cannot_delete");
+  }
   return scopeOf(ctx, await guardTable(ctx, tableId, permission));
 }
 

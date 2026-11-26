@@ -8,6 +8,7 @@
  * lock. Its second factors stay, so a reset alone never opens an account
  * that has them.
  */
+import { withAudit } from "../data/audit-context.js";
 import { dropAccountTokens } from "./tokens.js";
 import { createHash, randomBytes } from "node:crypto";
 import { AppError, type InstanceSettings, ceilingOf } from "@anygriddb/core";
@@ -153,7 +154,8 @@ export async function resetPassword(
     throw new AppError("sso_account");
   }
   const hash = await hashPassword(password);
-  await db.transaction().execute(async (tx) => {
+  // Its tokens are revoked on the change trail, in the person's name.
+  await withAudit(db, { userId: link.userId, source: "web" }, async (tx) => {
     const spent = await tx
       .updateTable("passwordResets")
       .set({ usedAt: new Date() })
@@ -190,7 +192,7 @@ export async function changePassword(
   input: { userId: string; password: string; keepSessionHash?: string },
 ): Promise<void> {
   const hash = await hashPassword(input.password);
-  await db.transaction().execute(async (tx) => {
+  await withAudit(db, { userId: input.userId, source: "web" }, async (tx) => {
     const updated = await tx
       .updateTable("passwordHashes")
       .set({ hash, updatedAt: new Date() })

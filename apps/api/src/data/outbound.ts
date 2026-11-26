@@ -6,6 +6,7 @@
 import { AppError } from "@anygriddb/core";
 import type { Database } from "@anygriddb/db";
 import { sql } from "kysely";
+import { permissionsOf, switchesOf, tokenEnd } from "../auth/delegated.js";
 import { withAudit } from "./audit-context.js";
 import { liveBase, liveTable, liveView } from "./live.js";
 import { lastActivity } from "./table-activity.js";
@@ -267,25 +268,29 @@ export async function listInstanceTokens(
   const offset = input.offset ?? 0;
   const now = Date.now();
   const counted = await db
-    .selectFrom("apiTokens")
+    .selectFrom("delegatedAccesses as a")
     .select(sql<string>`count(*)`.as("value"))
+    .where("a.kind", "in", ["api_token", "application"])
+    .where("a.revokedAt", "is", null)
     .executeTakeFirst();
   const total = Number(counted?.value ?? 0);
   const rows = await db
-    .selectFrom("apiTokens as k")
-    .innerJoin("users as u", "u.id", "k.userId")
+    .selectFrom("delegatedAccesses as a")
+    .innerJoin("users as u", "u.id", "a.authorId")
     .select([
-      "k.id",
-      "k.name",
-      "k.userId",
-      "k.createdAt",
-      "k.expiresAt",
-      "k.lastUsedAt",
-      "k.readOnly",
-      "k.baseIds",
+      "a.id",
+      "a.name",
+      "a.authorId as userId",
+      "a.createdAt",
+      "a.endsAt",
+      "a.lastUsedAt",
+      "a.permissions",
+      "a.baseIds",
       "u.displayName as owner",
     ])
-    .orderBy("k.createdAt", "desc")
+    .where("a.kind", "in", ["api_token", "application"])
+    .where("a.revokedAt", "is", null)
+    .orderBy("a.createdAt", "desc")
     .offset(offset)
     .limit(input.limit)
     .execute();
@@ -296,10 +301,10 @@ export async function listInstanceTokens(
       ownerId: row.userId,
       owner: row.owner,
       createdAt: row.createdAt.toISOString(),
-      expiresAt: row.expiresAt.toISOString(),
-      expired: row.expiresAt.getTime() <= now,
+      expiresAt: tokenEnd(row.endsAt).toISOString(),
+      expired: tokenEnd(row.endsAt).getTime() <= now,
       lastUsedAt: row.lastUsedAt?.toISOString() ?? null,
-      readOnly: row.readOnly,
+      readOnly: switchesOf(permissionsOf(row.permissions)).readOnly,
       bases: Array.isArray(row.baseIds) ? row.baseIds.length : null,
     })),
     total,

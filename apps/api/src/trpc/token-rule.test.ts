@@ -5,6 +5,7 @@ import { tokenMayCall } from "./token-rule.js";
 const scope = (over: Partial<TokenScope> = {}): TokenScope => ({
   tokenId: "t",
   baseIds: null,
+  entrusted: null,
   readOnly: false,
   allowDelete: true,
   ...over,

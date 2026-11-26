@@ -39,6 +39,10 @@ rules, and runs a version before 0.11.2 upgrades through 0.11.2 first.
   in and without Export no longer reads rows by a token, and still writes
   them. Tick Export on it to keep its scripts reading. The API console in
   a session reads as before.
+- A token kept from deleting holds every permission but deleting rows
+  (`rows.delete`), wherever it acts: it brings nothing back from the trash
+  either. A script that restores rows needs a token made without that
+  switch.
 
 ### Added
 
@@ -55,6 +59,14 @@ rules, and runs a version before 0.11.2 upgrades through 0.11.2 first.
 
 ### Changed
 
+- What acts without a session is one table, `delegated_accesses` (ADR
+  0131, migration 0155): a person's API tokens, the applications they let
+  in, and the tokens of the administration API and of provisioning
+  (SCIM), moved row for row, ids, dates and hashes kept, nothing issued
+  again. A revoked token stays, revoked, and acts on nothing; making and
+  revoking a person's token or an application's grant is now on the
+  change trail, never its secret. An application's renewal keeps its
+  grant, with a new secret.
 - Administration › People › a person's bases › **Effective rights** say
   every permission held on the base and on each table, and each
   attribution it comes from: their own or a group's, on the base or the

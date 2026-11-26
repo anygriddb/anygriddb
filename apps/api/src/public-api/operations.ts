@@ -690,6 +690,10 @@ export async function deleteRecords(
   reason?: string,
   origin?: WriteOrigin,
 ) {
+  // A token kept from deleting is told why, which says nothing of the table.
+  if (actor.scope?.allowDelete === false) {
+    throw new AppError("token_cannot_delete");
+  }
   const table = await tableFor(deps, actor, tableId, "rows.delete");
   const deleted = await deleteRows(
     serviceDeps(deps),
