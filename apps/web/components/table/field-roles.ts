@@ -25,9 +25,16 @@ export function canGroupBy(column: CatalogColumn): boolean {
   );
 }
 
-/** A kanban can stack its cards by the field: a list of one option. */
+/**
+ * A kanban can stack its cards by the field: a list of one option, or the
+ * row's state, whose stacks are its circuit's states (ADR 0133).
+ */
 export function canStackBy(column: CatalogColumn): boolean {
-  return column.fieldType === "single_select" && canGroupBy(column);
+  return (
+    (column.fieldType === "single_select" ||
+      column.fieldType === "row_state") &&
+    canGroupBy(column)
+  );
 }
 
 /**

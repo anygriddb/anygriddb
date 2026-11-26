@@ -14,6 +14,10 @@ first.
   time, it shows each row's state in the circuit's words, and filters,
   sorts and groups by it, in the circuit's order (migration 0145). A state
   still changes by a step only. The API and exports give the state's key.
+- A kanban stacks by a row's state: its columns are the circuit's states,
+  and a card carried to another takes the step between them, asking what
+  the step asks (a reason, a signature); when no step leads there, it says
+  so and the card stays.
 
 ## 0.10.1 - 2026-11-26
 

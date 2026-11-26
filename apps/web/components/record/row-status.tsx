@@ -1,25 +1,15 @@
 import type { StatusCircuit, StatusTransition } from "@anygriddb/core";
 import { stateByKey } from "@anygriddb/core";
-import {
-  Button,
-  cn,
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  Input,
-  Label,
-} from "@anygriddb/ui";
+import { Button, cn } from "@anygriddb/ui";
 import { useLingui } from "@lingui/react/macro";
 import { msg } from "@lingui/core/macro";
 import type { MessageDescriptor } from "@lingui/core";
 import { AlertTriangle, Lock, PenLine, Unlock } from "lucide-react";
-import { useState, type SubmitEvent } from "react";
 import { toast } from "sonner";
-import { reasonOf, useErrorText } from "../../lib/errors";
+import { useErrorText } from "../../lib/errors";
 import { cellDisplay, formatInstant } from "../../lib/format";
 import { trpc } from "../../lib/trpc";
 import { grants, type RowItem } from "../../lib/types";
-import { PromptDialog, Refusal, useRefusal } from "../shell/dialogs";
 import { useTable } from "../table/table-context";
 import {
   allowedTransitions,
@@ -29,6 +19,7 @@ import {
 } from "./row-status-model";
 import { circuitWord } from "./circuit-labels";
 import { useTableCircuit } from "./use-table-circuit";
+import { useTakeStep } from "./take-step";
 
 const STATUS_LABELS: Record<string, MessageDescriptor> = {
   draft: msg`Draft`,
@@ -135,7 +126,6 @@ export function RowStatus({ row }: { row: RowItem }) {
                   circuit={circuit}
                   transition={transition}
                   drift={drift}
-                  status={status}
                 />
               ))
             : null}
@@ -170,79 +160,20 @@ function TransitionAction(props: {
   circuit: StatusCircuit;
   transition: StatusTransition;
   drift: RowItem["ag_drift"];
-  status: string;
 }) {
-  const { t, i18n } = useLingui();
+  const { i18n } = useLingui();
+  const steps = useTakeStep();
   const label = circuitWord(i18n, "transition", props.transition);
-  const table = useTable();
-  const errorText = useErrorText();
-  const [busy, setBusy] = useState(false);
-  const [signing, setSigning] = useState(false);
-  const [unlocking, setUnlocking] = useState(false);
-  const [reasonOpen, setReasonOpen] = useState(false);
-  const [pendingReason, setPendingReason] = useState<string | undefined>();
-  const fromState = stateByKey(props.circuit, props.status);
-  const toState = stateByKey(props.circuit, props.transition.toStateKey);
   const iconKey = props.transition.key;
-  const needsConfirm =
-    props.transition.key === "unlock" ||
-    (fromState?.seal === true && toState?.rowWritable === true);
-
   const disabled =
-    busy || (props.transition.key === "sign" && props.drift !== null);
-
-  async function run(input?: Signed) {
-    setBusy(true);
-    const reason = input?.reason ?? pendingReason;
-    const meaning = input?.meaning;
-    const password = input?.password;
-    const factorCode = input?.factorCode;
-    const tableId = table.table.id;
-    const rowId = props.row.id;
-    const transitionKey = props.transition.key;
-    try {
-      await trpc.rows.transition.mutate({
-        tableId,
-        rowId,
-        transitionKey,
-        reason,
-        meaning,
-        password,
-        factorCode,
-      });
-      setPendingReason(undefined);
-    } catch (error: unknown) {
-      toast.error(errorText(error));
-      setBusy(false);
-      throw error;
-    }
-    setBusy(false);
-  }
-
-  function start() {
-    // A signed step asks its reason, when it needs one, with the proof.
-    if (props.transition.signature !== "none") {
-      setSigning(true);
-      return;
-    }
-    if (props.transition.requireReason) {
-      setReasonOpen(true);
-      return;
-    }
-    if (needsConfirm) {
-      setUnlocking(true);
-      return;
-    }
-    void run();
-  }
-
+    steps.busy || (props.transition.key === "sign" && props.drift !== null);
   return (
     <>
       <Button
         size="xs"
         variant={props.transition.key === "unlock" ? "ghost" : "outline"}
         disabled={disabled}
-        onClick={start}
+        onClick={() => steps.take(props.row, props.circuit, props.transition)}
       >
         {iconKey === "lock" ? (
           <Lock className="h-3.5 w-3.5" aria-hidden />
@@ -253,214 +184,8 @@ function TransitionAction(props: {
         ) : null}
         {label}
       </Button>
-      {reasonOpen ? (
-        <PromptDialog
-          open
-          onOpenChange={(open) => !open && setReasonOpen(false)}
-          title={label}
-          label={t`This transition needs a reason, kept in the audit trail.`}
-          submitLabel={t`Confirm`}
-          onSubmit={(reason) => {
-            if (!reason.trim()) return false;
-            setReasonOpen(false);
-            if (needsConfirm) {
-              setPendingReason(reason);
-              setUnlocking(true);
-              return true;
-            }
-            void run({ reason });
-            return true;
-          }}
-        />
-      ) : null}
-      <SignDialog
-        open={signing}
-        onOpenChange={setSigning}
-        transition={props.transition}
-        onConfirm={async (signed) => {
-          await run(signed);
-          setSigning(false);
-        }}
-      />
-      <UnlockDialog
-        open={unlocking}
-        onOpenChange={setUnlocking}
-        hadSignature={props.status === "signed"}
-        transitionLabel={label}
-        onConfirm={() => run()}
-      />
+      {steps.dialogs}
     </>
-  );
-}
-
-function UnlockDialog(props: {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  hadSignature: boolean;
-  transitionLabel: string;
-  onConfirm: () => Promise<void>;
-}) {
-  const { t } = useLingui();
-  return (
-    <Dialog open={props.open} onOpenChange={props.onOpenChange}>
-      <DialogContent
-        title={props.transitionLabel}
-        description={
-          props.hadSignature
-            ? t`The row goes back to a writable state and can be changed again. Its signature stays in the history.`
-            : t`The row goes back to a writable state and can be changed again.`
-        }
-      >
-        <DialogFooter className="mt-0">
-          <Button variant="ghost" onClick={() => props.onOpenChange(false)}>
-            {t`Cancel`}
-          </Button>
-          <Button
-            onClick={async () => {
-              await props.onConfirm();
-              props.onOpenChange(false);
-            }}
-          >
-            {props.transitionLabel}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-/** What a signed step sends: its meaning, its proof, and its reason. */
-type Signed = {
-  reason?: string;
-  meaning?: string;
-  password?: string;
-  factorCode?: string;
-};
-
-function SignDialog(props: {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  transition: StatusTransition;
-  onConfirm: (signed: Signed) => Promise<void>;
-}) {
-  const { t, i18n } = useLingui();
-  return (
-    <Dialog open={props.open} onOpenChange={props.onOpenChange}>
-      <DialogContent
-        title={circuitWord(i18n, "transition", props.transition)}
-        description={
-          props.transition.signature === "step_up"
-            ? t`Your signature commits you: enter your password again, or a code of your authenticator.`
-            : t`Your signature commits you: enter your password again.`
-        }
-      >
-        {props.open ? (
-          <SignForm
-            transition={props.transition}
-            onOpenChange={props.onOpenChange}
-            onConfirm={props.onConfirm}
-          />
-        ) : null}
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-function SignForm(props: {
-  transition: StatusTransition;
-  onOpenChange: (open: boolean) => void;
-  onConfirm: (signed: Signed) => Promise<void>;
-}) {
-  const { t } = useLingui();
-  const errorText = useErrorText();
-  const [meaning, setMeaning] = useState("");
-  const [reason, setReason] = useState("");
-  const [password, setPassword] = useState("");
-  const [code, setCode] = useState("");
-  const [busy, setBusy] = useState(false);
-  const refusal = useRefusal();
-  const byCode = props.transition.signature === "step_up";
-  const asksReason = props.transition.requireReason;
-  const proved = password.length >= 12 || (byCode && code.trim().length >= 6);
-  const ready =
-    meaning.trim() !== "" && proved && (!asksReason || reason.trim() !== "");
-  async function submit(event: SubmitEvent) {
-    event.preventDefault();
-    if (!ready) return;
-    refusal.clear();
-    setBusy(true);
-    const signed: Signed = {
-      meaning: meaning.trim(),
-      ...(asksReason ? { reason: reason.trim() } : {}),
-      ...(password.length >= 12 ? { password } : { factorCode: code.trim() }),
-    };
-    try {
-      await props.onConfirm(signed);
-      props.onOpenChange(false);
-    } catch (error: unknown) {
-      // A wrong password is tried again here; anything else ends the dialog.
-      if (reasonOf(error).code === "invalid_credentials") {
-        refusal.say(error);
-      } else {
-        toast.error(errorText(error));
-        props.onOpenChange(false);
-      }
-    }
-    setBusy(false);
-  }
-  return (
-    <form onSubmit={submit} className="flex flex-col gap-2">
-      <Label htmlFor="sign-meaning">{t`Meaning`}</Label>
-      <Input
-        id="sign-meaning"
-        autoFocus
-        placeholder={t`For example: Approved, Verified, Reviewed`}
-        value={meaning}
-        maxLength={500}
-        onChange={(event) => setMeaning(event.target.value)}
-      />
-      {asksReason ? (
-        <>
-          <Label htmlFor="sign-reason">{t`Reason`}</Label>
-          <Input
-            id="sign-reason"
-            value={reason}
-            maxLength={500}
-            onChange={(event) => setReason(event.target.value)}
-          />
-        </>
-      ) : null}
-      <Label htmlFor="sign-password">{t`Password`}</Label>
-      <Input
-        id="sign-password"
-        type="password"
-        autoComplete="current-password"
-        value={password}
-        onChange={(event) => setPassword(event.target.value)}
-      />
-      {byCode ? (
-        <>
-          <Label htmlFor="sign-code">{t`Or a code of your authenticator`}</Label>
-          <Input
-            id="sign-code"
-            inputMode="numeric"
-            autoComplete="one-time-code"
-            value={code}
-            maxLength={64}
-            onChange={(event) => setCode(event.target.value)}
-          />
-        </>
-      ) : null}
-      <Refusal text={refusal.text} />
-      <DialogFooter>
-        <Button variant="ghost" onClick={() => props.onOpenChange(false)}>
-          {t`Cancel`}
-        </Button>
-        <Button type="submit" disabled={busy || !ready}>
-          {t`Sign`}
-        </Button>
-      </DialogFooter>
-    </form>
   );
 }
 

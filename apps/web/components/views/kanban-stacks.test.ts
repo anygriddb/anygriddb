@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { kanbanStacks, stackPlaces } from "./kanban-stacks";
+import { kanbanStacks, stackPlaces, stateStacks } from "./kanban-stacks";
 
 describe("stackPlaces", () => {
   it("places each stack where its group starts", () => {
@@ -37,6 +37,18 @@ describe("kanbanStacks", () => {
       { id: "To do", label: "To do", color: "blue" },
       { id: "Done", label: "Done" },
       { id: "Archived", label: "Archived" },
+    ]);
+  });
+
+  it("stacks a kanban by the row's state in its circuit's states, none apart", () => {
+    expect(
+      stateStacks([
+        { key: "draft", label: "Draft" },
+        { key: "in_review", label: "In review" },
+      ]),
+    ).toEqual([
+      { id: "draft", label: "Draft" },
+      { id: "in_review", label: "In review" },
     ]);
   });
 });
