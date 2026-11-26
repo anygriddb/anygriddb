@@ -70,6 +70,25 @@ export const FAMILY_OF = {
 export type LimitDraft = Partial<Record<SettableLimitId, string>>;
 
 /**
+ * What is typed in one part of the page, and what is typed elsewhere:
+ * each part saves its own fields, and leaves the others as typed.
+ */
+export function splitDraft(
+  draft: LimitDraft,
+  family: LimitFamily,
+): [LimitDraft, LimitDraft] {
+  const inside: LimitDraft = {};
+  const outside: LimitDraft = {};
+  for (const [id, typed] of Object.entries(draft) as Array<
+    [SettableLimitId, string]
+  >) {
+    if (FAMILY_OF[id] === family) inside[id] = typed;
+    else outside[id] = typed;
+  }
+  return [inside, outside];
+}
+
+/**
  * The limits to save from what is typed: a value equal to the shipped one
  * is left out (the limit then follows a later version's), an empty field
  * goes back to it. A value that is no whole number within its bounds is

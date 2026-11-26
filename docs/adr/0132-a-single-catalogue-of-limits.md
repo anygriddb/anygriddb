@@ -80,6 +80,15 @@ As built (family 2): the requests a minute are the limits set there; the
 sign-in trail says who changed the limits, as it says for every setting
 (ADR 0043), and the values before and after go to the log beside it.
 
+As built (family 4): the rows one file brings in and one export writes
+out (`import.max_rows`, `export.max_rows`) are set there, within their
+bounds, and read when a file or a job starts, through the settings' cache.
+`IMPORT_MAX_ROWS` and `EXPORT_MAX_ROWS` fix them instead when set (ADR
+0083): the page shows the environment's value with no field, and a change
+of a limit the environment fixes is refused (`set_by_environment`); what
+was saved for it stays, unused while the variable is set. The entry names
+its variable (`fixedBy`).
+
 As built (family 5): the days the trash, restore points and the sign-in
 trail are kept are entries of the catalogue, with their bounds, which the
 settings' schema reads (`boundsOf`); they stay set in Settings and

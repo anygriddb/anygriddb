@@ -73,6 +73,7 @@ import { readerEngine } from "./data/acl.js";
 import { recordExport } from "./data/export-audit.js";
 import type { FileStore } from "./files/index.js";
 import { publicErrorBody } from "./http.js";
+import { importCeiling, type RowsFixed } from "./row-ceilings.js";
 
 type Deps = {
   db: Database;
@@ -80,8 +81,8 @@ type Deps = {
   files: FileStore;
   /** Uploads read at once, shared with attachments. */
   uploads: UploadSlots;
-  /** The most rows one imported file may hold (`IMPORT_MAX_ROWS`). */
-  importMaxRows: number;
+  /** The rows of a file the environment fixes: they win when set (ADR 0083). */
+  rowsFixed?: RowsFixed;
 };
 
 type Actor = NonNullable<Awaited<ReturnType<typeof requestActor>>>;
@@ -593,7 +594,7 @@ export function registerDataTransferRoutes(
         const scanned = await scanImportFileIsolated(
           format,
           path,
-          deps.importMaxRows,
+          await importCeiling(deps.db, deps.rowsFixed),
           (await madeNamesFor(deps.db, request.headers["accept-language"]))
             .field,
         );
@@ -680,7 +681,7 @@ export function registerDataTransferRoutes(
           size,
           sheets: await scanWorkbookIsolated(
             path,
-            deps.importMaxRows,
+            await importCeiling(deps.db, deps.rowsFixed),
             (await madeNamesFor(deps.db, request.headers["accept-language"]))
               .field,
           ),

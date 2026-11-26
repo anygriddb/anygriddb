@@ -105,9 +105,11 @@ describe("the days kept that Settings and Security set", () => {
 });
 
 describe("the limits an administrator sets", () => {
-  it("are the rates, each set within its bounds, the shipped value among them", () => {
-    expect(SETTABLE_LIMITS.every((id) => id.startsWith("rate."))).toBe(true);
-    expect(SETTABLE_LIMITS).toHaveLength(9);
+  it("are the rates and the rows of a file, each set within its bounds, the shipped value among them", () => {
+    expect(
+      SETTABLE_LIMITS.filter((id) => !id.startsWith("rate.")).sort(),
+    ).toEqual(["export.max_rows", "import.max_rows"]);
+    expect(SETTABLE_LIMITS).toHaveLength(11);
     for (const id of SETTABLE_LIMITS) {
       const [floor, top] = LIMITS[id].bounds;
       expect(floor <= LIMITS[id].value && LIMITS[id].value <= top, id).toBe(
@@ -119,6 +121,20 @@ describe("the limits an administrator sets", () => {
     ).toEqual({ "rate.auth": 5, "rate.app": 30_000 });
     expect(limitIn("rate.auth", { "rate.auth": 40 })).toBe(40);
     expect(limitIn("rate.auth", {})).toBe(20);
+    expect(limitValuesSchema.parse({ "import.max_rows": 2_500_000 })).toEqual({
+      "import.max_rows": 2_500_000,
+    });
+    expect(limitIn("export.max_rows", {})).toBe(1_000_000);
+  });
+
+  it("names the environment's variable that fixes the rows of a file", () => {
+    expect(LIMITS["import.max_rows"].fixedBy).toBe("IMPORT_MAX_ROWS");
+    expect(LIMITS["export.max_rows"].fixedBy).toBe("EXPORT_MAX_ROWS");
+    expect(
+      SETTABLE_LIMITS.filter((id) => id.startsWith("rate.")).every(
+        (id) => !("fixedBy" in LIMITS[id]),
+      ),
+    ).toBe(true);
   });
 
   it("refuses a value past its bounds, a part of one, and a limit set elsewhere", () => {
@@ -127,6 +143,8 @@ describe("the limits an administrator sets", () => {
       { "rate.auth": 121 },
       { "rate.api": 600.5 },
       { "read.rows_per_page": 500 },
+      { "import.max_rows": 99_999 },
+      { "export.max_rows": 10_000_001 },
     ]) {
       expect(
         limitValuesSchema.safeParse(values).success,

@@ -438,7 +438,7 @@ export async function createApp(deps: {
     bus: deps.bus,
     files: deps.files,
     uploads,
-    importMaxRows: deps.env.IMPORT_MAX_ROWS,
+    rowsFixed: deps.env,
   });
   registerEnterpriseAuth(app, {
     env: deps.env,

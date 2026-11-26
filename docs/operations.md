@@ -279,12 +279,17 @@ Add `rustfs/rustfs` when using `compose.s3.yml`.
 
 ### Imports / exports / snapshots / restore points
 
-| Limit             | Default                   | Range          | Notes                                                                       |
-| ----------------- | ------------------------- | -------------- | --------------------------------------------------------------------------- |
-| `IMPORT_MAX_ROWS` | 1_000_000                 | 100k–10M       | 256 MiB for CSV and TSV, 64 MiB for Excel, 20 MiB for JSON; file kept ≤ 2 h |
-| `EXPORT_MAX_ROWS` | 1_000_000                 | 100k–10M       | export kept 24 h                                                            |
-| Snapshot rows     | min of import/export caps | —              | archive ≤ 2 GiB; kept 24 h                                                  |
-| Restore points    | 20/base, 30 days (≤ 365)  | Admin Security | live with instance                                                          |
+| Limit                 | Default                   | Range          | Notes                                                                       |
+| --------------------- | ------------------------- | -------------- | --------------------------------------------------------------------------- |
+| Rows an import holds  | 1_000_000                 | 100k–10M       | 256 MiB for CSV and TSV, 64 MiB for Excel, 20 MiB for JSON; file kept ≤ 2 h |
+| Rows an export writes | 1_000_000                 | 100k–10M       | export kept 24 h                                                            |
+| Snapshot rows         | min of import/export caps | —              | archive ≤ 2 GiB; kept 24 h                                                  |
+| Restore points        | 20/base, 30 days (≤ 365)  | Admin Security | live with instance                                                          |
+
+The rows an import holds and an export writes are set in Administration ›
+Instance › Limits and usage. `IMPORT_MAX_ROWS` and `EXPORT_MAX_ROWS` fix
+them instead, within the same range: the page then shows the environment's
+value and offers no field.
 
 Imported snapshot history is not trusted: rows come back as drafts; claimed
 status/date refused. Restore points / base&table copies keep dates, authors,

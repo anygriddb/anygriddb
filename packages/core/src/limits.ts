@@ -45,7 +45,9 @@ export type LimitKind = "enforce" | "display";
 /**
  * Where the value is set today: fixed by the code, by the operator's
  * environment, or in Administration (the security policy, the instance's
- * settings).
+ * settings, or "Limits and usage" itself). A limit set in "Limits and
+ * usage" that the environment may fix names its variable (`fixedBy`): set
+ * there, it wins (ADR 0083).
  */
 export type LimitSetBy =
   "code" | "environment" | "security" | "settings" | "limits";
@@ -64,6 +66,8 @@ export type LimitEntry = {
    * protects the database.
    */
   bounds?: readonly [number, number];
+  /** The environment's variable that fixes it over Administration, when set. */
+  fixedBy?: "IMPORT_MAX_ROWS" | "EXPORT_MAX_ROWS";
 };
 
 const MIB = 1024 * 1024;
@@ -112,6 +116,22 @@ function kept(
   };
 }
 
+/**
+ * The rows one file brings in, or one job writes out, at most: set in
+ * "Limits and usage" unless the environment fixes it.
+ */
+function rows(fixedBy: "IMPORT_MAX_ROWS" | "EXPORT_MAX_ROWS"): SettableEntry {
+  return {
+    unit: "rows",
+    value: 1_000_000,
+    scope: "instance",
+    kind: "enforce",
+    setBy: "limits",
+    bounds: [100_000, 10_000_000],
+    fixedBy,
+  };
+}
+
 function display(unit: LimitUnit, value: number): LimitEntry {
   return { unit, value, scope: "view", kind: "display", setBy: "code" };
 }
@@ -137,8 +157,8 @@ export const LIMITS = {
   "automation.runs_per_minute": enforce("runs per minute", 300, "automation"),
   "automation.max_delay_minutes": enforce("minutes", 24 * 60, "automation"),
   // Imports, exports, copies.
-  "import.max_rows": enforce("rows", 1_000_000, "instance", "environment"),
-  "export.max_rows": enforce("rows", 1_000_000, "instance", "environment"),
+  "import.max_rows": rows("IMPORT_MAX_ROWS"),
+  "export.max_rows": rows("EXPORT_MAX_ROWS"),
   "copy.max_rows": enforce("rows", 100_000, "request"),
   "import.text_bytes": enforce("bytes", 256 * MIB, "request"),
   "import.xlsx_bytes": enforce("bytes", 64 * MIB, "request"),

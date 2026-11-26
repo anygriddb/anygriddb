@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { isIP } from "node:net";
-import { ATTACHMENT_MAX_BYTES_CEILING, ceilingOf } from "@anygriddb/core";
+import { ATTACHMENT_MAX_BYTES_CEILING, LIMITS } from "@anygriddb/core";
 import { parseKeyRing, type KeyRing } from "./auth/key-ring.js";
 import type { FileSettings } from "./files/index.js";
 
@@ -66,10 +66,13 @@ export type Env = {
   WORKER_CONCURRENCY: number;
   /** Uploads read at once, per process; one more is refused (503). */
   UPLOAD_CONCURRENCY: number;
-  /** The most rows an export job writes to its file. */
-  EXPORT_MAX_ROWS: number;
-  /** The most rows one imported file may hold. */
-  IMPORT_MAX_ROWS: number;
+  /**
+   * The most rows an export job writes to its file, when the operator fixes
+   * it; else Administration's "Limits and usage" says (ADR 0083, 0132).
+   */
+  EXPORT_MAX_ROWS?: number;
+  /** The most rows one imported file may hold, when the operator fixes it. */
+  IMPORT_MAX_ROWS?: number;
   /** Imports, exports, copies, and snapshots run at once, per process. */
   JOB_CONCURRENCY: number;
   /** Where sources may be declared (ADR 0006); empty allows none. */
@@ -245,18 +248,21 @@ function requiredSecret(source: NodeJS.ProcessEnv, name: string): string {
 }
 
 /**
- * A ceiling on rows, 100,000 to 10,000,000: under that, a job would refuse
- * what the grid already exports; over it, a file outgrows what a
- * spreadsheet program opens and what a page read by page reaches in time.
+ * A ceiling on rows the operator fixes, within the catalogue's bounds
+ * (100,000 to 10,000,000): under them, a job would refuse what the grid
+ * already exports; over them, a file outgrows what a spreadsheet program
+ * opens and what a page read by page reaches in time. Unset, Administration
+ * sets it.
  */
 function rowCeiling(
   source: NodeJS.ProcessEnv,
-  name: string,
-  fallback: number,
-): number {
+  name: "EXPORT_MAX_ROWS" | "IMPORT_MAX_ROWS",
+  id: "export.max_rows" | "import.max_rows",
+): number | undefined {
   const raw = source[name];
-  if (raw === undefined || raw === "") return fallback;
-  return boundedInteger(raw, name, 100_000, 10_000_000);
+  if (raw === undefined || raw === "") return undefined;
+  const [floor, top] = LIMITS[id].bounds;
+  return boundedInteger(raw, name, floor, top);
 }
 
 function count(
@@ -609,16 +615,8 @@ export function readEnv(source: NodeJS.ProcessEnv = process.env): Env {
     DATABASE_POOL_MAX: count(source, "DATABASE_POOL_MAX", 10, 4),
     WORKER_CONCURRENCY: count(source, "WORKER_CONCURRENCY", 4),
     UPLOAD_CONCURRENCY: count(source, "UPLOAD_CONCURRENCY", 8),
-    EXPORT_MAX_ROWS: rowCeiling(
-      source,
-      "EXPORT_MAX_ROWS",
-      ceilingOf("export.max_rows"),
-    ),
-    IMPORT_MAX_ROWS: rowCeiling(
-      source,
-      "IMPORT_MAX_ROWS",
-      ceilingOf("import.max_rows"),
-    ),
+    EXPORT_MAX_ROWS: rowCeiling(source, "EXPORT_MAX_ROWS", "export.max_rows"),
+    IMPORT_MAX_ROWS: rowCeiling(source, "IMPORT_MAX_ROWS", "import.max_rows"),
     JOB_CONCURRENCY: count(source, "JOB_CONCURRENCY", 2),
     SOURCES_ALLOWED_HOSTS: source.ANYGRIDDB_SOURCES_ALLOWED_HOSTS ?? "",
     SOURCES_ALLOW_PLAINTEXT: allowPlaintext,

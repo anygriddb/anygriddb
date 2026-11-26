@@ -204,8 +204,11 @@ describe("readEnv", () => {
     }
   });
 
-  it("bounds the rows an export job writes", () => {
-    expect(readEnv(base).EXPORT_MAX_ROWS).toBe(1_000_000);
+  it("bounds the rows an export job writes, and leaves them to Administration unset", () => {
+    expect(readEnv(base).EXPORT_MAX_ROWS).toBeUndefined();
+    expect(
+      readEnv({ ...base, EXPORT_MAX_ROWS: "" }).EXPORT_MAX_ROWS,
+    ).toBeUndefined();
     expect(
       readEnv({ ...base, EXPORT_MAX_ROWS: "250000" }).EXPORT_MAX_ROWS,
     ).toBe(250_000);
@@ -216,8 +219,8 @@ describe("readEnv", () => {
     }
   });
 
-  it("bounds the rows one imported file may hold", () => {
-    expect(readEnv(base).IMPORT_MAX_ROWS).toBe(1_000_000);
+  it("bounds the rows one imported file may hold, and leaves them to Administration unset", () => {
+    expect(readEnv(base).IMPORT_MAX_ROWS).toBeUndefined();
     expect(
       readEnv({ ...base, IMPORT_MAX_ROWS: "2000000" }).IMPORT_MAX_ROWS,
     ).toBe(2_000_000);

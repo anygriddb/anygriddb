@@ -12912,10 +12912,6 @@ msgstr "the row's status"
 msgid "The rows could not be read: {reason}"
 msgstr "The rows could not be read: {reason}"
 
-#: components/admin/limits-tab.tsx
-msgid "The rows imported or exported at once are set by the instance's environment; the largest file in a cell, in Settings."
-msgstr "The rows imported or exported at once are set by the instance's environment; the largest file in a cell, in Settings."
-
 #: components/fields/link-selection.tsx
 msgid "The rows of a shared view"
 msgstr "The rows of a shared view"
@@ -12923,6 +12919,10 @@ msgstr "The rows of a shared view"
 #: components/table/automations-dialog.tsx
 msgid "The rows of a table of this base, named as it is here: 100 at a time, 1,000 at most."
 msgstr "The rows of a table of this base, named as it is here: 100 at a time, 1,000 at most."
+
+#: components/admin/limits-tab.tsx
+msgid "The rows one file brings in, and one export writes out, are set here unless the instance's environment fixes them; the largest file in a cell, in Settings."
+msgstr "The rows one file brings in, and one export writes out, are set here unless the instance's environment fixes them; the largest file in a cell, in Settings."
 
 #: components/fields/link-selection.tsx
 msgid "The rows that match a filter"

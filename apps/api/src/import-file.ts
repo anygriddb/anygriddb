@@ -36,9 +36,6 @@ export const IMPORT_LIMITS = {
   maxCell: 20_000,
 } as const;
 
-/** Rows one file may hold when the operator sets nothing (`IMPORT_MAX_ROWS`). */
-export const DEFAULT_IMPORT_MAX_ROWS = ceilingOf("import.max_rows");
-
 const PREVIEW_ROWS = 20;
 const INFER_SAMPLE = 1_000;
 /** How much of a text file is read to find its delimiter. */

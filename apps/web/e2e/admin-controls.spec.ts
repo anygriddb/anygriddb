@@ -486,7 +486,15 @@ test("an administrator ends a session, reads the sign-ins, and exports access", 
     await expect(reports).toHaveValue("30");
     await expect(page.getByText("Rows imported at once")).toBeVisible();
     expect(await accessibilityViolations(page)).toEqual([]);
-    const saveLimits = page.getByRole("button", { name: "Save", exact: true });
+    // Each part of the page saves its own fields.
+    const part = (title: string) =>
+      page.locator("section").filter({
+        has: page.getByRole("heading", { name: title, exact: true }),
+      });
+    const saveLimits = part("Requests a minute, per address").getByRole(
+      "button",
+      { name: "Save", exact: true },
+    );
     await reports.fill("1");
     await saveLimits.click();
     await expect(
@@ -507,6 +515,29 @@ test("an administrator ends a session, reads the sign-ins, and exports access", 
     await putBack;
     await page.reload();
     await expect(reports).toHaveValue("30");
+    // The rows of a file too, while the environment fixes none: set, read
+    // again, then emptied back to the shipped value.
+    const exported = page.getByLabel("Rows exported at once", { exact: true });
+    const saveFiles = part("Imports, exports, copies and files").getByRole(
+      "button",
+      { name: "Save", exact: true },
+    );
+    await expect(exported).toHaveValue("1000000");
+    for (const [typed, kept] of [
+      ["2500000", "2500000"],
+      ["", "1000000"],
+    ] as const) {
+      await exported.fill(typed);
+      const answered = page.waitForResponse(
+        (response) =>
+          response.url().includes("admin.updateSettings") && response.ok(),
+      );
+      await saveFiles.click();
+      await answered;
+      await page.reload();
+      await expect(exported).toHaveValue(kept);
+      await expect(reports).toHaveValue("30");
+    }
 
     // Recent lines of this process (ADR 0087). Every kept line by default;
     // the setting just saved is an ordinary message of the process. The
