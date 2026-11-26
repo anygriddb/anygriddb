@@ -10,6 +10,7 @@ import {
   type InstanceSettings,
   type LimitEntry,
   type LimitId,
+  type LimitSetBy,
   type SettableLimitId,
 } from "@anygriddb/core";
 import type { Database } from "@anygriddb/db";
@@ -82,15 +83,16 @@ async function jobsUse(db: Database): Promise<LimitUse> {
   return rows[0] ?? { most: 0, past: 0 };
 }
 
+/** What the environment fixes of a limit, when it does (ADR 0083). */
+function fixedByEnv(entry: LimitEntry, env: Env): number | undefined {
+  return entry.fixedBy === undefined ? undefined : env[entry.fixedBy];
+}
+
 /** The value a limit has now, wherever it is set. */
 function valueNow(id: LimitId, settings: InstanceSettings, env: Env): number {
   switch (id) {
     case "attachment.max_bytes":
       return resolveAttachmentMaxBytes(settings, env.ATTACHMENT_MAX_BYTES);
-    case "import.max_rows":
-      return env.IMPORT_MAX_ROWS;
-    case "export.max_rows":
-      return env.EXPORT_MAX_ROWS;
     case "retention.trash_days":
       return settings.trashDays;
     case "retention.restore_point_days":
@@ -100,7 +102,8 @@ function valueNow(id: LimitId, settings: InstanceSettings, env: Env): number {
     default: {
       const entry: LimitEntry = LIMITS[id];
       return entry.setBy === "limits"
-        ? limitIn(id as SettableLimitId, settings.limits)
+        ? (fixedByEnv(entry, env) ??
+            limitIn(id as SettableLimitId, settings.limits))
         : entry.value;
     }
   }
@@ -112,14 +115,18 @@ export async function limitsAndUsage(
   settings: InstanceSettings,
 ): Promise<LimitRow[]> {
   const [rates, jobs] = await Promise.all([rateUse(db, settings), jobsUse(db)]);
+  const counted = new Set<LimitId>(Object.values(BUCKET_LIMITS));
   return (Object.keys(LIMITS) as LimitId[]).map((id) => {
     const entry: LimitEntry = LIMITS[id];
     const used =
       id === "jobs.active_per_account"
         ? jobs
-        : entry.setBy === "limits"
+        : counted.has(id)
           ? (rates.get(id as SettableLimitId) ?? { most: 0, past: 0 })
           : null;
-    return { ...entry, id, now: valueNow(id, settings, env), used };
+    // What the environment fixes is its operator's to change (ADR 0083).
+    const setBy: LimitSetBy =
+      fixedByEnv(entry, env) === undefined ? entry.setBy : "environment";
+    return { ...entry, id, setBy, now: valueNow(id, settings, env), used };
   });
 }

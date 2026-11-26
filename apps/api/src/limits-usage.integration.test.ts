@@ -10,6 +10,7 @@ import { sql } from "kysely";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { keyRing } from "./auth/key-ring.js";
 import type { Env } from "./env.js";
+import { exportCeiling, importCeiling } from "./row-ceilings.js";
 import { readGateSettings } from "./settings.js";
 import { createTestDatabase } from "./test-database.js";
 import {
@@ -27,8 +28,7 @@ describe("limits and usage", () => {
   const env = {
     AUTH_ENCRYPTION_KEY: keyRing(randomBytes(32)),
     PUBLIC_URL: "https://grid.example.org",
-    IMPORT_MAX_ROWS: 50_000,
-    EXPORT_MAX_ROWS: 1_000_000,
+    IMPORT_MAX_ROWS: 500_000,
   } as unknown as Env;
   const hub = {
     closeUser: () => 0,
@@ -79,10 +79,17 @@ describe("limits and usage", () => {
     });
     // A window long ended is not what is used now.
     expect(row("rate.app")?.used).toEqual({ most: 0, past: 0 });
-    // Set by the environment: its value, not the catalogue's.
+    // Fixed by the environment: its value, not the catalogue's.
     expect(row("import.max_rows")).toMatchObject({
-      now: 50_000,
+      now: 500_000,
       setBy: "environment",
+      used: null,
+    });
+    // Not fixed: set on this page, within its bounds.
+    expect(row("export.max_rows")).toMatchObject({
+      now: 1_000_000,
+      setBy: "limits",
+      bounds: [100_000, 10_000_000],
       used: null,
     });
     // Set in Settings: the value the instance keeps, with its bounds.
@@ -112,6 +119,28 @@ describe("limits and usage", () => {
       .where("action", "=", "settings_changed")
       .execute();
     expect(trail.map((event) => event.detail)).toContain("limits");
+  });
+
+  it("sets the rows an export writes, which a job then reads, unless the environment fixes them", async () => {
+    await admin.call().admin.updateSettings({
+      limits: { "rate.report": 60, "export.max_rows": 2_500_000 },
+    });
+    expect(await exportCeiling(db)).toBe(2_500_000);
+    expect(
+      (await admin.call().admin.limits()).find(
+        (entry) => entry.id === "export.max_rows",
+      )?.now,
+    ).toBe(2_500_000);
+    // The environment's variable wins over the page, and the page may not
+    // change what it fixes.
+    expect(await importCeiling(db, env)).toBe(500_000);
+    await expect(
+      admin.call().admin.updateSettings({
+        limits: { "rate.report": 60, "import.max_rows": 3_000_000 },
+      }),
+    ).rejects.toMatchObject({ cause: { code: "set_by_environment" } });
+    await admin.call().admin.updateSettings({ limits: { "rate.report": 60 } });
+    expect(await exportCeiling(db)).toBe(1_000_000);
   });
 
   it("refuses a rate past its bounds, a limit set elsewhere, and anyone not an administrator", async () => {

@@ -22,6 +22,7 @@ import {
   FAMILY_OF,
   LIMIT_FAMILIES,
   limitsFromDraft,
+  splitDraft,
   type LimitDraft,
   type LimitFamily,
 } from "./limits-model";
@@ -111,7 +112,7 @@ function useFamilyNames(): Record<
     },
     files: {
       title: t`Imports, exports, copies and files`,
-      description: t`The rows imported or exported at once are set by the instance's environment; the largest file in a cell, in Settings.`,
+      description: t`The rows one file brings in, and one export writes out, are set here unless the instance's environment fixes them; the largest file in a cell, in Settings.`,
     },
     reads: {
       title: t`What a page reads and shows`,
@@ -175,7 +176,8 @@ function useSetByNames(): Record<LimitSetBy, string> {
 /**
  * Administration's "Limits and usage" (ADR 0132): every limit the instance
  * keeps, where it is set, and what is used of it where it is counted. The
- * requests a minute are set here, within their bounds. Counts only: no
+ * requests a minute and the rows of a file are set here, within their
+ * bounds, unless the environment fixes them. Counts only: no
  * address and no account is shown.
  */
 export function LimitsTab() {
@@ -217,9 +219,12 @@ export function LimitsTab() {
     row.unit === "bytes"
       ? formatBytes(value)
       : `${number.format(value)} ${units[row.unit]}`;
-  const changed = Object.keys(draft).length > 0;
-  async function save() {
-    const outcome = limitsFromDraft(draft, set);
+  const changed = (family: LimitFamily) =>
+    Object.keys(splitDraft(draft, family)[0]).length > 0;
+  // Each part of the page saves its own fields; what was set elsewhere is
+  // sent as it was saved.
+  async function save(family: LimitFamily) {
+    const outcome = limitsFromDraft(splitDraft(draft, family)[0], set);
     if ("invalid" in outcome) {
       setInvalid(outcome.invalid);
       return;
@@ -238,11 +243,72 @@ export function LimitsTab() {
         queryClient.invalidateQueries({ queryKey: procedure.queryKey() }),
       ),
     );
-    setDraft({});
+    setDraft((typed) => splitDraft(typed, family)[1]);
     toast.success(t`Limits saved`);
   }
   const rows = (family: LimitFamily) =>
     limits.data.filter((row) => FAMILY_OF[row.id] === family);
+  // Set on this page: the environment does not fix it (ADR 0083).
+  const settable = (row: LimitRow) =>
+    row.setBy === "limits" && row.bounds !== undefined;
+  const hint = (row: LimitRow) => {
+    const [floor, top] = row.bounds ?? [row.value, row.value];
+    return (
+      <p
+        id={`limit-${row.id}-hint`}
+        className={
+          invalid.includes(row.id as SettableLimitId)
+            ? "text-xs font-normal text-danger"
+            : "text-xs font-normal text-muted-foreground"
+        }
+      >
+        {t`From ${{ floor: number.format(floor) }} to ${{ top: number.format(top) }}; shipped with ${{ shipped: number.format(row.value) }}.`}
+      </p>
+    );
+  };
+  const field = (row: LimitRow) => {
+    const id = row.id as SettableLimitId;
+    return (
+      <Input
+        inputMode="numeric"
+        className="w-32"
+        aria-label={names[row.id]}
+        aria-describedby={`limit-${row.id}-hint`}
+        aria-invalid={invalid.includes(id) || undefined}
+        value={draft[id] ?? String(row.now)}
+        onChange={(event) => setDraft({ ...draft, [id]: event.target.value })}
+      />
+    );
+  };
+  const actions = (family: LimitFamily) => (
+    <>
+      {rows(family).some((row) =>
+        invalid.includes(row.id as SettableLimitId),
+      ) ? (
+        <p role="alert" className="text-sm text-danger">
+          {t`Each limit takes a whole number within its bounds.`}
+        </p>
+      ) : null}
+      <div className="flex gap-2">
+        <Button
+          onClick={() => void save(family)}
+          disabled={!changed(family) || saving}
+        >
+          {t`Save`}
+        </Button>
+        <Button
+          variant="ghost"
+          disabled={!changed(family) || saving}
+          onClick={() => {
+            setDraft(splitDraft(draft, family)[1]);
+            setInvalid([]);
+          }}
+        >
+          {t`Cancel`}
+        </Button>
+      </div>
+    </>
+  );
   return (
     <div className="flex max-w-4xl flex-col gap-4">
       {stepUp.dialog}
@@ -275,73 +341,27 @@ export function LimitsTab() {
                 </tr>
               </AdminTableHead>
               <tbody>
-                {rows(family).map((row) => {
-                  const id = row.id as SettableLimitId;
-                  const [floor, top] = row.bounds ?? [row.value, row.value];
-                  const hintId = `limit-${row.id}-hint`;
-                  const wrong = invalid.includes(id);
-                  return (
-                    <tr key={row.id} className="border-t border-border">
-                      <th scope="row" className="px-3 py-2 text-left">
-                        <span className="font-medium">{names[row.id]}</span>
-                        <p
-                          id={hintId}
-                          className={
-                            wrong
-                              ? "text-xs text-danger"
-                              : "text-xs text-muted-foreground"
-                          }
-                        >
-                          {t`From ${{ floor: number.format(floor) }} to ${{ top: number.format(top) }}; shipped with ${{ shipped: number.format(row.value) }}.`}
-                        </p>
-                      </th>
-                      <td className="px-3 py-2">
-                        <Input
-                          inputMode="numeric"
-                          className="w-28"
-                          aria-label={names[row.id]}
-                          aria-describedby={hintId}
-                          aria-invalid={wrong || undefined}
-                          value={draft[id] ?? String(row.now)}
-                          onChange={(event) =>
-                            setDraft({ ...draft, [id]: event.target.value })
-                          }
-                        />
-                      </td>
-                      <td className="px-3 py-2 text-right tabular-nums">
-                        {number.format(row.used?.most ?? 0)}
-                      </td>
-                      <td className="px-3 py-2 text-right tabular-nums">
-                        {number.format(row.used?.past ?? 0)}
-                      </td>
-                    </tr>
-                  );
-                })}
+                {rows(family).map((row) => (
+                  <tr key={row.id} className="border-t border-border">
+                    <th scope="row" className="px-3 py-2 text-left">
+                      <span className="font-medium">{names[row.id]}</span>
+                      {hint(row)}
+                    </th>
+                    <td className="px-3 py-2">{field(row)}</td>
+                    <td className="px-3 py-2 text-right tabular-nums">
+                      {number.format(row.used?.most ?? 0)}
+                    </td>
+                    <td className="px-3 py-2 text-right tabular-nums">
+                      {number.format(row.used?.past ?? 0)}
+                    </td>
+                  </tr>
+                ))}
               </tbody>
             </AdminTable>
             <p className="text-xs text-muted-foreground">
               {t`What is used is counted over this minute and the one before.`}
             </p>
-            {invalid.length > 0 ? (
-              <p role="alert" className="text-sm text-danger">
-                {t`Each limit takes a whole number within its bounds.`}
-              </p>
-            ) : null}
-            <div className="flex gap-2">
-              <Button onClick={() => void save()} disabled={!changed || saving}>
-                {t`Save`}
-              </Button>
-              <Button
-                variant="ghost"
-                disabled={!changed || saving}
-                onClick={() => {
-                  setDraft({});
-                  setInvalid([]);
-                }}
-              >
-                {t`Cancel`}
-              </Button>
-            </div>
+            {actions(family)}
           </RuledSection>
         ) : (
           <RuledSection
@@ -373,9 +393,10 @@ export function LimitsTab() {
                           {t`Now: at most ${{ most: number.format(row.used.most) }} for one account; ${{ past: number.format(row.used.past) }} at the limit.`}
                         </p>
                       ) : null}
+                      {settable(row) ? hint(row) : null}
                     </th>
                     <td className="px-3 py-2 tabular-nums">
-                      {amount(row, row.now)}
+                      {settable(row) ? field(row) : amount(row, row.now)}
                     </td>
                     <td className="px-3 py-2">{scopes[row.scope]}</td>
                     <td className="px-3 py-2">{setBy[row.setBy]}</td>
@@ -383,6 +404,7 @@ export function LimitsTab() {
                 ))}
               </tbody>
             </AdminTable>
+            {rows(family).some(settable) ? actions(family) : null}
           </RuledSection>
         ),
       )}

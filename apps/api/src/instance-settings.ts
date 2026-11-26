@@ -5,8 +5,12 @@
  */
 import {
   AppError,
+  LIMITS,
+  SETTABLE_LIMITS,
   type InstanceSettings,
   type InstanceSettingsPatch,
+  type LimitEntry,
+  type LimitValues,
 } from "@anygriddb/core";
 import type { Database } from "@anygriddb/db";
 import { endOtherSessions } from "./admin-control.js";
@@ -16,6 +20,23 @@ import type { Env } from "./env.js";
 import { resolveOidc } from "./integrations/oidc.js";
 import { resolveSaml } from "./integrations/saml.js";
 import { readSettings, writeSettings } from "./settings.js";
+
+/**
+ * A limit the environment fixes keeps the value Administration saved for
+ * it, unused while the variable is set (ADR 0083): a change of it is
+ * refused, whoever asks.
+ */
+function assertNotFixed(
+  after: LimitValues,
+  before: LimitValues,
+  env: Env,
+): void {
+  for (const id of SETTABLE_LIMITS) {
+    const variable: LimitEntry["fixedBy"] = LIMITS[id].fixedBy;
+    if (variable === undefined || env[variable] === undefined) continue;
+    if (after[id] !== before[id]) throw new AppError("set_by_environment");
+  }
+}
 
 export async function saveInstanceSettings(
   deps: {
@@ -67,6 +88,9 @@ export async function saveInstanceSettings(
   // tell nobody's secret, go to the log beside it (ADR 0132).
   const limitsBefore =
     patch.limits === undefined ? null : (await readSettings(deps.db)).limits;
+  if (limitsBefore !== null && patch.limits !== undefined) {
+    assertNotFixed(patch.limits, limitsBefore, deps.env);
+  }
   await writeSettings(deps.db, actor.id, patch, actor.ip, actor.method);
   if (limitsBefore !== null && patch.limits !== undefined) {
     deps.log?.info(

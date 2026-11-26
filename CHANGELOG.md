@@ -17,6 +17,10 @@ first.
   minute, per address, are set there, each within its bounds. How long the
   trash, restore points and the sign-in trail are kept is listed there too,
   and still set in Settings and Security.
+- The rows one file may bring in, and one export may write out, are set in
+  **Limits and usage** too, between 100,000 and 10,000,000. An instance
+  that sets `IMPORT_MAX_ROWS` or `EXPORT_MAX_ROWS` keeps them: the variable
+  wins, and the page shows its value with no field to change it.
 
 ### Changed
 

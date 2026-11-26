@@ -44,11 +44,7 @@ import {
   readSnapshotLines,
   writeBaseSnapshot,
 } from "./data/base-snapshot.js";
-import {
-  assertMayCopyRows,
-  duplicateTable,
-  MAX_COPY_ROWS,
-} from "./data/data-ops.js";
+import { assertMayCopyRows, duplicateTable } from "./data/data-ops.js";
 import type { TableRow } from "./data/engine.js";
 import {
   copyStagedImport,
@@ -93,12 +89,16 @@ import { publishCatalog } from "./realtime/channels.js";
 import { type FileStore, readFile as readStoredFile } from "./files/index.js";
 import { localFolder } from "./files/local-folder.js";
 import { ZipReader } from "./data/zip.js";
-import { DEFAULT_IMPORT_MAX_ROWS } from "./import-file.js";
 import { readImportFileIsolated } from "./import-isolated.js";
 import { exportKey } from "./storage.js";
 import { readAirtableBase } from "./data/airtable-import.js";
 import { decryptSecret } from "./auth/crypto.js";
 import { madeNamesFor, readGateSettings } from "./settings.js";
+import {
+  exportCeiling,
+  importCeiling,
+  type RowsFixed,
+} from "./row-ceilings.js";
 import { writeAccountDataFile } from "./data/account-export.js";
 import { recordAuthEvent } from "./auth/auth-events.js";
 
@@ -113,10 +113,8 @@ type RunnerDeps = {
   airtableFetch?: typeof fetch;
   /** The environment's attachment ceiling: it wins when set (ADR 0083). */
   envAttachmentMaxBytes?: number;
-  /** The most rows an export job writes (`EXPORT_MAX_ROWS`). */
-  exportMaxRows?: number;
-  /** The most rows one imported file may hold (`IMPORT_MAX_ROWS`). */
-  importMaxRows?: number;
+  /** The rows of a file the environment fixes: they win when set (ADR 0083). */
+  rowsFixed?: RowsFixed;
 };
 
 async function attachmentCeiling(deps: RunnerDeps): Promise<number> {
@@ -214,16 +212,12 @@ const runImport =
       // The file is read from local disk as rows are written (ADR 0064).
       const path = join(folder.path, "upload");
       await copyStagedImport(deps.db, deps.files, staged, path);
+      const maxRows = await importCeiling(deps.db, deps.rowsFixed);
       const source: ImportSource = {
         headers: staged.shape.headers,
         total: staged.shape.total,
         batches: () =>
-          readImportFileIsolated(
-            staged.shape,
-            path,
-            IMPORT_BATCH,
-            deps.importMaxRows ?? DEFAULT_IMPORT_MAX_ROWS,
-          ),
+          readImportFileIsolated(staged.shape, path, IMPORT_BATCH, maxRows),
       };
       const result = await importIntoTable(deps.db, {
         userId,
@@ -310,7 +304,7 @@ const runExport =
         input,
         {
           path,
-          maxRows: deps.exportMaxRows ?? MAX_COPY_ROWS,
+          maxRows: await exportCeiling(deps.db, deps.rowsFixed),
           onProgress: progress,
         },
       );
@@ -475,7 +469,7 @@ const runRestorePoint =
       {
         db: deps.db,
         files: deps.files,
-        maxRows: deps.exportMaxRows ?? MAX_COPY_ROWS,
+        maxRows: await exportCeiling(deps.db, deps.rowsFixed),
       },
       {
         userId,
@@ -520,7 +514,7 @@ const runRestoreBase =
         {
           db: deps.db,
           files: deps.files,
-          maxRows: deps.importMaxRows ?? DEFAULT_IMPORT_MAX_ROWS,
+          maxRows: await importCeiling(deps.db, deps.rowsFixed),
           maxFileBytes: await attachmentCeiling(deps),
           names: await madeNamesFor(deps.db),
         },
@@ -576,7 +570,7 @@ const runExportSnapshot =
         {
           withData: input.withData,
           folder: folder.path,
-          maxRows: deps.exportMaxRows ?? MAX_COPY_ROWS,
+          maxRows: await exportCeiling(deps.db, deps.rowsFixed),
           onProgress: progress,
         },
       );
@@ -649,7 +643,7 @@ const runImportSnapshot =
           restoreMembers: input.restoreMembers,
           readFile: opened.readFile,
           readLines: opened.readLines,
-          maxRows: deps.importMaxRows ?? DEFAULT_IMPORT_MAX_ROWS,
+          maxRows: await importCeiling(deps.db, deps.rowsFixed),
           maxFileBytes: await attachmentCeiling(deps),
           names: await madeNamesFor(deps.db),
         },
@@ -687,7 +681,7 @@ const runImportWorkbook =
         {
           db: deps.db,
           files: deps.files,
-          maxRows: deps.importMaxRows ?? DEFAULT_IMPORT_MAX_ROWS,
+          maxRows: await importCeiling(deps.db, deps.rowsFixed),
           names: await madeNamesFor(deps.db),
         },
         {
@@ -769,7 +763,7 @@ const runImportAirtable =
               baseId = id;
             },
             onProgress: (done, total) => share(500, done, total),
-            maxRows: deps.importMaxRows ?? DEFAULT_IMPORT_MAX_ROWS,
+            maxRows: await importCeiling(deps.db, deps.rowsFixed),
             names,
           },
         );
@@ -846,8 +840,8 @@ const runDuplicateBase =
     // The copy is a snapshot written to a local file and read back, its
     // files left in the store, where both bases find them by their key.
     const maxRows = Math.min(
-      deps.exportMaxRows ?? MAX_COPY_ROWS,
-      deps.importMaxRows ?? DEFAULT_IMPORT_MAX_ROWS,
+      await exportCeiling(deps.db, deps.rowsFixed),
+      await importCeiling(deps.db, deps.rowsFixed),
     );
     const folder = await localFolder("snapshot");
     let baseId: string | undefined;

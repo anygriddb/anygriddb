@@ -340,8 +340,7 @@ export function taskGroups(deps: TaskDeps): WorkerGroup[] {
     log: deps.log,
     key: deps.env.AUTH_ENCRYPTION_KEY,
     envAttachmentMaxBytes: deps.env.ATTACHMENT_MAX_BYTES,
-    exportMaxRows: deps.env.EXPORT_MAX_ROWS,
-    importMaxRows: deps.env.IMPORT_MAX_ROWS,
+    rowsFixed: deps.env,
   });
 
   const rowEvents: Task = async (payload) => {

@@ -311,7 +311,7 @@ describe("an export job", () => {
       bus: { publish: async () => undefined } as never,
       files,
       log: () => undefined,
-      exportMaxRows: 2_000,
+      rowsFixed: { EXPORT_MAX_ROWS: 2_000 },
     });
     await expect(
       runners.export({ job: exportJob("json"), progress: async () => {} }),
