@@ -3,6 +3,7 @@
  * the change trail, under its author's name, which says what it changed,
  * and holds no secret and no address of a person.
  */
+import { giveInstanceRole } from "../auth/instance-roles.test-helpers.js";
 import { randomBytes } from "node:crypto";
 import type { Database } from "@anygriddb/db";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -53,12 +54,12 @@ describe("access given and data sent out, on the change trail", () => {
         {
           email: `admin-${suffix}@example.org`,
           displayName: "Admin",
-          isAdmin: true,
         },
         { email: `member-${suffix}@example.org`, displayName: "Member" },
       ])
       .returning("id")
       .execute();
+    await giveInstanceRole(db, people[1]?.id ?? "");
     owner = people[0]?.id ?? "";
     admin = people[1]?.id ?? "";
     member = people[2]?.id ?? "";

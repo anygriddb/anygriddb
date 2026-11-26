@@ -4,6 +4,7 @@
  * factor, what an administrator does to an account, the trail's retention,
  * and erasure.
  */
+import { isAdminOf } from "./auth/instance-roles.js";
 import { randomBytes } from "node:crypto";
 import type { Database } from "@anygriddb/db";
 import { sql } from "kysely";
@@ -85,7 +86,7 @@ describe("instance controls", () => {
     });
     const users = await db
       .selectFrom("users")
-      .select(["id", "email", "isAdmin"])
+      .select(["id", "email", isAdminOf("users.id").as("isAdmin")])
       .execute();
     adminId = users.find((user) => user.isAdmin)?.id ?? "";
     // By its address: the account erased people become is no administrator

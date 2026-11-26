@@ -345,3 +345,18 @@ export async function proveItIsYou(
   await dialog.getByRole("button", { name: "Confirm" }).click();
   await expect(dialog).toBeHidden();
 }
+
+/**
+ * The SQL that makes the account an address names an administrator, as
+ * an attribution at the instance (ADR 0131), on the change trail in that
+ * account's own name: for a journey's control connection, one statement.
+ */
+export const MAKE_ADMINISTRATOR = `
+  with who as (
+    select id, set_config('anygrid.user_id', id::text, true) as said
+    from users where email = $1
+  )
+  insert into attributions (user_id, scope, instance_role)
+  select id, 'instance', 'administrator' from who where said is not null
+  on conflict (user_id, instance_role) where instance_role is not null
+  do nothing`;

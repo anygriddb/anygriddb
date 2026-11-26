@@ -2,6 +2,7 @@
  * An administrator acts as someone else (ADR 0091): the session stays
  * theirs, Administration closes, and the sign-in trail names both.
  */
+import { giveInstanceRole } from "../auth/instance-roles.test-helpers.js";
 import { randomBytes } from "node:crypto";
 import cookie from "@fastify/cookie";
 import type { Database } from "@anygriddb/db";
@@ -249,19 +250,11 @@ describe("acting as another person", () => {
 
     it("ends when its administrator is one no longer", async () => {
       await act();
-      await db
-        .updateTable("users")
-        .set({ isAdmin: false })
-        .where("id", "=", adminId)
-        .execute();
+      await giveInstanceRole(db, adminId, "administrator", false);
       try {
         expect((await admin.call().session.current())?.actingAs).toBeNull();
       } finally {
-        await db
-          .updateTable("users")
-          .set({ isAdmin: true })
-          .where("id", "=", adminId)
-          .execute();
+        await giveInstanceRole(db, adminId, "administrator", true);
       }
     });
 

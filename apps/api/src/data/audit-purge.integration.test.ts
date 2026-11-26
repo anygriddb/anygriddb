@@ -2,6 +2,7 @@
  * The change trail kept for a time (ADR 0069), against a real database:
  * what the purge deletes, what it writes, and what nothing may delete.
  */
+import { giveInstanceRole } from "../auth/instance-roles.test-helpers.js";
 import { randomBytes } from "node:crypto";
 import type { Database } from "@anygriddb/db";
 import { sql } from "kysely";
@@ -62,11 +63,11 @@ describe("the change trail kept for a time", () => {
         .values({
           email: `admin-${suffix}@example.org`,
           displayName: "Ada Admin",
-          isAdmin: true,
         })
         .returning("id")
         .executeTakeFirstOrThrow()
     ).id;
+    await giveInstanceRole(db, admin);
     const baseId = (await insertBase(db, admin, { name: "Ventes" })).id;
     tableId = (
       await insertTable(db, admin, {

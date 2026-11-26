@@ -4,6 +4,7 @@
  * process has a collector, delivered by the worker over verified TLS, and
  * rolled back with the transaction that made it.
  */
+import { giveInstanceRole } from "../auth/instance-roles.test-helpers.js";
 import { createPrivateKey, X509Certificate } from "node:crypto";
 import { mkdtemp } from "node:fs/promises";
 import type { AddressInfo } from "node:net";
@@ -199,11 +200,11 @@ describe("sign-in events to a syslog collector", () => {
         .values({
           email: "syslog-admin@example.com",
           displayName: "Admin",
-          isAdmin: true,
         })
         .returning("id")
         .executeTakeFirstOrThrow();
       admin = person.id;
+      await giveInstanceRole(db, admin);
     });
 
     it("is refused while the environment names one, and saves nothing", async () => {

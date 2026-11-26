@@ -3,6 +3,7 @@ import pg from "pg";
 import {
   accessibilityViolations,
   clusterUrl,
+  MAKE_ADMINISTRATOR,
   proveItIsYou,
   signUpWithTable,
   uniqueStamp,
@@ -50,9 +51,7 @@ test("an administrator shows a client's tables in a base, read where they live",
     await erp.end();
 
     const { email } = await signUpWithTable(page, "Admin Sources");
-    await control.query("update users set is_admin = true where email = $1", [
-      email,
-    ]);
+    await control.query(MAKE_ADMINISTRATOR, [email]);
 
     await page.goto("/admin/sources");
     await page.getByRole("button", { name: "Add a source" }).click();
@@ -332,9 +331,7 @@ test("an administrator keeps a new base's tables in a client's database", async 
     await control.query(`create database ${database}`);
     await control.query(`grant create on database ${database} to ${account}`);
     const { email } = await signUpWithTable(page, "Admin Home");
-    await control.query("update users set is_admin = true where email = $1", [
-      email,
-    ]);
+    await control.query(MAKE_ADMINISTRATOR, [email]);
 
     await page.goto("/admin/sources");
     await page.getByRole("button", { name: "Add a source" }).click();

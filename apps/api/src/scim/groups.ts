@@ -83,7 +83,9 @@ async function basesWithOwner(
     )
     .where(liveAttribution)
     .execute();
-  return new Set(rows.map((row) => row.scopeId));
+  return new Set(
+    rows.flatMap((row) => (row.scopeId === null ? [] : [row.scopeId])),
+  );
 }
 
 /**
@@ -183,7 +185,7 @@ export async function getGroup(db: Database, groupId: string) {
       .innerJoin("bases as b", "b.id", "r.scopeId")
       .leftJoin("madeRoles as made", "made.id", "r.madeRoleId")
       .select([
-        "r.scopeId as baseId",
+        "b.id as baseId",
         "b.name as baseName",
         "r.role",
         "made.id as madeId",
@@ -427,7 +429,7 @@ export async function addLocalGroupMember(
     return {
       roles: roles.flatMap((row) => {
         const role = givenOf(row);
-        return role ? [{ baseId: row.baseId, role }] : [];
+        return role && row.baseId ? [{ baseId: row.baseId, role }] : [];
       }),
     };
   });

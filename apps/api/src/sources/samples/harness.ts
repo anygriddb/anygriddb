@@ -1,6 +1,7 @@
 /**
  * Shared control-plane + source declaration helpers for sample suites.
  */
+import { giveInstanceRole } from "../../auth/instance-roles.test-helpers.js";
 import { keyRing } from "../../auth/key-ring.js";
 import type { KeyRing } from "../../auth/key-ring.js";
 import { randomBytes } from "node:crypto";
@@ -70,11 +71,11 @@ export async function openSampleControl(
       .values({
         email: `samples-${randomBytes(4).toString("hex")}@example.com`,
         displayName: "Samples Admin",
-        isAdmin: true,
       })
       .returning("id")
       .executeTakeFirstOrThrow()
   ).id;
+  await giveInstanceRole(control.db, actorId);
   const pools = new SourcePools({
     db: control.db,
     key,

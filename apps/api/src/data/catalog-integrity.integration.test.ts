@@ -1243,3 +1243,55 @@ describe("one journal of deliveries on a catalog that kept two", () => {
     }
   });
 });
+
+// Administration's roles as attributions at the instance (ADR 0131, §4):
+// each true column and each row of `instance_roles`, row for row.
+describe("Administration's roles on a catalog that kept them in columns", () => {
+  it("keeps every role as an attribution at the instance", async () => {
+    const { db, pool, close } = await catalogBefore("0151");
+    try {
+      const { rows: people } = await sql<{ id: string; name: string }>`
+        insert into users (email, display_name, is_admin, is_support, is_auditor)
+        values
+          (${`root-${suffix}@example.org`}, 'root', true, false, false),
+          (${`desk-${suffix}@example.org`}, 'desk', false, true, true),
+          (${`plain-${suffix}@example.org`}, 'plain', false, false, false)
+        returning id, display_name as name
+      `.execute(db);
+      const id = (name: string) =>
+        people.find((person) => person.name === name)?.id ?? "";
+      await sql`
+        insert into instance_roles (user_id, role)
+        values (${id("plain")}, 'source_manager'),
+          (${id("desk")}, 'account_manager')
+      `.execute(db);
+
+      await migrateDb(pool);
+      const { rows } = await sql<{ name: string; role: string }>`
+        select u.display_name as name, a.instance_role as role
+        from attributions a join users u on u.id = a.user_id
+        where a.scope = 'instance' and u.email like ${`%-${suffix}@example.org`}
+        order by u.display_name, a.instance_role
+      `.execute(db);
+      expect(rows.map((row) => [row.name, row.role])).toEqual([
+        ["desk", "account_manager"],
+        ["desk", "auditor"],
+        ["desk", "support"],
+        ["plain", "source_manager"],
+        ["root", "administrator"],
+      ]);
+      const { rows: columns } = await sql<{ column: string }>`
+        select column_name as column from information_schema.columns
+        where table_name = 'users' and column_name like 'is\\_%'
+      `.execute(db);
+      expect(columns).toEqual([]);
+      // The same role twice, or one the instance does not have, is refused.
+      await expect(
+        sql`insert into attributions (user_id, scope, instance_role)
+            values (${id("root")}, 'instance', 'owner')`.execute(db),
+      ).rejects.toThrow();
+    } finally {
+      await close();
+    }
+  }, 120_000);
+});

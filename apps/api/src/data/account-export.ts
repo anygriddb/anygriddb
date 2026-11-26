@@ -11,6 +11,7 @@
  * and what it leaves out. It is an export, not an answer to a request the
  * instance's operator has to give.
  */
+import { isAdminOf, isSupportOf } from "../auth/instance-roles.js";
 import { once } from "node:events";
 import { createWriteStream, type WriteStream } from "node:fs";
 import { stat } from "node:fs/promises";
@@ -194,8 +195,8 @@ export async function writeAccountDataFile(
       "id",
       "email",
       "displayName",
-      "isAdmin",
-      "isSupport",
+      isAdminOf("users.id").as("isAdmin"),
+      isSupportOf("users.id").as("isSupport"),
       "createdAt",
       "disabledAt",
       "disabledReason",

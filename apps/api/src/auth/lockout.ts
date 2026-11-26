@@ -6,6 +6,7 @@
  * there. Single sign-on is the identity provider's business, and is not
  * locked; its second step here is.
  */
+import { isAdminOf } from "./instance-roles.js";
 import { createHash } from "node:crypto";
 import { AppError, type InstanceSettings, lockState } from "@anygriddb/core";
 import type { Database } from "@anygriddb/db";
@@ -47,7 +48,7 @@ export async function lockOf(
 ): Promise<{ locked: false } | { locked: true; until: Date | null }> {
   const account = await db
     .selectFrom("users")
-    .select(["id", "isAdmin", "lockedAt"])
+    .select(["id", isAdminOf("users.id").as("isAdmin"), "lockedAt"])
     .where("id", "=", userId)
     .executeTakeFirst();
   return account ? currentLock(db, account, policy) : { locked: false };

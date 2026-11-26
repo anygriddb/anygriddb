@@ -8,6 +8,7 @@
  * changed is on the sign-in trail as done from the command line, under no
  * account's name: nobody was signed in.
  */
+import { giveOwnInstanceRole, isAdminOf } from "./instance-roles.js";
 import { labelSchema } from "@anygriddb/core";
 import type { Database } from "@anygriddb/db";
 import { z } from "zod";
@@ -82,7 +83,7 @@ export async function recoverAdministrator(
     const changed: RecoveryChange[] = [];
     const found = await tx
       .selectFrom("users")
-      .select(["id", "isAdmin", "disabledAt"])
+      .select(["id", isAdminOf("users.id").as("isAdmin"), "disabledAt"])
       .where("email", "=", email)
       .forUpdate()
       .executeTakeFirst();
@@ -97,11 +98,11 @@ export async function recoverAdministrator(
         throw new RecoveryRefused("provider_account");
       }
       if (!found.isAdmin) {
-        await tx
-          .updateTable("users")
-          .set({ isAdmin: true })
-          .where("id", "=", userId)
-          .execute();
+        await giveOwnInstanceRole(tx, {
+          userId,
+          role: "administrator",
+          source: "command",
+        });
         changed.push("admin");
         await recordAuthEvent(tx, {
           action: "account_updated",
@@ -144,10 +145,15 @@ export async function recoverAdministrator(
       }
       const made = await tx
         .insertInto("users")
-        .values({ email, displayName: input.create, isAdmin: true })
+        .values({ email, displayName: input.create })
         .returning("id")
         .executeTakeFirstOrThrow();
       userId = made.id;
+      await giveOwnInstanceRole(tx, {
+        userId,
+        role: "administrator",
+        source: "command",
+      });
       changed.push("created");
       await recordAuthEvent(tx, {
         action: "account_created",

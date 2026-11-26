@@ -5,6 +5,7 @@
  * in Administration while it is open, and mailed to the administrators
  * when it opens, then once a day at most.
  */
+import { isAdminOf } from "./auth/instance-roles.js";
 import { statfs } from "node:fs/promises";
 import {
   alertMailDue,
@@ -357,7 +358,7 @@ function administrators(db: Database, exceptUserId?: string) {
   return db
     .selectFrom("users as u")
     .select(["u.id", "u.email"])
-    .where("u.isAdmin", "=", true)
+    .where(isAdminOf("u.id"))
     .where("u.disabledAt", "is", null)
     .where("u.id", "<>", ERASED_USER_ID)
     .$if(exceptUserId !== undefined, (query) =>

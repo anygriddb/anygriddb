@@ -1,6 +1,6 @@
 # 0126 — Parts of Administration given apart: an account manager, a source manager
 
-- Status: Accepted
+- Status: Accepted; superseded in part by 0131 (its roles are attributions at the instance)
 - Date: 2026-11-25
 - Relates to: 0054 (support, and its reach), 0071 (the auditor), 0073 (the proof)
 

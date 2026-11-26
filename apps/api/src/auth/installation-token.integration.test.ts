@@ -4,6 +4,7 @@
  * with a wrong one, with one used or too old; and asked of no account
  * after the first.
  */
+import { isAdminOf } from "./instance-roles.js";
 import { randomBytes } from "node:crypto";
 import type { Database } from "@anygriddb/db";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -119,7 +120,7 @@ describe("the token the first account is made with", () => {
     expect(
       await db
         .selectFrom("users")
-        .select(["email", "isAdmin"])
+        .select(["email", isAdminOf("users.id").as("isAdmin")])
         .where("email", "=", first.email)
         .execute(),
     ).toEqual([{ email: first.email, isAdmin: true }]);

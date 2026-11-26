@@ -592,6 +592,7 @@ export async function listBaseOverview(
 
   const ownersByBase = new Map<string, string[]>();
   for (const row of ownerRows) {
+    if (row.baseId === null) continue;
     const names = ownersByBase.get(row.baseId) ?? [];
     if (names.length < 3) names.push(row.displayName);
     ownersByBase.set(row.baseId, names);

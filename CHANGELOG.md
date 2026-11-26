@@ -35,6 +35,12 @@ rules, and runs a version before 0.11.2 upgrades through 0.11.2 first.
 
 ### Changed
 
+- Administration's five roles (administrator, support, auditor, account
+  manager, source manager) are attributions at the instance, as a base's
+  roles are (ADR 0131, migrations 0151 and 0152): every role an account
+  held is kept, and each change of one is on the change trail beside the
+  sign-in trail. `ADMIN_EMAILS` and `anygriddb admin recover` give the
+  administrator's role the same way.
 - A group's role on a base is kept once, and reaches whoever is in the
   group when it is asked, instead of a copy for each member.
 - Rights at a past date read, for a date before the upgrade, the roles as

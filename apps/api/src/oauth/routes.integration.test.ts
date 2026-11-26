@@ -2,6 +2,7 @@
  * The addresses an application talks to (ADR 0094, ADR 0098), over HTTP
  * and against a real database.
  */
+import { giveInstanceRole } from "../auth/instance-roles.test-helpers.js";
 import { randomBytes } from "node:crypto";
 import type { Database } from "@anygriddb/db";
 import Fastify, { type FastifyInstance } from "fastify";
@@ -38,7 +39,6 @@ describe("oauth over HTTP", () => {
         {
           email: `oauth-http-admin-${suffix}@example.org`,
           displayName: "Admin",
-          isAdmin: true,
         },
         {
           email: `oauth-http-person-${suffix}@example.org`,
@@ -47,6 +47,7 @@ describe("oauth over HTTP", () => {
       ])
       .returning("id")
       .execute();
+    await giveInstanceRole(db, people[0]?.id ?? "");
     person = people[1]?.id ?? "";
     baseId = (await insertBase(db, person, { name: "Granted" })).id;
     const client = await registerOauthClient(db, people[0]?.id ?? "", {

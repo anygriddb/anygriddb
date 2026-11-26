@@ -335,9 +335,9 @@ describe("the conversion to attributions", () => {
             "ANYGRIDDB_ACCEPT_UPGRADE=0150",
           );
         }
-        expect(await migrateDb(pool, undefined, { accept: "0150" })).toEqual([
+        expect((await migrateDb(pool, undefined, { accept: "0150" }))[0]).toBe(
           "0150_attributions",
-        ]);
+        );
 
         const after = await attributionsOf(db, world.users);
         for (const userId of world.users) {
@@ -438,9 +438,9 @@ describe("the conversion to attributions", () => {
       await expect(
         migrateDb(pool, undefined, { accept: "all" }),
       ).rejects.toThrow("ANYGRIDDB_ACCEPT_UPGRADE names the migrations");
-      expect(await migrateDb(pool, undefined, { accept: " 0150 " })).toEqual([
+      expect((await migrateDb(pool, undefined, { accept: " 0150 " }))[0]).toBe(
         "0150_attributions",
-      ]);
+      );
     } finally {
       await close();
     }

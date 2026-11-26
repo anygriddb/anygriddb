@@ -2,6 +2,7 @@
  * Backups reported and alerts kept in step (ROADMAP #17, #25), against a
  * real database and a mail server on the loopback.
  */
+import { giveInstanceRole } from "./auth/instance-roles.test-helpers.js";
 import { randomBytes } from "node:crypto";
 import type { Database } from "@anygriddb/db";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
@@ -57,12 +58,11 @@ describe("alerts for administrators", () => {
     const people = await db
       .insertInto("users")
       .values([
-        { email: ada, displayName: "Ada", isAdmin: true },
-        { email: grace, displayName: "Grace", isAdmin: true },
+        { email: ada, displayName: "Ada" },
+        { email: grace, displayName: "Grace" },
         {
           email: `gone-${suffix}@example.org`,
           displayName: "Gone",
-          isAdmin: true,
           disabledAt: new Date(),
         },
         { email: `member-${suffix}@example.org`, displayName: "Member" },
@@ -70,6 +70,10 @@ describe("alerts for administrators", () => {
       .returning("id")
       .execute();
     adminId = people[0]?.id ?? "";
+    // Ada, Grace and the disabled one administer the instance.
+    for (const person of people.slice(0, 3)) {
+      await giveInstanceRole(db, person.id);
+    }
     deps = {
       db,
       // Not a disk: there is no volume to measure.

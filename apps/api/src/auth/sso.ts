@@ -1,3 +1,4 @@
+import { giveOwnInstanceRole } from "./instance-roles.js";
 import { AppError, labelSchema, madeNames } from "@anygriddb/core";
 import type { Database } from "@anygriddb/db";
 import { signupDecision } from "../admin.js";
@@ -186,11 +187,18 @@ export async function userForIdentity(
         : madeNames((await readGateSettings(db)).defaultLocale).account;
       const inserted = await tx
         .insertInto("users")
-        .values({ email: normalized, displayName, isAdmin: decision.isAdmin })
+        .values({ email: normalized, displayName })
         .returning("id")
         .executeTakeFirst();
       userId = inserted?.id;
       if (!userId) throw new AppError("no_row");
+      if (decision.isAdmin) {
+        await giveOwnInstanceRole(tx, {
+          userId,
+          role: "administrator",
+          source: "sso",
+        });
+      }
     }
     if (subject) {
       await tx

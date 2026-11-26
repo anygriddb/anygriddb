@@ -4,6 +4,7 @@
  * a write changed, says when a list is cut, and its job leaves an event
  * on the sign-in trail.
  */
+import { giveInstanceRole } from "../auth/instance-roles.test-helpers.js";
 import { randomBytes } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { mkdtemp } from "node:fs/promises";
@@ -44,13 +45,13 @@ describe("an account's data export", () => {
         {
           email: `admin-${suffix}@example.org`,
           displayName: "Admin",
-          isAdmin: true,
         },
         { email: `person-${suffix}@example.org`, displayName: "Leaving" },
       ])
       .returning(["id", "email"])
       .execute();
     adminId = people[0]?.id ?? "";
+    await giveInstanceRole(db, adminId);
     personId = people[1]?.id ?? "";
     const base = await insertBase(db, personId, {
       name: `Solo ${suffix}`,

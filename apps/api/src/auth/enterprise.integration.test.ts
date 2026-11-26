@@ -1,3 +1,4 @@
+import { giveInstanceRole } from "./instance-roles.test-helpers.js";
 import { randomBytes } from "node:crypto";
 import cookie from "@fastify/cookie";
 import type { Database } from "@anygriddb/db";
@@ -101,14 +102,15 @@ describe("OIDC sign-in through openid-client", () => {
     // An instance that is set up: its first account, which only a token
     // of its operator makes (ADR 0080), is there before anyone signs on
     // through the provider.
-    await database
+    const operator = await database
       .insertInto("users")
       .values({
         email: "operator@example.org",
         displayName: "Olga Operator",
-        isAdmin: true,
       })
-      .execute();
+      .returning("id")
+      .executeTakeFirstOrThrow();
+    await giveInstanceRole(database, operator.id);
     provider = await fakeProvider();
     const env = {
       AUTH_ENCRYPTION_KEY: key,

@@ -1,6 +1,7 @@
 /**
  * OAuth authorization code + PKCE (ADR 0094), against a real database.
  */
+import { giveInstanceRole } from "../auth/instance-roles.test-helpers.js";
 import { randomBytes } from "node:crypto";
 import type { Database } from "@anygriddb/db";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -46,7 +47,6 @@ describe("oauth authorization code", () => {
         {
           email: `oauth-admin-${suffix}@example.org`,
           displayName: "Admin",
-          isAdmin: true,
         },
         {
           email: `oauth-person-${suffix}@example.org`,
@@ -55,6 +55,7 @@ describe("oauth authorization code", () => {
       ])
       .returning("id")
       .execute();
+    await giveInstanceRole(db, people[0]?.id ?? "");
     admin = people[0]?.id ?? "";
     person = people[1]?.id ?? "";
     baseId = (await insertBase(db, person, { name: "Granted" })).id;
@@ -358,10 +359,10 @@ describe("oauth authorization code", () => {
       .values({
         email: `oauth-registrar-${suffix}@example.org`,
         displayName: "Registrar",
-        isAdmin: true,
       })
       .returning("id")
       .executeTakeFirstOrThrow();
+    await giveInstanceRole(db, registrar.id);
     const theirs = await registerOauthClient(db, registrar.id, {
       name: "Outlives its author",
       redirectUris: [redirectUri],

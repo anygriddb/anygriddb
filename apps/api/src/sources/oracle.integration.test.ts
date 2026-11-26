@@ -8,6 +8,7 @@
  * balancer would be, carries the link to it, with a certificate from a
  * test authority.
  */
+import { giveInstanceRole } from "../auth/instance-roles.test-helpers.js";
 import { createPrivateKey, randomBytes, X509Certificate } from "node:crypto";
 import { once } from "node:events";
 import { connect, type AddressInfo } from "node:net";
@@ -130,11 +131,11 @@ describe("Oracle sources", () => {
         .values({
           email: "admin@example.com",
           displayName: "Admin",
-          isAdmin: true,
         })
         .returning("id")
         .executeTakeFirstOrThrow()
     ).id;
+    await giveInstanceRole(db, admin, "administrator");
   }, 660_000);
 
   afterAll(async () => {

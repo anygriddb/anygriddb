@@ -5,6 +5,7 @@ import {
   ADMIN_LOCK_MINUTES,
   AppError,
   emailDomainAllowed,
+  type InstanceCaller,
   type InstanceRole,
   labelSchema,
   lockState,
@@ -20,14 +21,21 @@ import type { Bus } from "./realtime/bus.js";
 import { factorMethods } from "./auth/access.js";
 import { assertKeepsPasswordAdmin } from "./auth/sso-only.js";
 import { listApiTokens } from "./auth/tokens.js";
-import { withAudit } from "./data/audit-context.js";
+import { type AuditTx, withAudit } from "./data/audit-context.js";
 import { ERASED_USER_ID } from "./data/erasure.js";
 import { liveBase } from "./data/live.js";
 import { bindRole } from "./data/members.js";
 import { givenOf, MADE_COLUMNS, resolveGiven } from "./data/made-roles.js";
 import { assertMemberDomain } from "./data/sharing.js";
 import { recordAuthEvent } from "./auth/auth-events.js";
-import { instanceRolesOf, knownInstanceRoles } from "./auth/instance-roles.js";
+import {
+  instanceRolesOf,
+  isAdminOf,
+  isAuditorOf,
+  isSupportOf,
+  knownInstanceRoles,
+  setInstanceAttribution,
+} from "./auth/instance-roles.js";
 import { diskSpace } from "./alerts.js";
 import { BUILD } from "./build-info.js";
 import { isUniqueViolation } from "./data/schema-ops.js";
@@ -128,12 +136,23 @@ export async function promoteListedAdmins(
 ): Promise<void> {
   const listed = [...parseAdminEmails(adminEmails)];
   if (listed.length === 0) return;
-  await db
-    .updateTable("users")
-    .set({ isAdmin: true })
+  const accounts = await db
+    .selectFrom("users")
+    .select("id")
     .where("email", "in", listed)
-    .where("isAdmin", "=", false)
+    .where((eb) => eb.not(isAdminOf("users.id")))
     .execute();
+  // The operator's environment gives it: the change trail says so, in the
+  // name of the account it reaches.
+  for (const account of accounts) {
+    await withAudit(db, { userId: account.id, source: "environment" }, (tx) =>
+      setInstanceAttribution(tx, {
+        userId: account.id,
+        role: "administrator",
+        held: true,
+      }),
+    );
+  }
 }
 
 /* ------------------------------------------------------------------ */
@@ -172,7 +191,7 @@ export async function listUsers(
     : undefined;
   // As `factorMethods` counts them: a code by email is one for anyone but
   // an administrator (ADR 0085).
-  const hasFactor = sqlTag<boolean>`(exists (select 1 from totp_secrets t where t.user_id = u.id and t.confirmed_at is not null) or exists (select 1 from webauthn_credentials w where w.user_id = u.id) or (not u.is_admin and exists (select 1 from email_factors e where e.user_id = u.id)))`;
+  const hasFactor = sqlTag<boolean>`(exists (select 1 from totp_secrets t where t.user_id = u.id and t.confirmed_at is not null) or exists (select 1 from webauthn_credentials w where w.user_id = u.id) or (not ${isAdminOf("u.id")} and exists (select 1 from email_factors e where e.user_id = u.id)))`;
   const signOn = sqlTag<boolean>`exists (select 1 from sso_identities i where i.user_id = u.id)`;
   // Kept on the account: sessions go once expired, the trail in time.
   const lastSeen = sqlTag<Date | null>`u.last_sign_in_at`;
@@ -204,18 +223,20 @@ export async function listUsers(
             ? eb("u.lockedAt", ">", minutesAgo(policy.lockoutMinutes))
             : eb.or([
                 eb.and([
-                  eb("u.isAdmin", "=", false),
+                  eb.not(isAdminOf("u.id")),
                   eb("u.lockedAt", "is not", null),
                 ]),
                 eb.and([
-                  eb("u.isAdmin", "=", true),
+                  isAdminOf("u.id"),
                   eb("u.lockedAt", ">", minutesAgo(ADMIN_LOCK_MINUTES)),
                 ]),
               ]),
         ),
       )
       .$if(query.admin !== undefined, (q) =>
-        q.where("u.isAdmin", "=", query.admin ?? false),
+        q.where((eb) =>
+          query.admin ? isAdminOf("u.id") : eb.not(isAdminOf("u.id")),
+        ),
       )
       .$if(query.mfa === true, (q) => q.where(hasFactor))
       .$if(query.mfa === false, (q) =>
@@ -235,7 +256,7 @@ export async function listUsers(
   const lockedNow =
     policy.lockoutMinutes > 0
       ? sqlTag`u.locked_at > ${minutesAgo(policy.lockoutMinutes)}`
-      : sqlTag`((not u.is_admin and u.locked_at is not null) or (u.is_admin and u.locked_at > ${minutesAgo(ADMIN_LOCK_MINUTES)}))`;
+      : sqlTag`((not ${isAdminOf("u.id")} and u.locked_at is not null) or (${isAdminOf("u.id")} and u.locked_at > ${minutesAgo(ADMIN_LOCK_MINUTES)}))`;
   const order = {
     name: sqlTag`lower(u.display_name)`,
     email: sqlTag`lower(u.email)`,
@@ -251,9 +272,9 @@ export async function listUsers(
       "u.id",
       "u.email",
       "u.displayName",
-      "u.isAdmin",
-      "u.isSupport",
-      "u.isAuditor",
+      isAdminOf("u.id").as("isAdmin"),
+      isSupportOf("u.id").as("isSupport"),
+      isAuditorOf("u.id").as("isAuditor"),
       instanceRolesOf("u.id").as("instanceRoles"),
       "u.disabledAt",
       "u.createdAt",
@@ -475,14 +496,18 @@ export async function createAccount(
         }
         const row = await tx
           .insertInto("users")
-          .values({
-            email,
-            displayName: input.displayName,
-            isAdmin: input.admin,
-          })
+          .values({ email, displayName: input.displayName })
           .returning(["id", "email", "displayName"])
           .executeTakeFirst();
         if (!row) throw new AppError("no_row");
+        if (input.admin) {
+          await setInstanceAttribution(tx, {
+            userId: row.id,
+            role: "administrator",
+            held: true,
+            givenBy: actorId,
+          });
+        }
         for (const membership of memberships) {
           await bindRole(
             tx,
@@ -526,9 +551,9 @@ export async function getAccountDetail(db: Database, userId: string) {
       "u.id",
       "u.email",
       "u.displayName",
-      "u.isAdmin",
-      "u.isSupport",
-      "u.isAuditor",
+      isAdminOf("u.id").as("isAdmin"),
+      isSupportOf("u.id").as("isSupport"),
+      isAuditorOf("u.id").as("isAuditor"),
       instanceRolesOf("u.id").as("instanceRoles"),
       "u.disabledAt",
       "u.disabledReason",
@@ -722,49 +747,35 @@ export async function setUserAdmin(
   userId: string,
   admin: boolean,
 ): Promise<void> {
-  if (userId === ERASED_USER_ID) {
-    throw new AppError("invalid_account");
-  }
-  await db.transaction().execute(async (tx) => {
-    if (!admin) {
+  await changeInstanceRole(
+    db,
+    actorId,
+    { userId, role: "administrator", held: admin },
+    admin ? "admin_granted" : "admin_revoked",
+    async (tx) => {
+      if (admin) return;
       await assertKeepsPasswordAdmin(tx, userId);
-      // Locking the active administrators keeps two of them from removing
-      // each other at the same moment and leaving none.
+      // Locking the active administrators' roles keeps two of them from
+      // removing each other at the same moment and leaving none.
       const others = await tx
-        .selectFrom("users")
-        .select("id")
-        .where("isAdmin", "=", true)
-        .where("disabledAt", "is", null)
-        .where("id", "<>", userId)
-        .forUpdate()
+        .selectFrom("attributions as a")
+        .innerJoin("users as u", "u.id", "a.userId")
+        .select("a.id")
+        .where("a.scope", "=", "instance")
+        .where("a.instanceRole", "=", "administrator")
+        .where("u.disabledAt", "is", null)
+        .where("a.userId", "<>", userId)
+        .forUpdate("a")
         .execute();
       if (others.length === 0) {
         throw new AppError("invalid_account");
       }
-    }
-    const updated = await tx
-      .updateTable("users")
-      .set({ isAdmin: admin })
-      .where("id", "=", userId)
-      .where("isAdmin", "=", !admin)
-      .returning("id")
-      .execute();
-    if (updated.length === 0) {
-      await assertAccount(tx, userId);
-      return;
-    }
-    await recordAuthEvent(tx, {
-      action: "account_updated",
-      userId,
-      actorId,
-      method: "admin",
-      detail: admin ? "admin_granted" : "admin_revoked",
-    });
-  });
+    },
+  );
 }
 
 /**
- * Grants or revokes the support (helpdesk) flag (ADR 0054), on the
+ * Grants or revokes the support (helpdesk) role (ADR 0054), on the
  * sign-in trail as administration is.
  */
 export async function setUserSupport(
@@ -773,29 +784,12 @@ export async function setUserSupport(
   userId: string,
   support: boolean,
 ): Promise<void> {
-  if (userId === ERASED_USER_ID) {
-    throw new AppError("invalid_account");
-  }
-  await db.transaction().execute(async (tx) => {
-    const updated = await tx
-      .updateTable("users")
-      .set({ isSupport: support })
-      .where("id", "=", userId)
-      .where("isSupport", "=", !support)
-      .returning("id")
-      .execute();
-    if (updated.length === 0) {
-      await assertAccount(tx, userId);
-      return;
-    }
-    await recordAuthEvent(tx, {
-      action: "account_updated",
-      userId,
-      actorId,
-      method: "admin",
-      detail: support ? "support_granted" : "support_revoked",
-    });
-  });
+  await changeInstanceRole(
+    db,
+    actorId,
+    { userId, role: "support", held: support },
+    support ? "support_granted" : "support_revoked",
+  );
 }
 
 /**
@@ -809,29 +803,12 @@ export async function setUserAuditor(
   userId: string,
   auditor: boolean,
 ): Promise<void> {
-  if (userId === ERASED_USER_ID) {
-    throw new AppError("invalid_account");
-  }
-  await db.transaction().execute(async (tx) => {
-    const updated = await tx
-      .updateTable("users")
-      .set({ isAuditor: auditor })
-      .where("id", "=", userId)
-      .where("isAuditor", "=", !auditor)
-      .returning("id")
-      .execute();
-    if (updated.length === 0) {
-      await assertAccount(tx, userId);
-      return;
-    }
-    await recordAuthEvent(tx, {
-      action: "account_updated",
-      userId,
-      actorId,
-      method: "admin",
-      detail: auditor ? "auditor_granted" : "auditor_revoked",
-    });
-  });
+  await changeInstanceRole(
+    db,
+    actorId,
+    { userId, role: "auditor", held: auditor },
+    auditor ? "auditor_granted" : "auditor_revoked",
+  );
 }
 
 /**
@@ -843,37 +820,57 @@ export async function setInstanceRole(
   actorId: string,
   input: { userId: string; role: InstanceRole; granted: boolean },
 ): Promise<void> {
+  await changeInstanceRole(
+    db,
+    actorId,
+    { userId: input.userId, role: input.role, held: input.granted },
+    `${input.role}_${input.granted ? "granted" : "revoked"}`,
+  );
+}
+
+/**
+ * Gives or takes away one of Administration's roles, an attribution at
+ * the instance (ADR 0131), on the change trail under its giver and on the
+ * sign-in trail as `account_updated`. Asking again what holds changes
+ * nothing and says nothing; an id no account has is refused.
+ */
+async function changeInstanceRole(
+  db: Database,
+  actorId: string,
+  input: { userId: string; role: InstanceCaller; held: boolean },
+  detail: string,
+  first?: (tx: AuditTx) => Promise<void>,
+): Promise<void> {
   if (input.userId === ERASED_USER_ID) {
     throw new AppError("invalid_account");
   }
-  await db.transaction().execute(async (tx) => {
+  await withAudit(db, { userId: actorId, source: "web" }, async (tx) => {
     await assertAccount(tx, input.userId);
-    const changed = input.granted
-      ? await tx
-          .insertInto("instanceRoles")
-          .values({ userId: input.userId, role: input.role })
-          .onConflict((conflict) => conflict.doNothing())
-          .returning("userId")
-          .execute()
-      : await tx
-          .deleteFrom("instanceRoles")
-          .where("userId", "=", input.userId)
-          .where("role", "=", input.role)
-          .returning("userId")
-          .execute();
-    if (changed.length === 0) return;
+    const holds = await tx
+      .selectFrom("attributions")
+      .select("id")
+      .where("userId", "=", input.userId)
+      .where("scope", "=", "instance")
+      .where("instanceRole", "=", input.role)
+      .executeTakeFirst();
+    if (Boolean(holds) === input.held) return;
+    await first?.(tx);
+    await setInstanceAttribution(tx, { ...input, givenBy: actorId });
     await recordAuthEvent(tx, {
       action: "account_updated",
       userId: input.userId,
       actorId,
       method: "admin",
-      detail: `${input.role}_${input.granted ? "granted" : "revoked"}`,
+      detail,
     });
   });
 }
 
 /** Refuses an id no account has: an unchanged flag is not an unknown one. */
-async function assertAccount(db: Database, userId: string): Promise<void> {
+async function assertAccount(
+  db: Pick<Database, "selectFrom">,
+  userId: string,
+): Promise<void> {
   const account = await db
     .selectFrom("users")
     .select("id")

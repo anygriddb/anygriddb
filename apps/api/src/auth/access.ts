@@ -1,3 +1,4 @@
+import { isAdminOf } from "./instance-roles.js";
 import {
   AppError,
   type Binding,
@@ -98,7 +99,7 @@ export async function factorMethods(
             .innerJoin("users", "users.id", "emailFactors.userId")
             .select("emailFactors.userId")
             .where("emailFactors.userId", "=", userId)
-            .where("users.isAdmin", "=", false),
+            .where((eb) => eb.not(isAdminOf("users.id"))),
         )
         .as("email"),
     ])
@@ -183,7 +184,7 @@ export async function authorizeGrid(
   const raw = await loadBindings(db, userId);
   const account = await db
     .selectFrom("users")
-    .select(["id", "isAdmin"])
+    .select(["id", isAdminOf("users.id").as("isAdmin")])
     .where("id", "=", userId)
     .executeTakeFirst();
   if (!account) return "denied";
@@ -268,7 +269,7 @@ async function accountsToEnrol(
       .innerJoin("users", "users.id", "emailFactors.userId")
       .select("emailFactors.userId")
       .where("emailFactors.userId", "in", ids)
-      .where("users.isAdmin", "=", false)
+      .where((eb) => eb.not(isAdminOf("users.id")))
       .execute(),
     policy.ssoMfa === "provider"
       ? db
@@ -324,7 +325,7 @@ export async function gridChannelRights(
   const [accounts, held, tables, inBases] = await Promise.all([
     db
       .selectFrom("users")
-      .select(["id", "isAdmin"])
+      .select(["id", isAdminOf("users.id").as("isAdmin")])
       .where("id", "in", userIds)
       .execute(),
     attributionsOf(db, userIds),

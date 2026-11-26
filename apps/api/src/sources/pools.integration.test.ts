@@ -3,6 +3,7 @@
  * restarts, a DBA terminates them, the database is dropped. The read or
  * write in flight fails; the process goes on.
  */
+import { giveInstanceRole } from "../auth/instance-roles.test-helpers.js";
 import { randomBytes } from "node:crypto";
 import type { Database } from "@anygriddb/db";
 import pg from "pg";
@@ -38,11 +39,11 @@ describe("source pools", () => {
         .values({
           email: "admin@example.com",
           displayName: "Admin",
-          isAdmin: true,
         })
         .returning("id")
         .executeTakeFirstOrThrow()
     ).id;
+    await giveInstanceRole(db, actor, "administrator");
     const url = new URL(inject("adminUrl"));
     sourceId = (
       await createSource({ db, key, settings }, actor, {

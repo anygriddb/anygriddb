@@ -3,6 +3,7 @@
  * through the identity provider. Administrators keep a password as
  * break-glass.
  */
+import { isAdminOf } from "./instance-roles.js";
 import { AppError, type InstanceSettings } from "@anygriddb/core";
 import type { Database } from "@anygriddb/db";
 import { sql } from "kysely";
@@ -88,7 +89,7 @@ export async function assertKeepsPasswordAdmin(
     .selectFrom("users as u")
     .leftJoin("passwordHashes as p", "p.userId", "u.id")
     .select(["u.id", "p.userId as passwordOf"])
-    .where("u.isAdmin", "=", true)
+    .where(isAdminOf("u.id"))
     .where("u.disabledAt", "is", null)
     .orderBy("u.id")
     .forUpdate("u")

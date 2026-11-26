@@ -1,3 +1,4 @@
+import { isAdminOf } from "../auth/instance-roles.js";
 import {
   AppError,
   describeColumns,
@@ -866,7 +867,7 @@ export async function dueTrashItems(
   const admin = await db
     .selectFrom("users")
     .select("id")
-    .where("isAdmin", "=", true)
+    .where(isAdminOf("users.id"))
     .orderBy("createdAt", "asc")
     .limit(1)
     .executeTakeFirst();

@@ -10,6 +10,7 @@
  * Everything goes the way an administrator's does: a source is declared,
  * its table exposed, each formula added as a field, and rows read.
  */
+import { giveInstanceRole } from "../auth/instance-roles.test-helpers.js";
 import { loadBindings } from "../auth/access.js";
 import { setTableRole } from "../data/sharing.js";
 import { createHash, randomBytes } from "node:crypto";
@@ -1217,11 +1218,11 @@ describe("conformance of formulas across engines", () => {
         .values({
           email: "admin@example.com",
           displayName: "Admin",
-          isAdmin: true,
         })
         .returning("id")
         .executeTakeFirstOrThrow()
     ).id;
+    await giveInstanceRole(db, actor, "administrator");
     pools = new SourcePools({ db, key, settings, log: () => undefined });
     setSourcePools(pools);
     const deps = { db, key, settings };

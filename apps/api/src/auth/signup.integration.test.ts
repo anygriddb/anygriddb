@@ -3,6 +3,7 @@
  * first account and an invited address are made at once; any other waits
  * for the link mailed to it, opened with the password chosen at sign-up.
  */
+import { isAdminOf } from "./instance-roles.js";
 import { randomBytes } from "node:crypto";
 import type { Database } from "@anygriddb/db";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -47,7 +48,7 @@ describe("sign-up", () => {
   const accountOf = (email: string) =>
     db
       .selectFrom("users")
-      .select(["id", "isAdmin", "displayName"])
+      .select(["id", isAdminOf("users.id").as("isAdmin"), "displayName"])
       .where("email", "=", email)
       .executeTakeFirst();
   const pending = async (email: string) =>

@@ -4,6 +4,8 @@
  * factor, locked accounts, password rules, changes and resets, sessions,
  * tokens, public links, sign-up domains, and the trail of who changed what.
  */
+import { isAdminOf } from "./auth/instance-roles.js";
+import { giveInstanceRole } from "./auth/instance-roles.test-helpers.js";
 import { randomBytes } from "node:crypto";
 import type { InstanceSettingsPatch } from "@anygriddb/core";
 import type { Database } from "@anygriddb/db";
@@ -128,7 +130,7 @@ describe("the security policy", () => {
       await db
         .selectFrom("users")
         .select("id")
-        .where("isAdmin", "=", true)
+        .where(isAdminOf("users.id"))
         .executeTakeFirstOrThrow()
     ).id;
   }, 120_000);
@@ -1242,17 +1244,13 @@ describe("the security policy", () => {
       const others = await db
         .selectFrom("users")
         .select("id")
-        .where("isAdmin", "=", true)
+        .where(isAdminOf("users.id"))
         .where("disabledAt", "is", null)
         .where("id", "<>", adminId)
         .execute();
       const stepped = others.map((other) => other.id);
-      if (stepped.length > 0) {
-        await db
-          .updateTable("users")
-          .set({ isAdmin: false })
-          .where("id", "in", stepped)
-          .execute();
+      for (const id of stepped) {
+        await giveInstanceRole(db, id, "administrator", false);
       }
       try {
         expect(await code(eraseAccount(db, adminId))).toBe("invalid_account");
@@ -1268,12 +1266,8 @@ describe("the security policy", () => {
         ).toBeUndefined();
         expect(await code(eraseAccount(db, adminId))).toBe("invalid_account");
       } finally {
-        if (stepped.length > 0) {
-          await db
-            .updateTable("users")
-            .set({ isAdmin: true })
-            .where("id", "in", stepped)
-            .execute();
+        for (const id of stepped) {
+          await giveInstanceRole(db, id);
         }
       }
     });
@@ -1644,7 +1638,8 @@ describe("the security policy", () => {
         await policy({ inactiveDays: 30 });
         try {
           const quiet = await idle("Quiet", 40);
-          const boss = await idle("Boss", 400, { isAdmin: true });
+          const boss = await idle("Boss", 400);
+          await giveInstanceRole(db, boss.id);
           const kept = await idle("Kept", 400, {
             scimUserName: `kept-${suffix}`,
           });

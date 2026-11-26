@@ -2,6 +2,8 @@
  * "Single sign-on only" past the moment it is turned on: what a password
  * still opens, what stays open, and what can no longer be taken away.
  */
+import { giveInstanceRole } from "./instance-roles.test-helpers.js";
+import { isAdminOf } from "./instance-roles.js";
 import { randomBytes } from "node:crypto";
 import type { Database } from "@anygriddb/db";
 import {
@@ -73,9 +75,10 @@ describe("single sign-on only", () => {
     const email = address(label);
     const row = await db
       .insertInto("users")
-      .values({ email, displayName: label, isAdmin })
+      .values({ email, displayName: label })
       .returning("id")
       .executeTakeFirstOrThrow();
+    if (isAdmin) await giveInstanceRole(db, row.id);
     await db
       .insertInto("passwordHashes")
       .values({ userId: row.id, hash: await hashPassword(PASSWORD) })
@@ -345,24 +348,20 @@ describe("single sign-on only", () => {
           .values({
             email: address("sso-admin"),
             displayName: "SSO admin",
-            isAdmin: true,
           })
           .returning("id")
           .executeTakeFirstOrThrow()
       ).id;
+      await giveInstanceRole(db, ssoAdmin, "administrator");
       const others = await db
         .selectFrom("users as u")
         .innerJoin("passwordHashes as p", "p.userId", "u.id")
         .select("u.id")
-        .where("u.isAdmin", "=", true)
+        .where(isAdminOf("u.id"))
         .where("u.id", "<>", adminId)
         .execute();
       for (const other of others) {
-        await db
-          .updateTable("users")
-          .set({ isAdmin: false })
-          .where("id", "=", other.id)
-          .execute();
+        await giveInstanceRole(db, other.id, "administrator", false);
       }
       await writeSettings(db, adminId, { ssoOnly: true });
       expect(await refusal(setUserAdmin(db, ssoAdmin, adminId, false))).toBe(
@@ -383,7 +382,7 @@ describe("single sign-on only", () => {
       await setUserAdmin(db, adminId, second.id, false);
       const row = await db
         .selectFrom("users")
-        .select("isAdmin")
+        .select(isAdminOf("users.id").as("isAdmin"))
         .where("id", "=", second.id)
         .executeTakeFirstOrThrow();
       expect(row.isAdmin).toBe(false);

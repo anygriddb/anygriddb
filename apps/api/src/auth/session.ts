@@ -10,6 +10,9 @@ import { recordAuthEvent } from "./auth-events.js";
 import {
   holdsInstanceRole,
   instanceRolesOf,
+  isAdminOf,
+  isAuditorOf,
+  isSupportOf,
   knownInstanceRoles,
 } from "./instance-roles.js";
 import { assertLocalSignInAllowed } from "./sso-only.js";
@@ -167,15 +170,15 @@ export async function findSessionUser(
       "u.id",
       "u.email",
       "u.displayName",
-      "u.isAdmin",
-      "u.isSupport",
-      "u.isAuditor",
+      isAdminOf("u.id").as("isAdmin"),
+      isSupportOf("u.id").as("isSupport"),
+      isAuditorOf("u.id").as("isAuditor"),
       instanceRolesOf("u.id").as("instanceRoles"),
       "p.displayName as personName",
       "p.disabledAt as personDisabled",
-      "p.isAdmin as personAdmin",
-      "p.isSupport as personSupport",
-      "p.isAuditor as personAuditor",
+      isAdminOf("p.id").as("personAdmin"),
+      isSupportOf("p.id").as("personSupport"),
+      isAuditorOf("p.id").as("personAuditor"),
       holdsInstanceRole("p.id").as("personRoles"),
     ])
     .where("s.tokenHash", "=", hashSessionToken(token))
@@ -239,11 +242,11 @@ export async function sessionIdentities(
       "s.userId",
       "s.impersonatedUserId",
       "s.impersonateUntil",
-      "u.isAdmin",
+      isAdminOf("u.id").as("isAdmin"),
       "p.disabledAt as personDisabled",
-      "p.isAdmin as personAdmin",
-      "p.isSupport as personSupport",
-      "p.isAuditor as personAuditor",
+      isAdminOf("p.id").as("personAdmin"),
+      isSupportOf("p.id").as("personSupport"),
+      isAuditorOf("p.id").as("personAuditor"),
       holdsInstanceRole("p.id").as("personRoles"),
     ])
     .where("s.tokenHash", "in", tokenHashes)
@@ -351,7 +354,7 @@ export async function createSession(
   // only, whenever that sign-in began, are stopped here.
   const account = await db
     .selectFrom("users")
-    .select(["disabledAt", "isAdmin"])
+    .select(["disabledAt", isAdminOf("users.id").as("isAdmin")])
     .where("id", "=", userId)
     .executeTakeFirst();
   if (!account || account.disabledAt) {
