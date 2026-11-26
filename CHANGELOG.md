@@ -8,6 +8,21 @@ first.
 
 ## Unreleased
 
+### Added
+
+- Administration › People › Rights to review lists, ahead of the next minor
+  version, whose access that version will not keep exactly as it is (ADR
+  0131, migration 0149). From then on roles add up: a role given on a table
+  only adds to what its base gives, and a field or row rule narrows only the
+  role it comes with. Everyone keeps what they hold on every existing table,
+  but where a table's role or a rule narrows a base's role of someone who
+  manages the base, or a role a group gives, and where a base's role must
+  be lowered for its tables to keep what they gave. Each case says whom,
+  where and what changes, so that an administrator can change it with this
+  version or accept it. The next minor version's upgrade counts the same
+  cases and stops until an operator accepts them; an instance that holds a
+  table's role or a rule upgrades through this version first.
+
 ## 0.11.1 - 2026-11-26
 
 Before upgrading: nothing to do. Migration 0148 runs by itself. An

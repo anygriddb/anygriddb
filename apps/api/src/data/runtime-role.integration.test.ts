@@ -457,6 +457,22 @@ describe("the role the application signs in as", () => {
       });
     });
 
+    it("reads the rights to review as its caller, and writes nothing", async () => {
+      const client = await pool.connect();
+      try {
+        await client.query("begin transaction read only");
+        await client.query("select * from ag_rights_review()");
+        const { rows } = await client.query<{ definer: boolean }>(
+          `select prosecdef as definer from pg_proc
+            where proname = 'ag_rights_review'`,
+        );
+        expect(rows).toEqual([{ definer: false }]);
+      } finally {
+        await client.query("rollback");
+        client.release();
+      }
+    });
+
     it("leaves an event when it erases an account", async () => {
       await within(async (client) => {
         const made = await client.query<{ id: string }>(

@@ -276,6 +276,11 @@ msgstr "{0, plural, one {# base hébergée dans une source} other {# bases hébe
 msgid "{0, plural, one {# base} other {# bases}}"
 msgstr "{0, plural, one {# base} other {# bases}}"
 
+#. placeholder {0}: data.counts[kind]
+#: components/admin/rights-review-tab.tsx
+msgid "{0, plural, one {# case} other {# cases}}"
+msgstr "{0, plural, one {# cas} other {# cas}}"
+
 #. placeholder {0}: plan.skipped
 #: components/grid/grid-view.tsx
 msgid "{0, plural, one {# cell skipped: incompatible value or computed field} other {# cells skipped: incompatible value or computed field}}"
@@ -1477,6 +1482,10 @@ msgstr "Un champ conservé dans AnyGridDB ne peut pas placer sur une chronologie
 msgid "A field of the linked rows"
 msgstr "Un champ des lignes liées"
 
+#: components/admin/rights-review-tab.tsx
+msgid "A field or row rule on someone who manages the table, or has no access to it, has no effect now and is removed."
+msgstr "Une règle de champs ou de lignes posée sur une personne qui gère la table, ou qui n’y a pas accès, n’a aucun effet aujourd’hui et sera supprimée."
+
 #: components/table/table-workspace.tsx
 msgid "A field this view filters on changed type: the view shows no rows until its filter is corrected."
 msgstr "Un champ filtré par cette vue a changé de type : la vue n’affiche aucune ligne tant que son filtre n’est pas corrigé."
@@ -1552,6 +1561,14 @@ msgstr "Un groupe porte déjà ce nom"
 #: components/admin/groups-tab.tsx
 msgid "A group gathers accounts so a base can give them one role. Make a group here, or receive them from your identity provider (SCIM)."
 msgstr "Un groupe rassemble des comptes pour qu’une base leur donne un même rôle. Créez-en un ici, ou recevez-les de votre fournisseur d’identité (SCIM)."
+
+#: components/admin/rights-review-tab.tsx
+msgid "A group gives them a role on the base, which a rule cannot narrow: on this table their field and row rule will no longer apply."
+msgstr "Un groupe lui donne un rôle sur la base, qu’une règle ne peut pas restreindre : sur cette table, sa règle de champs et de lignes ne s’appliquera plus."
+
+#: components/admin/rights-review-tab.tsx
+msgid "A group gives them a role on the base, which a table's role cannot take away: on this table they will also hold: {list}."
+msgstr "Un groupe lui donne un rôle sur la base, qu’un rôle de table ne peut pas retirer : sur cette table, la personne aura aussi : {list}."
 
 #: components/fields/formula-docs.ts
 msgid "A JSON document's value at a path, such as $.client.name or $.lines[0]."
@@ -3290,6 +3307,7 @@ msgstr "Barres d’un histogramme"
 #: components/admin/bases-tab.tsx
 #: components/admin/invitations-panel.tsx
 #: components/admin/rights-at.tsx
+#: components/admin/rights-review-tab.tsx
 #: components/admin/sources-tab.tsx
 #: components/admin/trails.tsx
 #: components/shell/base-home.tsx
@@ -3371,6 +3389,10 @@ msgstr "Restauration d’une base"
 #: components/settings/restore-points.tsx
 msgid "Base restored, beside this one"
 msgstr "Base restaurée, à côté de celle-ci"
+
+#: components/admin/rights-review-tab.tsx
+msgid "Base role lowered"
+msgstr "Rôle de base abaissé"
 
 #: components/admin/limits-tab.tsx
 msgid "bases"
@@ -5615,6 +5637,10 @@ msgstr "Toutes les lignes de {table}"
 msgid "Every session of this account ends now. The person can sign in again."
 msgstr "Toutes les sessions de ce compte prennent fin maintenant. La personne peut se reconnecter."
 
+#: components/admin/rights-review-tab.tsx
+msgid "Every table"
+msgstr "Toutes les tables"
+
 #: components/fields/field-editor.tsx
 msgid "Every table needs a primary field. Choose another field to change it."
 msgstr "Chaque table a besoin d’un champ principal. Choisissez un autre champ pour le changer."
@@ -6288,6 +6314,10 @@ msgstr "depuis Airtable"
 msgid "from sources"
 msgstr "depuis les sources"
 
+#: components/admin/rights-review-tab.tsx
+msgid "From the next minor version, roles add up: a role given on a table only adds to what the base gives, and a field or row rule narrows only the role it comes with. Everyone keeps exactly what they hold on every existing table, except in the cases below. The upgrade counts them and stops until an operator accepts them; to avoid one, change the roles or rules it names before upgrading."
+msgstr "À partir de la prochaine version mineure, les rôles s’additionnent : un rôle donné sur une table ne fait qu’ajouter à ce que donne la base, et une règle de champs ou de lignes ne restreint que le rôle qu’elle accompagne. Chacun garde exactement ce qu’il a sur chaque table existante, sauf dans les cas ci-dessous. La mise à jour les compte et s’arrête tant qu’un opérateur ne les a pas acceptés ; pour en éviter un, changez avant la mise à jour les rôles ou les règles qu’il nomme."
+
 #: components/admin/sources-tab.tsx
 msgid "Full copy"
 msgstr "Copie complète"
@@ -6870,6 +6900,10 @@ msgstr "En revue"
 #: components/settings/person-event-labels.ts
 msgid "In the app"
 msgstr "Dans l’application"
+
+#: components/admin/rights-review-tab.tsx
+msgid "In the trash"
+msgstr "Dans la corbeille"
 
 #: components/views/form-view.tsx
 msgid "Include {field}"
@@ -7950,6 +7984,10 @@ msgstr "Recherche"
 #: components/shell/airtable-report.tsx
 msgid "lookup carried over as values"
 msgstr "recherche reprise en valeurs"
+
+#: components/admin/rights-review-tab.tsx
+msgid "Lost on the base"
+msgstr "Perdu sur la base"
 
 #: components/auth/auth-page.tsx
 msgid "Lost your authenticator? Use a backup code"
@@ -9183,6 +9221,10 @@ msgstr "Rien de cette base ne se lit de l’extérieur."
 #: components/admin/account-handoff.tsx
 msgid "Nothing to hand over: no base owned alone, no automation, no webhook, no API token."
 msgstr "Rien à transmettre : aucune base possédée seul, aucune automatisation, aucun webhook, aucun jeton d’API."
+
+#: components/admin/rights-review-tab.tsx
+msgid "Nothing to review: everyone's access will stay exactly as it is."
+msgstr "Rien à revoir : l’accès de chacun restera exactement le même."
 
 #: components/shell/base-activity.tsx
 msgid "Nothing yet."
@@ -10958,6 +11000,11 @@ msgstr "Révoqué"
 msgid "Rights at the end of this day"
 msgstr "Droits à la fin de ce jour"
 
+#: components/admin/admin-sections.ts
+#: components/admin/rights-review-tab.tsx
+msgid "Rights to review"
+msgstr "Droits à revoir"
+
 #: components/admin/base-admin-members.tsx
 #: components/admin/group-page.tsx
 #: components/admin/invitations-panel.tsx
@@ -11016,6 +11063,10 @@ msgstr "Rôle sur {base}"
 #: components/settings/base-settings.tsx
 msgid "Role on {table}"
 msgstr "Rôle sur {table}"
+
+#: components/admin/rights-review-tab.tsx
+msgid "Role on each table instead of the base"
+msgstr "Un rôle par table au lieu de la base"
 
 #: components/admin/group-page.tsx
 msgid "Role removed"
@@ -11264,6 +11315,10 @@ msgstr "Lignes, environ"
 #: components/admin/permission-labels.ts
 msgid "Rows, their history and comments, and views of one's own. Every role reads."
 msgstr "Les lignes, leur historique et leurs commentaires, et ses propres vues. Tout rôle lit."
+
+#: components/admin/rights-review-tab.tsx
+msgid "Rule that binds nobody"
+msgstr "Règle qui ne s’applique à personne"
 
 #: components/table/automations-dialog.tsx
 msgid "Run a script"
@@ -12766,6 +12821,7 @@ msgstr "table"
 #: components/admin/access-tab.tsx
 #: components/admin/base-admin-page.tsx
 #: components/admin/rights-at.tsx
+#: components/admin/rights-review-tab.tsx
 #: components/admin/support-tab.tsx
 #: components/admin/trails.tsx
 #: components/dashboards/dashboard-board.tsx
@@ -12816,6 +12872,14 @@ msgstr "Lignes de la table"
 #: components/table/automations-dialog.tsx
 msgid "Table to go through"
 msgstr "Table parcourue"
+
+#: components/admin/rights-review-tab.tsx
+msgid "Table widens to the base"
+msgstr "La table s’élargit à la base"
+
+#: components/admin/rights-review-tab.tsx
+msgid "Table widens to the group's role"
+msgstr "La table s’élargit au rôle du groupe"
 
 #: components/shell/command-palette.tsx
 msgid "Table, base, or action"
@@ -13896,6 +13960,14 @@ msgstr "Son application d’authentification, ses clés d’accès et ses codes 
 msgid "Their own API token"
 msgstr "Son propre jeton d’API"
 
+#: components/admin/rights-review-tab.tsx
+msgid "Their role on the base becomes what it shares with the tables where they hold less ({list}), and each table keeps exactly what they hold now. A table made after the upgrade gives them that lower role."
+msgstr "Son rôle sur la base devient ce qu’il a en commun avec les tables où la personne a moins ({list}), et chaque table garde exactement ce qu’elle y a aujourd’hui. Une table créée après la mise à jour lui donne ce rôle abaissé."
+
+#: components/admin/rights-review-tab.tsx
+msgid "Their role on the base is replaced by a role on each of its tables, with the same rights and rules as now. A table made after the upgrade is not open to them until someone gives it."
+msgstr "Son rôle sur la base est remplacé par un rôle sur chacune de ses tables, avec les mêmes droits et les mêmes règles qu’aujourd’hui. Une table créée après la mise à jour ne lui est ouverte que si quelqu’un la lui donne."
+
 #: components/admin/account-actions.tsx
 msgid "Their sessions end and their API tokens stop working. Their data and audit history are kept. When someone may come back, disable the account; delete it only when their identity must leave the instance."
 msgstr "Ses sessions se terminent et ses jetons d’API cessent de fonctionner. Ses données et son historique d’audit sont conservés. Quand quelqu’un peut revenir, désactivez le compte ; ne le supprimez que lorsque son identité doit quitter l’instance."
@@ -13972,6 +14044,14 @@ msgstr "La personne perd aussitôt son propre rôle sur la base et ses tables, e
 #: components/settings/base-settings.tsx
 msgid "They lose their own role on the base and its tables at once, with the permissions set for them on each table, and their open pages reload. A role a group gives them stays."
 msgstr "La personne perd aussitôt son propre rôle sur la base et ses tables, avec les droits réglés pour elle sur chaque table, et ses pages ouvertes se rechargent. Un rôle donné par un groupe reste."
+
+#: components/admin/rights-review-tab.tsx
+msgid "They manage the base, so their role there stays; on this table their field and row rule will no longer apply."
+msgstr "La personne gère la base, son rôle y reste donc ; sur cette table, sa règle de champs et de lignes ne s’appliquera plus."
+
+#: components/admin/rights-review-tab.tsx
+msgid "They manage the base, so their role there stays; on this table, where a role gave them less, they will also hold: {list}."
+msgstr "La personne gère la base, son rôle y reste donc ; sur cette table, où un rôle lui donnait moins, elle aura aussi : {list}."
 
 #: components/admin/account-actions.tsx
 msgid "They open the accounts, the sessions and the trails of Administration to help a person sign in again: send a link, unlock, sign out, remove second factors, unlink single sign-on, revoke tokens. They change no setting, give no role, and open no base they are not a member of."
@@ -15483,6 +15563,10 @@ msgstr "Ce que ses scripts ont écrit au journal"
 #: components/admin/limits-tab.tsx
 msgid "What one call of a script carries"
 msgstr "Ce que porte un appel d’un script"
+
+#: components/admin/rights-review-tab.tsx
+msgid "What only the base gives (making tables and folders, dashboards, importing a workbook, publishing the base) is lost there: {list}."
+msgstr "Ce que seule la base donne (créer des tables et des dossiers, les tableaux de bord, importer un classeur, publier la base) y est perdu : {list}."
 
 #: components/settings/account-settings.tsx
 msgid "What only you can change. Rights on a base are set in that base."
