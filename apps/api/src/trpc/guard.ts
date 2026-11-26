@@ -187,7 +187,12 @@ export async function guardBase(
 export type BaseReach = "base" | "tables";
 
 /** What a role on a table gives on its base: to see it, and no more. */
-const SEES_BASE: Grant = { role: null, made: [], permissions: ["rows.read"] };
+const SEES_BASE: Grant = {
+  role: null,
+  shipped: [],
+  made: [],
+  permissions: ["rows.read"],
+};
 
 async function seenThroughTables(
   ctx: Context,

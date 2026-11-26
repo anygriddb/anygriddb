@@ -202,6 +202,9 @@ const ACT_OF_KEY: Record<Role, Permission> = {
   commenter: "rows.comment",
   editor: "rows.write",
   owner: "rows.lock",
+  reader: "rows.comment",
+  contributor: "rows.write",
+  validator: "rows.transition",
 };
 
 /**
@@ -216,6 +219,7 @@ export function takesTransition(
   if (grant == null || !roleGrants(grant, "rows.transition")) return false;
   if (typeof grant === "string") return step.roleKeys.includes(grant);
   if (grant.role !== null && step.roleKeys.includes(grant.role)) return true;
+  if (grant.shipped.some((role) => step.roleKeys.includes(role))) return true;
   if (grant.made.some((made) => step.madeRoleIds.includes(made.id))) {
     return true;
   }

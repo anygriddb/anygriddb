@@ -125,6 +125,7 @@ describe("allowedTransitions", () => {
     };
     const validator = {
       role: null,
+      shipped: [],
       made: [{ id: "v", name: "Validator" }],
       permissions: ["rows.read", "rows.transition"] as Permission[],
     };

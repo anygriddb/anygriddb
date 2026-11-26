@@ -208,12 +208,18 @@ const ROLE_NAMES: Record<MailLocale, Record<Role, string>> = {
     editor: "editor",
     commenter: "commenter",
     viewer: "viewer",
+    contributor: "contributor",
+    validator: "validator",
+    reader: "reader",
   },
   fr: {
     owner: "propriétaire",
     editor: "éditeur",
     commenter: "commentateur",
     viewer: "lecteur",
+    contributor: "contributeur",
+    validator: "valideur",
+    reader: "consultant",
   },
 };
 

@@ -128,6 +128,9 @@ describe("made roles", () => {
       "editor",
       "commenter",
       "viewer",
+      "contributor",
+      "validator",
+      "reader",
     ]);
     expect(listed.made.map((role) => [role.name, role.holders])).toEqual([
       ["Keeper", 0],

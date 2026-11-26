@@ -4265,6 +4265,14 @@ msgstr "Prolonger la série"
 msgid "Continue the series…"
 msgstr "Prolonger la série…"
 
+#: components/settings/role-label.ts
+msgid "Contributor"
+msgstr "Contributeur"
+
+#: components/table/circuit-editor.tsx
+msgid "Contributors"
+msgstr "Contributeurs"
+
 #: components/fields/field-editor.tsx
 msgid "Convert"
 msgstr "Convertir"
@@ -10278,6 +10286,10 @@ msgstr "lecture seule"
 msgid "Read-only link"
 msgstr "Lien en lecture seule"
 
+#: components/settings/role-label.ts
+msgid "Reader"
+msgstr "Consultant"
+
 #: components/admin/sources-tab.tsx
 msgid "Reading"
 msgstr "Lecture"
@@ -15259,6 +15271,14 @@ msgstr "En général l’adresse email complète"
 msgid "Valid until {date}, for: {names}."
 msgstr "Valable jusqu’au {date}, pour : {names}."
 
+#: components/settings/role-label.ts
+msgid "Validator"
+msgstr "Valideur"
+
+#: components/table/circuit-editor.tsx
+msgid "Validators"
+msgstr "Valideurs"
+
 #: components/admin/limits-tab.tsx
 #: components/table/automations-dialog.tsx
 #: components/table/filter-builder.tsx
@@ -15466,8 +15486,8 @@ msgid "What a page reads and shows"
 msgstr "Ce qu’une page lit et montre"
 
 #: components/admin/roles-tab.tsx
-msgid "What a role gives someone on a base or a table. The four below come with every instance. Make others from the same permissions, then give them as the four are, from a base's settings or from here."
-msgstr "Ce qu’un rôle donne à quelqu’un sur une base ou une table. Les quatre ci-dessous viennent avec toute instance. Créez-en d’autres avec les mêmes permissions, puis donnez-les comme les quatre, depuis les réglages d’une base ou d’ici."
+msgid "What a role gives someone on a base or a table. The roles below come with every instance and never change. Make others from the same permissions, or duplicate one, then give them as these are, from a base's settings or from here."
+msgstr "Ce qu’un rôle donne à quelqu’un sur une base ou une table. Les rôles ci-dessous viennent avec chaque instance et ne changent jamais. Créez-en d’autres avec les mêmes permissions, ou dupliquez-en un, puis donnez-les comme ceux-ci, depuis les réglages d’une base ou d’ici."
 
 #: components/admin/limits-tab.tsx
 msgid "What a script hands to the actions after it"

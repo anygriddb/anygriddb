@@ -231,7 +231,7 @@ describe("the steps of a table's circuit", () => {
     }
     validates = (
       await createMadeRole(db, ids.owner, {
-        name: "Validator",
+        name: "Checker",
         permissions: ["rows.read", "rows.transition"],
       })
     ).id;
@@ -280,6 +280,42 @@ describe("the steps of a table's circuit", () => {
     expect(await errorCode(step(writer, tableId, other, "submit"))).toBe(
       "access_denied",
     );
+  });
+
+  it("lets the shipped validator take the step it is named on, and write nothing", async () => {
+    const tableId = await newTable("Reviews");
+    await sql`
+      insert into status_transition_grants (transition_id, role_key)
+      select t.id, 'validator' from status_transitions t
+        join status_circuits c on c.id = t.circuit_id
+       where c.table_id = ${tableId}::uuid and t.key = 'lock'
+    `.execute(ownerDb);
+    const row = await addRow(tableId, "A");
+    await step(editor, tableId, row, "submit");
+    await owner.call().catalog.grant({
+      baseId,
+      email: `validator-${suffix}@example.org`,
+      role: "validator",
+    });
+    try {
+      await step(validator, tableId, row, "lock");
+      expect(await statusOf(tableId, row)).toBe("locked");
+      const other = await addRow(tableId, "B");
+      expect(
+        await errorCode(
+          validator.call().rows.updateMany({
+            tableId,
+            updates: [{ rowId: other, values: { ref: "C" } }],
+          }),
+        ),
+      ).toBe("access_denied");
+    } finally {
+      await owner.call().catalog.grant({
+        baseId,
+        email: `validator-${suffix}@example.org`,
+        role: validates,
+      });
+    }
   });
 
   it("asks a second person after the first, with four eyes", async () => {

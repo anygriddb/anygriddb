@@ -413,21 +413,30 @@ function CircuitForm(props: {
               <legend className="mb-1 text-xs text-muted-foreground">
                 {t`Who takes it`}
               </legend>
-              {(["owner", "editor"] as const).map((role) => (
-                <label key={role} className="flex items-center gap-1.5">
-                  <Checkbox
-                    checked={step.roles.includes(role)}
-                    onChange={(event) =>
-                      setStep(index, {
-                        roles: event.target.checked
-                          ? [...step.roles, role]
-                          : step.roles.filter((item) => item !== role),
-                      })
+              {(["owner", "editor", "contributor", "validator"] as const).map(
+                (role) => (
+                  <label key={role} className="flex items-center gap-1.5">
+                    <Checkbox
+                      checked={step.roles.includes(role)}
+                      onChange={(event) =>
+                        setStep(index, {
+                          roles: event.target.checked
+                            ? [...step.roles, role]
+                            : step.roles.filter((item) => item !== role),
+                        })
+                      }
+                    />
+                    {
+                      {
+                        owner: t`Owners`,
+                        editor: t`Editors`,
+                        contributor: t`Contributors`,
+                        validator: t`Validators`,
+                      }[role]
                     }
-                  />
-                  {role === "owner" ? t`Owners` : t`Editors`}
-                </label>
-              ))}
+                  </label>
+                ),
+              )}
               {takers.map((role) => (
                 <label key={role.id} className="flex items-center gap-1.5">
                   <Checkbox

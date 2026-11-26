@@ -18,7 +18,7 @@ French translations live in `apps/web/locales/fr/messages.po`.
 | Trash             | Trash                                                    | Soft-delete                                                                                                                      |
 | Restore point     | Restore point                                            | A whole base kept on the instance for a time; restoring one makes a new base and changes nothing (French: point de restauration) |
 | Workbook, sheet   | Workbook, sheet                                          | A spreadsheet file (`.xlsx`) and its pages; each sheet kept becomes a table (French: classeur, feuille)                          |
-| Role              | Role                                                     | Owner, editor, …                                                                                                                 |
+| Role              | Role                                                     | Owner, editor, commenter, viewer; contributor, validator, reader (French: consultant, not lecteur, which is the viewer)          |
 | Instance          | Instance                                                 | The deployment                                                                                                                   |
 | Locale / language | Language                                                 | User-facing menu label                                                                                                           |
 | Account create    | Add a person                                             | Administration accounts; not “Create account” there                                                                              |

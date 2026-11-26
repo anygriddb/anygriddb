@@ -16,13 +16,16 @@ import {
   roleFor,
   roleGrants,
   rolePermissions,
-  ROLES,
   roleRank,
   tableRules,
   tokenGiven,
   type Binding,
+  type Role,
 } from "./rbac";
 import type { FilterGroup } from "./filter";
+
+/** The four of a rank, which every role before 0.12 was. */
+const RANKED = ["owner", "editor", "commenter", "viewer"] as const;
 
 const bindings: Binding[] = [
   { role: "viewer", scope: "table", scopeId: "table-1" },
@@ -58,8 +61,8 @@ const RANK_BEFORE: Record<Permission, number> = {
 };
 
 describe("roleGrants", () => {
-  it("gives each role exactly the acts its rank gave", () => {
-    for (const role of ROLES) {
+  it("gives each of the four exactly the acts its rank gave", () => {
+    for (const role of RANKED) {
       for (const permission of PERMISSIONS) {
         expect(roleGrants(role, permission), `${role} / ${permission}`).toBe(
           roleRank(role) >= RANK_BEFORE[permission],
@@ -215,6 +218,7 @@ describe("made roles", () => {
     );
     expect(held).toEqual({
       role: "viewer",
+      shipped: [],
       made: [{ id: "made-1", name: "Reviewer" }],
       permissions: [
         "rows.read",
@@ -246,6 +250,7 @@ describe("made roles", () => {
     expect(can(bindings, "rows.lock", "table", "other", "b")).toBe(false);
     expect(effectiveTableRole(bindings, "t", "b")).toEqual({
       role: "editor",
+      shipped: [],
       made: [{ id: REVIEWER.id, name: REVIEWER.name }],
       permissions: PERMISSIONS.filter(
         (permission) =>
@@ -288,7 +293,11 @@ describe("made roles", () => {
   });
 
   it("act through a token only when they give it a way in", () => {
-    for (const role of ROLES) expect(tokenGiven(role)).toBe(true);
+    for (const role of RANKED) expect(tokenGiven(role)).toBe(true);
+    // The three beyond the rank take nothing out, by a token neither.
+    for (const role of ["reader", "contributor", "validator"] as const) {
+      expect(tokenGiven(role)).toBe(false);
+    }
     // Read in the application, never through a token.
     expect(tokenGiven(REVIEWER)).toBe(false);
     expect(
@@ -442,5 +451,51 @@ describe("tableRules", () => {
     const rules = tableRules(bindings, "t", undefined);
     expect(rules?.access("amount")).toBe("read");
     expect(rules?.access("notes")).toBe("hide");
+  });
+});
+
+describe("the three shipped roles beyond the rank", () => {
+  it("give what each is for, and nothing taken out of the base", () => {
+    expect(rolePermissions("reader")).toEqual(["rows.read", "rows.comment"]);
+    expect(rolePermissions("validator")).toEqual([
+      "rows.read",
+      "rows.comment",
+      "rows.transition",
+    ]);
+    expect(rolePermissions("contributor")).toEqual([
+      "rows.read",
+      "rows.comment",
+      "rows.write",
+      "rows.delete",
+      "rows.transition",
+      "data.import",
+    ]);
+    for (const role of ["reader", "contributor", "validator"] as const) {
+      expect(roleGrants(role, "data.export")).toBe(false);
+      expect(roleGrants(role, "publish")).toBe(false);
+    }
+  });
+
+  it("are named alone when the others add nothing, together otherwise", () => {
+    const on = (...roles: Role[]): Binding[] =>
+      roles.map((role) => ({ role, scope: "base", scopeId: "b" }));
+    expect(roleFor(on("validator", "reader"), "base", "b")).toBe("validator");
+    expect(roleFor(on("contributor", "validator"), "base", "b")).toBe(
+      "contributor",
+    );
+    // An editor gives all a contributor does.
+    expect(roleFor(on("editor", "contributor"), "base", "b")).toBe("editor");
+    // A viewer exports; a validator takes steps: both, as two.
+    expect(roleFor(on("viewer", "validator"), "base", "b")).toEqual({
+      role: "viewer",
+      shipped: ["validator"],
+      made: [],
+      permissions: PERMISSIONS.filter(
+        (permission) =>
+          roleGrants("viewer", permission) ||
+          roleGrants("validator", permission),
+      ),
+    });
+    expect(roleFor(on("owner", "validator"), "base", "b")).toBe("owner");
   });
 });

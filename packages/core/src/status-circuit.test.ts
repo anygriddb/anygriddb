@@ -120,6 +120,7 @@ describe("status circuit", () => {
 describe("takesTransition", () => {
   const made = (permissions: Permission[]) => ({
     role: null,
+    shipped: [],
     made: [{ id: "m", name: "Made" }],
     permissions,
   });
