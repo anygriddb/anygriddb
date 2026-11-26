@@ -63,7 +63,7 @@ import {
 import type { Context } from "./context.js";
 import { handle } from "./guard.js";
 import { t } from "./init.js";
-import { procedure, requireAdmin, requireSupport } from "./admin-procedure.js";
+import { asking, requireInstance } from "./admin-procedure.js";
 
 /**
  * A wrong password or code on a step-up counts toward the lock, as one at
@@ -105,9 +105,9 @@ export const adminInstanceProcedures = {
    * Whether the session's step-up is still fresh, and what proof the page
    * should ask for (ROADMAP #28).
    */
-  stepUpStatus: procedure.query(({ ctx }) =>
+  stepUpStatus: asking({ exception: "proof" }).query(({ ctx }) =>
     handle(ctx, async () => {
-      const admin = await requireSupport(ctx);
+      const admin = await requireInstance(ctx);
       const fresh = await stepUpIsFresh(
         ctx.db,
         ctx.req.cookies[SESSION_COOKIE],
@@ -123,27 +123,29 @@ export const adminInstanceProcedures = {
    * Password or second factor for a sensitive Administration action. A
    * wrong proof counts toward the lock; a missing one does not.
    */
-  stepUp: procedure.input(stepUpProofInput).mutation(({ ctx, input }) =>
+  stepUp: asking({ exception: "proof" })
+    .input(stepUpProofInput)
+    .mutation(({ ctx, input }) =>
+      handle(ctx, async () => {
+        const admin = await requireInstance(ctx);
+        // A locked account takes no more guesses here than at sign-in: a
+        // stolen session must not try passwords without end.
+        const policy = await readGateSettings(ctx.db);
+        if ((await lockOf(ctx.db, admin.id, policy)).locked) {
+          throw new AppError("account_locked");
+        }
+        const proved = await confirmStepUp(ctx, admin.id, input);
+        if (proved === "missing" || proved === "wrong") {
+          if (proved === "wrong") await stepUpFailed(ctx, admin.id);
+          throw new AppError("invalid_credentials");
+        }
+        if (proved === "stale") throw new AppError("fresh_sign_in_required");
+        return { ok: true as const, windowMs: 5 * 60_000 };
+      }),
+    ),
+  settings: asking({ asks: ["settings.manage"] }).query(({ ctx }) =>
     handle(ctx, async () => {
-      const admin = await requireSupport(ctx);
-      // A locked account takes no more guesses here than at sign-in: a
-      // stolen session must not try passwords without end.
-      const policy = await readGateSettings(ctx.db);
-      if ((await lockOf(ctx.db, admin.id, policy)).locked) {
-        throw new AppError("account_locked");
-      }
-      const proved = await confirmStepUp(ctx, admin.id, input);
-      if (proved === "missing" || proved === "wrong") {
-        if (proved === "wrong") await stepUpFailed(ctx, admin.id);
-        throw new AppError("invalid_credentials");
-      }
-      if (proved === "stale") throw new AppError("fresh_sign_in_required");
-      return { ok: true as const, windowMs: 5 * 60_000 };
-    }),
-  ),
-  settings: procedure.query(({ ctx }) =>
-    handle(ctx, async () => {
-      await requireAdmin(ctx);
+      await requireInstance(ctx);
       const [smtp, oidc, saml] = await Promise.all([
         resolveSmtp(ctx.db, ctx.env),
         resolveOidc(ctx.db, ctx.env),
@@ -164,17 +166,24 @@ export const adminInstanceProcedures = {
    * It comes through Administration as any setting does, so that every
    * guard here holds for it; the image is read at its own address.
    */
-  setLogo: procedure.input(instanceLogoInputSchema).mutation(({ ctx, input }) =>
+  setLogo: asking({ asks: ["settings.manage"] })
+    .input(instanceLogoInputSchema)
+    .mutation(({ ctx, input }) =>
+      handle(ctx, async () => {
+        const admin = await requireInstance(ctx);
+        const version = await saveLogo(
+          ctx.db,
+          admin.id,
+          input.data,
+          ctx.req.ip,
+        );
+        ctx.req.log.info({ actor: admin.id }, "instance logo set");
+        return { logo: version };
+      }),
+    ),
+  removeLogo: asking({ asks: ["settings.manage"] }).mutation(({ ctx }) =>
     handle(ctx, async () => {
-      const admin = await requireAdmin(ctx);
-      const version = await saveLogo(ctx.db, admin.id, input.data, ctx.req.ip);
-      ctx.req.log.info({ actor: admin.id }, "instance logo set");
-      return { logo: version };
-    }),
-  ),
-  removeLogo: procedure.mutation(({ ctx }) =>
-    handle(ctx, async () => {
-      const admin = await requireAdmin(ctx);
+      const admin = await requireInstance(ctx);
       if (await removeLogo(ctx.db, admin.id, ctx.req.ip)) {
         ctx.req.log.info({ actor: admin.id }, "instance logo removed");
       }
@@ -186,23 +195,23 @@ export const adminInstanceProcedures = {
    * trusted proxies). Read-only; secrets are never included.
    */
   /** Every limit as the instance keeps it, and what is used of it (ADR 0132). */
-  limits: procedure.query(({ ctx }) =>
+  limits: asking({ asks: ["settings.manage"] }).query(({ ctx }) =>
     handle(ctx, async () => {
-      await requireAdmin(ctx);
+      await requireInstance(ctx);
       return limitsAndUsage(ctx.db, ctx.env, await readSettings(ctx.db));
     }),
   ),
-  operatorSettings: procedure.query(({ ctx }) =>
+  operatorSettings: asking({ asks: ["settings.manage"] }).query(({ ctx }) =>
     handle(ctx, async () => {
-      await requireAdmin(ctx);
+      await requireInstance(ctx);
       return operatorFixedFromEnv(ctx.env);
     }),
   ),
-  updateSettings: procedure
+  updateSettings: asking({ asks: ["settings.manage"] })
     .input(instanceSettingsPatchSchema)
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
-        const admin = await requireAdmin(ctx);
+        const admin = await requireInstance(ctx);
         const saved = await saveInstanceSettings(
           {
             db: ctx.db,
@@ -225,15 +234,15 @@ export const adminInstanceProcedures = {
       }),
     ),
   /** The certificate served, and the authority to install (ADR 0029). */
-  tls: procedure.query(({ ctx }) =>
+  tls: asking({ asks: ["instance.operate"] }).query(({ ctx }) =>
     handle(ctx, async () => {
-      await requireAdmin(ctx);
+      await requireInstance(ctx);
       return ctx.tls();
     }),
   ),
-  health: procedure.query(({ ctx }) =>
+  health: asking({ asks: ["instance.operate"] }).query(({ ctx }) =>
     handle(ctx, async () => {
-      await requireAdmin(ctx);
+      await requireInstance(ctx);
       return instanceHealth({ db: ctx.db, bus: ctx.bus, files: ctx.files });
     }),
   ),
@@ -241,9 +250,9 @@ export const adminInstanceProcedures = {
    * Accounts and bases active over 30 days, with a daily trend
    * (ROADMAP #40). Reading also refreshes today's snapshot.
    */
-  usage: procedure.query(({ ctx }) =>
+  usage: asking({ asks: ["instance.operate"] }).query(({ ctx }) =>
     handle(ctx, async () => {
-      await requireAdmin(ctx);
+      await requireInstance(ctx);
       return readUsage(ctx.db);
     }),
   ),
@@ -251,7 +260,7 @@ export const adminInstanceProcedures = {
    * Load by source from persisted minute buckets (ROADMAP #41), never
    * from in-memory Prometheus counters.
    */
-  sourceLoad: procedure
+  sourceLoad: asking({ asks: ["instance.operate"] })
     .input(
       z
         .object({
@@ -263,7 +272,7 @@ export const adminInstanceProcedures = {
     )
     .query(({ ctx, input }) =>
       handle(ctx, async () => {
-        await requireAdmin(ctx);
+        await requireInstance(ctx);
         return readSourceLoad(ctx.db, input.sinceDays);
       }),
     ),
@@ -272,7 +281,7 @@ export const adminInstanceProcedures = {
    * auditors, the same as health. The ring already dropped what a line
    * must not show.
    */
-  logs: procedure
+  logs: asking({ asks: ["instance.operate"] })
     .input(
       z
         .object({
@@ -293,7 +302,7 @@ export const adminInstanceProcedures = {
     )
     .query(({ ctx, input }) =>
       handle(ctx, async () => {
-        await requireAdmin(ctx);
+        await requireInstance(ctx);
         return processLog.list(input);
       }),
     ),
@@ -301,9 +310,9 @@ export const adminInstanceProcedures = {
    * The backups reported and the alerts open now (ROADMAP #17, #25).
    * Reading changes nothing: a scheduled task keeps the alerts in step.
    */
-  alerts: procedure.query(({ ctx }) =>
+  alerts: asking({ asks: ["instance.operate"] }).query(({ ctx }) =>
     handle(ctx, async () => {
-      await requireAdmin(ctx);
+      await requireInstance(ctx);
       const [backups, alerts] = await Promise.all([
         listBackups(ctx.db, 10),
         listOpenAlerts(ctx.db),
@@ -316,17 +325,17 @@ export const adminInstanceProcedures = {
    * choose, kind by kind. The alerts stay shown to every administrator.
    */
   alertChoices: t.router({
-    get: procedure.query(({ ctx }) =>
+    get: asking({ asks: ["instance.operate"] }).query(({ ctx }) =>
       handle(ctx, async () => {
-        const admin = await requireAdmin(ctx);
+        const admin = await requireInstance(ctx);
         return { spared: await alertOptOuts(ctx.db, admin.id) };
       }),
     ),
-    set: procedure
+    set: asking({ asks: ["instance.operate"] })
       .input(z.object({ kind: z.enum(ALERT_CHOICES), receive: z.boolean() }))
       .mutation(({ ctx, input }) =>
         handle(ctx, async () => {
-          const admin = await requireAdmin(ctx);
+          const admin = await requireInstance(ctx);
           await setAlertChoice(ctx.db, admin.id, input.kind, input.receive);
           return { ok: true as const };
         }),
@@ -337,9 +346,9 @@ export const adminInstanceProcedures = {
    * Each person inherits these until they save their own.
    */
   notificationDefaults: t.router({
-    get: procedure.query(({ ctx }) =>
+    get: asking({ asks: ["settings.manage"] }).query(({ ctx }) =>
       handle(ctx, async () => {
-        await requireAdmin(ctx);
+        await requireInstance(ctx);
         const defaults = await readDefaultChannels(ctx.db);
         return {
           events: PERSON_EVENT_CATALOG.map((event) => ({
@@ -351,7 +360,7 @@ export const adminInstanceProcedures = {
         };
       }),
     ),
-    set: procedure
+    set: asking({ asks: ["settings.manage"] })
       .input(
         z.object({
           event: personEventSchema,
@@ -360,7 +369,7 @@ export const adminInstanceProcedures = {
       )
       .mutation(({ ctx, input }) =>
         handle(ctx, async () => {
-          const admin = await requireAdmin(ctx);
+          const admin = await requireInstance(ctx);
           const channels = await saveDefault(
             ctx.db,
             input.event,
@@ -376,17 +385,17 @@ export const adminInstanceProcedures = {
    * `releaseCheck` is off so the instance never calls home by default.
    * Persists the result for the Administration banner.
    */
-  checkRelease: procedure.mutation(({ ctx }) =>
+  checkRelease: asking({ asks: ["instance.operate"] }).mutation(({ ctx }) =>
     handle(ctx, async () => {
-      await requireAdmin(ctx);
+      await requireInstance(ctx);
       const status = await runReleaseCheck(ctx.db);
       return { ...releaseView(status), notify: releaseNotify(true, status) };
     }),
   ),
   /** Last stored release check and whether the update banner should show. */
-  releaseStatus: procedure.query(({ ctx }) =>
+  releaseStatus: asking({ asks: ["instance.operate"] }).query(({ ctx }) =>
     handle(ctx, async () => {
-      await requireAdmin(ctx);
+      await requireInstance(ctx);
       const notice = await releaseNotice(ctx.db);
       return {
         status: notice.status ? releaseView(notice.status) : null,
@@ -395,14 +404,14 @@ export const adminInstanceProcedures = {
     }),
   ),
   /** Hides the update banner for the currently known latest release. */
-  dismissRelease: procedure.mutation(({ ctx }) =>
+  dismissRelease: asking({ asks: ["instance.operate"] }).mutation(({ ctx }) =>
     handle(ctx, async () => {
-      await requireAdmin(ctx);
+      await requireInstance(ctx);
       const status = await dismissReleaseNotice(ctx.db);
       return { ...releaseView(status), notify: false };
     }),
   ),
-  jobs: procedure
+  jobs: asking({ asks: ["instance.operate"] })
     .input(
       z.object({
         status: z.enum(JOB_STATUSES).optional(),
@@ -412,15 +421,15 @@ export const adminInstanceProcedures = {
     )
     .query(({ ctx, input }) =>
       handle(ctx, async () => {
-        await requireAdmin(ctx);
+        await requireInstance(ctx);
         return listAllJobs(ctx.db, input);
       }),
     ),
-  cancelJob: procedure
+  cancelJob: asking({ asks: ["instance.operate"] })
     .input(z.object({ jobId: z.uuid() }))
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
-        const admin = await requireAdmin(ctx);
+        const admin = await requireInstance(ctx);
         await cancelAnyJob(
           {
             db: ctx.db,
@@ -436,7 +445,7 @@ export const adminInstanceProcedures = {
         return { ok: true as const };
       }),
     ),
-  failedDeliveries: procedure
+  failedDeliveries: asking({ asks: ["instance.operate"] })
     .input(
       z.object({
         limit: z.int().min(1).max(100).default(50),
@@ -446,16 +455,16 @@ export const adminInstanceProcedures = {
     )
     .query(({ ctx, input }) =>
       handle(ctx, async () => {
-        await requireAdmin(ctx);
+        await requireInstance(ctx);
         return listFailedDeliveries(ctx.db, input);
       }),
     ),
   /** A delivery that gave up, sent again from its first attempt. */
-  retryDelivery: procedure
+  retryDelivery: asking({ asks: ["instance.operate"] })
     .input(z.object({ deliveryId: z.uuid() }))
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
-        const admin = await requireAdmin(ctx);
+        const admin = await requireInstance(ctx);
         await retryDelivery(ctx.db, input.deliveryId);
         ctx.req.log.info(
           { actor: admin.id, delivery: input.deliveryId },
@@ -465,9 +474,9 @@ export const adminInstanceProcedures = {
       }),
     ),
   /** Sends a test email to the administrator's own address. */
-  sendTestMail: procedure.mutation(({ ctx }) =>
+  sendTestMail: asking({ asks: ["instance.operate"] }).mutation(({ ctx }) =>
     handle(ctx, async () => {
-      const admin = await requireAdmin(ctx);
+      const admin = await requireInstance(ctx);
       const { config: smtp } = await resolveSmtp(ctx.db, ctx.env);
       if (!smtpReady(smtp)) throw new AppError("smtp_not_configured");
       // Sent as every mail is: the test shows the sender name and the
@@ -490,11 +499,11 @@ export const adminInstanceProcedures = {
     }),
   ),
   /** How many accounts a notice would reach (ADR 0052). */
-  operatorMailPreview: procedure
+  operatorMailPreview: asking({ asks: ["instance.operate"] })
     .input(z.object({ recipients: operatorMailRecipientsSchema }))
     .query(({ ctx, input }) =>
       handle(ctx, async () => {
-        await requireAdmin(ctx);
+        await requireInstance(ctx);
         const people = await resolveOperatorRecipients(
           ctx.db,
           input.recipients,
@@ -506,11 +515,11 @@ export const adminInstanceProcedures = {
    * Queues a plain-text notice to every active account or to chosen ones
    * (ADR 0052). Delivery runs in the worker; the trail records the send.
    */
-  sendOperatorMail: procedure
+  sendOperatorMail: asking({ asks: ["instance.operate"] })
     .input(operatorMailInputSchema)
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
-        const admin = await requireAdmin(ctx);
+        const admin = await requireInstance(ctx);
         const result = await queueOperatorMail(
           {
             db: ctx.db,
@@ -532,9 +541,9 @@ export const adminInstanceProcedures = {
       }),
     ),
   /** Health and configuration facts to send to whoever helps the operator. */
-  supportBundle: procedure.query(({ ctx }) =>
+  supportBundle: asking({ asks: ["instance.operate"] }).query(({ ctx }) =>
     handle(ctx, async () => {
-      await requireAdmin(ctx);
+      await requireInstance(ctx);
       const [health, runtime] = await Promise.all([
         instanceHealth({ db: ctx.db, bus: ctx.bus, files: ctx.files }),
         instanceRuntime({

@@ -49,7 +49,7 @@ import {
   handle,
   tableAccess,
 } from "./guard.js";
-import { procedure } from "./init.js";
+import { asking } from "./init.js";
 import {
   calendarFeedOf,
   renewCalendarFeed,
@@ -78,7 +78,7 @@ async function assertWebhookColumns(
 }
 
 export const catalogSharingProcedures = {
-  shares: procedure
+  shares: asking({ asks: ["publish"] })
     .input(z.object({ viewId: z.uuid() }))
     .query(({ ctx, input }) =>
       handle(ctx, async () => {
@@ -88,7 +88,7 @@ export const catalogSharingProcedures = {
         return { shares: await listShares(ctx.db, input.viewId) };
       }),
     ),
-  createShare: procedure
+  createShare: asking({ asks: ["publish"], also: ["data.export"] })
     .input(
       z.object({
         viewId: z.uuid(),
@@ -129,7 +129,7 @@ export const catalogSharingProcedures = {
       }),
     ),
   /** The person's private iCal feed of a calendar view, if any. */
-  calendarFeed: procedure
+  calendarFeed: asking({ asks: ["data.export"] })
     .input(z.object({ viewId: z.uuid() }))
     .query(({ ctx, input }) =>
       handle(ctx, async () => {
@@ -145,7 +145,7 @@ export const catalogSharingProcedures = {
       }),
     ),
   /** A new feed address, shown once; the previous one stops working. */
-  renewCalendarFeed: procedure
+  renewCalendarFeed: asking({ asks: ["data.export"] })
     .input(z.object({ viewId: z.uuid() }))
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
@@ -161,7 +161,7 @@ export const catalogSharingProcedures = {
         return { url: `${ctx.env.PUBLIC_URL}/ical/${token}.ics` };
       }),
     ),
-  revokeCalendarFeed: procedure
+  revokeCalendarFeed: asking({ asks: ["data.export"] })
     .input(z.object({ viewId: z.uuid() }))
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
@@ -181,7 +181,7 @@ export const catalogSharingProcedures = {
    * Revokes a link: a view's by those who may write in its table, a whole
    * base's by those who manage the base.
    */
-  revokeShare: procedure
+  revokeShare: asking({ asks: ["publish"], also: ["base.manage"] })
     .input(z.object({ shareId: z.uuid() }))
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
@@ -198,7 +198,7 @@ export const catalogSharingProcedures = {
       }),
     ),
   /** A base's read-only links (ROADMAP row 93), for its managers. */
-  baseShares: procedure
+  baseShares: asking({ asks: ["base.manage"] })
     .input(z.object({ baseId: z.uuid() }))
     .query(({ ctx, input }) =>
       handle(ctx, async () => {
@@ -210,7 +210,7 @@ export const catalogSharingProcedures = {
    * A link that shows the whole base, read-only, as its creator reads it.
    * Its token is shown once.
    */
-  createBaseShare: procedure
+  createBaseShare: asking({ asks: ["base.manage", "publish", "data.export"] })
     .input(
       z.object({
         baseId: z.uuid(),
@@ -236,13 +236,15 @@ export const catalogSharingProcedures = {
         });
       }),
     ),
-  webhooks: procedure.input(listWebhooksInputSchema).query(({ ctx, input }) =>
-    handle(ctx, async () => {
-      await guardTable(ctx, input.tableId, "webhooks.manage");
-      return { webhooks: await listWebhooks(ctx.db, input.tableId) };
-    }),
-  ),
-  createWebhook: procedure
+  webhooks: asking({ asks: ["webhooks.manage"] })
+    .input(listWebhooksInputSchema)
+    .query(({ ctx, input }) =>
+      handle(ctx, async () => {
+        await guardTable(ctx, input.tableId, "webhooks.manage");
+        return { webhooks: await listWebhooks(ctx.db, input.tableId) };
+      }),
+    ),
+  createWebhook: asking({ asks: ["data.export", "webhooks.manage"] })
     .input(createWebhookInputSchema)
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
@@ -260,7 +262,7 @@ export const catalogSharingProcedures = {
         });
       }),
     ),
-  updateWebhook: procedure
+  updateWebhook: asking({ asks: ["data.export", "webhooks.manage"] })
     .input(updateWebhookInputSchema)
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
@@ -287,7 +289,7 @@ export const catalogSharingProcedures = {
         return { ok: true as const };
       }),
     ),
-  testWebhook: procedure
+  testWebhook: asking({ asks: ["data.export", "webhooks.manage"] })
     .input(webhookIdInputSchema)
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
@@ -310,7 +312,7 @@ export const catalogSharingProcedures = {
         );
       }),
     ),
-  webhookDeliveries: procedure
+  webhookDeliveries: asking({ asks: ["webhooks.manage"] })
     .input(webhookDeliveriesInputSchema)
     .query(({ ctx, input }) =>
       handle(ctx, async () => {
@@ -329,7 +331,7 @@ export const catalogSharingProcedures = {
         };
       }),
     ),
-  retryDelivery: procedure
+  retryDelivery: asking({ asks: ["webhooks.manage"] })
     .input(retryDeliveryInputSchema)
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
@@ -345,7 +347,7 @@ export const catalogSharingProcedures = {
         return { ok: true as const };
       }),
     ),
-  deleteWebhook: procedure
+  deleteWebhook: asking({ asks: ["webhooks.manage"] })
     .input(deleteWebhookInputSchema)
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {

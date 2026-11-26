@@ -46,7 +46,7 @@ import { revokeApiToken } from "../auth/tokens.js";
 import { setAutomationEnabled } from "../automations.js";
 import { updateWebhook } from "../webhooks.js";
 import { t } from "./init.js";
-import { procedure, requireAdmin, roleNoticeDeps } from "./admin-procedure.js";
+import { asking, requireInstance, roleNoticeDeps } from "./admin-procedure.js";
 
 /** What telling a base's owners needs: the app, and mail when it is set up. */
 async function accessNoticeDeps(ctx: Context): Promise<AccessNoticeDeps> {
@@ -69,7 +69,7 @@ export const adminBaseProcedures = {
    * administrator's name, the invitation domains holding. A base keeps an
    * owner.
    */
-  setBaseRole: procedure
+  setBaseRole: asking({ asks: ["access.grant"] })
     .input(
       z.object({
         userId: z.uuid(),
@@ -81,7 +81,7 @@ export const adminBaseProcedures = {
     )
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
-        const admin = await requireAdmin(ctx);
+        const admin = await requireInstance(ctx);
         // A role an administrator gives themselves lets them into a base:
         // it asks a reason, and the owners are told.
         const own = input.userId === admin.id;
@@ -141,11 +141,11 @@ export const adminBaseProcedures = {
    * Takes a person's own role on a base away; a role a group gives stays.
    * A base keeps an owner.
    */
-  removeBaseRole: procedure
+  removeBaseRole: asking({ asks: ["access.grant"] })
     .input(z.object({ userId: z.uuid(), baseId: z.uuid() }))
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
-        const admin = await requireAdmin(ctx);
+        const admin = await requireInstance(ctx);
         await assertGrantable(ctx.db, input);
         await revokeMember(ctx.db, admin.id, input);
         ctx.req.log.info(
@@ -160,7 +160,7 @@ export const adminBaseProcedures = {
    * metadata only, and revoking one without being in its base.
    */
   outbound: t.router({
-    list: procedure
+    list: asking({ asks: ["access.oversee"] })
       .input(
         z.object({
           limit: z.int().min(1).max(100).default(50),
@@ -169,15 +169,15 @@ export const adminBaseProcedures = {
       )
       .query(({ ctx, input }) =>
         handle(ctx, async () => {
-          await requireAdmin(ctx);
+          await requireInstance(ctx);
           return listOutbound(ctx.db, input);
         }),
       ),
-    revoke: procedure
+    revoke: asking({ asks: ["access.oversee"] })
       .input(z.object({ kind: z.enum(["link", "feed"]), id: z.uuid() }))
       .mutation(({ ctx, input }) =>
         handle(ctx, async () => {
-          const admin = await requireAdmin(ctx);
+          const admin = await requireInstance(ctx);
           await revokeOutbound(ctx.db, admin.id, input);
           ctx.req.log.info(
             { actor: admin.id, kind: input.kind, id: input.id },
@@ -193,7 +193,7 @@ export const adminBaseProcedures = {
    * one revoked or switched off without being in its base.
    */
   access: t.router({
-    list: procedure
+    list: asking({ asks: ["access.oversee"] })
       .input(
         z.object({
           limit: z.int().min(1).max(100).default(50),
@@ -204,7 +204,7 @@ export const adminBaseProcedures = {
       )
       .query(({ ctx, input }) =>
         handle(ctx, async () => {
-          await requireAdmin(ctx);
+          await requireInstance(ctx);
           const page = { limit: input.limit };
           const [tokensPage, hooks] = await Promise.all([
             listInstanceTokens(ctx.db, {
@@ -230,11 +230,11 @@ export const adminBaseProcedures = {
      * One account's resolved role on a base and each of its tables, with
      * whether it comes from their own binding or a group (ROADMAP #29).
      */
-    effective: procedure
+    effective: asking({ asks: ["access.oversee"] })
       .input(effectiveAccessInputSchema)
       .query(({ ctx, input }) =>
         handle(ctx, async () => {
-          await requireAdmin(ctx);
+          await requireInstance(ctx);
           return effectiveAccess(ctx.db, input);
         }),
       ),
@@ -243,7 +243,7 @@ export const adminBaseProcedures = {
      * they hold now (own bindings and those a group gives). Incomplete
      * when the trail was purged before that date.
      */
-    rightsAt: procedure
+    rightsAt: asking({ asks: ["access.oversee"] })
       .input(
         z.object({
           userId: z.uuid(),
@@ -252,7 +252,7 @@ export const adminBaseProcedures = {
       )
       .query(({ ctx, input }) =>
         handle(ctx, async () => {
-          await requireAdmin(ctx);
+          await requireInstance(ctx);
           const report = await rightsAt(ctx.db, {
             userId: input.userId,
             at: new Date(input.at),
@@ -269,7 +269,7 @@ export const adminBaseProcedures = {
           };
         }),
       ),
-    exportRightsAt: procedure
+    exportRightsAt: asking({ asks: ["access.oversee"] })
       .input(
         z.object({
           userId: z.uuid(),
@@ -278,7 +278,7 @@ export const adminBaseProcedures = {
       )
       .query(({ ctx, input }) =>
         handle(ctx, async () => {
-          await requireAdmin(ctx);
+          await requireInstance(ctx);
           const report = await rightsAt(ctx.db, {
             userId: input.userId,
             at: new Date(input.at),
@@ -293,11 +293,11 @@ export const adminBaseProcedures = {
           };
         }),
       ),
-    revokeToken: procedure
+    revokeToken: asking({ asks: ["access.oversee"] })
       .input(z.object({ id: z.uuid() }))
       .mutation(({ ctx, input }) =>
         handle(ctx, async () => {
-          const admin = await requireAdmin(ctx);
+          const admin = await requireInstance(ctx);
           const token = await ctx.db
             .selectFrom("apiTokens")
             .select("userId")
@@ -315,13 +315,13 @@ export const adminBaseProcedures = {
           return { ok: true as const };
         }),
       ),
-    switchOff: procedure
+    switchOff: asking({ asks: ["access.oversee"] })
       .input(
         z.object({ kind: z.enum(["webhook", "automation"]), id: z.uuid() }),
       )
       .mutation(({ ctx, input }) =>
         handle(ctx, async () => {
-          const admin = await requireAdmin(ctx);
+          const admin = await requireInstance(ctx);
           if (input.kind === "webhook") {
             await updateWebhook(
               ctx.db,
@@ -348,7 +348,7 @@ export const adminBaseProcedures = {
    * the trash or taken out of it without being one of its members.
    */
   baseOverview: t.router({
-    list: procedure
+    list: asking({ asks: ["bases.oversee"] })
       .input(
         z.object({
           search: z.string().trim().max(100).optional(),
@@ -359,7 +359,7 @@ export const adminBaseProcedures = {
       )
       .query(({ ctx, input }) =>
         handle(ctx, async () => {
-          await requireAdmin(ctx);
+          await requireInstance(ctx);
           return listBaseOverview(ctx.db, {
             search: input.search || undefined,
             ownerless: input.ownerless,
@@ -368,11 +368,11 @@ export const adminBaseProcedures = {
           });
         }),
       ),
-    get: procedure
+    get: asking({ asks: ["bases.oversee"] })
       .input(z.object({ baseId: z.uuid() }))
       .query(({ ctx, input }) =>
         handle(ctx, async () => {
-          await requireAdmin(ctx);
+          await requireInstance(ctx);
           const { bases } = await listBaseOverview(ctx.db, {
             baseId: input.baseId,
             limit: 1,
@@ -399,7 +399,7 @@ export const adminBaseProcedures = {
      * an hour (ADR 0074): with a reason, written to the change trail and
      * told to the base's owners. Asking again starts the hour again.
      */
-    open: procedure
+    open: asking({ asks: ["bases.oversee"] })
       .input(
         z.object({
           baseId: z.uuid(),
@@ -408,7 +408,7 @@ export const adminBaseProcedures = {
       )
       .mutation(({ ctx, input }) =>
         handle(ctx, async () => {
-          const admin = await requireAdmin(ctx);
+          const admin = await requireInstance(ctx);
           const { expiresAt } = await openEmergencyAccess(
             await accessNoticeDeps(ctx),
             { admin, baseId: input.baseId, reason: input.reason },
@@ -421,11 +421,11 @@ export const adminBaseProcedures = {
         }),
       ),
     /** Ends the administrator's own opening before its hour is up. */
-    close: procedure
+    close: asking({ asks: ["bases.oversee"] })
       .input(z.object({ baseId: z.uuid() }))
       .mutation(({ ctx, input }) =>
         handle(ctx, async () => {
-          const admin = await requireAdmin(ctx);
+          const admin = await requireInstance(ctx);
           const closed = await endEmergencyAccess(ctx.db, {
             userId: admin.id,
             baseId: input.baseId,
@@ -434,16 +434,16 @@ export const adminBaseProcedures = {
         }),
       ),
     /** How many live bases no active account owns. */
-    ownerlessCount: procedure.query(({ ctx }) =>
+    ownerlessCount: asking({ asks: ["bases.oversee"] }).query(({ ctx }) =>
       handle(ctx, async () => {
-        await requireAdmin(ctx);
+        await requireInstance(ctx);
         return { count: await countOwnerlessBases(ctx.db) };
       }),
     ),
     /** The bases in the trash, whoever deleted them. */
-    trashed: procedure.query(({ ctx }) =>
+    trashed: asking({ asks: ["bases.oversee"] }).query(({ ctx }) =>
       handle(ctx, async () => {
-        await requireAdmin(ctx);
+        await requireInstance(ctx);
         return { items: await listAllTrashedBases(ctx.db, 500) };
       }),
     ),
@@ -452,11 +452,11 @@ export const adminBaseProcedures = {
      * owners find it there, and it is purged with the rest when its days
      * are over.
      */
-    trash: procedure
+    trash: asking({ asks: ["bases.oversee"] })
       .input(z.object({ baseId: z.uuid() }))
       .mutation(({ ctx, input }) =>
         handle(ctx, async () => {
-          const admin = await requireAdmin(ctx);
+          const admin = await requireInstance(ctx);
           await trashBase(ctx.db, admin.id, input.baseId);
           await publishCatalog(ctx.bus, input.baseId, (error) => {
             ctx.req.log.error({ err: error }, "realtime publish failed");
@@ -469,11 +469,11 @@ export const adminBaseProcedures = {
         }),
       ),
     /** Takes a base out of the trash, whoever put it there. */
-    restore: procedure
+    restore: asking({ asks: ["bases.oversee"] })
       .input(z.object({ baseId: z.uuid() }))
       .mutation(({ ctx, input }) =>
         handle(ctx, async () => {
-          const admin = await requireAdmin(ctx);
+          const admin = await requireInstance(ctx);
           await restoreBase(ctx.db, admin.id, input.baseId);
           await publishCatalog(ctx.bus, input.baseId, (error) => {
             ctx.req.log.error({ err: error }, "realtime publish failed");
@@ -487,7 +487,7 @@ export const adminBaseProcedures = {
       ),
   }),
   bases: t.router({
-    list: procedure
+    list: asking({ asks: ["bases.oversee"] })
       .input(
         z.object({
           search: z.string().trim().max(100).optional(),
@@ -496,7 +496,7 @@ export const adminBaseProcedures = {
       )
       .query(({ ctx, input }) =>
         handle(ctx, async () => {
-          await requireAdmin(ctx);
+          await requireInstance(ctx);
           return {
             bases: await listBaseChoices(ctx.db, {
               search: input.search || undefined,
@@ -506,9 +506,9 @@ export const adminBaseProcedures = {
         }),
       ),
   }),
-  invitations: procedure.query(({ ctx }) =>
+  invitations: asking({ asks: ["bases.oversee"] }).query(({ ctx }) =>
     handle(ctx, async () => {
-      await requireAdmin(ctx);
+      await requireInstance(ctx);
       return { invitations: await listPendingInvitations(ctx.db) };
     }),
   ),
@@ -517,11 +517,11 @@ export const adminBaseProcedures = {
    * when email is set up, otherwise handed to the administrator to pass
    * on. The link sent before stops working.
    */
-  resendInvitation: procedure
+  resendInvitation: asking({ asks: ["bases.oversee"] })
     .input(z.object({ invitationId: z.uuid() }))
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
-        const admin = await requireAdmin(ctx);
+        const admin = await requireInstance(ctx);
         const renewed = await renewInvitation(
           ctx.db,
           admin.id,
@@ -553,11 +553,11 @@ export const adminBaseProcedures = {
         return { mailed: true as const, to: renewed.email };
       }),
     ),
-  withdrawInvitation: procedure
+  withdrawInvitation: asking({ asks: ["bases.oversee"] })
     .input(z.object({ invitationId: z.uuid() }))
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
-        const admin = await requireAdmin(ctx);
+        const admin = await requireInstance(ctx);
         await withdrawInvitation(ctx.db, admin.id, input.invitationId);
         ctx.req.log.info(
           { actor: admin.id, invitation: input.invitationId },

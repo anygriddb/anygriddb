@@ -8,7 +8,7 @@ import {
   revokeOauthClient,
 } from "../oauth/clients.js";
 import { handle } from "./guard.js";
-import { procedure, requireAdmin } from "./admin-procedure.js";
+import { asking, requireInstance } from "./admin-procedure.js";
 import { t } from "./init.js";
 
 const redirectUri = z
@@ -24,13 +24,13 @@ const redirectUri = z
   );
 
 export const oauthClientsRouter = t.router({
-  list: procedure.query(({ ctx }) =>
+  list: asking({ asks: ["settings.manage"] }).query(({ ctx }) =>
     handle(ctx, async () => {
-      await requireAdmin(ctx);
+      await requireInstance(ctx);
       return listOauthClients(ctx.db);
     }),
   ),
-  create: procedure
+  create: asking({ asks: ["settings.manage"] })
     .input(
       z
         .object({
@@ -41,15 +41,15 @@ export const oauthClientsRouter = t.router({
     )
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
-        const admin = await requireAdmin(ctx);
+        const admin = await requireInstance(ctx);
         return registerOauthClient(ctx.db, admin.id, input);
       }),
     ),
-  revoke: procedure
+  revoke: asking({ asks: ["settings.manage"] })
     .input(z.object({ clientId: z.uuid() }).strict())
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
-        const admin = await requireAdmin(ctx);
+        const admin = await requireInstance(ctx);
         await revokeOauthClient(ctx.db, admin.id, input.clientId);
         return { ok: true as const };
       }),

@@ -46,12 +46,12 @@ import {
   guardTable,
   handle,
 } from "./guard.js";
-import { procedure, requestNames } from "./init.js";
+import { asking, requestNames } from "./init.js";
 import { queueDeps } from "./jobs-router.js";
 import { logPublish } from "./catalog-shared.js";
 
 export const catalogTableProcedures = {
-  createTable: procedure
+  createTable: asking({ asks: ["schema.manage"] })
     .input(createTableInputSchema)
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
@@ -65,7 +65,7 @@ export const catalogTableProcedures = {
       }),
     ),
   /** Copies a table in the background; the job's result names the copy. */
-  duplicateTable: procedure
+  duplicateTable: asking({ asks: ["schema.manage"], also: ["data.export"] })
     .input(duplicateTableInputSchema)
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
@@ -94,7 +94,7 @@ export const catalogTableProcedures = {
         return { jobId: job.id };
       }),
     ),
-  updateTable: procedure
+  updateTable: asking({ asks: ["schema.manage"] })
     .input(updateTableInputSchema)
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
@@ -108,7 +108,7 @@ export const catalogTableProcedures = {
         return { ok: true as const };
       }),
     ),
-  reorderTables: procedure
+  reorderTables: asking({ asks: ["schema.manage"] })
     .input(reorderTablesInputSchema)
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
@@ -118,7 +118,7 @@ export const catalogTableProcedures = {
         return { ok: true as const };
       }),
     ),
-  createFolder: procedure
+  createFolder: asking({ asks: ["schema.manage"] })
     .input(createFolderInputSchema)
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
@@ -128,7 +128,7 @@ export const catalogTableProcedures = {
         return folder;
       }),
     ),
-  updateFolder: procedure
+  updateFolder: asking({ asks: ["schema.manage"] })
     .input(updateFolderInputSchema)
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
@@ -150,7 +150,7 @@ export const catalogTableProcedures = {
         return updated;
       }),
     ),
-  deleteFolder: procedure
+  deleteFolder: asking({ asks: ["schema.manage"] })
     .input(deleteFolderInputSchema)
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
@@ -172,7 +172,7 @@ export const catalogTableProcedures = {
         return { ok: true as const };
       }),
     ),
-  moveTableToFolder: procedure
+  moveTableToFolder: asking({ asks: ["schema.manage"] })
     .input(moveTableToFolderInputSchema)
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
@@ -187,7 +187,7 @@ export const catalogTableProcedures = {
         return { ok: true as const };
       }),
     ),
-  reorderFolders: procedure
+  reorderFolders: asking({ asks: ["schema.manage"] })
     .input(reorderFoldersInputSchema)
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
@@ -197,7 +197,7 @@ export const catalogTableProcedures = {
         return { ok: true as const };
       }),
     ),
-  reorderFolderTables: procedure
+  reorderFolderTables: asking({ asks: ["schema.manage"] })
     .input(reorderFolderTablesInputSchema)
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
@@ -219,7 +219,7 @@ export const catalogTableProcedures = {
         return { ok: true as const };
       }),
     ),
-  deleteTable: procedure
+  deleteTable: asking({ asks: ["schema.manage"] })
     .input(deleteTableInputSchema)
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
@@ -234,7 +234,7 @@ export const catalogTableProcedures = {
       }),
     ),
   /** The table's status circuit (ADR 0124). */
-  getCircuit: procedure
+  getCircuit: asking({ asks: ["rows.read"] })
     .input(getTableCircuitInputSchema)
     .query(({ ctx, input }) =>
       handle(ctx, async () => {
@@ -242,7 +242,7 @@ export const catalogTableProcedures = {
         return loadTableCircuit(ctx.db, input.tableId);
       }),
     ),
-  listCircuitTemplates: procedure
+  listCircuitTemplates: asking({ exception: "ownBases" })
     .input(listCircuitTemplatesInputSchema)
     .query(({ ctx }) =>
       handle(ctx, async () => {
@@ -251,7 +251,7 @@ export const catalogTableProcedures = {
       }),
     ),
   /** Rows of each state, for the editor to ask where those of a removed one go. */
-  circuitCounts: procedure
+  circuitCounts: asking({ asks: ["schema.manage"] })
     .input(getTableCircuitInputSchema)
     .query(({ ctx, input }) =>
       handle(ctx, async () => {
@@ -267,7 +267,7 @@ export const catalogTableProcedures = {
    * the fields it names are the table's own stored ones, the made roles
    * its steps name exist.
    */
-  saveCircuit: procedure
+  saveCircuit: asking({ asks: ["schema.manage"] })
     .input(saveCircuitInputSchema)
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {

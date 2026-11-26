@@ -21,7 +21,7 @@ import {
 } from "../automations.js";
 import type { Context } from "./context.js";
 import { authorize, guardTable, handle, tableAccess } from "./guard.js";
-import { procedure, t } from "./init.js";
+import { asking, t } from "./init.js";
 import { liveColumn, liveView } from "../data/live.js";
 import { resolveSmtp } from "../integrations/smtp.js";
 
@@ -67,7 +67,7 @@ function withAddress(
 }
 
 export const automationsRouter = t.router({
-  list: procedure
+  list: asking({ asks: ["automations.manage"] })
     .input(z.object({ tableId: z.uuid() }))
     .query(({ ctx, input }) =>
       handle(ctx, async () => {
@@ -75,7 +75,10 @@ export const automationsRouter = t.router({
         return { automations: await listAutomations(ctx.db, input.tableId) };
       }),
     ),
-  create: procedure
+  create: asking({
+    asks: ["automations.manage", "rows.write"],
+    also: ["data.export"],
+  })
     .input(createAutomationInputSchema)
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
@@ -106,7 +109,10 @@ export const automationsRouter = t.router({
         );
       }),
     ),
-  update: procedure
+  update: asking({
+    asks: ["automations.manage", "rows.write"],
+    also: ["data.export"],
+  })
     .input(updateAutomationInputSchema)
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
@@ -146,7 +152,7 @@ export const automationsRouter = t.router({
       }),
     ),
   /** A new secret address for a webhook automation, shown once. */
-  renewWebhook: procedure
+  renewWebhook: asking({ asks: ["automations.manage"] })
     .input(z.object({ automationId: z.uuid() }))
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
@@ -166,7 +172,7 @@ export const automationsRouter = t.router({
         };
       }),
     ),
-  setEnabled: procedure
+  setEnabled: asking({ asks: ["automations.manage"] })
     .input(z.object({ automationId: z.uuid(), enabled: z.boolean() }))
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
@@ -185,7 +191,7 @@ export const automationsRouter = t.router({
         return { ok: true as const };
       }),
     ),
-  delete: procedure
+  delete: asking({ asks: ["automations.manage"] })
     .input(z.object({ automationId: z.uuid() }))
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
@@ -199,7 +205,7 @@ export const automationsRouter = t.router({
         return { ok: true as const };
       }),
     ),
-  runs: procedure
+  runs: asking({ asks: ["automations.manage"] })
     .input(
       z.object({
         automationId: z.uuid(),
@@ -220,7 +226,7 @@ export const automationsRouter = t.router({
       }),
     ),
   /** Runs an automation now, on one row when given, to try it out. */
-  runNow: procedure
+  runNow: asking({ asks: ["automations.manage"] })
     .input(z.object({ automationId: z.uuid(), rowId: z.uuid().optional() }))
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
@@ -245,7 +251,7 @@ export const automationsRouter = t.router({
       }),
     ),
   /** A click on a button cell that runs automations. */
-  pressButton: procedure
+  pressButton: asking({ asks: ["rows.write"] })
     .input(
       z.object({
         tableId: z.uuid(),

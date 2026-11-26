@@ -9,6 +9,7 @@
  * in a bucket of its own so a page that fails in a loop cannot flood the
  * log.
  */
+import { declaredRoute } from "./access/routes.js";
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { publicErrorBody, stripCrlf } from "./http.js";
@@ -49,7 +50,7 @@ export function registerClientErrors(
 ): void {
   app.post(
     "/api/client-errors",
-    { bodyLimit: 16_384 },
+    { ...declaredRoute({ exception: "page" }), bodyLimit: 16_384 },
     async (request, reply) => {
       if (foreign(request.headers.origin, deps.publicUrl)) {
         return reply.code(403).send(publicErrorBody(403));

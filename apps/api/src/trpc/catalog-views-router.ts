@@ -11,6 +11,7 @@ import {
   roleGrants,
   updateViewInputSchema,
 } from "@anygriddb/core";
+import { granted } from "../access/declaration.js";
 import { loadEngine } from "../data/engine.js";
 import {
   canEditView,
@@ -27,7 +28,7 @@ import { publishViews } from "../realtime/channels.js";
 import { logPublish } from "./catalog-shared.js";
 import type { Context } from "./context.js";
 import { authorize, guardTable, handle, tableAccess } from "./guard.js";
-import { procedure, requestNames } from "./init.js";
+import { asking, requestNames } from "./init.js";
 
 /**
  * Tells the open screens of a base that the views of a table changed, for
@@ -44,22 +45,26 @@ async function tellViews(
 }
 
 export const catalogViewProcedures = {
-  views: procedure.input(listViewsInputSchema).query(({ ctx, input }) =>
-    handle(ctx, async () => {
-      const { user, bindings, table } = await guardTable(
-        ctx,
-        input.tableId,
-        "rows.read",
-      );
-      const hidden = await hiddenColumnNames(
-        ctx.db,
-        { userId: user.id, bindings },
-        table,
-      );
-      return { views: await listViews(ctx.db, input.tableId, user.id, hidden) };
-    }),
-  ),
-  createView: procedure
+  views: asking({ asks: ["rows.read"] })
+    .input(listViewsInputSchema)
+    .query(({ ctx, input }) =>
+      handle(ctx, async () => {
+        const { user, bindings, table } = await guardTable(
+          ctx,
+          input.tableId,
+          "rows.read",
+        );
+        const hidden = await hiddenColumnNames(
+          ctx.db,
+          { userId: user.id, bindings },
+          table,
+        );
+        return {
+          views: await listViews(ctx.db, input.tableId, user.id, hidden),
+        };
+      }),
+    ),
+  createView: asking({ asks: ["rows.read"], also: ["views.manage"] })
     .input(createViewInputSchema)
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
@@ -91,7 +96,10 @@ export const catalogViewProcedures = {
         return made;
       }),
     ),
-  updateView: procedure
+  updateView: asking({
+    asks: ["rows.read"],
+    also: ["views.manage", "schema.manage"],
+  })
     .input(updateViewInputSchema)
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
@@ -105,7 +113,7 @@ export const catalogViewProcedures = {
         );
         if (
           !canEditView(view, user.id, role) ||
-          (input.locked !== undefined && !roleGrants(role, "schema.manage"))
+          (input.locked !== undefined && !granted(role, "schema.manage"))
         ) {
           throw new AppError("access_denied");
         }
@@ -127,7 +135,7 @@ export const catalogViewProcedures = {
         return updated;
       }),
     ),
-  duplicateView: procedure
+  duplicateView: asking({ asks: ["rows.read"], also: ["views.manage"] })
     .input(duplicateViewInputSchema)
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
@@ -160,7 +168,7 @@ export const catalogViewProcedures = {
         return copy;
       }),
     ),
-  reorderViews: procedure
+  reorderViews: asking({ asks: ["views.manage"] })
     .input(reorderViewsInputSchema)
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
@@ -174,7 +182,7 @@ export const catalogViewProcedures = {
         return { ok: true as const };
       }),
     ),
-  deleteView: procedure
+  deleteView: asking({ asks: ["rows.read"], also: ["views.manage"] })
     .input(deleteViewInputSchema)
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {

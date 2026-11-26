@@ -118,6 +118,13 @@ so they are not checked.
   the act (`rows.write`, `data.export`, `schema.manage`, …, ADR 0127); a screen
   asks the same with `grants`. The actor comes from the session, never from an
   id the client sends.
+- **What a way in asks is declared where it is defined** (ADR 0134): a
+  procedure is built with `asking({ asks: [...] })`, a route carries
+  `declaredRoute(...)`, a socket message, a task and a kind of job have their
+  line in `MESSAGE_ASKS`, `TASK_ASKS` and `JOB_ASKS`. One that asks no
+  permission names its exception (`apps/api/src/access/declaration.ts`). A
+  check that refuses goes through `demand` or `granted`, which the tests hold
+  to the declaration; `roleGrants` itself only filters.
 - **Row writes**: always `apps/api/src/services/rows.ts` (tRPC, REST, MCP,
   automations, forms). There is no second write path. A job that writes
   in batches (an import, a copy, a snapshot) uses the service's batch

@@ -114,6 +114,17 @@ export function actingAsCounted(result: "started" | "ended" | "refused"): void {
   actingAs.inc({ result });
 }
 
+const undeclaredPermissions = new Counter({
+  name: "anygriddb_undeclared_permission_total",
+  help: "Checks that asked a permission their way in did not declare: a declaration to complete. The check itself decided.",
+  registers: [registry],
+});
+
+/** A check asked what its way in does not declare (`access/declaration.ts`). */
+export function undeclaredPermissionCounted(): void {
+  undeclaredPermissions.inc();
+}
+
 const automationScripts = new Counter({
   name: "anygriddb_automation_scripts_total",
   help: "Scripts automations ran, by how each ended: success, error, timeout, memory, stopped.",

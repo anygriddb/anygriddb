@@ -6,6 +6,7 @@
  * cannot act through a signed-in browser; a request a browser sends from
  * another origin is refused, as the protocol asks (DNS rebinding).
  */
+import { declaredRoute } from "../access/routes.js";
 import { AppError, publicError } from "@anygriddb/core";
 import type { Database } from "@anygriddb/db";
 import { NodeStreamableHTTPServerTransport } from "@modelcontextprotocol/node";
@@ -135,11 +136,11 @@ export function registerMcp(app: FastifyInstance, deps: Deps): void {
     }
   };
 
-  app.post("/mcp", handle);
+  app.post("/mcp", declaredRoute({ exception: "tools" }), handle);
   // Each call stands alone: there is no stream to open and no session to
   // end, and a stream opened here would hold its connection for nothing.
   const onlyPost = (_request: FastifyRequest, reply: FastifyReply) =>
     reply.code(405).header("allow", "POST").send();
-  app.get("/mcp", onlyPost);
-  app.delete("/mcp", onlyPost);
+  app.get("/mcp", declaredRoute({ exception: "tools" }), onlyPost);
+  app.delete("/mcp", declaredRoute({ exception: "tools" }), onlyPost);
 }

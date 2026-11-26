@@ -25,9 +25,15 @@ import {
   type Grant,
   roleFor,
   roleGrants,
-  roleGrantsAll,
   trashPurgeJobInputSchema,
 } from "@anygriddb/core";
+import {
+  type Declaration,
+  demand,
+  granted,
+  holds,
+} from "./access/declaration.js";
+import { loadInstanceFlags } from "./auth/instance-roles.js";
 import type { Database } from "@anygriddb/db";
 import { sql } from "kysely";
 import type { Bus } from "./realtime/bus.js";
@@ -154,7 +160,7 @@ async function activeAuthor(
 
 /** A base's snapshot carries its rows: the base's and an export. */
 function canSnapshot(role: Grant | null): boolean {
-  return roleGrants(role, "base.manage") && roleGrants(role, "data.export");
+  return granted(role, "base.manage") && granted(role, "data.export");
 }
 
 export async function authorTable(
@@ -168,10 +174,7 @@ export async function authorTable(
   const table = await findLiveTable(db, tableId);
   if (!table) throw new AppError("unknown_table");
   if (
-    !roleGrants(
-      effectiveTableRole(bindings, table.id, table.baseId),
-      permission,
-    )
+    !granted(effectiveTableRole(bindings, table.id, table.baseId), permission)
   ) {
     throw new AppError("access_denied");
   }
@@ -350,9 +353,7 @@ const runDuplicate =
       input.tableId,
       "schema.manage",
     );
-    if (!roleGrants(roleFor(bindings, "base", table.baseId), "schema.manage")) {
-      throw new AppError("access_denied");
-    }
+    demand(roleFor(bindings, "base", table.baseId), "schema.manage");
     if (input.withData) {
       await assertMayCopyRows(deps.db, { userId, bindings }, table);
     }
@@ -406,9 +407,7 @@ const runTrashPurge =
       const baseId = input.baseId;
       if (!baseId) throw new AppError("invalid_job");
       const { userId, bindings } = await activeAuthor(deps.db, job);
-      if (!roleGrants(roleFor(bindings, "base", baseId), "base.manage")) {
-        throw new AppError("access_denied");
-      }
+      demand(roleFor(bindings, "base", baseId), "base.manage");
       const items =
         input.items ?? (await baseTrashItems(deps.db, baseId, userId));
       for (const item of items) {
@@ -416,13 +415,11 @@ const runTrashPurge =
           throw new AppError("invalid_job");
         }
       }
-      if (input.dropSchema) {
-        const admin = await deps.db
-          .selectFrom("users")
-          .select("isAdmin")
-          .where("id", "=", userId)
-          .executeTakeFirst();
-        if (!admin?.isAdmin) throw new AppError("access_denied");
+      if (
+        input.dropSchema &&
+        !holds(await loadInstanceFlags(deps.db, userId), "bases.oversee")
+      ) {
+        throw new AppError("access_denied");
       }
       targets = orderForPurge(items).map((item) => ({
         ...item,
@@ -462,9 +459,7 @@ const runRestorePoint =
   async ({ job, progress }) => {
     const input = restorePointJobInputSchema.parse(job.input);
     const { userId, bindings } = await activeAuthor(deps.db, job);
-    if (!roleGrants(roleFor(bindings, "base", input.baseId), "base.manage")) {
-      throw new AppError("access_denied");
-    }
+    demand(roleFor(bindings, "base", input.baseId), "base.manage");
     const made = await makeRestorePoint(
       {
         db: deps.db,
@@ -501,10 +496,9 @@ const runRestoreBase =
     const point = await findRestorePoint(deps.db, input.restorePointId);
     // Its rows come back in a new base its author owns: an export.
     if (
-      !roleGrantsAll(roleFor(bindings, "base", point.baseId), [
-        "base.manage",
-        "data.export",
-      ])
+      !["base.manage" as const, "data.export" as const].every((asked) =>
+        granted(roleFor(bindings, "base", point.baseId), asked),
+      )
     ) {
       throw new AppError("access_denied");
     }
@@ -816,9 +810,12 @@ const runDuplicateBase =
     const { userId, bindings } = await activeAuthor(deps.db, job);
     // A copy with its rows is the base's and an export, as its snapshot is.
     if (
-      !roleGrantsAll(
-        roleFor(bindings, "base", input.baseId),
-        input.withData ? ["base.manage", "data.export"] : ["base.manage"],
+      !(
+        input.withData
+          ? (["base.manage", "data.export"] as const)
+          : (["base.manage"] as const)
+      ).every((asked) =>
+        granted(roleFor(bindings, "base", input.baseId), asked),
       )
     ) {
       throw new AppError("access_denied");
@@ -915,12 +912,8 @@ const runAccountExport =
   async ({ job, progress }) => {
     const input = accountExportJobInputSchema.parse(job.input);
     const { userId: actorId } = await activeAuthor(deps.db, job);
-    const admin = await deps.db
-      .selectFrom("users")
-      .select(["id", "isAdmin", "disabledAt"])
-      .where("id", "=", actorId)
-      .executeTakeFirst();
-    if (!admin?.isAdmin || admin.disabledAt !== null) {
+    const admin = await loadInstanceFlags(deps.db, actorId);
+    if (!holds(admin, "accounts.control") || admin.disabledAt !== null) {
       throw new AppError("access_denied");
     }
     const folder = await localFolder("export");
@@ -982,6 +975,29 @@ const runConvertColumn =
     await catalogChanged(deps, table.baseId);
     return { result: { tableId: table.id, converted, lost } };
   };
+
+/**
+ * What each kind of job asks of its author when it runs, as their roles
+ * stand then: a job that may no longer run ends refused.
+ */
+export const JOB_ASKS: Record<JobKind, Declaration> = {
+  import: { asks: ["data.import"], also: ["schema.manage"] },
+  export: { asks: ["data.export"] },
+  duplicate_table: { asks: ["schema.manage"], also: ["data.export"] },
+  trash_purge: {
+    exception: "instance",
+    also: ["base.manage", "bases.oversee"],
+  },
+  export_snapshot: { asks: ["base.manage", "data.export"] },
+  import_snapshot: { asks: ["bases.create"] },
+  import_airtable: { asks: ["bases.create"] },
+  duplicate_base: { asks: ["base.manage"], also: ["data.export"] },
+  restore_point: { asks: ["base.manage"] },
+  restore_base: { asks: ["base.manage", "data.export"] },
+  import_workbook: { asks: ["bases.create"] },
+  account_export: { asks: ["accounts.control"] },
+  convert_column: { asks: ["schema.manage"] },
+};
 
 export function jobRunners(deps: RunnerDeps): Record<JobKind, JobRunner> {
   return {

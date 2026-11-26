@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { listShortcuts, setPin, touchTable } from "../data/shortcuts.js";
 import { guardBase, guardTable, handle, requireEnrolledUser } from "./guard.js";
-import { procedure, t } from "./init.js";
+import { asking, t } from "./init.js";
 
 const pinInputSchema = z.union([
   z.object({ baseId: z.uuid(), pinned: z.boolean() }).strict(),
@@ -13,25 +13,32 @@ const pinInputSchema = z.union([
  * opened last. Pinning and opening need the right to read the target.
  */
 export const shortcutsRouter = t.router({
-  list: procedure.query(({ ctx }) =>
+  list: asking({ exception: "ownAccount" }).query(({ ctx }) =>
     handle(ctx, async () => {
       const user = await requireEnrolledUser(ctx);
       return listShortcuts(ctx.db, user.id);
     }),
   ),
-  pin: procedure.input(pinInputSchema).mutation(({ ctx, input }) =>
-    handle(ctx, async () => {
-      if ("baseId" in input) {
-        const { user } = await guardBase(ctx, input.baseId, "rows.read");
-        await setPin(ctx.db, user.id, { baseId: input.baseId }, input.pinned);
-      } else {
-        const { user } = await guardTable(ctx, input.tableId, "rows.read");
-        await setPin(ctx.db, user.id, { tableId: input.tableId }, input.pinned);
-      }
-      return { ok: true as const };
-    }),
-  ),
-  touchTable: procedure
+  pin: asking({ asks: ["rows.read"] })
+    .input(pinInputSchema)
+    .mutation(({ ctx, input }) =>
+      handle(ctx, async () => {
+        if ("baseId" in input) {
+          const { user } = await guardBase(ctx, input.baseId, "rows.read");
+          await setPin(ctx.db, user.id, { baseId: input.baseId }, input.pinned);
+        } else {
+          const { user } = await guardTable(ctx, input.tableId, "rows.read");
+          await setPin(
+            ctx.db,
+            user.id,
+            { tableId: input.tableId },
+            input.pinned,
+          );
+        }
+        return { ok: true as const };
+      }),
+    ),
+  touchTable: asking({ asks: ["rows.read"] })
     .input(z.object({ tableId: z.uuid() }).strict())
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {

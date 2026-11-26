@@ -3,11 +3,11 @@
  */
 import {
   AppError,
-  roleGrants,
   roleFor,
   sourceInputSchema,
   sourceUpdateSchema,
 } from "@anygriddb/core";
+import { demand, holds } from "../access/declaration.js";
 import { z } from "zod";
 import {
   exposeTables,
@@ -33,7 +33,7 @@ import { loadBindings } from "../auth/access.js";
 import type { Context } from "./context.js";
 import { handle } from "./guard.js";
 import { requestNames, t } from "./init.js";
-import { procedure, requireAdmin } from "./admin-procedure.js";
+import { asking, requireInstance } from "./admin-procedure.js";
 
 function sourceDeps(ctx: Context): SourceDeps {
   return {
@@ -73,9 +73,9 @@ async function presentedTables(ctx: Context, id: string, search?: string) {
 
 /** Client databases (ADR 0026): declared and checked by administrators. */
 export const sourcesRouter = t.router({
-  settings: procedure.query(({ ctx }) =>
+  settings: asking({ asks: ["sources.manage"] }).query(({ ctx }) =>
     handle(ctx, async () => {
-      await requireAdmin(ctx);
+      await requireInstance(ctx);
       return {
         allowedHosts: [...ctx.sources.allowedHosts],
         allowPlaintext: ctx.sources.allowPlaintext,
@@ -83,9 +83,9 @@ export const sourcesRouter = t.router({
       };
     }),
   ),
-  list: procedure.query(({ ctx }) =>
+  list: asking({ asks: ["sources.manage"] }).query(({ ctx }) =>
     handle(ctx, async () => {
-      await requireAdmin(ctx);
+      await requireInstance(ctx);
       const rows = await listSources(ctx.db);
       return rows.map((row) => ({
         ...row,
@@ -97,38 +97,47 @@ export const sourcesRouter = t.router({
       }));
     }),
   ),
-  test: procedure.input(sourceInputSchema).mutation(({ ctx, input }) =>
-    handle(ctx, async () => {
-      await requireAdmin(ctx);
-      return testSource(sourceDeps(ctx), input);
-    }),
-  ),
-  create: procedure.input(sourceInputSchema).mutation(({ ctx, input }) =>
-    handle(ctx, async () => {
-      const admin = await requireAdmin(ctx);
-      const created = await createSource(sourceDeps(ctx), admin.id, input);
-      ctx.req.log.info(
-        { actor: admin.id, source: created.id },
-        "source declared",
-      );
-      return created;
-    }),
-  ),
-  update: procedure.input(sourceUpdateSchema).mutation(({ ctx, input }) =>
-    handle(ctx, async () => {
-      const admin = await requireAdmin(ctx);
-      return updateSource(sourceDeps(ctx), admin.id, input);
-    }),
-  ),
-  check: procedure
+  test: asking({ asks: ["sources.manage"] })
+    .input(sourceInputSchema)
+    .mutation(({ ctx, input }) =>
+      handle(ctx, async () => {
+        await requireInstance(ctx);
+        return testSource(sourceDeps(ctx), input);
+      }),
+    ),
+  create: asking({ asks: ["sources.manage"] })
+    .input(sourceInputSchema)
+    .mutation(({ ctx, input }) =>
+      handle(ctx, async () => {
+        const admin = await requireInstance(ctx);
+        const created = await createSource(sourceDeps(ctx), admin.id, input);
+        ctx.req.log.info(
+          { actor: admin.id, source: created.id },
+          "source declared",
+        );
+        return created;
+      }),
+    ),
+  update: asking({ asks: ["sources.manage"] })
+    .input(sourceUpdateSchema)
+    .mutation(({ ctx, input }) =>
+      handle(ctx, async () => {
+        const admin = await requireInstance(ctx);
+        return updateSource(sourceDeps(ctx), admin.id, input);
+      }),
+    ),
+  check: asking({ asks: ["sources.manage"] })
     .input(z.object({ id: z.uuid() }))
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
-        await requireAdmin(ctx);
+        await requireInstance(ctx);
         return recheckSource(sourceDeps(ctx), input.id);
       }),
     ),
-  expose: procedure
+  expose: asking({
+    asks: ["sources.manage"],
+    also: ["bases.oversee", "schema.manage"],
+  })
     .input(
       z.object({
         sourceId: z.uuid(),
@@ -146,18 +155,16 @@ export const sourcesRouter = t.router({
     )
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
-        const admin = await requireAdmin(ctx);
+        const admin = await requireInstance(ctx);
         // A source manager brings tables into the bases it owns; an
         // administrator into any (ADR 0126).
-        if (!admin.isAdmin) {
+        if (!holds(admin, "bases.oversee")) {
           const role = roleFor(
             await loadBindings(ctx.db, admin.id),
             "base",
             input.baseId,
           );
-          if (!roleGrants(role, "schema.manage")) {
-            throw new AppError("access_denied");
-          }
+          demand(role, "schema.manage");
         }
         const result = await exposeTables(
           sourceDeps(ctx),
@@ -171,7 +178,7 @@ export const sourcesRouter = t.router({
         return result;
       }),
     ),
-  setWrites: procedure
+  setWrites: asking({ asks: ["sources.manage"] })
     .input(
       z.object({
         tableId: z.uuid(),
@@ -182,7 +189,7 @@ export const sourcesRouter = t.router({
     )
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
-        const admin = await requireAdmin(ctx);
+        const admin = await requireInstance(ctx);
         const result = await setTableWrites(sourceDeps(ctx), admin.id, input);
         await publishCatalog(ctx.bus, result.baseId, (error) => {
           ctx.req.log.error({ err: error }, "catalog publish failed");
@@ -190,11 +197,11 @@ export const sourcesRouter = t.router({
         return result;
       }),
     ),
-  refreshTable: procedure
+  refreshTable: asking({ asks: ["sources.manage"] })
     .input(z.object({ tableId: z.uuid() }))
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
-        const admin = await requireAdmin(ctx);
+        const admin = await requireInstance(ctx);
         const result = await refreshExposedTable(
           sourceDeps(ctx),
           admin.id,
@@ -206,7 +213,7 @@ export const sourcesRouter = t.router({
         return result;
       }),
     ),
-  setWatch: procedure
+  setWatch: asking({ asks: ["sources.manage"] })
     .input(
       z.object({
         tableId: z.uuid(),
@@ -217,12 +224,12 @@ export const sourcesRouter = t.router({
     )
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
-        const admin = await requireAdmin(ctx);
+        const admin = await requireInstance(ctx);
         await setTableWatch(sourceDeps(ctx), admin.id, input);
         return { ok: true as const };
       }),
     ),
-  setSync: procedure
+  setSync: asking({ asks: ["sources.manage"] })
     .input(
       z.object({
         tableId: z.uuid(),
@@ -235,7 +242,7 @@ export const sourcesRouter = t.router({
     )
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
-        const admin = await requireAdmin(ctx);
+        const admin = await requireInstance(ctx);
         const { baseId } = await setTableSync(ctx.db, admin.id, input);
         await publishCatalog(ctx.bus, baseId, (error) => {
           ctx.req.log.error({ err: error }, "catalog publish failed");
@@ -247,31 +254,33 @@ export const sourcesRouter = t.router({
    * Where each exposed table stands (writes, watch, copy), from AnyGridDB's
    * database only: cheap to read again while a refresh runs.
    */
-  exposures: procedure
+  exposures: asking({ asks: ["sources.manage"] })
     .input(z.object({ id: z.uuid() }))
     .query(({ ctx, input }) =>
       handle(ctx, async () => {
-        await requireAdmin(ctx);
+        await requireInstance(ctx);
         return Object.fromEntries(await exposedIn(ctx.db, input.id));
       }),
     ),
-  syncNow: procedure
+  syncNow: asking({ asks: ["sources.manage"] })
     .input(z.object({ tableId: z.uuid() }))
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
-        await requireAdmin(ctx);
+        await requireInstance(ctx);
         await syncNow(ctx.db, input.tableId);
         return { ok: true as const };
       }),
     ),
-  tables: procedure.input(z.object({ id: z.uuid() })).query(({ ctx, input }) =>
-    handle(ctx, async () => {
-      await requireAdmin(ctx);
-      return (await presentedTables(ctx, input.id)).tables;
-    }),
-  ),
+  tables: asking({ asks: ["sources.browse"] })
+    .input(z.object({ id: z.uuid() }))
+    .query(({ ctx, input }) =>
+      handle(ctx, async () => {
+        await requireInstance(ctx);
+        return (await presentedTables(ctx, input.id)).tables;
+      }),
+    ),
   /** The same list, whether it was cut, and a search to reach the rest. */
-  tableListing: procedure
+  tableListing: asking({ asks: ["sources.manage"] })
     .input(
       z.object({
         id: z.uuid(),
@@ -280,15 +289,15 @@ export const sourcesRouter = t.router({
     )
     .query(({ ctx, input }) =>
       handle(ctx, async () => {
-        await requireAdmin(ctx);
+        await requireInstance(ctx);
         return presentedTables(ctx, input.id, input.search);
       }),
     ),
-  delete: procedure
+  delete: asking({ asks: ["sources.manage"] })
     .input(z.object({ id: z.uuid() }))
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
-        const admin = await requireAdmin(ctx);
+        const admin = await requireInstance(ctx);
         await deleteSource(sourceDeps(ctx), admin.id, input.id);
         return { ok: true as const };
       }),

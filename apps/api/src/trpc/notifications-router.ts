@@ -17,10 +17,10 @@ import {
 } from "../notify/person-preferences.js";
 import { readUnsubscribeToken } from "../notify/unsubscribe.js";
 import { handle, requireEnrolledUser } from "./guard.js";
-import { procedure, t } from "./init.js";
+import { asking, t } from "./init.js";
 
 export const notificationsRouter = t.router({
-  list: procedure
+  list: asking({ exception: "ownAccount" })
     .input(
       z.object({
         limit: z.int().min(1).max(100).default(30),
@@ -36,7 +36,7 @@ export const notificationsRouter = t.router({
         };
       }),
     ),
-  markRead: procedure
+  markRead: asking({ exception: "ownAccount" })
     .input(z.object({ ids: z.array(z.uuid()).min(1).max(100).optional() }))
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
@@ -46,7 +46,7 @@ export const notificationsRouter = t.router({
       }),
     ),
   /** Catalogue, instance defaults, and this person's channels (ADR 0123). */
-  preferences: procedure.query(({ ctx }) =>
+  preferences: asking({ exception: "ownAccount" }).query(({ ctx }) =>
     handle(ctx, async () => {
       const user = await requireEnrolledUser(ctx);
       const defaults = await readDefaultChannels(ctx.db);
@@ -81,7 +81,7 @@ export const notificationsRouter = t.router({
       };
     }),
   ),
-  setPreference: procedure
+  setPreference: asking({ exception: "ownAccount" })
     .input(
       z.object({
         event: personEventSchema,
@@ -100,7 +100,7 @@ export const notificationsRouter = t.router({
         return { ok: true as const, channels };
       }),
     ),
-  addMute: procedure
+  addMute: asking({ exception: "ownAccount" })
     .input(
       z.object({
         baseId: z.uuid(),
@@ -127,7 +127,7 @@ export const notificationsRouter = t.router({
         return { ok: true as const };
       }),
     ),
-  removeMute: procedure
+  removeMute: asking({ exception: "ownAccount" })
     .input(z.object({ id: z.uuid() }))
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
@@ -140,7 +140,7 @@ export const notificationsRouter = t.router({
    * Applies an unsubscribe link from a mail: no session. Required
    * channels are refused and named.
    */
-  unsubscribe: procedure
+  unsubscribe: asking({ exception: "unsubscribe" })
     .input(z.object({ token: z.string().min(20).max(500) }))
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {

@@ -7,6 +7,7 @@
  * that decide who gets in. What it does goes through the functions
  * Administration's own pages call.
  */
+import { declaredRoute } from "./access/routes.js";
 import {
   API_SETTING_KEYS,
   apiSettingsPatchSchema,
@@ -115,77 +116,94 @@ async function run(
 
 export function registerAdminApi(app: FastifyInstance, deps: Deps): void {
   // The document needs no token: it says what a token is for.
-  app.get("/api/v1/admin/openapi.json", (_request, reply) =>
-    reply.send(adminOpenApi(deps.env.PUBLIC_URL)),
+  app.get(
+    "/api/v1/admin/openapi.json",
+    declaredRoute({ exception: "administrationApi" }),
+    (_request, reply) => reply.send(adminOpenApi(deps.env.PUBLIC_URL)),
   );
 
-  app.get("/api/v1/admin/accounts", (request, reply) =>
-    run(request, reply, deps, "accounts", () =>
-      listUsers(deps.db, read(accountsQuerySchema, request.query)),
-    ),
+  app.get(
+    "/api/v1/admin/accounts",
+    declaredRoute({ exception: "administrationApi" }),
+    (request, reply) =>
+      run(request, reply, deps, "accounts", () =>
+        listUsers(deps.db, read(accountsQuerySchema, request.query)),
+      ),
   );
 
-  app.post("/api/v1/admin/accounts", (request, reply) =>
-    run(request, reply, deps, "accounts", async (actor) => {
-      const input = read(newAccountSchema, request.body);
-      const created = await createAccount(
-        deps.db,
-        actor.maker.id,
-        { ...input, admin: false, memberships: [] },
-        "admin_token",
-      );
-      request.log.info(
-        { actor: actor.maker.id, token: actor.tokenId, target: created.id },
-        "account created with an administration token",
-      );
-      const welcome = await welcomeAccount(
-        { db: deps.db, env: deps.env, log: request.log },
-        created.id,
-        actor.maker,
-      );
-      return { userId: created.id, ...welcome };
-    }),
-  );
-
-  app.get("/api/v1/admin/invitations", (request, reply) =>
-    run(request, reply, deps, "invitations", async () => ({
-      invitations: await listPendingInvitations(deps.db),
-    })),
-  );
-
-  app.get("/api/v1/admin/settings", (request, reply) =>
-    run(request, reply, deps, "settings", () => readSettings(deps.db)),
-  );
-
-  app.patch("/api/v1/admin/settings", (request, reply) =>
-    run(request, reply, deps, "settings", async (actor) => {
-      // A setting that is changed on screen only is named, so that the
-      // caller is not left to guess which key was one too many.
-      const sent: unknown = request.body;
-      if (typeof sent === "object" && sent !== null) {
-        const screenOnly = Object.keys(sent).find(
-          (key) =>
-            key in instanceSettingsPatchSchema.shape &&
-            !(API_SETTING_KEYS as readonly string[]).includes(key),
+  app.post(
+    "/api/v1/admin/accounts",
+    declaredRoute({ exception: "administrationApi" }),
+    (request, reply) =>
+      run(request, reply, deps, "accounts", async (actor) => {
+        const input = read(newAccountSchema, request.body);
+        const created = await createAccount(
+          deps.db,
+          actor.maker.id,
+          { ...input, admin: false, memberships: [] },
+          "admin_token",
         );
-        if (screenOnly) throw new AppError("admin_token_setting", screenOnly);
-      }
-      const patch = read(apiSettingsPatchSchema, sent);
-      const saved = await saveInstanceSettings(
-        deps,
-        { id: actor.maker.id, ip: request.ip, method: "admin_token" },
-        patch,
-      );
-      request.log.info(
-        {
-          actor: actor.maker.id,
-          token: actor.tokenId,
-          keys: Object.keys(patch),
-        },
-        "instance settings changed with an administration token",
-      );
-      return saved;
-    }),
+        request.log.info(
+          { actor: actor.maker.id, token: actor.tokenId, target: created.id },
+          "account created with an administration token",
+        );
+        const welcome = await welcomeAccount(
+          { db: deps.db, env: deps.env, log: request.log },
+          created.id,
+          actor.maker,
+        );
+        return { userId: created.id, ...welcome };
+      }),
+  );
+
+  app.get(
+    "/api/v1/admin/invitations",
+    declaredRoute({ exception: "administrationApi" }),
+    (request, reply) =>
+      run(request, reply, deps, "invitations", async () => ({
+        invitations: await listPendingInvitations(deps.db),
+      })),
+  );
+
+  app.get(
+    "/api/v1/admin/settings",
+    declaredRoute({ exception: "administrationApi" }),
+    (request, reply) =>
+      run(request, reply, deps, "settings", () => readSettings(deps.db)),
+  );
+
+  app.patch(
+    "/api/v1/admin/settings",
+    declaredRoute({ exception: "administrationApi" }),
+    (request, reply) =>
+      run(request, reply, deps, "settings", async (actor) => {
+        // A setting that is changed on screen only is named, so that the
+        // caller is not left to guess which key was one too many.
+        const sent: unknown = request.body;
+        if (typeof sent === "object" && sent !== null) {
+          const screenOnly = Object.keys(sent).find(
+            (key) =>
+              key in instanceSettingsPatchSchema.shape &&
+              !(API_SETTING_KEYS as readonly string[]).includes(key),
+          );
+          if (screenOnly) throw new AppError("admin_token_setting", screenOnly);
+        }
+        const patch = read(apiSettingsPatchSchema, sent);
+        const saved = await saveInstanceSettings(
+          deps,
+          { id: actor.maker.id, ip: request.ip, method: "admin_token" },
+          patch,
+        );
+        request.log.info(
+          {
+            actor: actor.maker.id,
+            token: actor.tokenId,
+            keys: Object.keys(patch),
+          },
+          "instance settings changed with an administration token",
+        );
+        return saved;
+      }),
   );
 }
 

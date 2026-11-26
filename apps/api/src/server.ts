@@ -1,3 +1,4 @@
+import { declaredRoute, declareRoutes, doorTo } from "./access/routes.js";
 import { registerActingRequests } from "./acting-requests.js";
 import { budgetFor } from "./read-budget.js";
 import cookie from "@fastify/cookie";
@@ -177,6 +178,8 @@ export async function createApp(deps: {
       },
     },
   });
+  // Every route says what it asks; one that does not stops the start.
+  declareRoutes(app);
   // Read once at start: an entry the operator mistyped stops the API here.
   const allowList = new HostAllowList(deps.env.SOURCES_ALLOWED_HOSTS);
   const sources: SourceSettings = {
@@ -323,22 +326,27 @@ export async function createApp(deps: {
   });
   // Prometheus text for the operator's token only (ADR 0018); without a
   // token, there is nothing here.
-  app.get("/metrics", async (request, reply) => {
-    const token = await metricsBearer(deps.db, deps.env);
-    if (!metricsAllowed(token, request.headers.authorization)) {
-      return reply.code(token ? 401 : 404).send();
-    }
-    return reply
-      .header("content-type", registry.contentType)
-      .header("cache-control", "no-store")
-      .send(await registry.metrics());
-  });
+  app.get(
+    "/metrics",
+    declaredRoute({ exception: "operator" }),
+    async (request, reply) => {
+      const token = await metricsBearer(deps.db, deps.env);
+      if (!metricsAllowed(token, request.headers.authorization)) {
+        return reply.code(token ? 401 : 404).send();
+      }
+      return reply
+        .header("content-type", registry.contentType)
+        .header("cache-control", "no-store")
+        .send(await registry.metrics());
+    },
+  );
 
   // A webhook automation's address: its token is its secret. A JSON body
   // of 64 KiB at most; any other answer is the same 404.
   app.post<{ Params: { token: string } }>(
     "/hooks/automations/:token",
     {
+      ...declaredRoute({ exception: "inboundHook" }),
       bodyLimit: 65_536,
       errorHandler: (error, _request, reply) => {
         refuseAsUnknownAddress(error, reply);
@@ -360,6 +368,7 @@ export async function createApp(deps: {
   // feed that cannot be read answers 404 whatever the reason.
   app.get<{ Params: { token: string } }>(
     "/ical/:token",
+    declaredRoute({ exception: "feed", asks: ["data.export"] }),
     async (request, reply) => {
       const document = await calendarFeedDocument(
         deps.db,
@@ -404,19 +413,23 @@ export async function createApp(deps: {
       clearInterval(timer);
     });
     // The authority people install, before they can sign in: public.
-    app.get("/tls/authority.crt", (_request, reply) => {
-      const authority = tls?.authority;
-      if (!authority) {
-        return reply.code(404).send(publicErrorBody(404));
-      }
-      return reply
-        .type("application/x-x509-ca-cert")
-        .header(
-          "Content-Disposition",
-          'attachment; filename="anygriddb-authority.crt"',
-        )
-        .send(authority.cert);
-    });
+    app.get(
+      "/tls/authority.crt",
+      declaredRoute({ exception: "operator" }),
+      (_request, reply) => {
+        const authority = tls?.authority;
+        if (!authority) {
+          return reply.code(404).send(publicErrorBody(404));
+        }
+        return reply
+          .type("application/x-x509-ca-cert")
+          .header(
+            "Content-Disposition",
+            'attachment; filename="anygriddb-authority.crt"',
+          )
+          .send(authority.cert);
+      },
+    );
   }
 
   app.setErrorHandler((error: unknown, request, reply) => {
@@ -489,8 +502,12 @@ export async function createApp(deps: {
     closeUser: (userId) => hub.closeUser(userId),
   });
 
-  app.get("/health", () => ({ ok: true }));
-  app.get("/healthz", () => ({ ok: true }));
+  app.get("/health", declaredRoute({ exception: "operator" }), () => ({
+    ok: true,
+  }));
+  app.get("/healthz", declaredRoute({ exception: "operator" }), () => ({
+    ok: true,
+  }));
   // Up is not ready: a balancer or a monitor asks whether the database
   // answers, and gets 503 while it does not. `/ready` stays that check.
   // `/readyz` also requires every migration this process knows.
@@ -521,130 +538,143 @@ export async function createApp(deps: {
       .header("cache-control", "no-store")
       .send(state);
   };
-  app.get("/ready", async (_request, reply) => sendReady(ready, reply));
-  app.get("/readyz", async (_request, reply) =>
-    sendReady(readyWithMigrations, reply),
+  app.get(
+    "/ready",
+    declaredRoute({ exception: "operator" }),
+    async (_request, reply) => sendReady(ready, reply),
+  );
+  app.get(
+    "/readyz",
+    declaredRoute({ exception: "operator" }),
+    async (_request, reply) => sendReady(readyWithMigrations, reply),
   );
 
-  app.get("/ws", { websocket: true }, (socket, request) => {
-    // The page subscribes as soon as the link opens, before its session is
-    // looked up. A message no handler takes is lost: what it sends
-    // meanwhile is held, within a bound (ADR 0049).
-    const early: unknown[] = [];
-    const hold = (raw: unknown) => {
-      if (early.length >= MAX_EARLY_MESSAGES) {
-        socket.close(1008, "Too many messages");
-        return;
-      }
-      early.push(raw);
-    };
-    socket.on("message", hold);
-    const sessionToken = request.cookies[SESSION_COOKIE];
-    void Promise.all([
-      findSessionUser(deps.db, sessionToken),
-      readGateSettings(deps.db),
-    ])
-      .then(async ([user, settings]) => {
-        if (!user || !isSessionToken(sessionToken)) {
-          socket.off("message", hold);
-          request.log.warn("access denied");
-          socket.close(4401, "Unauthorized");
+  app.get(
+    "/ws",
+    { websocket: true, ...declaredRoute({ exception: "socket" }) },
+    (socket, request) => {
+      // The page subscribes as soon as the link opens, before its session is
+      // looked up. A message no handler takes is lost: what it sends
+      // meanwhile is held, within a bound (ADR 0049).
+      const early: unknown[] = [];
+      const hold = (raw: unknown) => {
+        if (early.length >= MAX_EARLY_MESSAGES) {
+          socket.close(1008, "Too many messages");
           return;
         }
-        if (socket.readyState !== socket.OPEN) return;
-        // One tab is one socket: an account holds what Administration
-        // allows across every process (ADR 0132), the page's first
-        // messages held meanwhile.
-        const userId = user.actingAs?.id ?? user.id;
-        const allowed = limitIn("sockets.per_account", settings.limits);
-        const seat = await seatFor(seats, userId, allowed, (error) => {
-          request.log.warn({ err: error }, "socket not counted");
-        });
-        socket.off("message", hold);
-        if (seat === "full") {
-          websocketRefused("too_many_sockets");
-          request.log.warn("too many sockets for one account");
-          socket.close(1013, "Too many connections");
-          return;
-        }
-        if (seat === "taken") {
-          const leave = () => {
-            seats.leave(userId).catch((error: unknown) => {
-              request.log.warn({ err: error }, "socket seat not given back");
-            });
-          };
-          // Closed while its seat was counted: given back at once.
-          if (closedMeanwhile(socket)) {
-            leave();
+        early.push(raw);
+      };
+      socket.on("message", hold);
+      const sessionToken = request.cookies[SESSION_COOKIE];
+      void Promise.all([
+        findSessionUser(deps.db, sessionToken),
+        readGateSettings(deps.db),
+      ])
+        .then(async ([user, settings]) => {
+          if (!user || !isSessionToken(sessionToken)) {
+            socket.off("message", hold);
+            request.log.warn("access denied");
+            socket.close(4401, "Unauthorized");
             return;
           }
-          socket.once("close", leave);
-        }
-        hub.add(
-          socket,
-          userId,
-          user.actingAs?.displayName || user.displayName,
-          early,
-          hashSessionToken(sessionToken),
-          allowed,
-        );
-      })
-      .catch((error: unknown) => {
-        socket.off("message", hold);
-        request.log.error({ err: error }, "websocket session lookup failed");
-        socket.close(1011, "Internal error");
-      });
-  });
-
-  await app.register(fastifyTRPCPlugin, {
-    prefix: "/trpc",
-    trpcOptions: {
-      router: appRouter,
-      // A page sends its calls together; the web client stops at 50 a
-      // request (`apps/web/lib/trpc.ts`). Nothing sends more.
-      maxBatchSize: 100,
-      onError({
-        error,
-        path,
-        type,
-        ctx,
-      }: {
-        error: unknown;
-        path: string | undefined;
-        type: string;
-        ctx: Context | undefined;
-      }) {
-        if (!ctx) return;
-        const code =
-          error instanceof TRPCError
-            ? describeTRPCError(error).code
-            : "internal_error";
-        logFailure(ctx.req.log, {
-          error,
-          status: ERRORS[code][0],
-          message: "trpc failed",
-          context: { path, type, code },
+          if (socket.readyState !== socket.OPEN) return;
+          // One tab is one socket: an account holds what Administration
+          // allows across every process (ADR 0132), the page's first
+          // messages held meanwhile.
+          const userId = user.actingAs?.id ?? user.id;
+          const allowed = limitIn("sockets.per_account", settings.limits);
+          const seat = await seatFor(seats, userId, allowed, (error) => {
+            request.log.warn({ err: error }, "socket not counted");
+          });
+          socket.off("message", hold);
+          if (seat === "full") {
+            websocketRefused("too_many_sockets");
+            request.log.warn("too many sockets for one account");
+            socket.close(1013, "Too many connections");
+            return;
+          }
+          if (seat === "taken") {
+            const leave = () => {
+              seats.leave(userId).catch((error: unknown) => {
+                request.log.warn({ err: error }, "socket seat not given back");
+              });
+            };
+            // Closed while its seat was counted: given back at once.
+            if (closedMeanwhile(socket)) {
+              leave();
+              return;
+            }
+            socket.once("close", leave);
+          }
+          hub.add(
+            socket,
+            userId,
+            user.actingAs?.displayName || user.displayName,
+            early,
+            hashSessionToken(sessionToken),
+            allowed,
+          );
+        })
+        .catch((error: unknown) => {
+          socket.off("message", hold);
+          request.log.error({ err: error }, "websocket session lookup failed");
+          socket.close(1011, "Internal error");
         });
-      },
-      createContext: ({
-        req,
-        res,
-      }: {
-        req: FastifyRequest;
-        res: FastifyReply;
-      }): Context => ({
-        db: deps.db,
-        bus: deps.bus,
-        req,
-        res,
-        readBudget: budgetFor(res.raw),
-        env: deps.env,
-        files: deps.files,
-        hub,
-        sources,
-        tls: () => (tls ? tlsInfo(tls, deps.env.PUBLIC_URL) : null),
-      }),
     },
+  );
+
+  await app.register(async (procedures) => {
+    doorTo(procedures, { exception: "procedures" });
+    await procedures.register(fastifyTRPCPlugin, {
+      prefix: "/trpc",
+      trpcOptions: {
+        router: appRouter,
+        // A page sends its calls together; the web client stops at 50 a
+        // request (`apps/web/lib/trpc.ts`). Nothing sends more.
+        maxBatchSize: 100,
+        onError({
+          error,
+          path,
+          type,
+          ctx,
+        }: {
+          error: unknown;
+          path: string | undefined;
+          type: string;
+          ctx: Context | undefined;
+        }) {
+          if (!ctx) return;
+          const code =
+            error instanceof TRPCError
+              ? describeTRPCError(error).code
+              : "internal_error";
+          logFailure(ctx.req.log, {
+            error,
+            status: ERRORS[code][0],
+            message: "trpc failed",
+            context: { path, type, code },
+          });
+        },
+        createContext: ({
+          req,
+          res,
+        }: {
+          req: FastifyRequest;
+          res: FastifyReply;
+        }): Context => ({
+          db: deps.db,
+          bus: deps.bus,
+          req,
+          res,
+          readBudget: budgetFor(res.raw),
+          env: deps.env,
+          files: deps.files,
+          hub,
+          sources,
+          tls: () => (tls ? tlsInfo(tls, deps.env.PUBLIC_URL) : null),
+        }),
+      },
+    });
   });
 
   await registerWebApp(app, deps.webRoot, {

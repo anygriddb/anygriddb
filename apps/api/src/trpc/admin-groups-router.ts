@@ -20,32 +20,32 @@ import {
 import { handle } from "./guard.js";
 import { tellOwnersOfRole } from "../data/role-notices.js";
 import { t } from "./init.js";
-import { procedure, requireAdmin, roleNoticeDeps } from "./admin-procedure.js";
+import { asking, requireInstance, roleNoticeDeps } from "./admin-procedure.js";
 
 /**
  * Local groups and every group's base roles from Administration
  * (ROADMAP #27, ADR 0070). Membership of a SCIM group stays read-only.
  */
 export const groupsRouter = t.router({
-  list: procedure.query(({ ctx }) =>
+  list: asking({ asks: ["groups.manage"] }).query(({ ctx }) =>
     handle(ctx, async () => {
-      await requireAdmin(ctx);
+      await requireInstance(ctx);
       return { groups: await listGroups(ctx.db) };
     }),
   ),
-  get: procedure
+  get: asking({ asks: ["groups.manage"] })
     .input(z.object({ groupId: z.uuid() }))
     .query(({ ctx, input }) =>
       handle(ctx, async () => {
-        await requireAdmin(ctx);
+        await requireInstance(ctx);
         return getGroup(ctx.db, input.groupId);
       }),
     ),
-  create: procedure
+  create: asking({ asks: ["groups.manage"] })
     .input(createLocalGroupInputSchema)
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
-        const admin = await requireAdmin(ctx);
+        const admin = await requireInstance(ctx);
         const created = await createLocalGroup(ctx.db, admin.id, input);
         ctx.req.log.info(
           { actor: admin.id, group: created.id },
@@ -54,11 +54,11 @@ export const groupsRouter = t.router({
         return created;
       }),
     ),
-  update: procedure
+  update: asking({ asks: ["groups.manage"] })
     .input(updateLocalGroupInputSchema)
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
-        const admin = await requireAdmin(ctx);
+        const admin = await requireInstance(ctx);
         await updateLocalGroup(ctx.db, admin.id, input);
         ctx.req.log.info(
           { actor: admin.id, group: input.groupId },
@@ -67,11 +67,11 @@ export const groupsRouter = t.router({
         return { ok: true as const };
       }),
     ),
-  delete: procedure
+  delete: asking({ asks: ["groups.manage"] })
     .input(z.object({ groupId: z.uuid() }))
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
-        const admin = await requireAdmin(ctx);
+        const admin = await requireInstance(ctx);
         await deleteLocalGroup(ctx.db, admin.id, input.groupId);
         ctx.req.log.info(
           { actor: admin.id, group: input.groupId },
@@ -80,11 +80,11 @@ export const groupsRouter = t.router({
         return { ok: true as const };
       }),
     ),
-  addMember: procedure
+  addMember: asking({ asks: ["groups.manage"] })
     .input(localGroupMemberInputSchema)
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
-        const admin = await requireAdmin(ctx);
+        const admin = await requireInstance(ctx);
         const { roles } = await addLocalGroupMember(ctx.db, admin.id, input);
         // The member now holds the group's roles: each base's owners
         // learn of it (ROADMAP #91).
@@ -102,11 +102,11 @@ export const groupsRouter = t.router({
         return { ok: true as const };
       }),
     ),
-  removeMember: procedure
+  removeMember: asking({ asks: ["groups.manage"] })
     .input(localGroupMemberInputSchema)
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
-        const admin = await requireAdmin(ctx);
+        const admin = await requireInstance(ctx);
         await removeLocalGroupMember(ctx.db, admin.id, input);
         ctx.req.log.info(
           { actor: admin.id, group: input.groupId, target: input.userId },
@@ -116,7 +116,7 @@ export const groupsRouter = t.router({
       }),
     ),
   /** Gives any group a role on a live base, or takes it back. */
-  setBaseRole: procedure
+  setBaseRole: asking({ asks: ["access.grant"] })
     .input(
       z.object({
         groupId: z.uuid(),
@@ -126,7 +126,7 @@ export const groupsRouter = t.router({
     )
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
-        const admin = await requireAdmin(ctx);
+        const admin = await requireInstance(ctx);
         const role = input.role ? await resolveGiven(ctx.db, input.role) : null;
         const { previous } = await setGroupRole(ctx.db, admin.id, {
           ...input,

@@ -57,7 +57,7 @@ import {
 } from "../data/made-roles.js";
 import { authorize, guardBase, guardTable, handle } from "./guard.js";
 import type { Context } from "./context.js";
-import { procedure } from "./init.js";
+import { asking } from "./init.js";
 
 /** A member whose own role is beyond the giver's keeps it (ADR 0128). */
 async function assertMayTouchMember(
@@ -81,7 +81,7 @@ export const catalogAccessProcedures = {
    * The roles an administrator made (ADR 0128), which a base gives beside
    * the four: their names and what each gives, to choose from.
    */
-  madeRoles: procedure.query(({ ctx }) =>
+  madeRoles: asking({ exception: "ownBases" }).query(({ ctx }) =>
     handle(ctx, async () => {
       await authorize(ctx);
       return {
@@ -93,83 +93,93 @@ export const catalogAccessProcedures = {
       };
     }),
   ),
-  members: procedure.input(membersInputSchema).query(({ ctx, input }) =>
-    handle(ctx, async () => {
-      await guardBase(ctx, input.baseId, "members.manage");
-      return listMembers(ctx.db, input.baseId);
-    }),
-  ),
+  members: asking({ asks: ["members.manage"] })
+    .input(membersInputSchema)
+    .query(({ ctx, input }) =>
+      handle(ctx, async () => {
+        await guardBase(ctx, input.baseId, "members.manage");
+        return listMembers(ctx.db, input.baseId);
+      }),
+    ),
   /**
    * The administrators who have this base open now without being members
    * of it (ADR 0074): who, why, until when. For those who manage the
    * base, beside its members.
    */
-  openAccess: procedure.input(membersInputSchema).query(({ ctx, input }) =>
-    handle(ctx, async () => {
-      await guardBase(ctx, input.baseId, "members.manage");
-      return (await listOpenAccess(ctx.db, input.baseId)).map((open) => ({
-        userId: open.userId,
-        displayName: open.displayName,
-        reason: open.reason,
-        expiresAt: open.expiresAt.toISOString(),
-      }));
-    }),
-  ),
+  openAccess: asking({ asks: ["members.manage"] })
+    .input(membersInputSchema)
+    .query(({ ctx, input }) =>
+      handle(ctx, async () => {
+        await guardBase(ctx, input.baseId, "members.manage");
+        return (await listOpenAccess(ctx.db, input.baseId)).map((open) => ({
+          userId: open.userId,
+          displayName: open.displayName,
+          reason: open.reason,
+          expiresAt: open.expiresAt.toISOString(),
+        }));
+      }),
+    ),
   /**
    * Changes the role of someone the base already counts: whoever manages
    * it sees its members. Any other address is refused alike, with an
    * account or without, and is invited instead (`invite`): giving a role
    * at once to an address that has an account told that it has one.
    */
-  grant: procedure.input(grantInputSchema).mutation(({ ctx, input }) =>
-    handle(ctx, async () => {
-      const { user, role } = await guardBase(
-        ctx,
-        input.baseId,
-        "members.manage",
-      );
-      await assertMemberDomain(ctx.db, input.email);
-      if (!(await isMember(ctx.db, input.baseId, input.email))) {
-        throw new AppError("not_a_member");
-      }
-      await assertMayTouchMember(ctx, role, input.baseId, input.email);
-      await grantMember(ctx.db, user.id, {
-        ...input,
-        role: await givenBy(ctx.db, role, input.role),
-      });
-      return { ok: true as const };
-    }),
-  ),
-  revoke: procedure.input(revokeInputSchema).mutation(({ ctx, input }) =>
-    handle(ctx, async () => {
-      const { user, role } = await guardBase(
-        ctx,
-        input.baseId,
-        "members.manage",
-      );
-      assertMayTouch(
-        role,
-        await ownGiven(ctx.db, input.userId, "base", input.baseId),
-      );
-      await revokeMember(ctx.db, user.id, input);
-      return { ok: true as const };
-    }),
-  ),
+  grant: asking({ asks: ["members.manage"] })
+    .input(grantInputSchema)
+    .mutation(({ ctx, input }) =>
+      handle(ctx, async () => {
+        const { user, role } = await guardBase(
+          ctx,
+          input.baseId,
+          "members.manage",
+        );
+        await assertMemberDomain(ctx.db, input.email);
+        if (!(await isMember(ctx.db, input.baseId, input.email))) {
+          throw new AppError("not_a_member");
+        }
+        await assertMayTouchMember(ctx, role, input.baseId, input.email);
+        await grantMember(ctx.db, user.id, {
+          ...input,
+          role: await givenBy(ctx.db, role, input.role),
+        });
+        return { ok: true as const };
+      }),
+    ),
+  revoke: asking({ asks: ["members.manage"] })
+    .input(revokeInputSchema)
+    .mutation(({ ctx, input }) =>
+      handle(ctx, async () => {
+        const { user, role } = await guardBase(
+          ctx,
+          input.baseId,
+          "members.manage",
+        );
+        assertMayTouch(
+          role,
+          await ownGiven(ctx.db, input.userId, "base", input.baseId),
+        );
+        await revokeMember(ctx.db, user.id, input);
+        return { ok: true as const };
+      }),
+    ),
   /** The groups the base gives a role to, and those it could. */
-  groupRoles: procedure.input(membersInputSchema).query(({ ctx, input }) =>
-    handle(ctx, async () => {
-      await guardBase(ctx, input.baseId, "members.manage");
-      return {
-        roles: await listGroupRoles(ctx.db, input.baseId),
-        groups: (await listGroups(ctx.db)).map((group) => ({
-          id: group.id,
-          displayName: group.displayName,
-          members: group.members,
-        })),
-      };
-    }),
-  ),
-  setGroupRole: procedure
+  groupRoles: asking({ asks: ["members.manage"] })
+    .input(membersInputSchema)
+    .query(({ ctx, input }) =>
+      handle(ctx, async () => {
+        await guardBase(ctx, input.baseId, "members.manage");
+        return {
+          roles: await listGroupRoles(ctx.db, input.baseId),
+          groups: (await listGroups(ctx.db)).map((group) => ({
+            id: group.id,
+            displayName: group.displayName,
+            members: group.members,
+          })),
+        };
+      }),
+    ),
+  setGroupRole: asking({ asks: ["members.manage"] })
     .input(
       z.object({
         baseId: z.uuid(),
@@ -195,7 +205,7 @@ export const catalogAccessProcedures = {
         return { ok: true as const };
       }),
     ),
-  tableAccess: procedure
+  tableAccess: asking({ asks: ["members.manage"] })
     .input(z.object({ tableId: z.uuid() }))
     .query(({ ctx, input }) =>
       handle(ctx, async () => {
@@ -207,7 +217,7 @@ export const catalogAccessProcedures = {
         return { people: await listTableAccess(ctx.db, table) };
       }),
     ),
-  setTableRole: procedure
+  setTableRole: asking({ asks: ["members.manage"] })
     .input(
       z.object({
         tableId: z.uuid(),
@@ -237,7 +247,7 @@ export const catalogAccessProcedures = {
         return { ok: true as const };
       }),
     ),
-  invite: procedure
+  invite: asking({ asks: ["members.manage"] })
     .input(
       z.object({
         baseId: z.uuid(),
@@ -301,7 +311,7 @@ export const catalogAccessProcedures = {
         return { status: "invited" as const, token: created.token, mailed };
       }),
     ),
-  invitations: procedure
+  invitations: asking({ asks: ["members.manage"] })
     .input(z.object({ baseId: z.uuid() }))
     .query(({ ctx, input }) =>
       handle(ctx, async () => {
@@ -309,7 +319,7 @@ export const catalogAccessProcedures = {
         return { invitations: await listInvitations(ctx.db, input.baseId) };
       }),
     ),
-  revokeInvitation: procedure
+  revokeInvitation: asking({ asks: ["members.manage"] })
     .input(z.object({ baseId: z.uuid(), invitationId: z.uuid() }))
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
@@ -334,13 +344,15 @@ export const catalogAccessProcedures = {
       }),
     ),
   /** Field and row rules for every collaborator on a table. */
-  tableAcl: procedure.input(getTableAclInputSchema).query(({ ctx, input }) =>
-    handle(ctx, async () => {
-      await guardTable(ctx, input.tableId, "members.manage");
-      return { rules: await listTableAcls(ctx.db, input.tableId) };
-    }),
-  ),
-  setTableAcl: procedure
+  tableAcl: asking({ asks: ["members.manage"] })
+    .input(getTableAclInputSchema)
+    .query(({ ctx, input }) =>
+      handle(ctx, async () => {
+        await guardTable(ctx, input.tableId, "members.manage");
+        return { rules: await listTableAcls(ctx.db, input.tableId) };
+      }),
+    ),
+  setTableAcl: asking({ asks: ["members.manage"] })
     .input(setTableAclInputSchema)
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
@@ -366,7 +378,7 @@ export const catalogAccessProcedures = {
         return { ok: true as const };
       }),
     ),
-  clearTableAcl: procedure
+  clearTableAcl: asking({ asks: ["members.manage"] })
     .input(clearTableAclInputSchema)
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
@@ -380,57 +392,63 @@ export const catalogAccessProcedures = {
    * field's access, their row rule, and a sample page read exactly as they
    * would read it.
    */
-  viewAs: procedure.input(viewAsInputSchema).query(({ ctx, input }) =>
-    handle(ctx, async () => {
-      const { table } = await guardTable(ctx, input.tableId, "members.manage");
-      const target = await ctx.db
-        .selectFrom("users")
-        .select(["id", "displayName", "email"])
-        .where("id", "=", input.userId)
-        .executeTakeFirst();
-      const bindings = await loadBindings(ctx.db, input.userId);
-      const role = effectiveTableRole(bindings, table.id, table.baseId);
-      // The same answer for an account that is not there and for one the
-      // table does not count.
-      if (!target || !role) throw new AppError("unknown_account");
-      const { engine } = await readerEngine(ctx.db, table.id, {
-        userId: input.userId,
-        bindings,
-      });
-      const access = engine.access;
-      const columns = engine.table.columns.map((column) => ({
-        name: column.name,
-        access: access?.hidden(table.id, column.name)
-          ? ("hide" as const)
-          : access?.readOnly(table.id, column.name)
-            ? ("read" as const)
-            : ("write" as const),
-      }));
-      const page = await readPage(
-        ctx.db,
-        engine,
-        {
-          ...(engine.access ? { fields: visibleFields(engine) } : {}),
-          limit: input.limit,
-          timeZone: safeTimeZone(
-            typeof ctx.req.headers["x-timezone"] === "string"
-              ? ctx.req.headers["x-timezone"]
-              : "UTC",
-          ),
-          me: input.userId,
-        },
-        { total: true },
-      );
-      return {
-        user: target,
-        role,
-        rowFilter: access?.rowFilter(table.id) ?? null,
-        columns,
-        sample: {
-          total: page.total ?? 0,
-          rows: page.rows,
-        },
-      };
-    }),
-  ),
+  viewAs: asking({ asks: ["members.manage"] })
+    .input(viewAsInputSchema)
+    .query(({ ctx, input }) =>
+      handle(ctx, async () => {
+        const { table } = await guardTable(
+          ctx,
+          input.tableId,
+          "members.manage",
+        );
+        const target = await ctx.db
+          .selectFrom("users")
+          .select(["id", "displayName", "email"])
+          .where("id", "=", input.userId)
+          .executeTakeFirst();
+        const bindings = await loadBindings(ctx.db, input.userId);
+        const role = effectiveTableRole(bindings, table.id, table.baseId);
+        // The same answer for an account that is not there and for one the
+        // table does not count.
+        if (!target || !role) throw new AppError("unknown_account");
+        const { engine } = await readerEngine(ctx.db, table.id, {
+          userId: input.userId,
+          bindings,
+        });
+        const access = engine.access;
+        const columns = engine.table.columns.map((column) => ({
+          name: column.name,
+          access: access?.hidden(table.id, column.name)
+            ? ("hide" as const)
+            : access?.readOnly(table.id, column.name)
+              ? ("read" as const)
+              : ("write" as const),
+        }));
+        const page = await readPage(
+          ctx.db,
+          engine,
+          {
+            ...(engine.access ? { fields: visibleFields(engine) } : {}),
+            limit: input.limit,
+            timeZone: safeTimeZone(
+              typeof ctx.req.headers["x-timezone"] === "string"
+                ? ctx.req.headers["x-timezone"]
+                : "UTC",
+            ),
+            me: input.userId,
+          },
+          { total: true },
+        );
+        return {
+          user: target,
+          role,
+          rowFilter: access?.rowFilter(table.id) ?? null,
+          columns,
+          sample: {
+            total: page.total ?? 0,
+            rows: page.rows,
+          },
+        };
+      }),
+    ),
 };

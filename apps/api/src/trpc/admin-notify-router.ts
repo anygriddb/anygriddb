@@ -28,7 +28,7 @@ import {
 } from "../notify/input.js";
 import { handle } from "./guard.js";
 import { t } from "./init.js";
-import { procedure, requireAdmin } from "./admin-procedure.js";
+import { asking, requireInstance } from "./admin-procedure.js";
 
 /** Applies a saved metrics token or collector. True when traces need a restart. */
 export async function refreshProbe(
@@ -51,30 +51,30 @@ export async function refreshProbe(
 }
 
 export const notifyRouter = t.router({
-  providers: procedure.query(({ ctx }) =>
+  providers: asking({ asks: ["settings.manage"] }).query(({ ctx }) =>
     handle(ctx, async () => {
-      await requireAdmin(ctx);
+      await requireInstance(ctx);
       return NOTIFY_PROVIDERS.map(notifyProviderView);
     }),
   ),
-  failing: procedure.query(({ ctx }) =>
+  failing: asking({ asks: ["settings.manage"] }).query(({ ctx }) =>
     handle(ctx, async () => {
-      await requireAdmin(ctx);
+      await requireInstance(ctx);
       return { count: await failingIntegrationCount(ctx.db) };
     }),
   ),
-  environment: procedure.query(({ ctx }) =>
+  environment: asking({ asks: ["settings.manage"] }).query(({ ctx }) =>
     handle(ctx, async () => {
-      await requireAdmin(ctx);
+      await requireInstance(ctx);
       return {
         metrics: Boolean(ctx.env.METRICS_TOKEN),
         traces: Boolean(ctx.env.OTEL_EXPORTER_OTLP_ENDPOINT),
       };
     }),
   ),
-  schedules: procedure.query(({ ctx }) =>
+  schedules: asking({ asks: ["settings.manage"] }).query(({ ctx }) =>
     handle(ctx, async () => {
-      await requireAdmin(ctx);
+      await requireInstance(ctx);
       const rows = await ctx.db
         .selectFrom("automations")
         .select(["id", "name"])
@@ -87,63 +87,69 @@ export const notifyRouter = t.router({
       }));
     }),
   ),
-  list: procedure.query(({ ctx }) =>
+  list: asking({ asks: ["settings.manage"] }).query(({ ctx }) =>
     handle(ctx, async () => {
-      await requireAdmin(ctx);
+      await requireInstance(ctx);
       return listIntegrations(ctx.db, ctx.env.AUTH_ENCRYPTION_KEY);
     }),
   ),
-  deliveries: procedure.input(integrationIdSchema).query(({ ctx, input }) =>
-    handle(ctx, async () => {
-      await requireAdmin(ctx);
-      return integrationDeliveries(ctx.db, input.id);
-    }),
-  ),
-  create: procedure.input(createIntegrationSchema).mutation(({ ctx, input }) =>
-    handle(ctx, async () => {
-      const admin = await requireAdmin(ctx);
-      const saved = await createIntegration(
-        ctx.db,
-        ctx.env.AUTH_ENCRYPTION_KEY,
-        admin.id,
-        input,
-        ctx.req.ip,
-      );
-      ctx.req.log.info(
-        { actor: admin.id, integration: saved.id, provider: saved.provider },
-        "integration saved",
-      );
-      return {
-        ...saved,
-        restartRequired: await refreshProbe(ctx.db, ctx.env, saved.provider),
-      };
-    }),
-  ),
-  update: procedure.input(updateIntegrationSchema).mutation(({ ctx, input }) =>
-    handle(ctx, async () => {
-      const admin = await requireAdmin(ctx);
-      const saved = await updateIntegration(
-        ctx.db,
-        ctx.env.AUTH_ENCRYPTION_KEY,
-        admin.id,
-        input,
-        ctx.req.ip,
-      );
-      ctx.req.log.info(
-        { actor: admin.id, integration: saved.id },
-        "integration updated",
-      );
-      return {
-        ...saved,
-        restartRequired: await refreshProbe(ctx.db, ctx.env, saved.provider),
-      };
-    }),
-  ),
-  setEnabled: procedure
+  deliveries: asking({ asks: ["settings.manage"] })
+    .input(integrationIdSchema)
+    .query(({ ctx, input }) =>
+      handle(ctx, async () => {
+        await requireInstance(ctx);
+        return integrationDeliveries(ctx.db, input.id);
+      }),
+    ),
+  create: asking({ asks: ["settings.manage"] })
+    .input(createIntegrationSchema)
+    .mutation(({ ctx, input }) =>
+      handle(ctx, async () => {
+        const admin = await requireInstance(ctx);
+        const saved = await createIntegration(
+          ctx.db,
+          ctx.env.AUTH_ENCRYPTION_KEY,
+          admin.id,
+          input,
+          ctx.req.ip,
+        );
+        ctx.req.log.info(
+          { actor: admin.id, integration: saved.id, provider: saved.provider },
+          "integration saved",
+        );
+        return {
+          ...saved,
+          restartRequired: await refreshProbe(ctx.db, ctx.env, saved.provider),
+        };
+      }),
+    ),
+  update: asking({ asks: ["settings.manage"] })
+    .input(updateIntegrationSchema)
+    .mutation(({ ctx, input }) =>
+      handle(ctx, async () => {
+        const admin = await requireInstance(ctx);
+        const saved = await updateIntegration(
+          ctx.db,
+          ctx.env.AUTH_ENCRYPTION_KEY,
+          admin.id,
+          input,
+          ctx.req.ip,
+        );
+        ctx.req.log.info(
+          { actor: admin.id, integration: saved.id },
+          "integration updated",
+        );
+        return {
+          ...saved,
+          restartRequired: await refreshProbe(ctx.db, ctx.env, saved.provider),
+        };
+      }),
+    ),
+  setEnabled: asking({ asks: ["settings.manage"] })
     .input(integrationEnabledSchema)
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
-        const admin = await requireAdmin(ctx);
+        const admin = await requireInstance(ctx);
         const saved = await setIntegrationEnabled(
           ctx.db,
           ctx.env.AUTH_ENCRYPTION_KEY,
@@ -158,37 +164,45 @@ export const notifyRouter = t.router({
         };
       }),
     ),
-  delete: procedure.input(integrationIdSchema).mutation(({ ctx, input }) =>
-    handle(ctx, async () => {
-      const admin = await requireAdmin(ctx);
-      const removed = await deleteIntegration(
-        ctx.db,
-        admin.id,
-        input.id,
-        ctx.req.ip,
-      );
-      ctx.req.log.info(
-        { actor: admin.id, integration: removed.id },
-        "integration removed",
-      );
-      return {
-        id: removed.id,
-        restartRequired: await refreshProbe(ctx.db, ctx.env, removed.provider),
-      };
-    }),
-  ),
-  test: procedure.input(integrationIdSchema).mutation(({ ctx, input }) =>
-    handle(ctx, async () => {
-      await requireAdmin(ctx);
-      return testIntegration(
-        {
-          db: ctx.db,
-          key: ctx.env.AUTH_ENCRYPTION_KEY,
-          env: ctx.env,
-          log: (error, message) => ctx.req.log.error({ err: error }, message),
-        },
-        input.id,
-      );
-    }),
-  ),
+  delete: asking({ asks: ["settings.manage"] })
+    .input(integrationIdSchema)
+    .mutation(({ ctx, input }) =>
+      handle(ctx, async () => {
+        const admin = await requireInstance(ctx);
+        const removed = await deleteIntegration(
+          ctx.db,
+          admin.id,
+          input.id,
+          ctx.req.ip,
+        );
+        ctx.req.log.info(
+          { actor: admin.id, integration: removed.id },
+          "integration removed",
+        );
+        return {
+          id: removed.id,
+          restartRequired: await refreshProbe(
+            ctx.db,
+            ctx.env,
+            removed.provider,
+          ),
+        };
+      }),
+    ),
+  test: asking({ asks: ["settings.manage"] })
+    .input(integrationIdSchema)
+    .mutation(({ ctx, input }) =>
+      handle(ctx, async () => {
+        await requireInstance(ctx);
+        return testIntegration(
+          {
+            db: ctx.db,
+            key: ctx.env.AUTH_ENCRYPTION_KEY,
+            env: ctx.env,
+            log: (error, message) => ctx.req.log.error({ err: error }, message),
+          },
+          input.id,
+        );
+      }),
+    ),
 });

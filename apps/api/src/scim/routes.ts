@@ -3,6 +3,7 @@
  * Entra ID, and other identity providers call to keep accounts and groups.
  * A provisioning token opens it; answers and errors are SCIM's.
  */
+import { doorTo } from "../access/routes.js";
 import {
   parseScimFilter,
   parseScimPatch,
@@ -73,6 +74,7 @@ export function registerScim(
   const baseUrl = `${deps.publicUrl}/scim/v2`;
   void app.register(
     (scope, _options, done) => {
+      doorTo(scope, { exception: "provisioning" });
       // SCIM's own media type is JSON, parsed with the same protections. A
       // provider may send a content type with no body (a DELETE): no body.
       const json = scope.getDefaultJsonParser("error", "error");

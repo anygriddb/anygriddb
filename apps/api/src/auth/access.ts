@@ -2,11 +2,13 @@ import {
   AppError,
   type Binding,
   can,
+  effectiveTableRole,
   enrollmentGate,
   readOnlyGiven,
   tokenGiven,
   roleFor,
 } from "@anygriddb/core";
+import { granted } from "../access/declaration.js";
 import type { Database } from "@anygriddb/db";
 import { readGateSettings } from "../settings.js";
 import type { Acting } from "../data/acting-context.js";
@@ -210,7 +212,10 @@ export async function authorizeGrid(
     .where(liveBase("b"))
     .executeTakeFirst();
   if (table) {
-    return can(bindings, permission, "table", table.id, table.baseId)
+    return granted(
+      effectiveTableRole(bindings, table.id, table.baseId),
+      permission,
+    )
       ? "ok"
       : "denied";
   }

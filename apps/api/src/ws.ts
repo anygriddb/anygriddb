@@ -3,6 +3,7 @@ import { JOB_KINDS, JOB_STATUSES, ceilingOf } from "@anygriddb/core";
 import type { Database } from "@anygriddb/db";
 import type { WebSocket } from "ws";
 import { z } from "zod";
+import { type Declaration, runDeclared } from "./access/declaration.js";
 import type { ChannelHearing } from "./auth/access.js";
 import { websocketRefused } from "./observability.js";
 import type { Bus } from "./realtime/bus.js";
@@ -171,6 +172,22 @@ function closeForIdentity(
 ): void {
   if (identity === undefined) socket.close(4401, "Unauthorized");
   else socket.close(4000, "Reauthorize");
+}
+
+/**
+ * What each message a page sends asks: following a table's rows, telling
+ * where one is, holding a cell while editing it. Leaving asks nothing.
+ */
+export const MESSAGE_ASKS: Record<ClientMessage["type"], Declaration> = {
+  subscribe: { asks: ["rows.read"] },
+  unsubscribe: { exception: "socket" },
+  presence: { asks: ["rows.read"] },
+  lock: { asks: ["rows.write"] },
+};
+
+/** The kind a message says it is, before the whole of it is read. */
+function messageKind(raw: string): ClientMessage["type"] | undefined {
+  return parseClientMessage(raw)?.type;
 }
 
 export function parseClientMessage(raw: string): ClientMessage | undefined {
@@ -420,7 +437,7 @@ export class GridHub {
         return;
       }
       const text = rawText(raw);
-      enqueue(() => this.onClient(socket, state, text));
+      enqueue(() => this.onDeclared(socket, state, text));
     };
     for (const raw of early) take(raw);
     socket.on("message", take);
@@ -670,6 +687,22 @@ export class GridHub {
         )
         .catch((error: unknown) => this.log("error", error, "realtime failed"));
     }
+  }
+
+  /** A message from a page, run under what its kind asks. */
+  private onDeclared(
+    socket: WebSocket,
+    state: SocketState,
+    raw: string,
+  ): Promise<void> {
+    const kind = messageKind(raw);
+    return runDeclared(
+      `ws.${kind ?? "invalid"}`,
+      kind ? MESSAGE_ASKS[kind] : { exception: "socket" },
+      () => this.onClient(socket, state, raw),
+      (message) =>
+        this.log("warn", new Error(message), "undeclared permission"),
+    );
   }
 
   private async onClient(

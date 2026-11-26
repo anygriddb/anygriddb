@@ -3,7 +3,8 @@
  * Access tokens are normal api_tokens rows so REST and MCP stay one path.
  */
 import { randomBytes } from "node:crypto";
-import { AppError, roleFor, roleGrants } from "@anygriddb/core";
+import { AppError, roleFor } from "@anygriddb/core";
+import { granted } from "../access/declaration.js";
 import type { Database, Tx } from "@anygriddb/db";
 import { sql } from "kysely";
 import { loadBindings } from "../auth/access.js";
@@ -47,7 +48,7 @@ export async function issueAuthorizationCode(
   // a token in.
   for (const baseId of baseIds) {
     const role = roleFor(bindings, "base", baseId);
-    if (!roleGrants(role, "rows.read") || !roleGrants(role, "api.access")) {
+    if (!granted(role, "rows.read") || !granted(role, "api.access")) {
       throw new AppError("access_denied");
     }
   }

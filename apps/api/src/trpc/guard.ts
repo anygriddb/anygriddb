@@ -5,9 +5,8 @@ import {
   type Grant,
   type Permission,
   roleFor,
-  roleGrants,
-  roleGrantsAll,
 } from "@anygriddb/core";
+import { demand, demandAll, holds } from "../access/declaration.js";
 import { assertEnrolled, loadBindings, scopeBindings } from "../auth/access.js";
 import { type SessionUser, withActingRights } from "../auth/session.js";
 import { readGateSettings } from "../settings.js";
@@ -48,8 +47,8 @@ async function findActor(ctx: Context, creatingBase: boolean): Promise<Actor> {
   const user = withActingRights(account);
   if (
     creatingBase &&
-    !user.isAdmin &&
-    (await readGateSettings(ctx.db)).baseCreation === "admins"
+    (await readGateSettings(ctx.db)).baseCreation === "admins" &&
+    !holds(user, "bases.create")
   ) {
     throw new AppError("base_creation_restricted");
   }
@@ -105,9 +104,7 @@ export type TableAccess = Actor & { table: TableRow; role: Grant };
  * snapshot is the base's and an export): refused as the guard refuses.
  */
 export function assertGrants(role: Grant, permission: Permission): void {
-  if (!roleGrants(role, permission)) {
-    throw new AppError("access_denied");
-  }
+  demand(role, permission);
 }
 
 /** The same, for an act that asks several permissions besides its guard's. */
@@ -115,9 +112,7 @@ export function assertGrantsAll(
   role: Grant,
   permissions: readonly Permission[],
 ): void {
-  if (!roleGrantsAll(role, permissions)) {
-    throw new AppError("access_denied");
-  }
+  demandAll(role, permissions);
 }
 
 /** Authorizes `permission` on a table, with the base role as fallback. */
@@ -143,9 +138,7 @@ export async function tableAccess(
 ): Promise<TableAccess> {
   const table = await loadTable(ctx, tableId);
   const role = effectiveTableRole(actor.bindings, table.id, table.baseId);
-  if (!role || !roleGrants(role, permission)) {
-    throw new AppError("access_denied");
-  }
+  demand(role, permission);
   return { ...actor, table, role };
 }
 
@@ -182,8 +175,6 @@ export async function baseAccess(
     throw new AppError("access_denied");
   }
   const role = roleFor(actor.bindings, "base", baseId);
-  if (!role || !roleGrants(role, permission)) {
-    throw new AppError("access_denied");
-  }
+  demand(role, permission);
   return { ...actor, role };
 }

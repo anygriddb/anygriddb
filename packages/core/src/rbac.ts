@@ -228,6 +228,126 @@ function isPermission(value: string): value is Permission {
 export const INSTANCE_ROLES = ["account_manager", "source_manager"] as const;
 export type InstanceRole = (typeof INSTANCE_ROLES)[number];
 
+/**
+ * What a part of Administration lets someone do, one act each. Every
+ * procedure of Administration names what it asks, and whoever calls it
+ * holds it through what they are: an administrator, support, an auditor,
+ * an account manager, a source manager.
+ */
+export const INSTANCE_PERMISSIONS = [
+  /**
+   * The helpdesk: find an account, open it and its sessions, end them,
+   * unlock it, send a reset link, clear its second factors, unlink its
+   * single sign-on, revoke its API tokens. On an account that holds a
+   * role of Administration only for an administrator (`helpdeskReach`).
+   */
+  "accounts.help",
+  /** Add a person, change their name and address, disable or enable them. */
+  "accounts.manage",
+  /**
+   * What reaches a whole account: a file of people, handing over what a
+   * person owns, taking their data out, erasing them, acting as them.
+   */
+  "accounts.control",
+  /** End every session but one's own, of the accounts in reach. */
+  "sessions.end",
+  /** The groups and who is in them. */
+  "groups.manage",
+  /** The roles an administrator makes of a base's permissions. */
+  "roles.manage",
+  /** Roles of Administration, and a role on any base, given or taken. */
+  "access.grant",
+  /**
+   * Who reaches what without a session: tokens, webhooks, automations,
+   * links and feeds; a person's effective rights, now or at a date.
+   */
+  "access.oversee",
+  /** The list of bases, their invitations, a base opened or put away. */
+  "bases.oversee",
+  /** A new base, an imported workbook or snapshot, a base brought in. */
+  "bases.create",
+  /** The client databases, what they expose, and into which bases. */
+  "sources.manage",
+  /** Every table a client's database holds, exposed or not. */
+  "sources.browse",
+  /** The instance's settings, sign-in, provisioning and integrations. */
+  "settings.manage",
+  /** Health, logs, alerts, jobs, deliveries, releases, notices. */
+  "instance.operate",
+  /** The change trail and the sign-in trail. */
+  "trails.read",
+  /** The trails and the access report taken out as files. */
+  "trails.export",
+] as const;
+export type InstancePermission = (typeof INSTANCE_PERMISSIONS)[number];
+
+/** Who calls Administration, each by what they are. */
+export const INSTANCE_CALLERS = [
+  "administrator",
+  "support",
+  "auditor",
+  ...INSTANCE_ROLES,
+] as const;
+export type InstanceCaller = (typeof INSTANCE_CALLERS)[number];
+
+/**
+ * What each caller of Administration holds. An auditor also reads every
+ * page of Administration, by what a procedure is (a query), apart from
+ * what reaches out to a client's database (`sources.browse`).
+ */
+const INSTANCE_PACKS: Record<
+  InstanceCaller,
+  ReadonlySet<InstancePermission>
+> = {
+  administrator: new Set(INSTANCE_PERMISSIONS),
+  support: new Set(["accounts.help", "sessions.end", "trails.read"]),
+  auditor: new Set(["trails.read", "trails.export"]),
+  account_manager: new Set([
+    "accounts.help",
+    "accounts.manage",
+    "groups.manage",
+  ]),
+  source_manager: new Set(["sources.manage", "sources.browse"]),
+};
+
+/** What an account is in Administration, from what it holds. */
+export function instanceCallers(account: {
+  isAdmin: boolean;
+  isSupport: boolean;
+  isAuditor: boolean;
+  instanceRoles: readonly InstanceRole[];
+}): InstanceCaller[] {
+  return [
+    ...(account.isAdmin ? (["administrator"] as const) : []),
+    ...(account.isSupport ? (["support"] as const) : []),
+    ...(account.isAuditor ? (["auditor"] as const) : []),
+    ...account.instanceRoles,
+  ];
+}
+
+/** Whether one of these callers holds the permission. */
+export function callersHold(
+  callers: readonly InstanceCaller[],
+  permission: InstancePermission,
+): boolean {
+  return callers.some((caller) => INSTANCE_PACKS[caller].has(permission));
+}
+
+/** The permissions these callers hold together. */
+export function callersPermissions(
+  callers: readonly InstanceCaller[],
+): InstancePermission[] {
+  return INSTANCE_PERMISSIONS.filter((permission) =>
+    callersHold(callers, permission),
+  );
+}
+
+export function isInstancePermission(
+  value: string,
+): value is InstancePermission {
+  return (INSTANCE_PERMISSIONS as readonly string[]).includes(value);
+}
+
 export type Binding = {
   role: Given;
   scope: Scope;

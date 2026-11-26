@@ -24,7 +24,7 @@ import { createRows } from "../services/rows.js";
 import { linkColumns } from "./catalog-shared.js";
 import type { Context } from "./context.js";
 import { handle } from "./guard.js";
-import { procedure, t } from "./init.js";
+import { asking, t } from "./init.js";
 
 const tokenSchema = z.string().regex(/^[A-Za-z0-9_-]{32,64}$/);
 const accessSchema = z.string().max(200).optional();
@@ -111,7 +111,10 @@ export const shareRouter = t.router({
    * tables the link's creator reads, with the fields they see. Locked
    * until the password, when it has one.
    */
-  openBase: procedure
+  openBase: asking({
+    exception: "publicLink",
+    asks: ["rows.read", "base.manage", "publish", "data.export"],
+  })
     .input(z.object({ token: tokenSchema, access: accessSchema }))
     .query(({ ctx, input }) =>
       handle(ctx, async () => {
@@ -145,7 +148,10 @@ export const shareRouter = t.router({
       }),
     ),
   /** A page of one table's rows through a base's link, read-only. */
-  baseRows: procedure
+  baseRows: asking({
+    exception: "publicLink",
+    asks: ["rows.read", "base.manage", "publish", "data.export"],
+  })
     .input(
       z.object({
         token: tokenSchema,
@@ -190,27 +196,42 @@ export const shareRouter = t.router({
    * It travels in a request's body: a reading is an address, which a
    * proxy on the way writes to its log.
    */
-  unlock: procedure.input(passwordSchema).mutation(({ ctx, input }) =>
-    handle(ctx, async () => {
-      const opened = await openShare(ctx, input, "rows.read");
-      return opened.locked
-        ? { locked: true as const, access: null }
-        : { locked: false as const, access: opened.access };
-    }),
-  ),
+  unlock: asking({
+    exception: "publicLink",
+    asks: ["rows.read", "publish"],
+    also: ["data.export"],
+  })
+    .input(passwordSchema)
+    .mutation(({ ctx, input }) =>
+      handle(ctx, async () => {
+        const opened = await openShare(ctx, input, "rows.read");
+        return opened.locked
+          ? { locked: true as const, access: null }
+          : { locked: false as const, access: opened.access };
+      }),
+    ),
   /** The same, for a link to a whole base. */
-  unlockBase: procedure.input(passwordSchema).mutation(({ ctx, input }) =>
-    handle(ctx, async () => {
-      const opened = await openBaseShare(
-        { db: ctx.db, encryptionKey: ctx.env.AUTH_ENCRYPTION_KEY },
-        input,
-      );
-      return opened.locked
-        ? { locked: true as const, access: null }
-        : { locked: false as const, access: opened.access };
-    }),
-  ),
-  open: procedure
+  unlockBase: asking({
+    exception: "publicLink",
+    asks: ["rows.read", "base.manage", "publish", "data.export"],
+  })
+    .input(passwordSchema)
+    .mutation(({ ctx, input }) =>
+      handle(ctx, async () => {
+        const opened = await openBaseShare(
+          { db: ctx.db, encryptionKey: ctx.env.AUTH_ENCRYPTION_KEY },
+          input,
+        );
+        return opened.locked
+          ? { locked: true as const, access: null }
+          : { locked: false as const, access: opened.access };
+      }),
+    ),
+  open: asking({
+    exception: "publicLink",
+    asks: ["rows.read", "publish"],
+    also: ["data.export"],
+  })
     .input(z.object({ token: tokenSchema, access: accessSchema }))
     .query(({ ctx, input }) =>
       handle(ctx, async () => {
@@ -241,7 +262,11 @@ export const shareRouter = t.router({
         };
       }),
     ),
-  rows: procedure
+  rows: asking({
+    exception: "publicLink",
+    asks: ["rows.read", "publish"],
+    also: ["data.export"],
+  })
     .input(
       z.object({
         token: tokenSchema,
@@ -283,7 +308,11 @@ export const shareRouter = t.router({
         };
       }),
     ),
-  submit: procedure
+  submit: asking({
+    exception: "publicLink",
+    asks: ["rows.write", "publish"],
+    also: ["data.export"],
+  })
     .input(
       z.object({
         token: tokenSchema,

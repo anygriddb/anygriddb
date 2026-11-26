@@ -11,13 +11,17 @@
  *   (ADR 0048);
  * - no text file holds a line a merge left unresolved
  *   (`conflict-markers.mjs`): Prettier moves such a line into a list, a
- *   table or a quote, where it passes the format check.
+ *   table or a quote, where it passes the format check;
+ * - the API refuses through `demand` and `granted`, never from
+ *   `roleGrants` itself (`hand-refusals.mjs`): what each way in asks is
+ *   declared and noted.
  * Only files Git tracks are read. Exits 1 with one line per problem.
  */
 import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { basename } from "node:path";
 import { conflictMarkers } from "./conflict-markers.mjs";
+import { handRefusals } from "./hand-refusals.mjs";
 
 const SCOPES = ["apps/", "packages/", "scripts/", "docker/", "docs/"];
 const KEBAB = /^[a-z0-9]+(-[a-z0-9]+)*(\.[a-z0-9]+(-[a-z0-9]+)*)*$/;
@@ -100,6 +104,18 @@ for (const path of tracked.filter(
 )) {
   for (const line of conflictMarkers(readFileSync(path, "utf8"))) {
     problems.push(`${path}:${line}: a merge's conflict marker`);
+  }
+}
+
+const API = /^apps\/api\/src\/.*\.ts$/;
+const NOT_RUN = /\.(?:test|test-helpers|integration\.test)\.ts$/;
+for (const path of tracked.filter(
+  (file) => API.test(file) && !NOT_RUN.test(file) && existsSync(file),
+)) {
+  for (const line of handRefusals(readFileSync(path, "utf8"))) {
+    problems.push(
+      `${path}:${line}: a refusal from roleGrants: use demand or granted (access/declaration.ts)`,
+    );
   }
 }
 

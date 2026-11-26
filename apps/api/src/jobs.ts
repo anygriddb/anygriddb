@@ -15,9 +15,10 @@ import {
   progressDue,
   type PublicError,
   publicError,
-  roleGrants,
   roleFor,
 } from "@anygriddb/core";
+import { granted, runDeclared } from "./access/declaration.js";
+import { JOB_ASKS } from "./job-runners.js";
 import type { Database, JobRow } from "@anygriddb/db";
 import type { KeyRing } from "./auth/key-ring.js";
 import type { TokenScope } from "./auth/tokens.js";
@@ -273,7 +274,12 @@ export async function runQueuedJob(
 ): Promise<void> {
   const job = await claimJob(deps.db, jobId);
   if (!job) return;
-  await runJob(deps, job, runners[job.kind], stopping);
+  await runDeclared(
+    `job.${job.kind}`,
+    JOB_ASKS[job.kind],
+    () => runJob(deps, job, runners[job.kind], stopping),
+    (message) => deps.log(new Error(message), "undeclared permission"),
+  );
 }
 
 /** How long an export file can be downloaded, as Administration sets it. */
@@ -672,9 +678,9 @@ export function jobReadableBy(
   if (job.baseId === null) return false;
   if (job.kind === "export_snapshot") {
     const role = roleFor(bindings, "base", job.baseId);
-    return roleGrants(role, "base.manage") && roleGrants(role, "data.export");
+    return granted(role, "base.manage") && granted(role, "data.export");
   }
-  return roleGrants(
+  return granted(
     job.tableId
       ? effectiveTableRole(bindings, job.tableId, job.baseId)
       : roleFor(bindings, "base", job.baseId),

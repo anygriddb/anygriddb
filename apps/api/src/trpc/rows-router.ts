@@ -35,6 +35,7 @@ import {
   updateRowsInputSchema,
   viewFilter,
 } from "@anygriddb/core";
+import { granted } from "../access/declaration.js";
 import {
   addComment,
   commentPlace,
@@ -110,7 +111,7 @@ import {
   tableAccess,
   type TableAccess,
 } from "./guard.js";
-import { procedure, requestNames, requireUser, t } from "./init.js";
+import { asking, requestNames, requireUser, t } from "./init.js";
 import { liveColumnNames } from "../data/live.js";
 import { resolveSmtp } from "../integrations/smtp.js";
 
@@ -301,90 +302,98 @@ async function stoppedByViewFilter(
 }
 
 export const rowsRouter = t.router({
-  read: procedure.input(rowsReadInputSchema).query(({ ctx, input }) =>
-    handle(ctx, async () => {
-      const access = await guardTable(ctx, input.tableId, "rows.read");
-      const { engine } = await engineFor(ctx, access);
-      const spec = await readSpec(ctx, access, input, engine);
-      let page: Awaited<ReturnType<typeof readPage>>;
-      try {
-        page = await readPage(ctx.db, engine, spec, {
-          total: input.withTotal,
-          exact: input.exactTotal,
-          groups: input.withGroups,
-          budget: ctx.readBudget,
-        });
-      } catch (error) {
-        if (!(await stoppedByViewFilter(ctx, access, input, engine, error))) {
-          throw error;
+  read: asking({ asks: ["rows.read"] })
+    .input(rowsReadInputSchema)
+    .query(({ ctx, input }) =>
+      handle(ctx, async () => {
+        const access = await guardTable(ctx, input.tableId, "rows.read");
+        const { engine } = await engineFor(ctx, access);
+        const spec = await readSpec(ctx, access, input, engine);
+        let page: Awaited<ReturnType<typeof readPage>>;
+        try {
+          page = await readPage(ctx.db, engine, spec, {
+            total: input.withTotal,
+            exact: input.exactTotal,
+            groups: input.withGroups,
+            budget: ctx.readBudget,
+          });
+        } catch (error) {
+          if (!(await stoppedByViewFilter(ctx, access, input, engine, error))) {
+            throw error;
+          }
+          return {
+            rows: [],
+            total: 0,
+            totalEstimated: false,
+            groups: [],
+            offset: spec.offset ?? 0,
+            viewFilterBroken: true as const,
+          };
         }
         return {
-          rows: [],
-          total: 0,
-          totalEstimated: false,
-          groups: [],
+          rows: await withSignatures(ctx, engine, page.rows),
+          // Null when the page was read without its count.
+          total: page.total,
+          totalEstimated: page.totalEstimated,
+          groups: page.groups,
           offset: spec.offset ?? 0,
-          viewFilterBroken: true as const,
+          viewFilterBroken: undefined as true | undefined,
         };
-      }
-      return {
-        rows: await withSignatures(ctx, engine, page.rows),
-        // Null when the page was read without its count.
-        total: page.total,
-        totalEstimated: page.totalEstimated,
-        groups: page.groups,
-        offset: spec.offset ?? 0,
-        viewFilterBroken: undefined as true | undefined,
-      };
-    }),
-  ),
-  get: procedure.input(rowsGetInputSchema).query(({ ctx, input }) =>
-    handle(ctx, async () => {
-      const access = await guardTable(ctx, input.tableId, "rows.read");
-      const { engine } = await engineFor(ctx, access);
-      const rows = await readByIds(
-        ctx.db,
-        engine,
-        input.rowIds,
-        safeTimeZone(input.timeZone),
-        visibleFields(engine),
-        ctx.readBudget,
-      );
-      return { rows: await withSignatures(ctx, engine, rows) };
-    }),
-  ),
-  aggregate: procedure.input(rowsAggregateInputSchema).query(({ ctx, input }) =>
-    handle(ctx, async () => {
-      const access = await guardTable(ctx, input.tableId, "rows.read");
-      const { engine } = await engineFor(ctx, access);
-      const asked = { ...input, limit: 1 };
-      const spec = await readSpec(ctx, access, asked, engine);
-      try {
-        const values = await aggregateRows(ctx.db, engine, spec, input.items);
-        return { values };
-      } catch (error) {
-        if (!(await stoppedByViewFilter(ctx, access, asked, engine, error))) {
-          throw error;
+      }),
+    ),
+  get: asking({ asks: ["rows.read"] })
+    .input(rowsGetInputSchema)
+    .query(({ ctx, input }) =>
+      handle(ctx, async () => {
+        const access = await guardTable(ctx, input.tableId, "rows.read");
+        const { engine } = await engineFor(ctx, access);
+        const rows = await readByIds(
+          ctx.db,
+          engine,
+          input.rowIds,
+          safeTimeZone(input.timeZone),
+          visibleFields(engine),
+          ctx.readBudget,
+        );
+        return { rows: await withSignatures(ctx, engine, rows) };
+      }),
+    ),
+  aggregate: asking({ asks: ["rows.read"] })
+    .input(rowsAggregateInputSchema)
+    .query(({ ctx, input }) =>
+      handle(ctx, async () => {
+        const access = await guardTable(ctx, input.tableId, "rows.read");
+        const { engine } = await engineFor(ctx, access);
+        const asked = { ...input, limit: 1 };
+        const spec = await readSpec(ctx, access, asked, engine);
+        try {
+          const values = await aggregateRows(ctx.db, engine, spec, input.items);
+          return { values };
+        } catch (error) {
+          if (!(await stoppedByViewFilter(ctx, access, asked, engine, error))) {
+            throw error;
+          }
+          return { values: input.items.map(() => null) };
         }
-        return { values: input.items.map(() => null) };
-      }
-    }),
-  ),
-  insert: procedure.input(insertRowInputSchema).mutation(({ ctx, input }) =>
-    handle(ctx, async () => {
-      const scope = await writeScope(ctx, input.tableId);
-      const [id] = await createRows(
-        serviceDeps(ctx),
-        scope,
-        [{ values: input.values }],
-        { reason: input.reason, source: "web" },
-        input.place,
-      );
-      if (!id) throw new AppError("no_row");
-      return { id };
-    }),
-  ),
-  insertMany: procedure
+      }),
+    ),
+  insert: asking({ asks: ["rows.write"] })
+    .input(insertRowInputSchema)
+    .mutation(({ ctx, input }) =>
+      handle(ctx, async () => {
+        const scope = await writeScope(ctx, input.tableId);
+        const [id] = await createRows(
+          serviceDeps(ctx),
+          scope,
+          [{ values: input.values }],
+          { reason: input.reason, source: "web" },
+          input.place,
+        );
+        if (!id) throw new AppError("no_row");
+        return { id };
+      }),
+    ),
+  insertMany: asking({ asks: ["rows.write"] })
     .input(insertRowsInputSchema)
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
@@ -399,20 +408,22 @@ export const rowsRouter = t.router({
         return { ids };
       }),
     ),
-  move: procedure.input(moveRowsInputSchema).mutation(({ ctx, input }) =>
-    handle(ctx, async () => {
-      const scope = await writeScope(ctx, input.tableId);
-      const ids = await moveRows(
-        serviceDeps(ctx),
-        scope,
-        input.rowIds,
-        input.place,
-        { source: "web" },
-      );
-      return { ids };
-    }),
-  ),
-  updateMany: procedure
+  move: asking({ asks: ["rows.write"] })
+    .input(moveRowsInputSchema)
+    .mutation(({ ctx, input }) =>
+      handle(ctx, async () => {
+        const scope = await writeScope(ctx, input.tableId);
+        const ids = await moveRows(
+          serviceDeps(ctx),
+          scope,
+          input.rowIds,
+          input.place,
+          { source: "web" },
+        );
+        return { ids };
+      }),
+    ),
+  updateMany: asking({ asks: ["rows.write"] })
     .input(updateRowsInputSchema)
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
@@ -424,7 +435,7 @@ export const rowsRouter = t.router({
         return { ids };
       }),
     ),
-  deleteMany: procedure
+  deleteMany: asking({ asks: ["rows.delete"] })
     .input(deleteRowsInputSchema)
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
@@ -436,64 +447,78 @@ export const rowsRouter = t.router({
         return { ids };
       }),
     ),
-  trash: procedure.input(trashInputSchema).query(({ ctx, input }) =>
-    handle(ctx, async () => {
-      const access = await guardTable(ctx, input.tableId, "rows.delete");
-      const { engine } = await engineFor(ctx, access);
-      const deletedBy = trashScope({
-        actorId: access.user.id,
-        table: access.table,
-        engine,
-      });
-      // A client's rows: those deleted through AnyGridDB (ADR 0007).
-      if (access.table.storage === "external") {
-        return {
-          own: false,
-          rows: await listExternalTrash(ctx.db, engine, input.limit),
-        };
-      }
-      return {
-        own: deletedBy !== undefined,
-        rows: await listTrash(
-          ctx.db,
+  trash: asking({ asks: ["rows.delete"] })
+    .input(trashInputSchema)
+    .query(({ ctx, input }) =>
+      handle(ctx, async () => {
+        const access = await guardTable(ctx, input.tableId, "rows.delete");
+        const { engine } = await engineFor(ctx, access);
+        const deletedBy = trashScope({
+          actorId: access.user.id,
+          table: access.table,
           engine,
-          { tableId: access.table.id, physicalName: access.table.physicalName },
-          input.limit,
-          deletedBy,
-        ),
-      };
-    }),
-  ),
-  restore: procedure.input(restoreRowsInputSchema).mutation(({ ctx, input }) =>
-    handle(ctx, async () => {
-      const scope = await writeScope(ctx, input.tableId, "rows.delete");
-      return restoreRows(serviceDeps(ctx), scope, input.rowIds, {
-        reason: input.reason,
-        source: "restore",
-      });
-    }),
-  ),
-  setLinks: procedure.input(setLinksInputSchema).mutation(({ ctx, input }) =>
-    handle(ctx, async () => {
-      const scope = await writeScope(ctx, input.tableId);
-      await replaceLinks(
-        serviceDeps(ctx),
-        scope,
-        input.rowId,
-        input.targetIds
-          ? { column: input.column, targetIds: input.targetIds }
-          : {
-              column: input.column,
-              add: input.add ?? [],
-              remove: input.remove ?? [],
+        });
+        // A client's rows: those deleted through AnyGridDB (ADR 0007).
+        if (access.table.storage === "external") {
+          return {
+            own: false,
+            rows: await listExternalTrash(ctx.db, engine, input.limit),
+          };
+        }
+        return {
+          own: deletedBy !== undefined,
+          rows: await listTrash(
+            ctx.db,
+            engine,
+            {
+              tableId: access.table.id,
+              physicalName: access.table.physicalName,
             },
-        { reason: input.reason, source: "web" },
-      );
-      const [row] = await readByIds(ctx.db, scope.engine, [input.rowId], "UTC");
-      return { link: row?.[input.column] ?? [] };
-    }),
-  ),
-  linkCandidates: procedure
+            input.limit,
+            deletedBy,
+          ),
+        };
+      }),
+    ),
+  restore: asking({ asks: ["rows.delete"] })
+    .input(restoreRowsInputSchema)
+    .mutation(({ ctx, input }) =>
+      handle(ctx, async () => {
+        const scope = await writeScope(ctx, input.tableId, "rows.delete");
+        return restoreRows(serviceDeps(ctx), scope, input.rowIds, {
+          reason: input.reason,
+          source: "restore",
+        });
+      }),
+    ),
+  setLinks: asking({ asks: ["rows.write"], also: ["rows.read"] })
+    .input(setLinksInputSchema)
+    .mutation(({ ctx, input }) =>
+      handle(ctx, async () => {
+        const scope = await writeScope(ctx, input.tableId);
+        await replaceLinks(
+          serviceDeps(ctx),
+          scope,
+          input.rowId,
+          input.targetIds
+            ? { column: input.column, targetIds: input.targetIds }
+            : {
+                column: input.column,
+                add: input.add ?? [],
+                remove: input.remove ?? [],
+              },
+          { reason: input.reason, source: "web" },
+        );
+        const [row] = await readByIds(
+          ctx.db,
+          scope.engine,
+          [input.rowId],
+          "UTC",
+        );
+        return { link: row?.[input.column] ?? [] };
+      }),
+    ),
+  linkCandidates: asking({ asks: ["rows.read"] })
     .input(linkCandidatesInputSchema)
     .query(({ ctx, input }) =>
       handle(ctx, async () => {
@@ -516,22 +541,24 @@ export const rowsRouter = t.router({
         };
       }),
     ),
-  setStatus: procedure.input(setStatusInputSchema).mutation(({ ctx, input }) =>
-    handle(ctx, async () => {
-      // Each move is a step of the circuit, given to whom the step names.
-      const access = await guardTable(ctx, input.tableId, "rows.transition");
-      const scope = await scopeOf(ctx, access);
-      await changeStatus(
-        serviceDeps(ctx),
-        { ...scope, role: access.role },
-        input.rowId,
-        input.status,
-        { source: "web" },
-      );
-      return { ok: true as const };
-    }),
-  ),
-  transition: procedure
+  setStatus: asking({ asks: ["rows.transition"] })
+    .input(setStatusInputSchema)
+    .mutation(({ ctx, input }) =>
+      handle(ctx, async () => {
+        // Each move is a step of the circuit, given to whom the step names.
+        const access = await guardTable(ctx, input.tableId, "rows.transition");
+        const scope = await scopeOf(ctx, access);
+        await changeStatus(
+          serviceDeps(ctx),
+          { ...scope, role: access.role },
+          input.rowId,
+          input.status,
+          { source: "web" },
+        );
+        return { ok: true as const };
+      }),
+    ),
+  transition: asking({ asks: ["rows.transition"] })
     .input(transitionRowInputSchema)
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
@@ -545,99 +572,108 @@ export const rowsRouter = t.router({
         );
       }),
     ),
-  sign: procedure.input(signRowInputSchema).mutation(({ ctx, input }) =>
-    handle(ctx, async () => {
-      // A token signs nothing: a signature is its signer's proof.
-      if (ctx.tokenScope) throw new AppError("signature_in_app");
-      const access = await guardTable(ctx, input.tableId, "rows.transition");
-      await signRowAs(
-        serviceDeps(ctx),
-        { ...(await scopeOf(ctx, access)), role: access.role },
-        input,
-        { source: "web" },
-      );
-      return { ok: true as const };
-    }),
-  ),
-  revert: procedure.input(revertRowInputSchema).mutation(({ ctx, input }) =>
-    handle(ctx, async () => {
-      const scope = await writeScope(ctx, input.tableId);
-      await revertRow(serviceDeps(ctx), scope, input);
-      return { ok: true as const };
-    }),
-  ),
-  audit: procedure.input(auditReadInputSchema).query(({ ctx, input }) =>
-    handle(ctx, async () => {
-      const access = await guardTable(ctx, input.tableId, "rows.read");
-      const { engine } = await engineFor(ctx, access);
-      await assertRowsInScope(ctx.db, engine, [input.recordId]);
-      const rules = engine.access;
-      const hidden = (name: string) =>
-        rules !== undefined &&
-        name !== "id" &&
-        !name.startsWith("ag_") &&
-        rules.hidden(input.tableId, name);
-      // A client's row: the writes made through AnyGridDB (ADR 0007).
-      if (access.table.storage === "external") {
-        const writes = await readExternalAudit(
-          ctx.db,
-          input.tableId,
-          input.recordId,
-          hidden,
-          ctx.readBudget,
+  sign: asking({ asks: ["rows.transition"] })
+    .input(signRowInputSchema)
+    .mutation(({ ctx, input }) =>
+      handle(ctx, async () => {
+        // A token signs nothing: a signature is its signer's proof.
+        if (ctx.tokenScope) throw new AppError("signature_in_app");
+        const access = await guardTable(ctx, input.tableId, "rows.transition");
+        await signRowAs(
+          serviceDeps(ctx),
+          { ...(await scopeOf(ctx, access)), role: access.role },
+          input,
+          { source: "web" },
         );
-        const statuses = await readStatusEvents(
-          ctx.db,
-          input.tableId,
-          input.recordId,
-          hidden,
-          ctx.readBudget,
-        );
-        return {
-          events: [
-            ...writes.map((event) => ({
-              ...event,
-              actingName: null as string | null,
-              fingerprint: null as string | null,
-              missing: false,
-            })),
-            ...statuses.map((event) => ({
-              ...event,
-              actingName: null as string | null,
-            })),
-          ]
-            .sort((left, right) =>
-              right.occurredAt.localeCompare(left.occurredAt),
-            )
-            .slice(0, 200),
-        };
-      }
-      if (!UUID.test(input.recordId)) return { events: [] };
-      return {
-        events: (
-          await readAudit(
+        return { ok: true as const };
+      }),
+    ),
+  revert: asking({ asks: ["rows.write"] })
+    .input(revertRowInputSchema)
+    .mutation(({ ctx, input }) =>
+      handle(ctx, async () => {
+        const scope = await writeScope(ctx, input.tableId);
+        await revertRow(serviceDeps(ctx), scope, input);
+        return { ok: true as const };
+      }),
+    ),
+  audit: asking({ asks: ["rows.read"] })
+    .input(auditReadInputSchema)
+    .query(({ ctx, input }) =>
+      handle(ctx, async () => {
+        const access = await guardTable(ctx, input.tableId, "rows.read");
+        const { engine } = await engineFor(ctx, access);
+        await assertRowsInScope(ctx.db, engine, [input.recordId]);
+        const rules = engine.access;
+        const hidden = (name: string) =>
+          rules !== undefined &&
+          name !== "id" &&
+          !name.startsWith("ag_") &&
+          rules.hidden(input.tableId, name);
+        // A client's row: the writes made through AnyGridDB (ADR 0007).
+        if (access.table.storage === "external") {
+          const writes = await readExternalAudit(
             ctx.db,
             input.tableId,
             input.recordId,
             hidden,
             ctx.readBudget,
-          )
-        ).map((event) => ({
-          ...event,
-          actingName: event.actingName,
-          state: null,
-          fingerprint: null as string | null,
-          missing: false,
-        })),
-      };
-    }),
-  ),
+          );
+          const statuses = await readStatusEvents(
+            ctx.db,
+            input.tableId,
+            input.recordId,
+            hidden,
+            ctx.readBudget,
+          );
+          return {
+            events: [
+              ...writes.map((event) => ({
+                ...event,
+                actingName: null as string | null,
+                fingerprint: null as string | null,
+                missing: false,
+              })),
+              ...statuses.map((event) => ({
+                ...event,
+                actingName: null as string | null,
+              })),
+            ]
+              .sort((left, right) =>
+                right.occurredAt.localeCompare(left.occurredAt),
+              )
+              .slice(0, 200),
+          };
+        }
+        if (!UUID.test(input.recordId)) return { events: [] };
+        return {
+          events: (
+            await readAudit(
+              ctx.db,
+              input.tableId,
+              input.recordId,
+              hidden,
+              ctx.readBudget,
+            )
+          ).map((event) => ({
+            ...event,
+            actingName: event.actingName,
+            state: null,
+            fingerprint: null as string | null,
+            missing: false,
+          })),
+        };
+      }),
+    ),
   /**
    * Writes a file staged by `POST /api/import/preview`. A new table takes
    * its columns from the mapping; an existing one may get new columns and
    * select options when the caller manages it.
    */
-  importCommit: procedure
+  importCommit: asking({
+    asks: ["data.import"],
+    also: ["schema.manage", "bases.create"],
+  })
     .input(importCommitInputSchema)
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
@@ -747,17 +783,19 @@ export const rowsRouter = t.router({
         return { jobId: job.id, tableId: access.table.id };
       }),
     ),
-  comments: procedure.input(listCommentsInputSchema).query(({ ctx, input }) =>
-    handle(ctx, async () => {
-      const access = await guardTable(ctx, input.tableId, "rows.read");
-      const { engine } = await engineFor(ctx, access);
-      await assertRowsInScope(ctx.db, engine, [input.rowId]);
-      return {
-        comments: await listComments(ctx.db, input.tableId, input.rowId),
-      };
-    }),
-  ),
-  commentCounts: procedure
+  comments: asking({ asks: ["rows.read"] })
+    .input(listCommentsInputSchema)
+    .query(({ ctx, input }) =>
+      handle(ctx, async () => {
+        const access = await guardTable(ctx, input.tableId, "rows.read");
+        const { engine } = await engineFor(ctx, access);
+        await assertRowsInScope(ctx.db, engine, [input.rowId]);
+        return {
+          comments: await listComments(ctx.db, input.tableId, input.rowId),
+        };
+      }),
+    ),
+  commentCounts: asking({ asks: ["rows.read"] })
     .input(rowsGetInputSchema.pick({ tableId: true, rowIds: true }))
     .query(({ ctx, input }) =>
       handle(ctx, async () => {
@@ -768,7 +806,7 @@ export const rowsRouter = t.router({
         };
       }),
     ),
-  addComment: procedure
+  addComment: asking({ asks: ["rows.comment"] })
     .input(addCommentInputSchema)
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
@@ -804,7 +842,7 @@ export const rowsRouter = t.router({
         return created;
       }),
     ),
-  updateComment: procedure
+  updateComment: asking({ asks: ["rows.comment"] })
     .input(updateCommentInputSchema)
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
@@ -845,7 +883,7 @@ export const rowsRouter = t.router({
    * A thread resolved, or opened again, by anyone who may comment on its
    * row: a row the person's rules keep from them is not theirs to close.
    */
-  resolveComment: procedure
+  resolveComment: asking({ asks: ["rows.comment"] })
     .input(resolveCommentInputSchema)
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
@@ -867,7 +905,7 @@ export const rowsRouter = t.router({
         return { ok: true as const };
       }),
     ),
-  deleteComment: procedure
+  deleteComment: asking({ asks: ["rows.comment"], also: ["base.manage"] })
     .input(deleteCommentInputSchema)
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
@@ -881,7 +919,7 @@ export const rowsRouter = t.router({
           ctx.db,
           input.commentId,
           access.user.id,
-          roleGrants(access.role, "base.manage"),
+          granted(access.role, "base.manage"),
         );
         return { ok: true as const };
       }),

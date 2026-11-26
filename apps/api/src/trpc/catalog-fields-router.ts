@@ -34,7 +34,7 @@ import type { Context } from "./context.js";
 import { readableTables } from "../data/acl.js";
 import { guardTable, handle } from "./guard.js";
 import { queueDeps } from "./jobs-router.js";
-import { procedure, requestNames } from "./init.js";
+import { asking, requestNames } from "./init.js";
 import { logPublish } from "./catalog-shared.js";
 
 /** The base of each table in one base: what a link inside it may reach. */
@@ -63,25 +63,27 @@ const reorderOptionsSchema = z.object({
 });
 
 export const catalogFieldProcedures = {
-  addColumn: procedure.input(addColumnInputSchema).mutation(({ ctx, input }) =>
-    handle(ctx, async () => {
-      const { user, table } = await guardTable(
-        ctx,
-        input.tableId,
-        "schema.manage",
-      );
-      const created = await addColumn(
-        ctx.db,
-        user.id,
-        table.id,
-        columnFromAddInput(input),
-        input.position,
-      );
-      await publishCatalog(ctx.bus, table.baseId, logPublish(ctx));
-      return created;
-    }),
-  ),
-  updateColumn: procedure
+  addColumn: asking({ asks: ["schema.manage"] })
+    .input(addColumnInputSchema)
+    .mutation(({ ctx, input }) =>
+      handle(ctx, async () => {
+        const { user, table } = await guardTable(
+          ctx,
+          input.tableId,
+          "schema.manage",
+        );
+        const created = await addColumn(
+          ctx.db,
+          user.id,
+          table.id,
+          columnFromAddInput(input),
+          input.position,
+        );
+        await publishCatalog(ctx.bus, table.baseId, logPublish(ctx));
+        return created;
+      }),
+    ),
+  updateColumn: asking({ asks: ["schema.manage"] })
     .input(updateColumnInputSchema.extend(reorderOptionsSchema.shape))
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
@@ -107,7 +109,7 @@ export const catalogFieldProcedures = {
         return { ok: true as const, jobId: null };
       }),
     ),
-  duplicateColumn: procedure
+  duplicateColumn: asking({ asks: ["schema.manage"] })
     .input(duplicateColumnInputSchema)
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
@@ -127,7 +129,7 @@ export const catalogFieldProcedures = {
         return created;
       }),
     ),
-  previewConversion: procedure
+  previewConversion: asking({ asks: ["schema.manage"] })
     .input(previewConversionInputSchema)
     .query(({ ctx, input }) =>
       handle(ctx, async () => {
@@ -147,7 +149,7 @@ export const catalogFieldProcedures = {
         });
       }),
     ),
-  deleteColumn: procedure
+  deleteColumn: asking({ asks: ["schema.manage"] })
     .input(deleteColumnInputSchema)
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
@@ -161,7 +163,7 @@ export const catalogFieldProcedures = {
         return { ok: true as const };
       }),
     ),
-  reorderColumns: procedure
+  reorderColumns: asking({ asks: ["schema.manage"] })
     .input(reorderColumnsInputSchema)
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
@@ -175,7 +177,7 @@ export const catalogFieldProcedures = {
         return { ok: true as const };
       }),
     ),
-  setPrimaryColumn: procedure
+  setPrimaryColumn: asking({ asks: ["schema.manage"] })
     .input(setPrimaryColumnInputSchema)
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
@@ -189,7 +191,7 @@ export const catalogFieldProcedures = {
         return { ok: true as const };
       }),
     ),
-  addRelation: procedure
+  addRelation: asking({ asks: ["schema.manage"], also: ["rows.read"] })
     .input(addRelationInputSchema)
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
@@ -211,40 +213,44 @@ export const catalogFieldProcedures = {
         return created;
       }),
     ),
-  addLookup: procedure.input(addLookupInputSchema).mutation(({ ctx, input }) =>
-    handle(ctx, async () => {
-      const { user, bindings, table } = await guardTable(
-        ctx,
-        input.tableId,
-        "schema.manage",
-      );
-      const baseOf = await tablesOfBase(ctx, table.baseId);
-      const created = await insertComputed(
-        ctx.db,
-        user.id,
-        input,
-        readableTables(bindings, baseOf),
-      );
-      await publishCatalog(ctx.bus, table.baseId, logPublish(ctx));
-      return created;
-    }),
-  ),
-  addRollup: procedure.input(addRollupInputSchema).mutation(({ ctx, input }) =>
-    handle(ctx, async () => {
-      const { user, bindings, table } = await guardTable(
-        ctx,
-        input.tableId,
-        "schema.manage",
-      );
-      const baseOf = await tablesOfBase(ctx, table.baseId);
-      const created = await insertComputed(
-        ctx.db,
-        user.id,
-        input,
-        readableTables(bindings, baseOf),
-      );
-      await publishCatalog(ctx.bus, table.baseId, logPublish(ctx));
-      return created;
-    }),
-  ),
+  addLookup: asking({ asks: ["schema.manage"] })
+    .input(addLookupInputSchema)
+    .mutation(({ ctx, input }) =>
+      handle(ctx, async () => {
+        const { user, bindings, table } = await guardTable(
+          ctx,
+          input.tableId,
+          "schema.manage",
+        );
+        const baseOf = await tablesOfBase(ctx, table.baseId);
+        const created = await insertComputed(
+          ctx.db,
+          user.id,
+          input,
+          readableTables(bindings, baseOf),
+        );
+        await publishCatalog(ctx.bus, table.baseId, logPublish(ctx));
+        return created;
+      }),
+    ),
+  addRollup: asking({ asks: ["schema.manage"] })
+    .input(addRollupInputSchema)
+    .mutation(({ ctx, input }) =>
+      handle(ctx, async () => {
+        const { user, bindings, table } = await guardTable(
+          ctx,
+          input.tableId,
+          "schema.manage",
+        );
+        const baseOf = await tablesOfBase(ctx, table.baseId);
+        const created = await insertComputed(
+          ctx.db,
+          user.id,
+          input,
+          readableTables(bindings, baseOf),
+        );
+        await publishCatalog(ctx.bus, table.baseId, logPublish(ctx));
+        return created;
+      }),
+    ),
 };

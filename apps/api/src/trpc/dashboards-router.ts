@@ -26,33 +26,37 @@ import {
   widgetsForReader,
 } from "../data/dashboards.js";
 import { authorize, baseAccess, guardBase, handle } from "./guard.js";
-import { procedure, t } from "./init.js";
+import { asking, t } from "./init.js";
 
 export const dashboardsRouter = t.router({
-  list: procedure.input(listDashboardsInputSchema).query(({ ctx, input }) =>
-    handle(ctx, async () => {
-      await guardBase(ctx, input.baseId, "rows.read");
-      return { dashboards: await listDashboards(ctx.db, input.baseId) };
-    }),
-  ),
-  get: procedure.input(getDashboardInputSchema).query(({ ctx, input }) =>
-    handle(ctx, async () => {
-      const actor = await authorize(ctx);
-      const dashboard = await loadDashboard(ctx.db, input.dashboardId);
-      await baseAccess(ctx, actor, dashboard.baseId, "rows.read");
-      const board = await getDashboard(ctx.db, input.dashboardId);
-      return {
-        dashboard: board.dashboard,
-        widgets: await widgetsForReader(
-          ctx.db,
-          { userId: actor.user.id, bindings: actor.bindings },
-          dashboard.baseId,
-          board.widgets,
-        ),
-      };
-    }),
-  ),
-  create: procedure
+  list: asking({ asks: ["rows.read"] })
+    .input(listDashboardsInputSchema)
+    .query(({ ctx, input }) =>
+      handle(ctx, async () => {
+        await guardBase(ctx, input.baseId, "rows.read");
+        return { dashboards: await listDashboards(ctx.db, input.baseId) };
+      }),
+    ),
+  get: asking({ asks: ["rows.read"] })
+    .input(getDashboardInputSchema)
+    .query(({ ctx, input }) =>
+      handle(ctx, async () => {
+        const actor = await authorize(ctx);
+        const dashboard = await loadDashboard(ctx.db, input.dashboardId);
+        await baseAccess(ctx, actor, dashboard.baseId, "rows.read");
+        const board = await getDashboard(ctx.db, input.dashboardId);
+        return {
+          dashboard: board.dashboard,
+          widgets: await widgetsForReader(
+            ctx.db,
+            { userId: actor.user.id, bindings: actor.bindings },
+            dashboard.baseId,
+            board.widgets,
+          ),
+        };
+      }),
+    ),
+  create: asking({ asks: ["dashboards.manage"] })
     .input(createDashboardInputSchema)
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
@@ -64,7 +68,7 @@ export const dashboardsRouter = t.router({
         return createDashboard(ctx.db, user.id, input);
       }),
     ),
-  update: procedure
+  update: asking({ asks: ["dashboards.manage"] })
     .input(updateDashboardInputSchema)
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
@@ -79,7 +83,7 @@ export const dashboardsRouter = t.router({
         return updateDashboard(ctx.db, user.id, input);
       }),
     ),
-  delete: procedure
+  delete: asking({ asks: ["dashboards.manage"] })
     .input(deleteDashboardInputSchema)
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
@@ -95,7 +99,7 @@ export const dashboardsRouter = t.router({
         return { ok: true as const };
       }),
     ),
-  upsertWidget: procedure
+  upsertWidget: asking({ asks: ["dashboards.manage"] })
     .input(upsertWidgetInputSchema)
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
@@ -110,7 +114,7 @@ export const dashboardsRouter = t.router({
         return upsertWidget(ctx.db, user.id, dashboard.baseId, input);
       }),
     ),
-  deleteWidget: procedure
+  deleteWidget: asking({ asks: ["dashboards.manage"] })
     .input(deleteWidgetInputSchema)
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
@@ -126,48 +130,52 @@ export const dashboardsRouter = t.router({
         return { ok: true as const };
       }),
     ),
-  layout: procedure.input(layoutWidgetsInputSchema).mutation(({ ctx, input }) =>
-    handle(ctx, async () => {
-      const actor = await authorize(ctx);
-      const dashboard = await loadDashboard(ctx.db, input.dashboardId);
-      const { user } = await baseAccess(
-        ctx,
-        actor,
-        dashboard.baseId,
-        "dashboards.manage",
-      );
-      await layoutWidgets(ctx.db, user.id, input.dashboardId, input.widgets);
-      return { ok: true as const };
-    }),
-  ),
-  widgetData: procedure.input(widgetDataInputSchema).query(({ ctx, input }) =>
-    handle(ctx, async () => {
-      const actor = await authorize(ctx);
-      const { user, bindings } = actor;
-      const { dashboard, widgets } = await getDashboard(
-        ctx.db,
-        input.dashboardId,
-      );
-      await baseAccess(ctx, actor, dashboard.baseId, "rows.read");
-      const widget = widgets.find((item) => item.id === input.widgetId);
-      if (!widget) throw new AppError("unknown_widget");
-      return widgetData(
-        { db: ctx.db },
-        {
-          widget,
-          userId: user.id,
-          bindings,
-          timeZone:
-            typeof ctx.req.headers["x-timezone"] === "string"
-              ? ctx.req.headers["x-timezone"]
-              : "UTC",
-          canReadTable: (tableId) =>
-            roleGrants(
-              effectiveTableRole(bindings, tableId, dashboard.baseId),
-              "rows.read",
-            ),
-        },
-      );
-    }),
-  ),
+  layout: asking({ asks: ["dashboards.manage"] })
+    .input(layoutWidgetsInputSchema)
+    .mutation(({ ctx, input }) =>
+      handle(ctx, async () => {
+        const actor = await authorize(ctx);
+        const dashboard = await loadDashboard(ctx.db, input.dashboardId);
+        const { user } = await baseAccess(
+          ctx,
+          actor,
+          dashboard.baseId,
+          "dashboards.manage",
+        );
+        await layoutWidgets(ctx.db, user.id, input.dashboardId, input.widgets);
+        return { ok: true as const };
+      }),
+    ),
+  widgetData: asking({ asks: ["rows.read"] })
+    .input(widgetDataInputSchema)
+    .query(({ ctx, input }) =>
+      handle(ctx, async () => {
+        const actor = await authorize(ctx);
+        const { user, bindings } = actor;
+        const { dashboard, widgets } = await getDashboard(
+          ctx.db,
+          input.dashboardId,
+        );
+        await baseAccess(ctx, actor, dashboard.baseId, "rows.read");
+        const widget = widgets.find((item) => item.id === input.widgetId);
+        if (!widget) throw new AppError("unknown_widget");
+        return widgetData(
+          { db: ctx.db },
+          {
+            widget,
+            userId: user.id,
+            bindings,
+            timeZone:
+              typeof ctx.req.headers["x-timezone"] === "string"
+                ? ctx.req.headers["x-timezone"]
+                : "UTC",
+            canReadTable: (tableId) =>
+              roleGrants(
+                effectiveTableRole(bindings, tableId, dashboard.baseId),
+                "rows.read",
+              ),
+          },
+        );
+      }),
+    ),
 });

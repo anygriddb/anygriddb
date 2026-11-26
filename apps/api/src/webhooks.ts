@@ -5,12 +5,12 @@ import {
   effectiveTableRole,
   type EngineCatalog,
   filterGroupSchema,
-  roleGrantsAll,
   type RowEvent,
   stepBetween,
   touchesWatched,
   WEBHOOK_FAILURE_LIMIT,
 } from "@anygriddb/core";
+import { granted } from "./access/declaration.js";
 import type { Database, NewRow, WebhookRow } from "@anygriddb/db";
 import { sql as sqlTag } from "kysely";
 import { authorBindings } from "./auth/access.js";
@@ -385,10 +385,9 @@ async function creatorEngine(
   const table = loaded.rows.tables.find((item) => item.id === tableId);
   if (
     !table ||
-    !roleGrantsAll(effectiveTableRole(bindings, tableId, table.baseId), [
-      "rows.read",
-      "data.export",
-    ])
+    !(["rows.read", "data.export"] as const).every((asked) =>
+      granted(effectiveTableRole(bindings, tableId, table.baseId), asked),
+    )
   ) {
     return null;
   }

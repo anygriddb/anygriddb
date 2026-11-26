@@ -3,7 +3,6 @@ import {
   type Binding,
   effectiveTableRole,
   isHomeTable,
-  roleGrants,
   type BaseTemplate,
   buildDuplicateJunction,
   buildDuplicateComments,
@@ -29,6 +28,7 @@ import {
   type RollupFn,
   ceilingOf,
 } from "@anygriddb/core";
+import { demand } from "../access/declaration.js";
 import { runStatement, type Database } from "@anygriddb/db";
 import { readerAccess } from "./acl.js";
 import { runRows, withAudit } from "./audit-context.js";
@@ -475,14 +475,10 @@ export async function assertMayCopyRows(
   reader: { userId: string; bindings: readonly Binding[] },
   table: { id: string; baseId: string },
 ): Promise<void> {
-  if (
-    !roleGrants(
-      effectiveTableRole(reader.bindings, table.id, table.baseId),
-      "data.export",
-    )
-  ) {
-    throw new AppError("access_denied");
-  }
+  demand(
+    effectiveTableRole(reader.bindings, table.id, table.baseId),
+    "data.export",
+  );
   if (await readerAccess(db, reader, [table])) {
     throw new AppError("copy_under_rules");
   }
