@@ -3,7 +3,7 @@ import { Button, Checkbox, Input, Label, Spinner } from "@anygriddb/ui";
 import { plural } from "@lingui/core/macro";
 import { useLingui } from "@lingui/react/macro";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Pencil, Plus, Trash2 } from "lucide-react";
+import { Copy, Pencil, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { useErrorText } from "../../lib/errors";
@@ -50,6 +50,16 @@ export function RolesTab() {
   );
   const listOf = (permissions: readonly Permission[]) =>
     permissions.map((permission) => label.get(permission) ?? permission);
+  /**
+   * A new role of the same permissions (ADR 0131): a shipped role is never
+   * changed, so one made from it is changed instead.
+   */
+  const duplicate = (name: string, permissions: readonly Permission[]) =>
+    setDraft({
+      id: null,
+      name: t`${{ name }} (copy)`,
+      permissions: [...permissions],
+    });
 
   async function refresh() {
     await Promise.all([
@@ -93,11 +103,24 @@ export function RolesTab() {
       >
         <ul className="divide-y divide-border rounded-sm border border-border">
           {roles.data.shipped.map((role) => (
-            <li key={role.role} className="flex flex-col gap-0.5 px-3 py-2">
-              <p className="font-medium">{roleLabel(role.role)}</p>
-              <p className="text-xs text-muted-foreground">
-                {listOf(role.permissions).join(" · ")}
-              </p>
+            <li key={role.role} className="flex items-center gap-3 px-3 py-2">
+              <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                <p className="font-medium">{roleLabel(role.role)}</p>
+                <p className="text-xs text-muted-foreground">
+                  {listOf(role.permissions).join(" · ")}
+                </p>
+              </div>
+              <Button
+                size="icon"
+                variant="ghost"
+                aria-label={t`Duplicate the role ${{ name: roleLabel(role.role) }}`}
+                disabled={busy || draft !== null}
+                onClick={() =>
+                  duplicate(roleLabel(role.role), role.permissions)
+                }
+              >
+                <Copy className="h-4 w-4" aria-hidden />
+              </Button>
             </li>
           ))}
         </ul>
@@ -214,6 +237,15 @@ export function RolesTab() {
                     other: `# holders`,
                   })}
                 </span>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  aria-label={t`Duplicate the role ${{ name: role.name }}`}
+                  disabled={busy || draft !== null}
+                  onClick={() => duplicate(role.name, role.permissions)}
+                >
+                  <Copy className="h-4 w-4" aria-hidden />
+                </Button>
                 <Button
                   size="icon"
                   variant="ghost"

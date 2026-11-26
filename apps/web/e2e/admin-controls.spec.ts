@@ -1732,6 +1732,17 @@ test("an administrator makes a role, and whoever holds it does what it gives", a
     holder.getByRole("menuitem", { name: "Import a file" }),
   ).toHaveCount(0);
   expect(await accessibilityViolations(holder)).toEqual([]);
+
+  // A shipped role is never changed: duplicated, it becomes one to change.
+  await page.goto("/admin/people/roles");
+  await page.getByRole("button", { name: "Duplicate the role Editor" }).click();
+  await expect(page.getByLabel("Name", { exact: true })).toHaveValue(
+    "Editor (copy)",
+  );
+  await expect(page.getByLabel("Publish", { exact: true })).toBeChecked();
+  await expect(page.getByLabel("Export", { exact: true })).toBeChecked();
+  expect(await accessibilityViolations(page)).toEqual([]);
+  await page.getByRole("button", { name: "Cancel", exact: true }).click();
   await theirs.close();
   expect(blocked).toEqual([]);
 });

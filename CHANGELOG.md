@@ -40,6 +40,12 @@ rules, and runs a version before 0.11.2 upgrades through 0.11.2 first.
   them. Tick Export on it to keep its scripts reading. The API console in
   a session reads as before.
 
+### Added
+
+- Administration › People › Roles offers **Duplicate** on every role, the
+  four shipped ones included: a new role of the same permissions, to
+  change, since a shipped role never is (ADR 0131).
+
 ### Changed
 
 - Administration's five roles (administrator, support, auditor, account
