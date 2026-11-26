@@ -145,7 +145,14 @@ export type NotificationKind =
 
 export type RelationKind = "many_to_many" | "one_to_many";
 
-export type Role = "commenter" | "editor" | "owner" | "viewer";
+export type Role =
+  | "commenter"
+  | "contributor"
+  | "editor"
+  | "owner"
+  | "reader"
+  | "validator"
+  | "viewer";
 
 export type Scope = "base" | "column" | "instance" | "row" | "table";
 

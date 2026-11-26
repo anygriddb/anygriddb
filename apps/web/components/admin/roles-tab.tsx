@@ -99,7 +99,7 @@ export function RolesTab() {
     <div className="flex max-w-3xl flex-col gap-4 text-sm">
       <RuledSection
         title={t`Roles`}
-        description={t`What a role gives someone on a base or a table. The four below come with every instance. Make others from the same permissions, then give them as the four are, from a base's settings or from here.`}
+        description={t`What a role gives someone on a base or a table. The roles below come with every instance and never change. Make others from the same permissions, or duplicate one, then give them as these are, from a base's settings or from here.`}
       >
         <ul className="divide-y divide-border rounded-sm border border-border">
           {roles.data.shipped.map((role) => (

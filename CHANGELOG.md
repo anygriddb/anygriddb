@@ -42,9 +42,16 @@ rules, and runs a version before 0.11.2 upgrades through 0.11.2 first.
 
 ### Added
 
+- Three more shipped roles of a base (ADR 0131, migration 0154):
+  **Reader** reads and comments and takes nothing out of the base;
+  **Contributor** reads, comments, writes, deletes, takes a circuit's
+  steps and imports, without exporting or publishing; **Validator**
+  reads, comments and takes the steps a circuit gives validators. None of
+  them reaches the base through a token. A circuit's step may name
+  contributors and validators beside owners and editors.
 - Administration › People › Roles offers **Duplicate** on every role, the
-  four shipped ones included: a new role of the same permissions, to
-  change, since a shipped role never is (ADR 0131).
+  shipped ones included: a new role of the same permissions, to change,
+  since a shipped role never is (ADR 0131).
 
 ### Changed
 

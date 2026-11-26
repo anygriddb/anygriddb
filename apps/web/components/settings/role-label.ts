@@ -17,7 +17,13 @@ export function useRoleLabel() {
           ? t`Commenter`
           : role === "viewer"
             ? t`Viewer`
-            : null;
+            : role === "contributor"
+              ? t`Contributor`
+              : role === "validator"
+                ? t`Validator`
+                : role === "reader"
+                  ? t`Reader`
+                  : null;
   return (role: Held | MadeRole | string | null | undefined): string => {
     if (role == null) return "—";
     // A notice names a made role by its name: it is no key of the four.
@@ -25,6 +31,7 @@ export function useRoleLabel() {
     if ("made" in role) {
       return [
         ...(role.role ? [shipped(role.role) ?? role.role] : []),
+        ...role.shipped.map((key) => shipped(key) ?? key),
         ...role.made.map((made) => made.name),
       ].join(" + ");
     }

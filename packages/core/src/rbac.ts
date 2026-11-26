@@ -57,7 +57,20 @@ export const PERMISSIONS = [
 ] as const;
 export type Permission = (typeof PERMISSIONS)[number];
 
-export const ROLES = ["owner", "editor", "commenter", "viewer"] as const;
+/**
+ * The shipped roles: the four of a rank, then three that are not on it
+ * (ADR 0131): a reader takes nothing out of the base, a contributor edits
+ * without exporting or publishing, a validator takes a circuit's steps.
+ */
+export const ROLES = [
+  "owner",
+  "editor",
+  "commenter",
+  "viewer",
+  "contributor",
+  "validator",
+  "reader",
+] as const;
 export type Role = (typeof ROLES)[number];
 
 const VIEWER: readonly Permission[] = [
@@ -77,15 +90,25 @@ const EDITOR: readonly Permission[] = [
 ];
 
 /**
- * The four roles as packs of permissions. Each gives exactly what its
- * rank gave before permissions were named (`rbac.test.ts` holds them to
- * it); the owner holds every permission.
+ * The shipped roles as packs of permissions. The four of a rank give
+ * exactly what their rank gave before permissions were named
+ * (`rbac.test.ts` holds them to it); the owner holds every permission.
  */
 const PACKS: Record<Role, ReadonlySet<Permission>> = {
   viewer: new Set(VIEWER),
   commenter: new Set(COMMENTER),
   editor: new Set(EDITOR),
   owner: new Set(PERMISSIONS),
+  reader: new Set(["rows.read", "rows.comment"]),
+  contributor: new Set([
+    "rows.read",
+    "rows.comment",
+    "rows.write",
+    "rows.delete",
+    "rows.transition",
+    "data.import",
+  ]),
+  validator: new Set(["rows.read", "rows.comment", "rows.transition"]),
 };
 
 /**
@@ -102,12 +125,13 @@ export type MadeRole = {
 export type Given = Role | MadeRole;
 
 /**
- * What applies on one base or one table when a made role is among it:
- * the highest of the four that applies there too, if any, the made roles,
- * and what they give together.
+ * What applies on one base or one table when several roles do: the
+ * highest of the four of a rank, if any, the other shipped roles it does
+ * not cover, the made roles, and what they give together.
  */
 export type Held = {
   role: Role | null;
+  shipped: readonly Role[];
   made: ReadonlyArray<{ id: string; name: string }>;
   permissions: readonly Permission[];
 };
@@ -127,6 +151,7 @@ export function grantName(grant: Grant | null): string | null {
   if (typeof grant === "string") return grant;
   return [
     ...(grant.role ? [grant.role] : []),
+    ...grant.shipped,
     ...grant.made.map((made) => made.name),
   ].join(" + ");
 }
@@ -189,7 +214,7 @@ export function readOnlyGiven(given: Given): Given {
  * (ADR 0131).
  */
 export function tokenGiven(given: Given): boolean {
-  return typeof given === "string" || roleGrants(given, "api.access");
+  return roleGrants(given, "api.access");
 }
 
 /** A public link: a form takes answers in; a view's or a base's shows rows. */
@@ -364,81 +389,129 @@ export type Binding = {
   fields?: Readonly<Record<string, ColumnAccess>> | null;
 };
 
-const ROLE_RANK: Record<Role, number> = {
+/** The four of a rank, by it; the other shipped roles are on no rank. */
+const ROLE_RANK: Partial<Record<Role, number>> = {
   viewer: 1,
   commenter: 2,
   editor: 3,
   owner: 4,
 };
 
+/** A role's place on the rank of the four; 0 for a role on none. */
 export function roleRank(role: Role): number {
-  return ROLE_RANK[role];
+  return ROLE_RANK[role] ?? 0;
+}
+
+/** Whether one shipped role gives all another gives. */
+function covers(wide: Role, narrow: Role): boolean {
+  return [...PACKS[narrow]].every((permission) => PACKS[wide].has(permission));
+}
+
+/** What several roles held together are made of, before one word for them. */
+type Parts = {
+  shipped: Set<Role>;
+  made: Map<string, { id: string; name: string }>;
+  permissions: Set<Permission>;
+};
+
+function emptyParts(): Parts {
+  return { shipped: new Set(), made: new Map(), permissions: new Set() };
+}
+
+function addGiven(parts: Parts, given: Given): void {
+  if (typeof given === "string") {
+    parts.shipped.add(given);
+    for (const permission of PACKS[given]) parts.permissions.add(permission);
+    return;
+  }
+  parts.made.set(given.id, { id: given.id, name: given.name });
+  for (const permission of given.permissions) parts.permissions.add(permission);
+}
+
+function addGrant(parts: Parts, grant: Grant): void {
+  if (typeof grant === "string") {
+    addGiven(parts, grant);
+    return;
+  }
+  if (grant.role) parts.shipped.add(grant.role);
+  for (const role of grant.shipped) parts.shipped.add(role);
+  for (const item of grant.made) parts.made.set(item.id, item);
+  for (const permission of grant.permissions) parts.permissions.add(permission);
 }
 
 /**
- * What applies on this exact scope, if anything: the highest of the four
- * bound there, as always; with a made role among them, every role bound
- * there together, each giving what it gives (an owner holds it all).
+ * One word for what roles held together give: a single shipped role when
+ * the others add nothing to it (the highest of the four of a rank, or one
+ * that covers all held), the owner's whole, or what they give together.
+ */
+function composed(parts: Parts): Grant | null {
+  const shipped = [...parts.shipped];
+  if (shipped.length === 0 && parts.made.size === 0) return null;
+  let best: Role | null = null;
+  for (const role of shipped) {
+    const rank = ROLE_RANK[role];
+    if (
+      rank !== undefined &&
+      (best === null || rank > (ROLE_RANK[best] ?? 0))
+    ) {
+      best = role;
+    }
+  }
+  if (best === "owner") return "owner";
+  // Shipped roles beyond the highest of the four, the narrower ones left
+  // out where another held covers them.
+  const others = shipped.filter(
+    (role) =>
+      ROLE_RANK[role] === undefined &&
+      !(best !== null && covers(best, role)) &&
+      !shipped.some(
+        (other) =>
+          other !== role &&
+          ROLE_RANK[other] === undefined &&
+          covers(other, role) &&
+          !covers(role, other),
+      ),
+  );
+  if (parts.made.size === 0) {
+    if (others.length === 0) return best;
+    if (best === null && others.length === 1) return others[0] ?? null;
+  }
+  return {
+    role: best,
+    shipped: others,
+    made: [...parts.made.values()],
+    permissions: PERMISSIONS.filter((permission) =>
+      parts.permissions.has(permission),
+    ),
+  };
+}
+
+/**
+ * What applies on this exact scope, if anything: what every role bound
+ * there gives together, named by the highest of the four alone when the
+ * others add nothing (an owner holds it all).
  */
 export function roleFor(
   bindings: readonly Binding[],
   scope: Scope,
   scopeId: string,
 ): Grant | null {
-  let best: Role | null = null;
-  const made = new Map<string, MadeRole>();
+  const parts = emptyParts();
   for (const binding of bindings) {
-    if (binding.scope !== scope || binding.scopeId !== scopeId) {
-      continue;
-    }
-    if (typeof binding.role !== "string") {
-      made.set(binding.role.id, binding.role);
-    } else if (!best || ROLE_RANK[binding.role] > ROLE_RANK[best]) {
-      best = binding.role;
-    }
+    if (binding.scope !== scope || binding.scopeId !== scopeId) continue;
+    addGiven(parts, binding.role);
   }
-  if (made.size === 0 || best === "owner") return best;
-  const roles = [...made.values()];
-  return {
-    role: best,
-    made: roles.map(({ id, name }) => ({ id, name })),
-    permissions: PERMISSIONS.filter(
-      (permission) =>
-        (best !== null && PACKS[best].has(permission)) ||
-        roles.some((role) => role.permissions.includes(permission)),
-    ),
-  };
+  return composed(parts);
 }
 
 /** What two grants give together: each permission either gives. */
 function unionOf(first: Grant | null, second: Grant | null): Grant | null {
   if (first === null) return second;
   if (second === null) return first;
-  const rankOf = (grant: Grant) =>
-    typeof grant === "string" ? grant : grant.role;
-  const one = rankOf(first);
-  const other = rankOf(second);
-  const role =
-    one === null
-      ? other
-      : other === null || ROLE_RANK[one] >= ROLE_RANK[other]
-        ? one
-        : other;
-  if (typeof first === "string" && typeof second === "string") return role;
-  if (role === "owner") return "owner";
-  const made = new Map<string, { id: string; name: string }>();
-  for (const grant of [first, second]) {
-    if (typeof grant === "string") continue;
-    for (const item of grant.made) made.set(item.id, item);
-  }
-  return {
-    role,
-    made: [...made.values()],
-    permissions: PERMISSIONS.filter(
-      (permission) =>
-        roleGrants(first, permission) || roleGrants(second, permission),
-    ),
-  };
+  const parts = emptyParts();
+  addGrant(parts, first);
+  addGrant(parts, second);
+  return composed(parts);
 }
 
 /**
