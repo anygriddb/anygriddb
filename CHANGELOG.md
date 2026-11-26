@@ -24,9 +24,24 @@ first.
   as before.
 - Where an administrator allowed private networks, a name of that network
   (`.internal`, `.local`) is reached too, its address checked as any other.
+- The grid, a row's panel and the gallery offer what a row's state lets
+  change, in any circuit: a row in a state that holds it is no longer
+  opened for typing, then refused by the server; it says "Row locked" at
+  once, and keeps its place. Until now only compliance's locked and signed
+  rows were held back on the screens.
+- A seal is said in its own word: a row "changed outside AnyGridDB since it
+  was sealed", whatever its state is called; the notification and its mail
+  say "a sealed row".
 
 ### Added
 
+- **A client's table takes a circuit of its own** (ADR 0137, migration
+  0147): its states, its steps, what each step asks, as on AnyGridDB's own
+  tables. What a state forbids, a change, some fields, a delete, is
+  refused through AnyGridDB; a sealed state seals the row, and a change
+  made elsewhere is found and told. A table without a key still has no
+  states, and its editor says why. Compliance stays the circuit a client's
+  table starts with.
 - **Storage has quotas** (migration 0146, ADR 0136): what a base's files and
   an account's may hold, set in MiB in Administration › Limits and usage,
   none by default. A file past one is refused, saying which, in a cell and

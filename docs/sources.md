@@ -117,11 +117,13 @@ caps as above.
 
 ## Statuses and signatures
 
-Status in AnyGridDB only (ADR 0033) — no client DDL. Needs PK. Locked /
-signed rows refused through AnyGridDB; other apps can still change the
-client table. Seal = SHA-256 of stored fields (incl. `updated_at` /
-`rowversion`). Job compares every 5 min (or seconds if watched). Mismatch →
-grid mark + notify lockers/signers/owners; unlock required before resign.
+State in AnyGridDB only (ADR 0033, 0137) — no client DDL. Needs PK. The
+table's circuit is its own, compliance until changed; what a state forbids
+(a change, some fields, a delete) is refused through AnyGridDB; other apps
+can still change the client table. A sealed state seals the row: SHA-256
+of stored fields (incl. `updated_at` / `rowversion`). Job compares every 5
+min (or seconds if watched). Mismatch → grid mark + notify those who moved
+or signed it, and owners; a step out of the sealed state before a new one.
 DBA triggers to hard-block are theirs; AnyGridDB installs none.
 
 ## Fields AnyGridDB adds

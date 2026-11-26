@@ -147,11 +147,6 @@ export const ERRORS = {
   no_row: [BAD, "No row"],
   row_locked: [409, "Row locked"],
   row_outside_rule: [403, "This would put the row outside what you can reach"],
-  /** A client's table keeps the compliance circuit (ADR 0033). */
-  circuit_fixed_on_source: [
-    BAD,
-    "A table of a client's database keeps the compliance circuit",
-  ],
   /** A step with four eyes is taken by someone else than the last one. */
   four_eyes: [
     409,
@@ -362,7 +357,7 @@ export const ERRORS = {
   revert_not_exact: [400, "This value cannot be written back exactly"],
   row_changed_elsewhere: [
     409,
-    "Row changed outside AnyGridDB since it was locked",
+    "Row changed outside AnyGridDB since it was sealed",
   ],
   source_row_missing: [409, "Row no longer in the source"],
   source_row_busy: [409, "Source row is locked by another write"],

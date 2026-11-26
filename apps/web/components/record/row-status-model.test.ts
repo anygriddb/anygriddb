@@ -8,6 +8,7 @@ import { describe, expect, it } from "vitest";
 import {
   allowedTransitions,
   canSubmitRow,
+  rowLets,
   statusSealed,
   statusShown,
 } from "./row-status-model";
@@ -138,5 +139,60 @@ describe("statusSealed", () => {
   it("reads seal from the circuit", () => {
     expect(statusSealed(compliance, "locked")).toBe(true);
     expect(statusSealed(compliance, "submitted")).toBe(false);
+  });
+});
+
+describe("what a row's state lets the screens offer", () => {
+  const states = [
+    {
+      key: "draft",
+      label: "Draft",
+      rules: { rowWritable: true, writableFields: null, allowDelete: true },
+    },
+    {
+      key: "in_review",
+      label: "In review",
+      rules: {
+        rowWritable: true,
+        writableFields: ["note"],
+        allowDelete: false,
+      },
+    },
+    {
+      key: "approved",
+      label: "Approved",
+      rules: { rowWritable: false, writableFields: null, allowDelete: false },
+    },
+  ];
+
+  it("offers what the state lets change, and the delete it allows", () => {
+    expect(
+      rowLets({ ag_status: "draft" }, states, { fields: ["amount"] }),
+    ).toBe(true);
+    expect(
+      rowLets({ ag_status: "in_review" }, states, { fields: ["note"] }),
+    ).toBe(true);
+    expect(rowLets({ ag_status: "draft" }, states, { delete: true })).toBe(
+      true,
+    );
+    expect(rowLets({}, states, { fields: ["amount"] })).toBe(true);
+  });
+
+  it("holds back what a state forbids, compliance's words before the states are read", () => {
+    expect(
+      rowLets({ ag_status: "in_review" }, states, { fields: ["amount"] }),
+    ).toBe(false);
+    expect(rowLets({ ag_status: "in_review" }, states, { delete: true })).toBe(
+      false,
+    );
+    expect(rowLets({ ag_status: "approved" }, states, { fields: [] })).toBe(
+      false,
+    );
+    expect(rowLets({ ag_status: "locked" }, [], { fields: ["amount"] })).toBe(
+      false,
+    );
+    expect(
+      rowLets({ ag_status: "submitted" }, [], { fields: ["amount"] }),
+    ).toBe(true);
   });
 });

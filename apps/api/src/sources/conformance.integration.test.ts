@@ -13,6 +13,8 @@
 import { createHash, randomBytes } from "node:crypto";
 import {
   AppError,
+  type CircuitDefinition,
+  definitionOf,
   buildAggregates,
   buildGroupAggregates,
   buildHistogram,
@@ -60,6 +62,7 @@ import {
   updateRows,
 } from "../services/rows.js";
 import { exposeTables, setTableWrites } from "./expose.js";
+import { loadTableCircuit, saveTableCircuit } from "../data/status-circuits.js";
 import { setSourcePools, SourcePools } from "./pools.js";
 import { dropUnusedCopy, runSync, setTableSync } from "./sync.js";
 import { readerEngine, setTableAcl } from "../data/acl.js";
@@ -75,8 +78,7 @@ import { listExternalTrash, settleExternalWrites } from "./writes.js";
 import {
   attachExternalStatuses,
   checkSeals,
-  setExternalStatus,
-  signExternalRow,
+  transitionExternalRow,
 } from "./statuses.js";
 import { runWatch, setTableWatch } from "./watch.js";
 import { recordingBus } from "../realtime/recording-bus.test-helpers.js";
@@ -2900,10 +2902,12 @@ describe("conformance of formulas across engines", () => {
         failure(changeStatus(services, owner, rowId, next, { source: "web" }));
       const sign = () =>
         failure(
-          signExternalRow(db, {
+          transitionExternalRow(db, {
             userId: actorId,
+            role: "owner",
             table,
             rowId: "1",
+            transitionKey: "sign",
             meaning: "Approuvé",
             source: "web",
             depth: 0,
@@ -2926,12 +2930,12 @@ describe("conformance of formulas across engines", () => {
       trace.push(await status("1", "submitted"));
       trace.push(
         await failure(
-          setExternalStatus(db, {
+          transitionExternalRow(db, {
             userId: actorId,
             role: "editor",
             table,
             rowId: "1",
-            status: "locked",
+            transitionKey: "lock",
             source: "web",
             depth: 0,
           }),
@@ -3416,33 +3420,22 @@ describe("conformance of formulas across engines", () => {
         statements,
         true,
       );
-      const set = (status: "submitted" | "locked") =>
+      const step = (transitionKey: string) =>
         codeOf(
-          setExternalStatus(db, {
+          transitionExternalRow(db, {
             userId: actorId,
             role: "owner",
             table,
             rowId: "1",
-            status,
-            source: "web",
-            depth: 0,
-          }),
-        );
-      expect(await set("submitted"), engine).toBe("ok");
-      expect(await set("locked"), engine).toBe("ok");
-      expect(
-        await codeOf(
-          signExternalRow(db, {
-            userId: actorId,
-            table,
-            rowId: "1",
+            transitionKey,
             meaning: "Approuvé",
             source: "web",
             depth: 0,
           }),
-        ),
-        engine,
-      ).toBe("ok");
+        );
+      expect(await step("submit"), engine).toBe("ok");
+      expect(await step("lock"), engine).toBe("ok");
+      expect(await step("sign"), engine).toBe("ok");
       const done = await db
         .selectFrom("externalStatuses")
         .select(["status", "sealFormat"])
@@ -3466,6 +3459,396 @@ describe("conformance of formulas across engines", () => {
       "grant select, update on erp.lock_bytes to 'reader'@'%'",
     ]);
   }, 180_000);
+
+  const REVIEWS: ReadonlyArray<{ engine: Engine; statements: string[] }> = (
+    [
+      ["postgres", "int", "varchar(20)", "conformance_reader"],
+      ["mysql", "int", "varchar(20)", "'reader'@'%'"],
+      ["mariadb", "int", "varchar(20)", "'reader'@'%'"],
+      ["sqlserver", "int", "varchar(20)", "reader"],
+      ["oracle", "number(10)", "varchar2(20)", "reader"],
+    ] as const
+  ).map(([engine, whole, text, reader]) => {
+    const q = (name: string) => (engine === "oracle" ? `"${name}"` : name);
+    const on = engine === "mysql" || engine === "mariadb" ? "erp." : "";
+    return {
+      engine,
+      statements: [
+        `create table ${q("review_rows")} (${q("id")} ${whole} primary key, ${q("label")} ${text}, ${q("amount")} ${whole})`,
+        `insert into ${q("review_rows")} values (1, 'a', 1)`,
+        `insert into ${q("review_rows")} values (2, null, 2)`,
+        `grant select, update, delete on ${on}${q("review_rows")} to ${reader}`,
+      ],
+    };
+  });
+
+  it.each(REVIEWS)(
+    "takes a client table's own circuit on $engine: a state's rules, a sealed state, a step's asks",
+    async ({ engine, statements }) => {
+      const { tableId, table, catalog, field } = await exposedTable(
+        engine,
+        "review_rows",
+        statements,
+        true,
+      );
+      await setTableWrites({ db, key, settings }, actorId, {
+        tableId,
+        update: true,
+        insert: false,
+        delete: true,
+      });
+      const reviewer = (
+        await db
+          .insertInto("users")
+          .values({
+            email: `reviewer-${engine}@example.com`,
+            displayName: "Reviewer",
+          })
+          .returning("id")
+          .executeTakeFirstOrThrow()
+      ).id;
+      const state = (
+        key: string,
+        rules: Partial<CircuitDefinition["states"][number]>,
+      ) => ({
+        key,
+        label: key,
+        initial: false,
+        writable: true,
+        writableFields: null,
+        delete: true,
+        seal: false,
+        ...rules,
+      });
+      const step = (
+        key: string,
+        from: string,
+        to: string,
+        rules: Partial<CircuitDefinition["steps"][number]> = {},
+      ) => ({
+        key,
+        label: key,
+        from,
+        to,
+        reason: false,
+        fields: [],
+        signature: "none" as const,
+        fourEyes: false,
+        roles: ["owner" as const],
+        madeRoles: [],
+        ...rules,
+      });
+      const circuit: CircuitDefinition = {
+        name: "Review",
+        states: [
+          state("draft", { initial: true }),
+          state("review", { writableFields: [field("label")], delete: false }),
+          state("approved", { writable: false, delete: false, seal: true }),
+        ],
+        steps: [
+          step("send", "draft", "review", { fields: [field("label")] }),
+          step("approve", "review", "approved", {
+            reason: true,
+            fourEyes: true,
+          }),
+          step("reopen", "approved", "draft"),
+        ],
+      };
+      /** Saves the circuit without a state, its rows moved where told. */
+      const save = (without = "", remap: Record<string, string> = {}) =>
+        codeOf(
+          saveTableCircuit(db, {
+            userId: actorId,
+            tableId,
+            physicalName: table.physicalName,
+            storage: "external",
+            keyed: true,
+            circuit: {
+              ...circuit,
+              states: circuit.states.filter((item) => item.key !== without),
+              steps: circuit.steps.filter(
+                (item) => item.from !== without && item.to !== without,
+              ),
+            },
+            remap,
+          }),
+        );
+      expect(await save(), engine).toBe("ok");
+      const services = { db, bus: recordingBus().bus, log: () => undefined };
+      // Read again: deletes were turned on after the table was exposed.
+      const owner = {
+        ...(await loadRowScope(
+          db,
+          {
+            userId: actorId,
+            bindings: [{ role: "owner", scope: "base", scopeId: baseId }],
+          },
+          await db
+            .selectFrom("dataTables")
+            .selectAll()
+            .where("id", "=", tableId)
+            .executeTakeFirstOrThrow(),
+        )),
+        role: "owner" as const,
+      };
+      const take = (
+        rowId: string,
+        transitionKey: string,
+        userId = actorId,
+        reason?: string,
+      ) =>
+        codeOf(
+          transitionExternalRow(db, {
+            userId,
+            role: "owner",
+            table,
+            rowId,
+            transitionKey,
+            reason,
+            source: "web",
+            depth: 0,
+          }),
+        );
+      const write = (values: Record<string, string | number>) =>
+        codeOf(
+          updateRows(services, owner, [{ rowId: "1", values }], {
+            source: "web",
+          }),
+        );
+      const entry = () =>
+        db
+          .selectFrom("externalStatuses")
+          .select(["status", "fingerprint", "drift"])
+          .where("tableId", "=", tableId)
+          .where("rowId", "=", "1")
+          .executeTakeFirst();
+      const physical = (name: string) =>
+        catalog.table.columns.find((column) => column.name === name)?.physical
+          ?.name ?? name;
+      const trace: unknown[] = [];
+      // A step asks its fields filled, read from the client's row.
+      trace.push(await take("2", "send"), await take("1", "send"));
+      const read = (
+        await readPage(
+          db,
+          catalog,
+          { rowIds: ["1", "2"], limit: 10, timeZone: "UTC" },
+          { total: false },
+        )
+      ).rows;
+      await attachExternalStatuses(db, catalog, read);
+      trace.push(
+        read
+          .sort((left, right) => left.id.localeCompare(right.id))
+          .map((row) => [row.id, row.ag_status]),
+      );
+      // In review only the label changes, and the row is not deleted.
+      trace.push(
+        await write({ [field("amount")]: 5 }),
+        await write({ [field("label")]: "b" }),
+        await codeOf(deleteRows(services, owner, ["1"], { source: "web" })),
+      );
+      // Another hand approves, and says why: the row is sealed.
+      trace.push(
+        await take("1", "approve", actorId, "Checked"),
+        await take("1", "approve", reviewer),
+        await take("1", "approve", reviewer, "Checked"),
+      );
+      const sealed = await entry();
+      trace.push(
+        sealed?.status,
+        /^[0-9a-f]{64}$/.test(sealed?.fingerprint ?? ""),
+      );
+      trace.push(await write({ [field("label")]: "c" }));
+      // A circuit that would free the sealed row is refused.
+      trace.push(await save("approved", { approved: "draft" }));
+      // Changed elsewhere, the sealed row is found changed.
+      await outside(
+        engine,
+        engine === "oracle"
+          ? 'update "review_rows" set "amount" = 9 where "id" = 1'
+          : "update review_rows set amount = 9 where id = 1",
+      );
+      await checkSeals(
+        { db, log: () => undefined },
+        { tableId, rowIds: ["1"] },
+      );
+      trace.push(
+        (
+          ((await entry())?.drift as { fields?: string[] } | null)?.fields ?? []
+        ).map(physical),
+      );
+      // Reopened, the row is in the first state again, its seal gone.
+      trace.push(await take("1", "reopen"), (await entry()) ?? null);
+      trace.push(await write({ [field("amount")]: 1 }));
+      // A state that goes has its rows moved where they are told.
+      trace.push(
+        await take("1", "send"),
+        await save("review", { review: "draft" }),
+      );
+      trace.push(
+        (await entry())?.status,
+        await write({ [field("amount")]: 2 }),
+      );
+      const events = await db
+        .selectFrom("externalStatusEvents")
+        .select(["action", "userId", "fingerprint", "reason", "detail"])
+        .where("tableId", "=", tableId)
+        .where("rowId", "=", "1")
+        .orderBy("at")
+        .orderBy("id")
+        .execute();
+      trace.push(
+        events.map((event) => [
+          event.action,
+          event.userId === null
+            ? "check"
+            : event.userId === reviewer
+              ? "reviewer"
+              : "actor",
+          event.fingerprint === null
+            ? null
+            : event.fingerprint === sealed?.fingerprint,
+          event.reason,
+          (event.detail as { from?: string; to?: string } | null)?.to ?? null,
+        ]),
+      );
+      expect(trace, engine).toEqual([
+        "value_required",
+        "ok",
+        [
+          ["1", "review"],
+          ["2", "draft"],
+        ],
+        "row_locked",
+        "ok",
+        "row_locked",
+        "four_eyes",
+        "reason_required",
+        "ok",
+        "approved",
+        true,
+        "row_locked",
+        "row_locked",
+        ["amount"],
+        "ok",
+        null,
+        "ok",
+        "ok",
+        "ok",
+        "draft",
+        "ok",
+        [
+          ["transition", "actor", null, null, "review"],
+          ["transition", "reviewer", true, "Checked", "approved"],
+          ["changed", "check", null, null, null],
+          ["transition", "actor", true, null, "draft"],
+          ["transition", "actor", null, null, "review"],
+        ],
+      ]);
+    },
+    120_000,
+  );
+
+  it("offers no circuit to a client's table without a key", async () => {
+    const { tableId, table } = await exposedTable("postgres", "review_free", [
+      "create table review_free (id int, label varchar(20))",
+      "grant select on review_free to conformance_reader",
+    ]);
+    const saving = saveTableCircuit(db, {
+      userId: actorId,
+      tableId,
+      physicalName: table.physicalName,
+      storage: "external",
+      keyed: false,
+      circuit: definitionOf(await loadTableCircuit(db, tableId)),
+    });
+    expect(await codeOf(saving)).toBe("external_table_no_key");
+  });
+
+  it("holds a client's row while a step seals it, and takes it back when the step stopped", async () => {
+    const { tableId, table, field, scope } = await exposedTable(
+      "postgres",
+      "review_fenced",
+      [
+        "create table review_fenced (id int primary key, label varchar(20))",
+        "insert into review_fenced values (1, 'a')",
+        "grant select, update on review_fenced to conformance_reader",
+      ],
+      true,
+    );
+    const take = (transitionKey: string) =>
+      codeOf(
+        transitionExternalRow(db, {
+          userId: actorId,
+          role: "owner",
+          table,
+          rowId: "1",
+          transitionKey,
+          meaning: "Approuvé",
+          source: "web",
+          depth: 0,
+        }),
+      );
+    const entry = () =>
+      db
+        .selectFrom("externalStatuses")
+        .select(["status", "fencedFrom", "fingerprint"])
+        .where("tableId", "=", tableId)
+        .where("rowId", "=", "1")
+        .executeTakeFirstOrThrow();
+    const services = { db, bus: recordingBus().bus, log: () => undefined };
+    const write = async () =>
+      codeOf(
+        updateRows(
+          services,
+          await scope(),
+          [{ rowId: "1", values: { [field("label")]: "b" } }],
+          { source: "web" },
+        ),
+      );
+    expect(await take("submit")).toBe("ok");
+    // A lock that took the state and has not sealed the row yet, as its
+    // process left it when it stopped.
+    await db
+      .updateTable("externalStatuses")
+      .set({ status: "locked", fencedFrom: "submitted" })
+      .where("tableId", "=", tableId)
+      .where("rowId", "=", "1")
+      .execute();
+    const trace: unknown[] = [
+      await take("sign"),
+      await take("unlock"),
+      await write(),
+      await entry(),
+    ];
+    // Past its time, the scheduled check takes the row back where it was.
+    await db
+      .updateTable("externalStatuses")
+      .set({ updatedAt: new Date(Date.now() - 600_000) })
+      .where("tableId", "=", tableId)
+      .where("rowId", "=", "1")
+      .execute();
+    await checkSeals({ db, log: () => undefined });
+    trace.push(await entry(), await take("lock"));
+    const sealed = await entry();
+    trace.push(
+      sealed.status,
+      sealed.fencedFrom,
+      /^[0-9a-f]{64}$/.test(sealed.fingerprint ?? ""),
+    );
+    expect(trace).toEqual([
+      "source_row_busy",
+      "source_row_busy",
+      "row_locked",
+      { status: "locked", fencedFrom: "submitted", fingerprint: null },
+      { status: "submitted", fencedFrom: null, fingerprint: null },
+      "ok",
+      "locked",
+      null,
+      true,
+    ]);
+  });
 
   const SEALED_BEFORE: ReadonlyArray<{
     engine: Engine;

@@ -89,6 +89,7 @@ import {
 } from "./selection";
 import { SelectionSummaryBar } from "./selection-summary";
 import type { RowsState } from "./use-rows";
+import { rowLets } from "../record/row-status-model";
 
 const ROW_HEIGHTS = {
   short: 32,
@@ -673,7 +674,7 @@ export function GridView(props: GridProps) {
       (!isEditableColumn(column) && !isEditableLink(column))
     )
       return;
-    if (row.ag_status === "locked" || row.ag_status === "signed") {
+    if (!rowLets(row, table.states, { fields: [column.name] })) {
       toast.error(t`Row locked`);
       return;
     }

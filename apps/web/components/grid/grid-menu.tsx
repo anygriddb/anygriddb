@@ -49,7 +49,7 @@ export function GridMenuItems(props: {
   const below = active ? props.rowAtPosition(active.r + 1) : undefined;
   const back = placeBetween(above?.id, below?.id);
   const onInsertBeside = props.canAdd ? props.onInsertBeside : undefined;
-  const onMove = row && !isFixed(row) ? props.onMove : undefined;
+  const onMove = row && !isFixed(row, table.states) ? props.onMove : undefined;
   const onContinueSeries = props.onContinueSeries;
   const room = props.seriesRoom();
   return (

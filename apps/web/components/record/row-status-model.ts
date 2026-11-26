@@ -1,5 +1,6 @@
 import {
   initialState,
+  stateAllows,
   stateByKey,
   transitionsFrom,
   type StatusCircuit,
@@ -7,6 +8,7 @@ import {
 } from "@anygriddb/core";
 import { takesTransition } from "@anygriddb/core";
 import { grants, type Grant } from "../../lib/types";
+import type { RowStateChoice } from "../fields/use-row-states";
 
 /** A row as these rules read it: its status column, when it has one. */
 type WithStatus = Readonly<Record<string, unknown>>;
@@ -74,4 +76,21 @@ export function statusSealed(
     return stateByKey(circuit, status)?.seal === true;
   }
   return status === "locked" || status === "signed";
+}
+
+/**
+ * Whether a row's state lets these of its fields change, or the row go, as
+ * the server holds it (ADR 0124, 0137): a screen offers no more. A row of
+ * a table whose states are not read yet is held to compliance's words.
+ */
+export function rowLets(
+  row: WithStatus,
+  states: readonly RowStateChoice[],
+  act: { delete: true } | { fields: readonly string[] },
+): boolean {
+  const key = row.ag_status;
+  if (typeof key !== "string") return true;
+  const rules = states.find((state) => state.key === key)?.rules;
+  if (!rules) return key !== "locked" && key !== "signed";
+  return stateAllows(rules, act);
 }

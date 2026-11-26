@@ -7,6 +7,7 @@ import type {
   RowItem,
   ViewItem,
 } from "../../lib/types";
+import type { RowStateChoice } from "../fields/use-row-states";
 
 export type CellValue = string | number | boolean | null | string[];
 
@@ -46,7 +47,7 @@ export type TableContextValue = {
    * The table's states in its circuit's order, each by its word for this
    * reader (ADR 0133): what a field of the row's state shows and chooses.
    */
-  states: readonly { key: string; label: string }[];
+  states: readonly RowStateChoice[];
 };
 
 export const TableContext = createContext<TableContextValue | null>(null);

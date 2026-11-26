@@ -86,7 +86,7 @@ const NOTIFICATION_SUBJECTS: Record<
     webhook_disabled: (table) =>
       `Webhook disabled on ${tableQuoted("en", table)}`,
     row_changed: (table, name) =>
-      `A locked row in ${tableQuoted("en", table)} changed outside ${name}`,
+      `A sealed row in ${tableQuoted("en", table)} changed outside ${name}`,
     role_given: (table) => `A role changed on ${tableQuoted("en", table)}`,
     owner_named: (table) => `A new owner on ${tableQuoted("en", table)}`,
     account_locked: () => `An account was locked`,
@@ -104,7 +104,7 @@ const NOTIFICATION_SUBJECTS: Record<
     webhook_disabled: (table) =>
       `Webhook désactivé sur ${tableQuoted("fr", table)}`,
     row_changed: (table, name) =>
-      `Une ligne verrouillée de ${tableQuoted("fr", table)} a changé sans passer par ${name}`,
+      `Une ligne scellée de ${tableQuoted("fr", table)} a changé sans passer par ${name}`,
     role_given: (table) => `Un rôle a changé sur ${tableQuoted("fr", table)}`,
     owner_named: (table) =>
       `Nouveau propriétaire sur ${tableQuoted("fr", table)}`,

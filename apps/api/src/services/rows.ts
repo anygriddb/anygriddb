@@ -21,6 +21,7 @@ import {
   placeTarget,
   resolveChangeReason,
   takesTransition,
+  transitionKeyForStatus,
   type RowPlace,
 } from "@anygriddb/core";
 import { demand } from "../access/declaration.js";
@@ -54,11 +55,7 @@ import {
   transitionRow,
 } from "../data/rows.js";
 import { loadTableCircuit } from "../data/status-circuits.js";
-import {
-  assertUnsealed,
-  setExternalStatus,
-  signExternalRow,
-} from "../sources/statuses.js";
+import { assertWritable, transitionExternalRow } from "../sources/statuses.js";
 import {
   restoreExternalRows,
   deleteExternalRows,
@@ -476,7 +473,7 @@ function withLinks(
 
 /**
  * A client's row points to another by its key, and that other row lists it:
- * a row locked or signed there keeps its list. A new row has no `rowId`,
+ * a row whose state lets nothing change there keeps its list. A new row has no `rowId`,
  * and leaves nothing behind it. The rows are read once, whatever their number.
  */
 async function assertKeyTargetsUnsealed(
@@ -521,7 +518,8 @@ async function assertKeyTargetsUnsealed(
   }
   for (const [tableId, targets] of changed) {
     if (targets.size > 0) {
-      await assertUnsealed(deps.db, tableId, [...targets]);
+      // Its list changes, none of its own fields.
+      await assertWritable(deps.db, tableId, [...targets], { fields: [] });
     }
   }
 }
@@ -592,7 +590,9 @@ async function writeInverseLinks(
             foreignKey.name,
           ])
         ).flatMap((row) => linkIds(row[foreignKey.name]));
-  await assertUnsealed(deps.db, scope.table.id, [rowId, ...left]);
+  await assertWritable(deps.db, scope.table.id, [rowId, ...left], {
+    fields: [],
+  });
   await updateRows(deps, target, updates, meta);
   await announceRows(deps, scope.table.id, "update", [rowId], []);
 }
@@ -1099,13 +1099,10 @@ export async function transitionRowAs(
   meta: WriteMeta,
 ): Promise<{ from: string; to: string; transitionKey: string }> {
   await assertRowsInScope(deps.db, scope.engine, [input.rowId]);
-  if (isExternal(scope)) {
-    if (input.transitionKey === "sign" && input.signs === "never") {
-      throw new AppError("signature_in_app");
-    }
-    return clientTransition(deps, scope, input, meta);
+  const external = isExternal(scope);
+  if (!external && !UUID.test(input.rowId)) {
+    throw new AppError("invalid_row_id");
   }
-  if (!UUID.test(input.rowId)) throw new AppError("invalid_row_id");
   const circuit = await loadTableCircuit(deps.db, scope.table.id);
   const asked = circuit.transitions
     .filter(
@@ -1122,61 +1119,23 @@ export async function transitionRowAs(
     if (input.signs === "never") throw new AppError("signature_in_app");
     await assertSignatureProof(deps, scope.actorId, signature, input);
   }
-  const outcome = await transitionRow(deps.db, {
+  const step = {
     userId: scope.actorId,
     role: scope.role,
-    table: scope.table,
     rowId: input.rowId,
     transitionKey: input.transitionKey,
     reason: input.reason,
     meaning: input.meaning,
     source: meta.source,
     depth: meta.depth ?? 0,
-  });
+  };
+  const outcome = external
+    ? await transitionExternalRow(deps.db, { ...step, table: scope.table })
+    : await transitionRow(deps.db, { ...step, table: scope.table });
   await announceRows(deps, scope.table.id, "update", [input.rowId], []);
   return outcome;
 }
-
 /** Submits, locks, or unlocks a row; `role` decides which moves are allowed. */
-/** What a compliance transition sets on a client's row (ADR 0033). */
-const CLIENT_STATUS: Readonly<
-  Record<string, "submitted" | "locked" | "draft">
-> = { submit: "submitted", lock: "locked", unlock: "draft" };
-
-/**
- * A client's table keeps the compliance circuit and its own path: its
- * statuses live beside the client's rows, sealed by a fingerprint.
- */
-async function clientTransition(
-  deps: RowServiceDeps,
-  scope: RowScope & { role: AuditRole },
-  input: {
-    rowId: string;
-    transitionKey: string;
-    meaning?: string;
-    password?: string;
-  },
-  meta: WriteMeta,
-): Promise<{ from: string; to: string; transitionKey: string }> {
-  if (input.transitionKey === "sign") {
-    await signRowAs(
-      deps,
-      scope,
-      {
-        rowId: input.rowId,
-        password: input.password ?? "",
-        meaning: input.meaning ?? "",
-      },
-      meta,
-    );
-    return { from: "locked", to: "signed", transitionKey: "sign" };
-  }
-  const status = CLIENT_STATUS[input.transitionKey];
-  if (!status) throw new AppError("invalid_status");
-  await changeStatus(deps, scope, input.rowId, status, meta);
-  return { from: "", to: status, transitionKey: input.transitionKey };
-}
-
 export async function changeStatus(
   deps: RowServiceDeps,
   scope: RowScope & { role: AuditRole },
@@ -1186,13 +1145,13 @@ export async function changeStatus(
 ): Promise<void> {
   await assertRowsInScope(deps.db, scope.engine, [rowId]);
   if (isExternal(scope)) {
-    // Kept by AnyGridDB, sealed by a fingerprint (ADR 0033).
-    await setExternalStatus(deps.db, {
+    // Kept by AnyGridDB beside the row, sealed by a fingerprint (ADR 0137).
+    await transitionExternalRow(deps.db, {
       userId: scope.actorId,
       role: scope.role,
       table: scope.table,
       rowId,
-      status,
+      transitionKey: transitionKeyForStatus(status),
       source: meta.source,
       depth: meta.depth ?? 0,
     });
@@ -1237,10 +1196,12 @@ export async function signRowAs(
   );
   if (!stored || !verified) throw new AppError("invalid_credentials");
   if (isExternal(scope)) {
-    await signExternalRow(deps.db, {
+    await transitionExternalRow(deps.db, {
       userId: scope.actorId,
+      role: scope.role ?? "owner",
       table: scope.table,
       rowId: input.rowId,
+      transitionKey: "sign",
       meaning: input.meaning,
       source: meta.source,
       depth: meta.depth ?? 0,

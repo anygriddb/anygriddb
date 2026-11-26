@@ -216,12 +216,12 @@ export async function saveTableCircuit(
     remap?: Record<string, string>;
     physicalName: string;
     storage: "native" | "external";
+    /** A client's table names its rows by a key, or has no states (ADR 0137). */
+    keyed: boolean;
   },
 ): Promise<StatusCircuit> {
-  // A client's table keeps its statuses beside its rows in the compliance
-  // circuit's words (ADR 0033): another circuit's states would not be read.
-  if (input.storage === "external") {
-    throw new AppError("circuit_fixed_on_source");
+  if (input.storage === "external" && !input.keyed) {
+    throw new AppError("external_table_no_key");
   }
   return withAudit(
     db,
@@ -253,12 +253,20 @@ export async function saveTableCircuit(
   );
 }
 
-/** How many rows of a native table each state holds, for the editor. */
+/**
+ * How many rows each state holds, for the editor. A client's row with no
+ * entry is in the first state, whichever it is, and is not counted: it
+ * follows the circuit's first state without being moved.
+ */
 export function circuitCounts(
   db: Db,
-  table: { tableId: string; physicalName: string },
+  table: {
+    tableId: string;
+    physicalName: string;
+    storage: "native" | "external";
+  },
 ): Promise<Record<string, number>> {
-  return statusCounts(db, { ...table, storage: "native" });
+  return statusCounts(db, table);
 }
 
 /** How many rows of the table each status holds. */
@@ -291,6 +299,6 @@ async function statusCounts(
   for (const row of rows) {
     counts[row.status] = Number(row.n);
   }
-  // Draft is the absence of a row; always covered by the initial key.
+  // A row with no entry is in the first state, whichever it is.
   return counts;
 }

@@ -1,24 +1,31 @@
 /**
- * Statuses and signatures on a client's rows (ADRs 0007, 0033).
+ * States and signatures on a client's rows (ADRs 0007, 0033, 0137).
  *
- * A client's table has no status column: the status of a row that left
- * draft lives in AnyGridDB's database, named by the row's key. The
- * workflow is the one of AnyGridDB's own rows: submit, lock, sign,
- * unlock. AnyGridDB refuses its own writes to a locked or signed row;
- * other applications are not refused, so locking seals the row: its
+ * A client's table has no status column: the state of a row that left its
+ * circuit's first state lives in AnyGridDB's database, named by the row's
+ * key. The circuit is the table's own, as on AnyGridDB's rows (ADR 0124).
+ * AnyGridDB refuses its own writes that a row's state forbids; other
+ * applications are not refused, so a sealed state seals the row: its
  * stored values and their SHA-256 fingerprint are kept, and a job compares
  * the row with them to detect and tell a change made elsewhere.
  *
- * A lock waits for the writes under way: a write records its intent, then
- * reads the row's status (`assertUnsealed`); the lock commits the status
- * first, waits for every write recorded before, and only then reads the
- * row. Nothing holds a connection while a client's transaction runs.
+ * A step into a sealed state waits for the writes under way: a write
+ * records its intent, then reads the row's state (`assertWritable`); the
+ * step commits the state first, waits for every write recorded before, and
+ * only then reads the row. Nothing holds a connection while a client's
+ * transaction runs.
  */
 import { createHash } from "node:crypto";
 import {
   AppError,
   findAllowedTransition,
-  transitionKeyForStatus,
+  initialState,
+  isBlankCell,
+  stateAllows,
+  stateByKey,
+  type StatusCircuit,
+  type StatusState,
+  type StatusTransition,
   type AuditRole,
   type EngineCatalog,
   isCopySourceEngine,
@@ -44,9 +51,6 @@ import type { NotificationInput } from "../notifications.js";
 
 /** A client row's status: a state of its table's circuit (ADR 0124). */
 type ExternalStatus = string;
-
-/** Statuses AnyGridDB refuses its own writes on. */
-const SEALED: readonly ExternalStatus[] = ["locked", "signed"];
 
 /** How long a lock waits for writes recorded before it. */
 const DRAIN_MS = 30_000;
@@ -96,6 +100,39 @@ function chunks<T>(items: readonly T[], size = CHUNK): T[][] {
   return list;
 }
 
+type StateRules = Pick<
+  StatusState,
+  "key" | "isInitial" | "rowWritable" | "writableFields" | "allowDelete"
+>;
+
+/**
+ * The states of a table's circuit and what each lets AnyGridDB write, in
+ * one read: what a page and a write need, without the circuit's steps.
+ */
+async function statesOf(db: Database, tableId: string): Promise<StateRules[]> {
+  const states = await db
+    .selectFrom("statusStates as s")
+    .innerJoin("statusCircuits as c", "c.id", "s.circuitId")
+    .select([
+      "s.key",
+      "s.isInitial",
+      "s.rowWritable",
+      "s.writableFields",
+      "s.allowDelete",
+    ])
+    .where("c.tableId", "=", tableId)
+    .execute();
+  if (!states.some((state) => state.isInitial)) {
+    throw new AppError("invalid_status");
+  }
+  return states;
+}
+
+/** The key of the first state, which a row with no entry is in. */
+function firstOf(states: readonly StateRules[]): string {
+  return states.find((state) => state.isInitial)?.key ?? "";
+}
+
 /** Refuses a status on a table whose rows have no key to name them. */
 function assertKeyed(table: Pick<TableRow, "storage" | "externalKey">): void {
   if (table.storage !== "external") {
@@ -107,25 +144,52 @@ function assertKeyed(table: Pick<TableRow, "storage" | "externalKey">): void {
 }
 
 /**
- * Refuses a write through AnyGridDB to locked or signed rows. A write
- * calls it before anything, and again once its intent is recorded: a lock
- * that committed in between then refuses it, and one that did not waits
- * for it.
+ * Refuses a write through AnyGridDB that the state of one of these rows
+ * forbids: a change of a field it does not let change, or a delete
+ * (ADR 0137). A write calls it before anything, and again once its intent
+ * is recorded: a step into a sealed state that committed in between then
+ * refuses it, and one that did not waits for it.
  */
-export async function assertUnsealed(
+export async function assertWritable(
   db: Database,
   tableId: string,
   rowIds: readonly string[],
+  act: { delete: true } | { fields: readonly string[] },
 ): Promise<void> {
+  const states = await statesOf(db, tableId);
+  const refused = states
+    .filter((state) => !stateAllows(state, act))
+    .map((state) => state.key);
+  if (refused.length === 0) return;
+  // A row with no entry is in the first state.
+  if (refused.includes(firstOf(states))) {
+    const entered = new Set<string>();
+    for (const chunk of chunks([...new Set(rowIds)], 500)) {
+      const found = await db
+        .selectFrom("externalStatuses")
+        .select(["rowId", "status"])
+        .where("tableId", "=", tableId)
+        .where("rowId", "in", chunk)
+        .execute();
+      for (const row of found) {
+        if (refused.includes(row.status)) throw new AppError("row_locked");
+        entered.add(row.rowId);
+      }
+    }
+    if (rowIds.some((id) => !entered.has(id))) {
+      throw new AppError("row_locked");
+    }
+    return;
+  }
   for (const chunk of chunks([...new Set(rowIds)], 500)) {
-    const sealed = await db
+    const held = await db
       .selectFrom("externalStatuses")
       .select("rowId")
       .where("tableId", "=", tableId)
       .where("rowId", "in", chunk)
-      .where("status", "in", SEALED)
+      .where("status", "in", refused)
       .executeTakeFirst();
-    if (sealed) throw new AppError("row_locked");
+    if (held) throw new AppError("row_locked");
   }
 }
 
@@ -158,9 +222,10 @@ export async function attachExternalStatuses(
   }
   const hidden = (name: string) =>
     engine.access?.hidden(table.id, name) ?? false;
+  const first = firstOf(await statesOf(db, table.id));
   for (const row of rows) {
     const state = found.get(row.id);
-    row.ag_status = state?.status ?? "draft";
+    row.ag_status = state?.status ?? first;
     const drift = storedDrift(state?.drift);
     if (!state || !drift || !state.driftAt) continue;
     const sealed = (state.sealed ?? {}) as Record<string, unknown>;
@@ -191,6 +256,8 @@ type State = {
   fingerprint: string | null;
   sealed: Record<string, unknown> | null;
   sealFormat: number;
+  /** Set while a step into a sealed state waits to seal the row. */
+  fencedFrom: string | null;
 };
 
 async function readState(
@@ -200,7 +267,14 @@ async function readState(
 ): Promise<State | undefined> {
   return db
     .selectFrom("externalStatuses")
-    .select(["status", "version", "fingerprint", "sealed", "sealFormat"])
+    .select([
+      "status",
+      "version",
+      "fingerprint",
+      "sealed",
+      "sealFormat",
+      "fencedFrom",
+    ])
     .where("tableId", "=", tableId)
     .where("rowId", "=", rowId)
     .executeTakeFirst();
@@ -417,114 +491,262 @@ async function drainWrites(
   }
 }
 
-/**
- * Submits, locks, or unlocks a client's row; `role` decides which moves
- * are allowed, as on AnyGridDB's own rows.
- */
-export async function setExternalStatus(
+/** A step's input: who takes which step of the circuit on which row. */
+type StepInput = StatusInput & {
+  role: AuditRole;
+  transitionKey: string;
+  reason?: string;
+  meaning?: string;
+};
+
+type Moved = { from: string; to: string; transitionKey: string };
+
+/** The table's circuit, read where the native rows read it. */
+async function circuitOf(
   db: Database,
-  input: StatusInput & {
-    role: AuditRole;
-    status: "submitted" | "locked" | "draft";
-  },
-): Promise<void> {
-  assertKeyed(input.table);
-  const { table, rowId } = input;
-  const state = await readState(db, table.id, rowId);
+  tableId: string,
+): Promise<StatusCircuit> {
   const { loadTableCircuit } = await import("../data/status-circuits.js");
-  const circuit = await loadTableCircuit(db, table.id);
-  findAllowedTransition(
-    circuit,
-    state?.status ?? "draft",
-    transitionKeyForStatus(input.status),
-    input.role,
-  );
-  if (input.status === "submitted") {
-    if (!(await readSealed(db, table.id, rowId))) {
-      throw new AppError("source_row_missing");
-    }
-    await db.transaction().execute(async (tx) => {
-      const added = await tx
-        .insertInto("externalStatuses")
-        .values({
-          tableId: table.id,
-          rowId,
-          status: "submitted",
-          updatedBy: input.userId,
-        })
-        .onConflict((conflict) => conflict.doNothing())
-        .returning("rowId")
-        .executeTakeFirst();
-      if (!added) throw new AppError("invalid_status");
-      await logEvent(tx, input, "submit", null, null);
-      await queueStatusEvent(tx, input);
-    });
-    return;
-  }
-  if (!state) throw new AppError("invalid_status");
-  if (input.status === "draft") {
-    await db.transaction().execute(async (tx) => {
-      const removed = await tx
-        .deleteFrom("externalStatuses")
-        .where("tableId", "=", table.id)
-        .where("rowId", "=", rowId)
-        .where("version", "=", state.version)
-        .executeTakeFirst();
-      if (removed.numDeletedRows === 0n) throw new AppError("invalid_status");
-      await logEvent(tx, input, "unlock", state.fingerprint, {
-        from: state.status,
-      });
-      await queueStatusEvent(tx, input);
-    });
-    return;
-  }
-  await lockRow(db, input, state.version);
+  return loadTableCircuit(db, tableId);
+}
+
+/** What the trail names a step: the four of compliance, any other a step. */
+function actionOf(key: string): EventAction {
+  return key === "submit" ||
+    key === "lock" ||
+    key === "unlock" ||
+    key === "sign"
+    ? key
+    : "transition";
 }
 
 /**
- * Locks a submitted row in two steps: the status first, so writes from
- * now on are refused; then, once the writes recorded before have
- * finished, the seal of what the row holds.
+ * Takes a step of its table's circuit on a client's row (ADRs 0124, 0137).
+ * The row's state lives beside it, and no entry is the circuit's first
+ * state. A step into a sealed state seals what the row holds then: its
+ * values and their fingerprint, which a check compares with the database
+ * afterwards. A step from a sealed state to another, as a signature, holds
+ * only while the row still holds what was sealed.
  */
-async function lockRow(
+export async function transitionExternalRow(
   db: Database,
-  input: StatusInput,
-  version: number,
+  input: StepInput,
+): Promise<Moved> {
+  assertKeyed(input.table);
+  const { table, rowId } = input;
+  const circuit = await circuitOf(db, table.id);
+  let state = await readState(db, table.id, rowId);
+  // A step that is still sealing the row owns it until it ends: another
+  // taken meanwhile would leave its fence behind, and the row would go
+  // back where the first step started.
+  if (state?.fencedFrom) throw new AppError("source_row_busy");
+  const from = state?.status ?? initialState(circuit).key;
+  const step = findAllowedTransition(
+    circuit,
+    from,
+    input.transitionKey,
+    input.role,
+  );
+  const leaving = stateByKey(circuit, from);
+  const entering = stateByKey(circuit, step.toStateKey);
+  if (!leaving || !entering) throw new AppError("invalid_status");
+  if (step.requireReason && !input.reason?.trim()) {
+    throw new AppError("reason_required");
+  }
+  if (step.signature !== "none" && !input.meaning?.trim()) {
+    throw new AppError("meaning_required");
+  }
+  if (step.fourEyes) await assertOtherHand(db, input);
+  const moved = { from, to: entering.key, transitionKey: step.key };
+  const sealedBefore = leaving.seal && state?.fingerprint ? state : undefined;
+  if (entering.seal && !sealedBefore) {
+    await sealInto(db, input, state, step, moved);
+    return moved;
+  }
+  if (!entering.isInitial || step.requireFields.length > 0) {
+    await assertRowHolds(db, input, step.requireFields);
+  }
+  if (sealedBefore && entering.seal) {
+    state = await sealStillHolds(db, input, sealedBefore);
+  }
+  const fingerprint = sealedBefore ? (state?.fingerprint ?? null) : null;
+  await db.transaction().execute(async (tx) => {
+    const done = await moveEntry(tx, input, state, entering);
+    if (!done) throw new AppError("invalid_status");
+    if (step.signature !== "none") {
+      await signedBy(tx, input, fingerprint);
+    }
+    await logEvent(
+      tx,
+      input,
+      actionOf(step.key),
+      fingerprint,
+      { from, to: entering.key, step: step.key },
+      input.reason,
+    );
+    await queueStatusEvent(tx, input);
+  });
+  return moved;
+}
+
+/** The row is there, and its fields a step asks for are filled. */
+async function assertRowHolds(
+  db: Database,
+  input: StepInput,
+  fields: readonly string[],
+): Promise<void> {
+  const { engine } = await loadEngine(db, input.table.id, () => true);
+  const [row] = await readByIds(db, engine, [input.rowId], "UTC", fields);
+  if (!row) throw new AppError("source_row_missing");
+  const blank = fields.find((field) => isBlankCell(row[field]));
+  if (blank !== undefined) {
+    const label =
+      engine.table.columns.find((column) => column.name === blank)?.label ??
+      blank;
+    throw new AppError("value_required", label);
+  }
+}
+
+/** A step that asks two people refuses the one who took the step before. */
+async function assertOtherHand(db: Database, input: StepInput): Promise<void> {
+  const last = await db
+    .selectFrom("externalStatusEvents")
+    .select("userId")
+    .where("tableId", "=", input.table.id)
+    .where("rowId", "=", input.rowId)
+    .where("userId", "is not", null)
+    .where("action", "not in", ["changed", "restored", "resealed"])
+    .orderBy("at", "desc")
+    .orderBy("id", "desc")
+    .executeTakeFirst();
+  if (last?.userId === input.userId) throw new AppError("four_eyes");
+}
+
+/**
+ * Moves a row's entry to a state that seals nothing, or keeps the seal
+ * of a step between two sealed states: the first state is no entry.
+ * False when the row moved meanwhile.
+ */
+async function moveEntry(
+  tx: SqlExecutor,
+  input: StepInput,
+  state: State | undefined,
+  entering: StatusState,
+): Promise<boolean> {
+  const { table, rowId } = input;
+  if (entering.isInitial && !entering.seal) {
+    if (!state) return true;
+    const removed = await sql`
+      delete from external_statuses
+       where table_id = ${table.id} and row_id = ${rowId}
+         and version = ${state.version}
+    `.execute(tx);
+    return removed.numAffectedRows === 1n;
+  }
+  if (!state) {
+    const added = await sql<{ rowId: string }>`
+      insert into external_statuses (table_id, row_id, status, updated_by)
+      values (${table.id}, ${rowId}, ${entering.key}, ${input.userId})
+      on conflict do nothing
+      returning row_id
+    `.execute(tx);
+    return added.rows.length === 1;
+  }
+  // Leaving a seal for a state that has none takes the seal away.
+  const unseal = entering.seal
+    ? sql``
+    : sql`, sealed = null, fingerprint = null, sealed_at = null,
+          drift = null, drift_at = null, checked_at = null`;
+  const moved = await sql`
+    update external_statuses
+       set status = ${entering.key}, version = version + 1,
+           updated_by = ${input.userId}, updated_at = now() ${unseal}
+     where table_id = ${table.id} and row_id = ${rowId}
+       and version = ${state.version}
+  `.execute(tx);
+  return moved.numAffectedRows === 1n;
+}
+
+/** The signature a step asks, naming the seal it signs when there is one. */
+async function signedBy(
+  tx: SqlExecutor,
+  input: StepInput,
+  fingerprint: string | null,
+): Promise<void> {
+  const named = await sql<{ displayName: string }>`
+    select display_name from users where id = ${input.userId}
+  `.execute(tx);
+  const displayName = named.rows[0]?.displayName;
+  if (!displayName) throw new AppError("no_row");
+  await sql`
+    insert into row_signatures
+      (user_id, table_id, record_id, display_name, meaning, fingerprint)
+    values (
+      ${input.userId}, ${input.table.id}, ${input.rowId}, ${displayName},
+      ${(input.meaning ?? "").trim()}, ${fingerprint}
+    )
+  `.execute(tx);
+}
+
+/**
+ * Takes a sealed state in two steps: the state first, so writes from now on
+ * are refused, and the state it left kept beside it; then, once the writes
+ * recorded before have finished, the seal of what the row holds.
+ */
+async function sealInto(
+  db: Database,
+  input: StepInput,
+  state: State | undefined,
+  step: StatusTransition,
+  moved: Moved,
 ): Promise<void> {
   const { table, rowId } = input;
-  const fenced = await db
-    .updateTable("externalStatuses")
-    .set({
-      status: "locked",
-      sealed: null,
-      fingerprint: null,
-      sealedAt: null,
-      drift: null,
-      driftAt: null,
-      version: version + 1,
-      updatedBy: input.userId,
-      updatedAt: new Date(),
-    })
-    .where("tableId", "=", table.id)
-    .where("rowId", "=", rowId)
-    .where("version", "=", version)
-    .where("status", "=", "submitted")
-    .executeTakeFirst();
-  if (fenced.numUpdatedRows === 0n) throw new AppError("invalid_status");
+  const fenced = (state?.version ?? -1) + 1;
+  const fence = state
+    ? await sql`
+        update external_statuses
+           set status = ${moved.to}, sealed = null, fingerprint = null,
+               sealed_at = null, drift = null, drift_at = null,
+               fenced_from = ${moved.from}, version = ${fenced},
+               updated_by = ${input.userId}, updated_at = now()
+         where table_id = ${table.id} and row_id = ${rowId}
+           and version = ${state.version}
+      `.execute(db)
+    : await sql`
+        insert into external_statuses
+          (table_id, row_id, status, fenced_from, version, updated_by)
+        values (
+          ${table.id}, ${rowId}, ${moved.to}, ${moved.from}, ${fenced},
+          ${input.userId}
+        )
+        on conflict do nothing
+      `.execute(db);
+  if (fence.numAffectedRows !== 1n) throw new AppError("invalid_status");
   let sealed: Record<string, unknown> | null;
   try {
+    if (step.requireFields.length > 0) {
+      await assertRowHolds(db, input, step.requireFields);
+    }
     await drainWrites(db, table.id, rowId);
     sealed = await readSealed(db, table.id, rowId);
     if (!sealed) throw new AppError("source_row_missing");
   } catch (error) {
-    // Back to submitted: the row could not be read, so nothing is sealed.
-    await db
-      .updateTable("externalStatuses")
-      .set({ status: "submitted", version: version + 2 })
-      .where("tableId", "=", table.id)
-      .where("rowId", "=", rowId)
-      .where("version", "=", version + 1)
-      .execute();
+    // Back where it was: the row could not be read, so nothing is sealed.
+    await (
+      state
+        ? sql`
+          update external_statuses
+             set status = ${moved.from}, fenced_from = null,
+                 version = ${fenced + 1}
+           where table_id = ${table.id} and row_id = ${rowId}
+             and version = ${fenced}
+        `
+        : sql`
+          delete from external_statuses
+           where table_id = ${table.id} and row_id = ${rowId}
+             and version = ${fenced}
+        `
+    ).execute(db);
     throw error;
   }
   const fingerprint = fingerprintOf(sealed);
@@ -537,99 +759,77 @@ async function lockRow(
         sealFormat: SEAL_FORMAT,
         sealedAt: new Date(),
         checkedAt: new Date(),
+        fencedFrom: null,
       })
       .where("tableId", "=", table.id)
       .where("rowId", "=", rowId)
-      .where("version", "=", version + 1)
-      .where("status", "=", "locked")
+      .where("version", "=", fenced)
+      .where("status", "=", moved.to)
       .executeTakeFirst();
-    // Unlocked while it waited.
+    // Moved again while it waited.
     if (done.numUpdatedRows === 0n) throw new AppError("invalid_status");
-    await logEvent(tx, input, "lock", fingerprint, { values: sealed });
+    if (step.signature !== "none") await signedBy(tx, input, fingerprint);
+    await logEvent(
+      tx,
+      input,
+      actionOf(step.key),
+      fingerprint,
+      { from: moved.from, to: moved.to, step: step.key, values: sealed },
+      input.reason,
+    );
     await queueStatusEvent(tx, input);
   });
 }
 
 /**
- * Signs a locked client row: the row read again must still hold what was
- * sealed. The signature records the fingerprint of what it signs.
+ * A step between two sealed states holds only while the row read again
+ * still holds what was sealed: a row that moved is checked, recorded and
+ * told, and the step refused. A seal of the first format is compared as it
+ * read, then sealed anew (ADR 0118).
  */
-export async function signExternalRow(
+async function sealStillHolds(
   db: Database,
-  input: StatusInput & { meaning: string },
-): Promise<void> {
-  assertKeyed(input.table);
+  input: StepInput,
+  read: State,
+): Promise<State> {
   const { table, rowId } = input;
-  const read = await readState(db, table.id, rowId);
-  if (read?.status !== "locked" || !read.fingerprint || !read.sealed) {
-    throw new AppError("invalid_status");
-  }
-  let state = read;
   let holds: boolean;
+  let state = read;
   if (read.sealFormat === SEAL_FORMAT) {
     const current = await readSealed(db, table.id, rowId);
-    holds = current !== null && sealDrift(read.sealed, current).length === 0;
+    holds =
+      current !== null && sealDrift(read.sealed ?? {}, current).length === 0;
   } else {
-    // Sealed by an earlier reading: compared by it, then sealed anew.
     const reading = await readFirstFormat(db, table.id, [rowId]);
     const first = reading.first.get(rowId);
     holds =
-      first !== undefined && reading.drift(read.sealed, first).length === 0;
+      first !== undefined &&
+      reading.drift(read.sealed ?? {}, first).length === 0;
     if (holds) {
       await renewSeals(db, table.id, [{ ...read, rowId }], reading);
       const renewed = await readState(db, table.id, rowId);
-      if (renewed?.status !== "locked" || !renewed.fingerprint) {
+      if (renewed?.status !== read.status || !renewed.fingerprint) {
         throw new AppError("invalid_status");
       }
       state = renewed;
     }
   }
   if (!holds) {
-    // The check records it and tells the owners.
     await queueSealCheck(db, table.id, [rowId]);
     throw new AppError("row_changed_elsewhere");
   }
-  const named = await db
-    .selectFrom("users")
-    .select("displayName")
-    .where("id", "=", input.userId)
-    .executeTakeFirst();
-  if (!named) throw new AppError("no_row");
-  const fingerprint = state.fingerprint;
-  await db.transaction().execute(async (tx) => {
-    const signed = await tx
-      .updateTable("externalStatuses")
-      .set({
-        status: "signed",
-        version: state.version + 1,
-        updatedBy: input.userId,
-        updatedAt: new Date(),
-        checkedAt: new Date(),
-      })
-      .where("tableId", "=", table.id)
-      .where("rowId", "=", rowId)
-      .where("version", "=", state.version)
-      .where("status", "=", "locked")
-      .executeTakeFirst();
-    if (signed.numUpdatedRows === 0n) throw new AppError("invalid_status");
-    await tx
-      .insertInto("rowSignatures")
-      .values({
-        userId: input.userId,
-        tableId: table.id,
-        recordId: rowId,
-        displayName: named.displayName,
-        meaning: input.meaning,
-        fingerprint,
-      })
-      .execute();
-    await logEvent(tx, input, "sign", fingerprint, { meaning: input.meaning });
-    await queueStatusEvent(tx, input);
-  });
+  return state;
 }
 
 type EventAction =
-  "submit" | "lock" | "unlock" | "sign" | "changed" | "restored" | "resealed";
+  | "submit"
+  | "lock"
+  | "unlock"
+  | "sign"
+  | "transition"
+  | "changed"
+  | "restored"
+  | "resealed";
 
 async function logEvent(
   executor: SqlExecutor,
@@ -639,21 +839,22 @@ async function logEvent(
   action: EventAction,
   fingerprint: string | null,
   detail: unknown,
+  reason?: string,
 ): Promise<void> {
   await sql`
     insert into external_status_events
-      (user_id, table_id, row_id, action, fingerprint, detail, source)
+      (user_id, table_id, row_id, action, fingerprint, detail, reason, source)
     values (
       ${input.userId}, ${input.table.id}, ${input.rowId}, ${action},
       ${fingerprint}, ${detail === null ? null : JSON.stringify(detail)}::jsonb,
-      ${input.source.slice(0, 100)}
+      ${reason?.trim() || null}, ${input.source.slice(0, 100)}
     )
   `.execute(executor);
 }
 
 /**
- * A row AnyGridDB deleted takes its status with it, as on its own tables:
- * only a submitted one can be, a locked one is refused.
+ * A row AnyGridDB deleted takes its state with it, as on its own tables:
+ * the delete was asked of its state first (`assertWritable`).
  */
 export async function forgetStatuses(
   db: Database,
@@ -665,7 +866,6 @@ export async function forgetStatuses(
       .deleteFrom("externalStatuses")
       .where("tableId", "=", tableId)
       .where("rowId", "in", chunk)
-      .where("status", "=", "submitted")
       .execute();
   }
 }
@@ -683,7 +883,7 @@ async function queueSealCheck(
       .select("rowId")
       .where("tableId", "=", tableId)
       .where("rowId", "in", chunk)
-      .where("status", "in", SEALED)
+      .where("fingerprint", "is not", null)
       .execute();
     sealed.push(...rows.map((row) => row.rowId));
   }
@@ -735,7 +935,7 @@ export async function checkSeals(
   deps: SealDeps,
   only?: { tableId: string; rowIds: readonly string[] },
 ): Promise<number> {
-  if (!only) await revertStaleLocks(deps.db);
+  if (!only) await revertStaleSeals(deps.db);
   let query = deps.db
     .selectFrom("externalStatuses as s")
     .innerJoin("dataTables as t", "t.id", "s.tableId")
@@ -750,7 +950,6 @@ export async function checkSeals(
       "s.fingerprint",
       "s.sealFormat",
     ])
-    .where("s.status", "in", SEALED)
     .where("s.fingerprint", "is not", null)
     // A table in the trash waits there: its rows are compared once back.
     .where(liveTable("t"))
@@ -839,17 +1038,17 @@ async function markChecked(
 const FENCE_TIMEOUT_MS = ceilingOf("timeout.client_status_fence_ms");
 
 /**
- * A lock whose process stopped between taking the status and sealing the
- * row seals nothing: it goes back to submitted, for an owner to lock again.
+ * A step into a sealed state whose process stopped between taking the state
+ * and sealing the row seals nothing: the row goes back to the state it
+ * left, for the step to be taken again.
  */
-async function revertStaleLocks(db: Database): Promise<void> {
-  await db
-    .updateTable("externalStatuses")
-    .set((eb) => ({ status: "submitted", version: eb("version", "+", 1) }))
-    .where("status", "=", "locked")
-    .where("fingerprint", "is", null)
-    .where("updatedAt", "<", new Date(Date.now() - FENCE_TIMEOUT_MS))
-    .execute();
+async function revertStaleSeals(db: Database): Promise<void> {
+  await sql`
+    update external_statuses
+       set status = fenced_from, fenced_from = null, version = version + 1
+     where fenced_from is not null and fingerprint is null
+       and updated_at < ${new Date(Date.now() - FENCE_TIMEOUT_MS)}
+  `.execute(db);
 }
 
 /** Records what one check found; returns the rows whose mark moved. */
@@ -1029,11 +1228,12 @@ export async function readStatusEvents(
   let sealed: Record<string, unknown> = {};
   for (let index = events.length - 1; index >= 0; index -= 1) {
     const event = events[index];
-    if (event?.action === "lock" || event?.action === "resealed") {
-      sealed =
-        (event.detail as { values?: Record<string, unknown> } | null)?.values ??
-        {};
-    }
+    // What a step sealed, or a renewal sealed anew; a change found holds
+    // values too, which seal nothing.
+    const values = (
+      event?.detail as { values?: Record<string, unknown> } | null
+    )?.values;
+    if (event && event.action !== "changed" && values) sealed = values;
     sealedBefore.set(index, sealed);
   }
   return events.map((event, index) => {

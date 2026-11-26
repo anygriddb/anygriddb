@@ -446,11 +446,10 @@ function OpenTable({ baseId, tableId, viewId, rowId }: TableWorkspaceProps) {
               ? () => setAutomationsOpen(true)
               : undefined
           }
-          // A client's table keeps the compliance circuit (ADR 0130).
+          // A client's rows have states when a key names them (ADR 0137);
+          // without one, the editor says why.
           onCircuit={
-            !external && may("schema.manage")
-              ? () => setCircuitOpen(true)
-              : undefined
+            may("schema.manage") ? () => setCircuitOpen(true) : undefined
           }
           onAddField={
             shape ? () => setFieldEditor({ mode: "create" }) : undefined

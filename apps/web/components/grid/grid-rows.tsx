@@ -7,6 +7,7 @@ import {
   ChevronDown,
   ChevronRight,
   Expand,
+  Lock,
   MessageSquare,
   Plus,
 } from "lucide-react";
@@ -16,6 +17,12 @@ import { formatNumber } from "../../lib/format";
 import { useLocale } from "../../lib/i18n";
 import type { RowPlace } from "../../lib/row-place";
 import type { RowItem } from "../../lib/types";
+import {
+  type RowStateChoice,
+  rowStateWord,
+  useRowStates,
+} from "../fields/use-row-states";
+import { rowLets } from "../record/row-status-model";
 import type { GridItem } from "./group-layout";
 import { GUTTER, marginColumn } from "./margin-column";
 import { type GridSelection, useEditingRow } from "./selection";
@@ -23,9 +30,12 @@ import { type GridSelection, useEditingRow } from "./selection";
 /** The grid's rows, as one list to move rows within. */
 export const GRID_LIST = "grid";
 
-/** A locked or signed row, which keeps its place. */
-export function isFixed(row: RowItem): boolean {
-  return row.ag_status === "locked" || row.ag_status === "signed";
+/** A row whose state lets nothing change, which keeps its place. */
+export function isFixed(
+  row: RowItem,
+  states: readonly RowStateChoice[],
+): boolean {
+  return !rowLets(row, states, { fields: [] });
 }
 
 /** Where a line of the grid is drawn, and how wide the sheet is. */
@@ -197,9 +207,14 @@ export function GridDataRow(props: {
   /** Its cells. */
   children: ReactNode;
 }) {
-  const { t } = useLingui();
+  const { t, i18n } = useLingui();
+  const states = useRowStates();
   const { row, index, position, selection, checked, comments } = props;
   const slot = row ? props.slot : undefined;
+  const fixed = row !== undefined && isFixed(row, states);
+  // One mark beside the number, the most pressing: a change made
+  // elsewhere, then a state that holds the row, then its comments.
+  const mark = row?.ag_drift ? "drift" : fixed ? "fixed" : null;
   return (
     <EditingRow
       selection={selection}
@@ -232,9 +247,9 @@ export function GridDataRow(props: {
       <RowGutter
         rowId={row?.id}
         label={t`Row ${{ number: String(index + 1) }}`}
-        // A locked or signed row stays where it is; others
-        // can still be put beside it.
-        slot={row && isFixed(row) ? undefined : slot}
+        // A row whose state lets nothing change stays where it is;
+        // others can still be put beside it.
+        slot={fixed ? undefined : slot}
         className={cn(
           "sticky left-0 z-[6] flex shrink-0 items-center gap-1.5 border-r border-b border-rule bg-head px-1.5 font-mono text-xs text-muted-foreground",
           marginColumn(props.frozenCount) === -1 &&
@@ -245,8 +260,9 @@ export function GridDataRow(props: {
       >
         <Checkbox
           aria-label={t`Select row ${{ index: index + 1 }}`}
+          // Over the number, which it takes the place of when shown.
           className={cn(
-            "h-3.5 w-3.5 shrink-0",
+            "absolute left-1.5 h-3.5 w-3.5 shrink-0",
             !checked && "opacity-0 group-hover/row:opacity-100",
           )}
           checked={checked}
@@ -269,16 +285,16 @@ export function GridDataRow(props: {
           <button
             type="button"
             aria-label={t`Expand row`}
-            className="hidden h-6 w-6 shrink-0 items-center justify-center rounded text-foreground hover:bg-muted group-hover/row:inline-flex"
+            className="ml-auto hidden h-6 w-6 shrink-0 items-center justify-center rounded text-foreground hover:bg-muted group-hover/row:inline-flex"
             onClick={props.onOpen}
           >
             <Expand className="h-3.5 w-3.5" aria-hidden />
           </button>
         ) : null}
-        {row && comments > 0 ? (
+        {row && comments > 0 && mark === null ? (
           <button
             type="button"
-            className="inline-flex h-6 min-w-6 items-center justify-center gap-0.5 rounded px-0.5 text-[10px] hover:bg-muted group-hover/row:hidden"
+            className="ml-auto inline-flex h-6 min-w-6 items-center justify-center gap-0.5 rounded px-0.5 text-[10px] hover:bg-muted group-hover/row:hidden"
             aria-label={plural(props.comments, {
               one: `# comment`,
               other: `# comments`,
@@ -289,16 +305,22 @@ export function GridDataRow(props: {
             {comments}
           </button>
         ) : null}
-        {row && isFixed(row) ? (
-          <span title={String(row.ag_status)} className="text-[10px]">
-            🔒
-          </span>
-        ) : null}
-        {row?.ag_drift ? (
+        {row && mark === "fixed" && typeof row.ag_status === "string" ? (
           <span
             role="img"
-            aria-label={t`Changed outside AnyGridDB since it was locked`}
-            title={t`Changed outside AnyGridDB since it was locked`}
+            aria-label={rowStateWord(states, row.ag_status, i18n)}
+            title={rowStateWord(states, row.ag_status, i18n)}
+            className="ml-auto inline-flex shrink-0 group-hover/row:hidden"
+          >
+            <Lock className="h-3 w-3" aria-hidden />
+          </span>
+        ) : null}
+        {mark === "drift" ? (
+          <span
+            role="img"
+            aria-label={t`Changed outside AnyGridDB since it was sealed`}
+            title={t`Changed outside AnyGridDB since it was sealed`}
+            className="ml-auto inline-flex shrink-0 group-hover/row:hidden"
           >
             <AlertTriangle className="h-3.5 w-3.5 text-danger" aria-hidden />
           </span>

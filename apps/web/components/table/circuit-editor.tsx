@@ -44,12 +44,18 @@ import { useTable } from "./table-context";
 export function CircuitEditor(props: { tableId: string; onClose: () => void }) {
   const { t } = useLingui();
   const api = useTRPC();
-  const circuit = useQuery(
-    api.catalog.getCircuit.queryOptions({ tableId: props.tableId }),
-  );
-  const counts = useQuery(
-    api.catalog.circuitCounts.queryOptions({ tableId: props.tableId }),
-  );
+  // A client's rows are named by a key: a table without one has no states
+  // (ADR 0137), and the editor says why rather than offer a circuit.
+  const external = useTable().table.external;
+  const keyless = external != null && !external.keyed;
+  const circuit = useQuery({
+    ...api.catalog.getCircuit.queryOptions({ tableId: props.tableId }),
+    enabled: !keyless,
+  });
+  const counts = useQuery({
+    ...api.catalog.circuitCounts.queryOptions({ tableId: props.tableId }),
+    enabled: !keyless,
+  });
   return (
     <Dialog open onOpenChange={(open) => !open && props.onClose()}>
       <DialogContent
@@ -57,7 +63,18 @@ export function CircuitEditor(props: { tableId: string; onClose: () => void }) {
         description={t`The states a row goes through and the steps between them: what each step asks, and who takes it.`}
         wide
       >
-        {circuit.data && counts.data ? (
+        {keyless ? (
+          <>
+            <p className="text-sm text-muted-foreground">
+              {t`This table has no primary key: AnyGridDB cannot tell its rows apart, so they have no states. Once its database gives it one, refresh its fields, and its rows take a circuit.`}
+            </p>
+            <DialogFooter>
+              <Button type="button" onClick={props.onClose}>
+                {t`Close`}
+              </Button>
+            </DialogFooter>
+          </>
+        ) : circuit.data && counts.data ? (
           <CircuitForm
             tableId={props.tableId}
             saved={circuit.data}
@@ -96,6 +113,13 @@ function CircuitForm(props: {
   const fields = table.table.columns.filter((column) =>
     isWritableType(column.fieldType),
   );
+  // A client's table: what AnyGridDB holds back, and what it only watches.
+  const external = table.table.external ?? null;
+  const written =
+    external !== null &&
+    (external.writes.update ||
+      external.writes.delete ||
+      table.table.columns.some((column) => column.side));
   // Only who takes steps at all may be named on one.
   const takers = (made.data?.roles ?? []).filter((role) =>
     roleGrants(role, "rows.transition"),
@@ -183,6 +207,14 @@ function CircuitForm(props: {
 
       <fieldset className="flex flex-col gap-2">
         <legend className="mb-1 text-sm font-medium">{t`States`}</legend>
+        {external ? (
+          <p className="text-sm text-muted-foreground">
+            {t`This table lives in a client's database: each row's state is kept beside it, and AnyGridDB refuses its own changes a state forbids. Other applications are not stopped; a sealed state keeps a fingerprint of the row, and a change made elsewhere is found and told.`}
+            {written
+              ? ""
+              : ` ${t`AnyGridDB writes none of its rows: “Rows change” and “Rows are deleted” hold nothing back here.`}`}
+          </p>
+        ) : null}
         {draft.states.map((state, index) => (
           <div
             key={state.key}

@@ -15,6 +15,10 @@ msgstr " The oldest still kept is {time}."
 msgid "-1, 0, or 1, by its sign."
 msgstr "-1, 0, or 1, by its sign."
 
+#: components/record/row-status.tsx
+msgid ": sealed value {value}"
+msgstr ": sealed value {value}"
+
 #: components/views/form-date.tsx
 msgid "“{date}” does not exist."
 msgstr "“{date}” does not exist."
@@ -1943,10 +1947,6 @@ msgstr "A starting point is not applied when the tables live in a source. Create
 msgid "A table already has this name"
 msgstr "A table already has this name"
 
-#: lib/errors.ts
-msgid "A table of a client's database keeps the compliance circuit"
-msgstr "A table of a client's database keeps the compliance circuit"
-
 #: components/settings/base-settings.tsx
 msgid "A table override replaces the base role either way. A member's permissions then narrow the rows they see and what they may do with each field."
 msgstr "A table override replaces the base role either way. A member's permissions then narrow the rows they see and what they may do with each field."
@@ -2959,8 +2959,8 @@ msgid "AnyGridDB reads this source from a copy: each table you expose is read wh
 msgstr "AnyGridDB reads this source from a copy: each table you expose is read whole, once per interval, and people read the copy. Nothing is ever written to the source. Give the account the right to read its database, and nothing more."
 
 #: components/record/row-status.tsx
-msgid "AnyGridDB refuses any change to this row. The client's database can still be changed by its other applications: AnyGridDB compares the row with its locked values and warns if it changes."
-msgstr "AnyGridDB refuses any change to this row. The client's database can still be changed by its other applications: AnyGridDB compares the row with its locked values and warns if it changes."
+msgid "AnyGridDB refuses any change to this row. The client's database can still be changed by its other applications: AnyGridDB compares the row with its sealed values and warns if it changes."
+msgstr "AnyGridDB refuses any change to this row. The client's database can still be changed by its other applications: AnyGridDB compares the row with its sealed values and warns if it changes."
 
 #: components/admin/health-tab.tsx
 msgid "AnyGridDB signs in to PostgreSQL as a superuser. It works, but a fault in the application would then reach the whole server. The operations guide says how to move to a limited role."
@@ -2977,6 +2977,10 @@ msgstr "AnyGridDB signs its certificate with its own authority. Install it once 
 #: components/shell/welcome-page.tsx
 msgid "AnyGridDB works on real SQL tables: the ones it keeps for you in PostgreSQL, and the ones of a database an administrator connected."
 msgstr "AnyGridDB works on real SQL tables: the ones it keeps for you in PostgreSQL, and the ones of a database an administrator connected."
+
+#: components/table/circuit-editor.tsx
+msgid "AnyGridDB writes none of its rows: “Rows change” and “Rows are deleted” hold nothing back here."
+msgstr "AnyGridDB writes none of its rows: “Rows change” and “Rows are deleted” hold nothing back here."
 
 #: components/admin/sources-tab.tsx
 msgid "ANYGRIDDB_SOURCES_ALLOW_PLAINTEXT is on: sources connect without TLS. For development only."
@@ -3694,8 +3698,8 @@ msgid "Changed {when} by you"
 msgstr "Changed {when} by you"
 
 #: components/grid/grid-rows.tsx
-msgid "Changed outside AnyGridDB since it was locked"
-msgstr "Changed outside AnyGridDB since it was locked"
+msgid "Changed outside AnyGridDB since it was sealed"
+msgstr "Changed outside AnyGridDB since it was sealed"
 
 #: components/admin/admin-sections.ts
 msgid "Changes"
@@ -3936,6 +3940,7 @@ msgstr "Client secret copied"
 #: components/settings/webhooks-panel.tsx
 #: components/shell/trash-dialog.tsx
 #: components/table/automations-dialog.tsx
+#: components/table/circuit-editor.tsx
 #: components/table/import-dialog.tsx
 #: components/table/row-trash-dialog.tsx
 msgid "Close"
@@ -6230,12 +6235,12 @@ msgid "found a change made outside AnyGridDB"
 msgstr "found a change made outside AnyGridDB"
 
 #: components/record/row-status.tsx
-msgid "Found on {date}. An owner can unlock it, check it, then lock it again."
-msgstr "Found on {date}. An owner can unlock it, check it, then lock it again."
+msgid "Found on {date}. Take it back out of this state, check it, then seal it again."
+msgstr "Found on {date}. Take it back out of this state, check it, then seal it again."
 
 #: components/record/record-panel.tsx
-msgid "found the locked values back"
-msgstr "found the locked values back"
+msgid "found the sealed values back"
+msgstr "found the sealed values back"
 
 #: components/table/circuit-editor.tsx
 msgid "Four eyes"
@@ -7879,10 +7884,6 @@ msgstr "Locked"
 msgid "Locked row {row} of {table} changed outside AnyGridDB"
 msgstr "Locked row {row} of {table} changed outside AnyGridDB"
 
-#: components/settings/person-event-labels.ts
-msgid "Locked row changed outside"
-msgstr "Locked row changed outside"
-
 #: components/admin/account-page.tsx
 #: components/admin/accounts-tab.tsx
 msgid "Locked until {date}"
@@ -7892,10 +7893,6 @@ msgstr "Locked until {date}"
 #: components/admin/accounts-tab.tsx
 msgid "Locked until unlocked"
 msgstr "Locked until unlocked"
-
-#: components/record/row-status.tsx
-msgid "locked value {value}"
-msgstr "locked value {value}"
 
 #: components/table/view-tabs.tsx
 msgid "Locked view"
@@ -11498,6 +11495,10 @@ msgstr "Scripts that start with #!"
 msgid "Sealed"
 msgstr "Sealed"
 
+#: components/settings/person-event-labels.ts
+msgid "Sealed row changed outside"
+msgstr "Sealed row changed outside"
+
 #: components/admin/sources-tab.tsx
 #: components/public/public-view.tsx
 #: components/shell/sidebar.tsx
@@ -14415,8 +14416,8 @@ msgid "This role no longer exists"
 msgstr "This role no longer exists"
 
 #: components/record/row-status.tsx
-msgid "This row has disappeared from the client's database since it was locked."
-msgstr "This row has disappeared from the client's database since it was locked."
+msgid "This row has disappeared from the client's database since it was sealed."
+msgstr "This row has disappeared from the client's database since it was sealed."
 
 #: lib/errors.ts
 msgid "This row is not among those this field offers: pick one from the list"
@@ -14427,12 +14428,12 @@ msgid "This row no longer exists in the client's database"
 msgstr "This row no longer exists in the client's database"
 
 #: lib/errors.ts
-msgid "This row was changed outside AnyGridDB since it was locked: unlock it, check it, then lock it again"
-msgstr "This row was changed outside AnyGridDB since it was locked: unlock it, check it, then lock it again"
+msgid "This row was changed outside AnyGridDB since it was sealed: take it back out of this state, check it, then seal it again"
+msgstr "This row was changed outside AnyGridDB since it was sealed: take it back out of this state, check it, then seal it again"
 
 #: components/record/row-status.tsx
-msgid "This row was changed outside AnyGridDB since it was locked."
-msgstr "This row was changed outside AnyGridDB since it was locked."
+msgid "This row was changed outside AnyGridDB since it was sealed."
+msgstr "This row was changed outside AnyGridDB since it was sealed."
 
 #: lib/errors.ts
 msgid "This server version is not supported: PostgreSQL 13, MySQL 8.0.16, MariaDB 10.6, SQL Server 2017, Oracle 19c, or later"
@@ -14486,6 +14487,10 @@ msgstr "This table has no link yet: add a link to another table first."
 msgid "This table has no number field to count in bins."
 msgstr "This table has no number field to count in bins."
 
+#: components/table/circuit-editor.tsx
+msgid "This table has no primary key: AnyGridDB cannot tell its rows apart, so they have no states. Once its database gives it one, refresh its fields, and its rows take a circuit."
+msgstr "This table has no primary key: AnyGridDB cannot tell its rows apart, so they have no states. Once its database gives it one, refresh its fields, and its rows take a circuit."
+
 #: lib/errors.ts
 msgid "This table has no primary key: its rows cannot be changed"
 msgstr "This table has no primary key: its rows cannot be changed"
@@ -14521,6 +14526,10 @@ msgstr "This table is read-only while one of its fields is converted"
 #: lib/errors.ts
 msgid "This table is too large to convert at once: try again"
 msgstr "This table is too large to convert at once: try again"
+
+#: components/table/circuit-editor.tsx
+msgid "This table lives in a client's database: each row's state is kept beside it, and AnyGridDB refuses its own changes a state forbids. Other applications are not stopped; a sealed state keeps a fingerprint of the row, and a change made elsewhere is found and told."
+msgstr "This table lives in a client's database: each row's state is kept beside it, and AnyGridDB refuses its own changes a state forbids. Other applications are not stopped; a sealed state keeps a fingerprint of the row, and a change made elsewhere is found and told."
 
 #: components/fields/field-editor.tsx
 msgid "This table was created in the external source. The field is a column of that table, and the values you type are written there."

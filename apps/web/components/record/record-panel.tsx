@@ -57,7 +57,7 @@ import { usePanelFocus } from "./panel-focus";
 import { panelDrawing } from "./panel-value";
 import { printRecord } from "./print-record";
 import { RowStatus, useSubmitRow, useSubmitRowLabel } from "./row-status";
-import { canSubmitRow } from "./row-status-model";
+import { canSubmitRow, rowLets } from "./row-status-model";
 import { useTableCircuit } from "./use-table-circuit";
 import { useLingui } from "@lingui/react/macro";
 import { useErrorText } from "../../lib/errors";
@@ -538,7 +538,7 @@ const ACTION_LABELS: Record<string, MessageDescriptor> = {
   unlock: msg`unlocked`,
   sign: msg`signed`,
   changed: msg`found a change made outside AnyGridDB`,
-  restored: msg`found the locked values back`,
+  restored: msg`found the sealed values back`,
   resealed: msg`renewed the seal after an update, the values unchanged`,
 };
 
@@ -788,20 +788,19 @@ export function RecordPanel({
     (column) => !visible.has(column.name),
   );
   const external = table.table.external !== null;
+  // What the row's state lets change (ADR 0124, 0137).
+  const unlocked = (column: CatalogColumn) =>
+    rowLets(row, table.states, { fields: [column.name] });
   // A client's row is edited only where an administrator enabled it.
-  const unlocked = row.ag_status !== "locked" && row.ag_status !== "signed";
   const editable =
     grants(table.role, "rows.write") &&
-    (table.table.external?.writes.update ?? true) &&
-    unlocked;
+    (table.table.external?.writes.update ?? true);
   // A client's inverse link writes the other table (ADR 0006): it takes
   // changes when that table does, whatever this one allows.
   const editableField = (column: CatalogColumn) =>
-    editable ||
-    (external &&
-      grants(table.role, "rows.write") &&
-      unlocked &&
-      isEditableLink(column));
+    unlocked(column) &&
+    (editable ||
+      (external && grants(table.role, "rows.write") && isEditableLink(column)));
   const panel = (
     <aside
       ref={panelRef}

@@ -259,6 +259,7 @@ export const catalogTableProcedures = {
         return circuitCounts(ctx.db, {
           tableId: table.id,
           physicalName: table.physicalName,
+          storage: table.storage === "external" ? "external" : "native",
         });
       }),
     ),
@@ -318,6 +319,7 @@ export const catalogTableProcedures = {
           remap: input.remap,
           physicalName: table.physicalName,
           storage: table.storage === "external" ? "external" : "native",
+          keyed: (table.externalKey ?? []).length > 0,
         });
         await publishCatalog(ctx.bus, table.baseId, logPublish(ctx));
         return circuit;

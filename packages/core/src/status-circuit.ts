@@ -82,6 +82,23 @@ export function stateByKey(
 }
 
 /**
+ * Whether a state lets AnyGridDB delete a row in it, or change these of its
+ * fields. A table of AnyGridDB's own has its database's trigger say so; a
+ * client's table, which has none, is held to this (ADR 0137).
+ */
+export function stateAllows(
+  state: Pick<StatusState, "rowWritable" | "writableFields" | "allowDelete">,
+  act: { delete: true } | { fields: readonly string[] },
+): boolean {
+  if ("delete" in act) return state.allowDelete;
+  if (!state.rowWritable) return false;
+  const allowed = state.writableFields;
+  return (
+    allowed === null || act.fields.every((field) => allowed.includes(field))
+  );
+}
+
+/**
  * The step a row took between two states, as the circuit names it: the
  * first of its steps from one to the other, or null.
  */
