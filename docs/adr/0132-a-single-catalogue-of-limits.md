@@ -86,7 +86,12 @@ account may hold, and an automation's pace (runs a minute, longest wait)
 are set there, within their bounds, and read where they are held: a job's
 insert (under its advisory lock), its end and the hourly purge, a socket's
 opening, a run's place. The jobs' usage is counted against the value set.
-The sockets of an account are still counted by each process.
+An account's sockets are counted across processes in `live_sockets`
+(migration 0144, unlogged): one row a process and an account, renewed
+every 30 seconds, not counted once a process has been silent for 90; a
+seat is taken under an advisory lock on the account, given back when the
+socket closes, and the process's own count still bounds an account when
+the database cannot count. The page shows the most one account holds.
 
 As built (family 4): the rows one file brings in and one export writes
 out (`import.max_rows`, `export.max_rows`) are set there, within their

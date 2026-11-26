@@ -27,7 +27,7 @@ import { passkeysEligible } from "./auth/relying-party.js";
 import { rateBucket, registerRateLimit } from "./rate-limit.js";
 import { pruneRateWindows, rateStoreIn } from "./rate-store.js";
 import { metricsBearer } from "./notify/metrics-token.js";
-import { registerWebsocketGauge } from "./observability.js";
+import { registerWebsocketGauge, websocketRefused } from "./observability.js";
 import { migrationsCurrent, readinessProbe } from "./readiness.js";
 import { registerDataTransferRoutes } from "./data-transfer.js";
 import { registerMcp } from "./mcp/http.js";
@@ -74,6 +74,7 @@ import type { SourceSettings } from "./sources/types.js";
 import { refreshTls, TLS_CHECK_MS, type TlsState } from "./tls/authority.js";
 import { serializeError } from "./logged-error.js";
 import { redirectPlainHttp } from "./tls/listener.js";
+import { RENEW_MS, seatFor, SocketSeats } from "./socket-seats.js";
 import { readGateSettings } from "./settings.js";
 import { registerWebApp } from "./web-app.js";
 import { GridHub, SOCKET_OPTIONS } from "./ws.js";
@@ -101,6 +102,14 @@ function tlsInfo(state: TlsState, publicUrl: string): TlsInfo {
     authority: state.authority ? (authority as TlsInfo["authority"]) : null,
     passkeysEligible: passkeysEligible(publicUrl),
   };
+}
+
+/** Whether a socket closed while something was awaited for it. */
+function closedMeanwhile(socket: {
+  readyState: number;
+  OPEN: number;
+}): boolean {
+  return socket.readyState !== socket.OPEN;
 }
 
 export async function createApp(deps: {
@@ -213,6 +222,19 @@ export async function createApp(deps: {
   const stopHeartbeat = hub.startHeartbeat();
   app.addHook("onClose", () => {
     stopHeartbeat();
+  });
+  const seats = new SocketSeats(deps.db);
+  const renewing = setInterval(() => {
+    seats.renew().catch((error: unknown) => {
+      app.log.warn({ err: error }, "socket seats not renewed");
+    });
+  }, RENEW_MS);
+  renewing.unref();
+  app.addHook("onClose", async () => {
+    clearInterval(renewing);
+    await seats.close().catch((error: unknown) => {
+      app.log.warn({ err: error }, "socket seats not given back");
+    });
   });
 
   acceptFormBodies(app);
@@ -522,21 +544,49 @@ export async function createApp(deps: {
       findSessionUser(deps.db, sessionToken),
       readGateSettings(deps.db),
     ])
-      .then(([user, settings]) => {
-        socket.off("message", hold);
+      .then(async ([user, settings]) => {
         if (!user || !isSessionToken(sessionToken)) {
+          socket.off("message", hold);
           request.log.warn("access denied");
           socket.close(4401, "Unauthorized");
           return;
         }
         if (socket.readyState !== socket.OPEN) return;
+        // One tab is one socket: an account holds what Administration
+        // allows across every process (ADR 0132), the page's first
+        // messages held meanwhile.
+        const userId = user.actingAs?.id ?? user.id;
+        const allowed = limitIn("sockets.per_account", settings.limits);
+        const seat = await seatFor(seats, userId, allowed, (error) => {
+          request.log.warn({ err: error }, "socket not counted");
+        });
+        socket.off("message", hold);
+        if (seat === "full") {
+          websocketRefused("too_many_sockets");
+          request.log.warn("too many sockets for one account");
+          socket.close(1013, "Too many connections");
+          return;
+        }
+        if (seat === "taken") {
+          const leave = () => {
+            seats.leave(userId).catch((error: unknown) => {
+              request.log.warn({ err: error }, "socket seat not given back");
+            });
+          };
+          // Closed while its seat was counted: given back at once.
+          if (closedMeanwhile(socket)) {
+            leave();
+            return;
+          }
+          socket.once("close", leave);
+        }
         hub.add(
           socket,
-          user.actingAs?.id ?? user.id,
+          userId,
           user.actingAs?.displayName || user.displayName,
           early,
           hashSessionToken(sessionToken),
-          limitIn("sockets.per_account", settings.limits),
+          allowed,
         );
       })
       .catch((error: unknown) => {

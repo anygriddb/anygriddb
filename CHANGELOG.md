@@ -27,6 +27,10 @@ first.
   live connections one account may hold (4 to 256, 64), and how fast one
   automation runs (30 to 3,000 runs a minute, 300) and how long a run may
   wait for its turn (1 hour to 7 days, a day).
+- An account's live connections are counted across every process of the
+  instance (migration 0144, an unlogged table), as requests are: one
+  served by several processes holds the same number as one served by a
+  single process. "Limits and usage" shows the most one account holds.
 
 ### Changed
 
