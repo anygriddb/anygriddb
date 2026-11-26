@@ -214,7 +214,7 @@ describe("the instance's voice (ADR 0072)", () => {
       "votre compte Registre",
     );
     expect(notificationSubject(voice, "row_changed", TABLE)).toBe(
-      "Une ligne verrouillée de «\u00a0Sales\u00a0» a changé sans passer par Registre",
+      "Une ligne scellée de «\u00a0Sales\u00a0» a changé sans passer par Registre",
     );
     expect(securityMailBody(voice, { kind: "password_changed" })).not.toContain(
       "AnyGridDB",

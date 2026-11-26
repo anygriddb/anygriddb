@@ -259,6 +259,8 @@ export const catalogBaseProcedures = {
                           insert: table.externalInsert && !syncs.has(table.id),
                           delete: table.externalDelete && !syncs.has(table.id),
                         },
+                        // Rows named by a key: they may have states (ADR 0137).
+                        keyed: (table.externalKey ?? []).length > 0,
                         // Storage fields: live table with a key (side schema
                         // or control plane, ADR 0032 / 0046).
                         enrichable:

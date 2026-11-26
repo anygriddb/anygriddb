@@ -138,9 +138,9 @@ export function RowStatus({ row }: { row: RowItem }) {
           }}: “${{ meaning: row.ag_signature.meaning }}”`}
         </p>
       ) : null}
-      {external && sealed && status === "locked" && !drift ? (
+      {external && sealed && !drift ? (
         <p className="text-xs text-muted-foreground">
-          {t`AnyGridDB refuses any change to this row. The client's database can still be changed by its other applications: AnyGridDB compares the row with its locked values and warns if it changes.`}
+          {t`AnyGridDB refuses any change to this row. The client's database can still be changed by its other applications: AnyGridDB compares the row with its sealed values and warns if it changes.`}
         </p>
       ) : null}
       {drift ? (
@@ -213,13 +213,13 @@ function DriftAlert({
       <div className="flex min-w-0 flex-col gap-1">
         <p className="font-medium">
           {drift.missing
-            ? t`This row has disappeared from the client's database since it was locked.`
-            : t`This row was changed outside AnyGridDB since it was locked.`}
+            ? t`This row has disappeared from the client's database since it was sealed.`
+            : t`This row was changed outside AnyGridDB since it was sealed.`}
         </p>
         <p className="text-muted-foreground">
           {t`Found on ${{
             date: formatInstant(drift.at, locale),
-          }}. An owner can unlock it, check it, then lock it again.`}
+          }}. Take it back out of this state, check it, then seal it again.`}
         </p>
         {drift.fields.length > 0 ? (
           <ul className="flex flex-col gap-0.5">
@@ -228,8 +228,8 @@ function DriftAlert({
               const sealed = drift.sealed[name];
               return (
                 <li key={name}>
-                  <span className="font-medium">{column?.label ?? name}</span> :{" "}
-                  {t`locked value ${{
+                  <span className="font-medium">{column?.label ?? name}</span>
+                  {t`: sealed value ${{
                     value: column
                       ? cellDisplay(sealed, column, locale, table.people) || "∅"
                       : JSON.stringify(sealed ?? null),

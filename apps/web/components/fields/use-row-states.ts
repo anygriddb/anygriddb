@@ -1,3 +1,4 @@
+import type { StatusState } from "@anygriddb/core";
 import type { I18n } from "@lingui/core";
 import { useLingui } from "@lingui/react";
 import { useContext } from "react";
@@ -5,8 +6,15 @@ import { circuitWord } from "../record/circuit-labels";
 import { useTableCircuit } from "../record/use-table-circuit";
 import { TableContext } from "../table/table-context";
 
-/** A state a row can be in, by its key and its word for this reader. */
-export type RowStateChoice = { key: string; label: string };
+/**
+ * A state a row can be in, by its key and its word for this reader, with
+ * what it lets a row do (ADR 0124, 0137): the screens offer no more.
+ */
+export type RowStateChoice = {
+  key: string;
+  label: string;
+  rules?: Pick<StatusState, "rowWritable" | "writableFields" | "allowDelete">;
+};
 
 /**
  * A table's states in its circuit's order, each by its circuit's word
@@ -20,6 +28,11 @@ export function useCircuitStates(tableId: string): readonly RowStateChoice[] {
     .map((state) => ({
       key: state.key,
       label: circuitWord(i18n, "state", state),
+      rules: {
+        rowWritable: state.rowWritable,
+        writableFields: state.writableFields,
+        allowDelete: state.allowDelete,
+      },
     }));
 }
 

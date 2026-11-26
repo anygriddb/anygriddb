@@ -1,6 +1,7 @@
 # 0130 — Taking a circuit's step is a permission, and a step names its roles
 
-- Status: Accepted
+- Status: Accepted; that a client's table keeps compliance is superseded
+  by 0137
 - Date: 2026-11-25
 - Relates to: 0124 (configurable status circuits, amended), 0127
   (permissions of a base), 0128 (made roles), 0129 (rows leave by export)

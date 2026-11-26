@@ -6,6 +6,7 @@ import {
   definitionOf,
   findAllowedTransition,
   initialState,
+  stateAllows,
   takesTransition,
   transitionKeyForStatus,
   type StatusCircuit,
@@ -213,5 +214,35 @@ describe("a circuit as its editor saves it", () => {
         if (first) copy.steps.push({ ...first });
       }),
     ).toBe(false);
+  });
+});
+
+describe("what a state lets AnyGridDB write", () => {
+  const state = (
+    writable: boolean,
+    fields: string[] | null,
+    remove: boolean,
+  ) => ({
+    rowWritable: writable,
+    writableFields: fields,
+    allowDelete: remove,
+  });
+
+  it("lets a writable state change any field, or only those it names", () => {
+    expect(stateAllows(state(true, null, true), { fields: ["a", "b"] })).toBe(
+      true,
+    );
+    expect(stateAllows(state(true, ["a"], true), { fields: ["a"] })).toBe(true);
+    expect(stateAllows(state(true, ["a"], true), { fields: ["a", "b"] })).toBe(
+      false,
+    );
+  });
+
+  it("refuses a change of a state that is not writable, and a delete it forbids", () => {
+    expect(stateAllows(state(false, null, true), { fields: ["a"] })).toBe(
+      false,
+    );
+    expect(stateAllows(state(false, null, true), { delete: true })).toBe(true);
+    expect(stateAllows(state(true, null, false), { delete: true })).toBe(false);
   });
 });

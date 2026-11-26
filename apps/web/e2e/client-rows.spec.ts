@@ -43,7 +43,7 @@ function ok(reply: Reply): unknown {
   return reply.body.result?.data;
 }
 
-test("a client's rows: locked, signed, told when changed elsewhere, read from a copy, and charted", async ({
+test("a client's rows: locked, signed, told when changed elsewhere, in a circuit of their own, read from a copy, and charted", async ({
   page,
 }) => {
   test.setTimeout(180_000);
@@ -149,7 +149,7 @@ test("a client's rows: locked, signed, told when changed elsewhere, read from a 
     await dialog.getByLabel("Password").fill("correct-horse-battery");
     await dialog.getByRole("button", { name: "Sign" }).click();
     await expect(
-      page.getByText(/changed outside AnyGridDB since it was locked/).first(),
+      page.getByText(/changed outside AnyGridDB since it was sealed/).first(),
     ).toBeVisible();
     // The row cannot be signed now: the dialog closes by itself.
     await expect(dialog).toBeHidden();
@@ -173,6 +173,59 @@ test("a client's rows: locked, signed, told when changed elsewhere, read from a 
     await dialog.getByLabel("Password").fill("correct-horse-battery");
     await dialog.getByRole("button", { name: "Sign" }).click();
     await expect(status).toContainText("Signed by Admin Rows");
+
+    // The table's own circuit (ADR 0137): unlocked first, as a sealed row
+    // keeps its state, then a review that keeps a row from changing.
+    await status.getByRole("button", { name: "Unlock" }).click();
+    await page
+      .getByRole("dialog")
+      .getByRole("button", { name: "Unlock" })
+      .click();
+    await expect(status).toHaveCount(0);
+    await page.goto(`/b/${baseId ?? ""}/t/${tableId}`);
+    await page.getByRole("button", { name: "More actions" }).click();
+    await page.getByRole("menuitem", { name: "Status circuit" }).click();
+    const editor = page.getByRole("dialog", { name: "Status circuit" });
+    await expect(
+      editor.getByText(/This table lives in a client's database/),
+    ).toBeVisible();
+    await editor.getByLabel("Start from").selectOption("simple_review");
+    await expect(editor.getByLabel("Name of state 2")).toHaveValue("In review");
+    expect(await accessibilityViolations(page)).toEqual([]);
+    await editor.getByRole("button", { name: "Save", exact: true }).click();
+    await expect(
+      page.getByText("Circuit saved", { exact: true }),
+    ).toBeVisible();
+    await page.goto(`/b/${baseId ?? ""}/t/${tableId}?row=2`);
+    await submit();
+    await expect(status).toContainText("In review");
+    const customer = (
+      await control.query<{ name: string }>(
+        "select name from data_columns where table_id = $1 and physical_name = 'customer'",
+        [tableId],
+      )
+    ).rows[0]?.name;
+    const edit = await call(page, "rows.updateMany", {
+      tableId,
+      updates: [{ rowId: "2", values: { [customer ?? ""]: "Bea" } }],
+    });
+    expect(edit.body.error?.data?.reason?.code).toBe("row_locked");
+    // The grid does not offer it either: it says so, and asks nothing.
+    const refused: string[] = [];
+    const noteRefusal = (response: {
+      status: () => number;
+      url: () => string;
+    }) => {
+      if (response.status() >= 400) refused.push(response.url());
+    };
+    page.on("response", noteRefusal);
+    await page.getByRole("gridcell", { name: "Bob" }).dblclick();
+    await expect(page.getByText("Row locked").first()).toBeVisible();
+    await page.waitForTimeout(300);
+    page.off("response", noteRefusal);
+    expect(refused).toEqual([]);
+    await status.getByRole("button", { name: "Approve" }).click();
+    await expect(status).toContainText("Approved");
 
     // Synced mode (ADR 0034): the table reads from a copy in AnyGridDB.
     ok(

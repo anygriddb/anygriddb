@@ -18,6 +18,7 @@ import {
   type ViewProps,
 } from "./view-common";
 import { useLingui } from "@lingui/react/macro";
+import { rowLets } from "../record/row-status-model";
 
 /** The gallery's cards, as one list to move rows within. */
 const GALLERY_LIST = "gallery";
@@ -283,8 +284,7 @@ export function GalleryView(props: ViewProps) {
                 );
                 const image = files.find((file) => file.thumb);
                 const tint = props.tintOf?.(row);
-                const locked =
-                  row.ag_status === "locked" || row.ag_status === "signed";
+                const locked = !rowLets(row, table.states, { fields: [] });
                 return (
                   <div key={row.id} {...cell}>
                     <MovableCard

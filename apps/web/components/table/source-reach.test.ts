@@ -13,6 +13,7 @@ function external(hostAllowed: boolean, synced = false): External {
     hosted: false,
     hostAllowed,
     writes: { update: false, insert: false, delete: false },
+    keyed: true,
     enrichable: false,
     enrichment: "off",
     enrichmentBlocked: null,

@@ -493,6 +493,7 @@ export interface ExternalStatuses {
   checkedAt: Timestamp | null;
   drift: Record<string, unknown> | null;
   driftAt: Timestamp | null;
+  fencedFrom: string | null;
   fingerprint: string | null;
   rowId: string;
   sealed: Record<string, unknown> | null;

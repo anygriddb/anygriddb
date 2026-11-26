@@ -394,6 +394,7 @@ export {
   stepBetween,
   definitionOf,
   initialState,
+  stateAllows,
   stateByKey,
   transitionKeyForStatus,
   transitionsFrom,

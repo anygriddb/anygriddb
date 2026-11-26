@@ -63,7 +63,7 @@ import {
   type Run,
   type WriteBody,
 } from "./pools.js";
-import { assertUnsealed, forgetStatuses } from "./statuses.js";
+import { assertWritable, forgetStatuses } from "./statuses.js";
 import { readSettings } from "../settings.js";
 
 export type ExternalWriteContext = {
@@ -539,8 +539,9 @@ export async function updateExternalRows(
     : assertEnabled(context, "update");
   const columns = storedColumns(context, fields, "update");
   const table = context.engine.table;
-  // A locked or signed row is refused before anything (ADR 0033).
-  await assertUnsealed(db, context.table.id, ids);
+  // A row whose state does not let these fields change is refused before
+  // anything (ADR 0137).
+  await assertWritable(db, context.table.id, ids, { fields });
 
   const patches = work.map((update) => {
     const { own, side, controlPlane } = splitSide(
@@ -626,9 +627,9 @@ export async function updateExternalRows(
       }));
       await recordIntents(db, context, sourceId, planned);
       intents.push(...planned);
-      // Again once the intents are recorded: a lock that committed since
-      // refuses the write, and one that did not waits for it.
-      await assertUnsealed(db, context.table.id, ids);
+      // Again once the intents are recorded: a step into a sealed state that
+      // committed since refuses the write, and one that did not waits for it.
+      await assertWritable(db, context.table.id, ids, { fields });
     };
     const read: ReadonlyMap<string, Record<string, unknown>> = enrichmentOnly
       ? await (async () => {
@@ -816,7 +817,7 @@ export async function deleteExternalRows(
   const ids = [...new Set(rowIds)];
   if (ids.length === 0) return [];
   const table = context.engine.table;
-  await assertUnsealed(db, context.table.id, ids);
+  await assertWritable(db, context.table.id, ids, { delete: true });
   const statements = ids.map((id) => buildExternalDelete(table, id));
   const intents: Intent[] = [];
   await written(db, context, sourceId, intents, async (run, change) => {
@@ -836,7 +837,7 @@ export async function deleteExternalRows(
     });
     await recordIntents(db, context, sourceId, planned);
     intents.push(...planned);
-    await assertUnsealed(db, context.table.id, ids);
+    await assertWritable(db, context.table.id, ids, { delete: true });
     for (const statement of statements) await change(statement);
     // The side values of a deleted row go with it.
     if (table.external?.side) {

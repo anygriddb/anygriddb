@@ -17,7 +17,7 @@ export function usePersonEventLabels(): {
       assigned: t`Assigned to a row`,
       automation: t`Automation you authored failed`,
       webhook_disabled: t`Webhook you created was disabled`,
-      row_changed: t`Locked row changed outside`,
+      row_changed: t`Sealed row changed outside`,
       role_given: t`Role given on a base you own`,
       owner_named: t`Someone made an owner`,
       account_locked: t`Another account locked (administrators)`,
