@@ -28,13 +28,19 @@ function hostName(url: URL): string {
   return url.hostname.replace(/^\[|\]$/g, "").toLowerCase();
 }
 
-function refusedName(host: string): boolean {
+/**
+ * A name refused before it is resolved: the machine itself and a cloud's
+ * metadata, always; a private network's own names (`.local`, `.internal`)
+ * unless an administrator has allowed that network, where an identity
+ * provider or a collector is often named so. What any name resolves to is
+ * checked after.
+ */
+function refusedName(host: string, allowPrivate: boolean): boolean {
   return (
     host === "localhost" ||
     host.endsWith(".localhost") ||
-    host.endsWith(".local") ||
-    host.endsWith(".internal") ||
-    METADATA_NAMES.has(host)
+    METADATA_NAMES.has(host) ||
+    (!allowPrivate && (host.endsWith(".local") || host.endsWith(".internal")))
   );
 }
 
@@ -88,7 +94,9 @@ export async function assertOutboundTarget(
     throw new AppError("invalid_outbound_target");
   }
   const host = hostName(url);
-  if (refusedName(host)) throw new AppError("invalid_outbound_target");
+  if (refusedName(host, options.allowPrivate)) {
+    throw new AppError("invalid_outbound_target");
+  }
   const family = isIP(host);
   if (family !== 0) {
     assertAddresses([{ address: host, family }], options.allowPrivate);
