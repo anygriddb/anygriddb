@@ -177,6 +177,8 @@ export async function accountStorage(
 /**
  * Refuses a file that would take its base or its sender past their quota
  * (`base_storage_full`, `account_storage_full`); a quota of 0 is none.
+ * In a transaction, the quota's base and account stay locked until it
+ * ends, base first: files sent together are counted one after the other.
  */
 export async function assertStorageRoom(
   db: Database,
@@ -185,21 +187,26 @@ export async function assertStorageRoom(
   const settings = await readGateSettings(db);
   const perBase = limitIn("storage.base_mib", settings.limits) * MIB;
   const perAccount = limitIn("storage.account_mib", settings.limits) * MIB;
+  const lock = (held: string) =>
+    sql`select pg_advisory_xact_lock(hashtext(${`ag_storage:${held}`}))`.execute(
+      db,
+    );
   if (perBase > 0) {
     const table = await db
       .selectFrom("dataTables")
       .select("baseId")
       .where("id", "=", input.tableId)
       .executeTakeFirst();
+    if (table) await lock(`base:${table.baseId}`);
     if (table && (await baseStorage(db, table.baseId)) + input.size > perBase) {
       throw new AppError("base_storage_full");
     }
   }
-  if (
-    perAccount > 0 &&
-    (await accountStorage(db, input.userId)) + input.size > perAccount
-  ) {
-    throw new AppError("account_storage_full");
+  if (perAccount > 0) {
+    await lock(`account:${input.userId}`);
+    if ((await accountStorage(db, input.userId)) + input.size > perAccount) {
+      throw new AppError("account_storage_full");
+    }
   }
 }
 

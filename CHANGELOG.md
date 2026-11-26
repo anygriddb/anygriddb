@@ -19,6 +19,13 @@ first.
   the value, where PostgreSQL 13 refused the whole page. A text-like field
   on MySQL's JSON or long text reads as its text, as a text did.
 
+### Fixed
+
+- Files sent together could all be taken past a base's or an account's
+  storage quota, each counted without the others. The room is now asked
+  again as each file is recorded, one after the other, and a file refused
+  then leaves nothing in the store.
+
 ## 0.11.0 - 2026-11-26
 
 Before upgrading: an identity provider reached at the machine's own address

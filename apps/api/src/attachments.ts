@@ -205,23 +205,46 @@ export async function storeAttachment(
       contentType: mime,
     });
   }
-  await db
-    .insertInto("attachments")
-    .values({
-      key,
-      tableId: input.tableId,
-      filename: input.filename,
-      mime,
-      size,
-      width,
-      height,
-      thumbKey,
-      createdBy: input.userId,
-      ...(input.stagedShareId
-        ? { stagedShareId: input.stagedShareId, stagedUntil: stagedDeadline() }
-        : {}),
-    })
-    .execute();
+  try {
+    // Asked again where the file is counted: of files sent together, those
+    // the quota no longer holds are refused, not all taken.
+    await db.transaction().execute(async (tx) => {
+      await assertStorageRoom(tx, {
+        tableId: input.tableId,
+        userId: input.userId,
+        size,
+      });
+      await tx
+        .insertInto("attachments")
+        .values({
+          key,
+          tableId: input.tableId,
+          filename: input.filename,
+          mime,
+          size,
+          width,
+          height,
+          thumbKey,
+          createdBy: input.userId,
+          ...(input.stagedShareId
+            ? {
+                stagedShareId: input.stagedShareId,
+                stagedUntil: stagedDeadline(),
+              }
+            : {}),
+        })
+        .execute();
+    });
+  } catch (error) {
+    // Stored and then refused by a quota: no row names it, and it goes now
+    // rather than at the sweep, which keeps any other failure's.
+    if (error instanceof AppError) {
+      for (const stored of [key, thumbKey]) {
+        if (stored) await files.delete(stored).catch(() => undefined);
+      }
+    }
+    throw error;
+  }
   return {
     key,
     filename: input.filename,
