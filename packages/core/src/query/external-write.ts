@@ -196,6 +196,45 @@ function rowsMatch(
     .join(" or ");
 }
 
+/**
+ * `(a, b) > (x, y)` written out, which SQL Server has no syntax for: the
+ * rows after a key in the key's order.
+ */
+export function keysAfter(
+  refs: readonly string[],
+  values: readonly string[],
+): string {
+  const terms = refs.map((ref, index) => {
+    const equal = refs
+      .slice(0, index)
+      .map((left, at) => `${left} = ${values[at] ?? ""}`);
+    return [...equal, `${ref} > ${values[index] ?? ""}`].join(" and ");
+  });
+  return terms.map((term) => `(${term})`).join(" or ");
+}
+
+/**
+ * The rows after the one an id names, in its key's order, on the
+ * expression `at` gives each key column. A table read whole a page at a
+ * time this way misses none of the rows it keeps, whatever rows go
+ * meanwhile.
+ */
+export function keyAfter(
+  table: EngineTable,
+  id: string,
+  params: SqlParams,
+  at: (index: number) => string,
+): string {
+  const { key, dialect } = external(table);
+  const values = keyValues(table, id);
+  return `(${keysAfter(
+    key.map((_, index) => at(index)),
+    key.map((name, index) =>
+      keyParam(dialect, keyType(table, name), params.bind(values[index])),
+    ),
+  )})`;
+}
+
 const INTEGER =
   /^(?:tinyint|smallint|mediumint|int|integer|bigint|serial|bigserial|smallserial|int2|int4|int8|year)\b/i;
 
