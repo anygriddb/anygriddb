@@ -17,7 +17,11 @@ import { requireStepUp } from "../auth/step-up.js";
 import type { Context } from "./context.js";
 import { type RoleNoticeDeps } from "../data/role-notices.js";
 import { resolveSmtp } from "../integrations/smtp.js";
-import { type Declaration } from "../access/declaration.js";
+import {
+  currentDeclaration,
+  type Declaration,
+  noteDemand,
+} from "../access/declaration.js";
 import { asksProof } from "./proof-rule.js";
 import { baseProcedure, requireUser } from "./init.js";
 
@@ -113,9 +117,13 @@ export function asking(declaration: Declaration) {
  */
 export async function requireInstance(ctx: Context) {
   const user = await requireUser(ctx);
-  const opened =
-    openCall.getStore() === true ||
-    (user.isAuditor && auditorCall.getStore() === true);
+  const reading = user.isAuditor && auditorCall.getStore() === true;
+  const own = instanceCallers(user).filter((caller) => caller !== "auditor");
+  // Each permission it asks, noted as held or not (`access/declaration.ts`).
+  for (const permission of instanceAsks(currentDeclaration() ?? {})) {
+    noteDemand(permission, reading || callersHold(own, permission));
+  }
+  const opened = openCall.getStore() === true || reading;
   if (!opened || ctx.tokenScope) {
     throw new AppError("access_denied");
   }

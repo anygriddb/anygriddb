@@ -8,6 +8,21 @@ first.
 
 ## Unreleased
 
+### Changed
+
+- Support, or a part of Administration given apart, asking for a change
+  only an administrator makes is refused at once, no longer after a proof
+  it could not use.
+- An import that makes a base (a workbook, a snapshot, a base from another
+  product) asks, when it runs, whether its author may still make a base: one
+  queued before base creation was kept to administrators is refused.
+
+### Added
+
+- `anygriddb_undeclared_permission_total` counts the checks that asked a
+  permission their way in does not declare. It should stay at 0: report one
+  that does not.
+
 ## 0.10.2 - 2026-11-26
 
 Nothing to do before upgrading: migration 0145 adds a field type.

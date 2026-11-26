@@ -64,7 +64,7 @@ export const catalogViewProcedures = {
         };
       }),
     ),
-  createView: asking({ asks: ["rows.read"], also: ["views.manage"] })
+  createView: asking({ asks: ["views.manage"], also: ["rows.read"] })
     .input(createViewInputSchema)
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
