@@ -13,7 +13,7 @@ const KEPT_WINDOWS = 2;
  * uncounted: a pool busy with long reads must not hold every request
  * behind it, the app's own pages included.
  */
-export const COUNT_WAIT_MS = 2_000;
+const COUNT_WAIT_MS = 2_000;
 
 /** A failure to count is said at most once a minute: an outage says it once. */
 const SAID_EVERY_MS = 60_000;

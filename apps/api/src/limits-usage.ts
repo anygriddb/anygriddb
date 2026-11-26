@@ -23,7 +23,7 @@ import { BUCKET_LIMITS } from "./rate-limit.js";
  * an account) holds now, and how many hold more than it allows (an
  * address refused) or all it allows (an account that can start nothing).
  */
-export type LimitUse = { most: number; past: number };
+type LimitUse = { most: number; past: number };
 
 export type LimitRow = LimitEntry & {
   id: LimitId;
