@@ -9,16 +9,30 @@ export type StoredRule = {
 };
 
 /**
- * The members a table's rules apply to: whoever may set them (an owner)
- * reads and changes every row and every field, whatever is kept for them.
+ * The members a table's rules are about: whoever may set them (who holds
+ * `members.manage` there, by the base or the table) reads and changes
+ * everything, and is never narrowed.
  */
 export function ruledMembers<
   Person extends { baseRole: Grant | null; tableRole: Grant | null },
 >(people: readonly Person[]): Person[] {
   return people.filter(
     (person) =>
-      !roleGrants(person.tableRole ?? person.baseRole, "members.manage"),
+      !roleGrants(person.baseRole, "members.manage") &&
+      !roleGrants(person.tableRole, "members.manage"),
   );
+}
+
+/**
+ * Whether a rule can narrow this member here (ADR 0131): a rule narrows
+ * only the role it comes with, so they reach the table by a role given on
+ * it alone. A role on the base, their own or a group's, gives it whole.
+ */
+export function narrowable(person: {
+  baseRole: Grant | null;
+  tableRole: Grant | null;
+}): boolean {
+  return person.baseRole === null && person.tableRole !== null;
 }
 
 /**

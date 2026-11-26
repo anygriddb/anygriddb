@@ -44,7 +44,7 @@ describe("the same answer, whoever and whatever exists", () => {
   const roleOf = async (userId: string) =>
     (
       await db
-        .selectFrom("roleBindings")
+        .selectFrom("attributions")
         .select("role")
         .where("userId", "=", userId)
         .where("scope", "=", "base")

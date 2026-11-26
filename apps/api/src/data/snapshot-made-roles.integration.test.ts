@@ -63,7 +63,7 @@ describe("a made role in a snapshot", () => {
     // Cy reviews the base; Dee edits it, and only reviews its table.
     await withAudit(db, { userId: ids.owner }, (tx) =>
       tx
-        .insertInto("roleBindings")
+        .insertInto("attributions")
         .values([
           {
             userId: ids.cy,
@@ -112,7 +112,7 @@ describe("a made role in a snapshot", () => {
       .where("baseId", "=", baseId)
       .execute();
     return db
-      .selectFrom("roleBindings")
+      .selectFrom("attributions")
       .select(["userId", "role", "madeRoleId", "scope"])
       .where("scopeId", "in", [baseId, ...tables.map((table) => table.id)])
       .where("userId", "<>", ids.owner)

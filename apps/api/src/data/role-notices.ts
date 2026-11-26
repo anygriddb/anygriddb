@@ -4,6 +4,7 @@
  * and those who answer for the base learn of it in the app, whoever the
  * role went to and by whichever way. One notice for one gesture.
  */
+import { holdersOf } from "./attributions.js";
 import { type Given, trimEndRun } from "@anygriddb/core";
 import type { Database } from "@anygriddb/db";
 import type { KeyRing } from "../auth/key-ring.js";
@@ -77,16 +78,14 @@ async function tell(
       .where("u.disabledAt", "is", null)
       .where("u.id", "<>", input.actorId)
       .where("u.id", "<>", receiver ?? input.actorId)
-      .where((eb) =>
-        eb.exists(
-          eb
-            .selectFrom("roleBindings as b")
-            .select("b.id")
-            .whereRef("b.userId", "=", "u.id")
-            .where("b.scope", "=", "base")
-            .where("b.scopeId", "=", input.baseId)
-            .where("b.role", "=", "owner"),
-        ),
+      .where(
+        "u.id",
+        "in",
+        await holdersOf(
+          deps.db,
+          { baseId: input.baseId },
+          "members.manage",
+        ).then((ids) => (ids.length > 0 ? ids : [""])),
       )
       .execute(),
   ]);

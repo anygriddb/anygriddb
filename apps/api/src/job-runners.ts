@@ -366,7 +366,7 @@ const runDuplicate =
     );
     demand(roleFor(bindings, "base", table.baseId), "schema.manage");
     if (input.withData) {
-      await assertMayCopyRows(deps.db, { userId, bindings }, table);
+      assertMayCopyRows({ userId, bindings }, table);
     }
     let copyId: string | undefined;
     try {

@@ -95,7 +95,7 @@ describe("a request its caller got wrong", () => {
       .executeTakeFirstOrThrow();
     await withAudit(db, { userId: owner.id, source: "web" }, (tx) =>
       tx
-        .insertInto("roleBindings")
+        .insertInto("attributions")
         .values({
           userId: editor.id,
           role: "editor",

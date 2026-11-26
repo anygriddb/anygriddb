@@ -60,24 +60,25 @@ function textField(
   return null;
 }
 
-function bindingFromPayload(payload: Record<string, unknown> | null): {
-  userId: string;
+/** A role as an event of the trail kept it: whose, where, and which. */
+function attributionFromPayload(payload: Record<string, unknown> | null): {
+  userId: string | null;
+  groupId: string | null;
   scope: "base" | "table";
   scopeId: string;
   role: Role | null;
   madeRoleId: string | null;
-  groupId: string | null;
 } | null {
   if (!payload) return null;
   if (!("scope" in payload) || !("role" in payload)) return null;
   const userId = textField(payload, "user_id", "userId");
+  const groupId = textField(payload, "group_id", "groupId");
   const scope = textField(payload, "scope");
   const scopeId = textField(payload, "scope_id", "scopeId");
   const role = textField(payload, "role");
   const madeRoleId = textField(payload, "made_role_id", "madeRoleId");
-  const groupId = textField(payload, "group_id", "groupId");
   if (
-    !userId ||
+    (!userId && !groupId) ||
     (scope !== "base" && scope !== "table") ||
     !scopeId ||
     (!role && !madeRoleId)
@@ -86,11 +87,11 @@ function bindingFromPayload(payload: Record<string, unknown> | null): {
   }
   return {
     userId,
+    groupId,
     scope,
     scopeId,
     role: role ? (role as Role) : null,
     madeRoleId: role ? null : madeRoleId,
-    groupId,
   };
 }
 
@@ -105,98 +106,72 @@ type StateRow = {
   occurredAt: Date | null;
 };
 
+type TrailEvent = {
+  id: string;
+  occurredAt: Date;
+  oldValue: unknown;
+  newValue: unknown;
+};
+
+/** The roles of the trail, as each version kept them (ADR 0131). */
+const ROLE_TRAILS = ["role_bindings", "attributions"] as const;
+
 /**
- * Rights the person held at `at`. Starts from what they hold now (own
- * bindings and those a group gives), then undoes every role_bindings change
- * after that date. Incomplete when the oldest kept catalog event is after
- * `at`.
+ * When roles began to add up on this instance (migration 0150): before it,
+ * a person's roles are read back from `bindings_before_union`, the roles
+ * as they stood then, a group's copies included.
  */
-export async function rightsAt(
+async function unionSince(db: Database): Promise<Date | null> {
+  const { rows } = await sql<{ appliedAt: Date }>`
+    select applied_at as "appliedAt" from schema_migrations
+    where name = '0150_attributions'
+  `.execute(db);
+  return rows[0]?.appliedAt ?? null;
+}
+
+/** Events of one trail after `at`, newest first, that match `whose`. */
+async function eventsAfter(
   db: Database,
-  input: { userId: string; at: Date },
-): Promise<RightsAtResult> {
-  const atIso = input.at.toISOString();
-  const earliest = await db
-    .selectFrom("auditEvents")
-    .select((eb) => eb.fn.min<Date | null>("occurredAt").as("at"))
-    .where("action", "=", "catalog")
-    .where("catalogTable", "=", "role_bindings")
-    .executeTakeFirst();
-  const earliestKept = earliest?.at ? new Date(earliest.at) : null;
+  table: string,
+  at: Date,
+  whose: ReturnType<typeof sql<boolean>>,
+  until?: Date,
+): Promise<TrailEvent[]> {
+  return (
+    db
+      .selectFrom("auditEvents")
+      .select(["id", "occurredAt", "oldValue", "newValue"])
+      .where("action", "=", "catalog")
+      .where("catalogTable", "=", table)
+      .where("occurredAt", ">", at)
+      .$if(until !== undefined, (query) =>
+        query.where("occurredAt", "<=", until ?? at),
+      )
+      .where(whose)
+      // A role change deletes the binding and inserts the new one in one
+      // transaction, so both events share occurred_at. The id is a random
+      // uuid and does not say which was last: the insert, which has a new
+      // value, is the later write and is undone first.
+      .orderBy("occurredAt", "desc")
+      .orderBy(sql`case when new_value is null then 1 else 0 end`)
+      .orderBy("id", "desc")
+      .execute()
+  );
+}
 
-  const current = await db
-    .selectFrom("roleBindings as b")
-    .leftJoin("groups as g", "g.id", "b.groupId")
-    .select([
-      "b.role",
-      "b.madeRoleId",
-      "b.scope",
-      "b.scopeId",
-      "b.groupId",
-      "g.displayName as groupName",
-    ])
-    .where("b.userId", "=", input.userId)
-    .where("b.scope", "in", ["base", "table"])
-    .execute();
-
-  const state = new Map<BindingKey, StateRow>();
-  for (const row of current) {
-    const scope = row.scope as "base" | "table";
-    state.set(keyOf(scope, row.scopeId, row.groupId), {
-      scope,
-      scopeId: row.scopeId,
-      role: row.role,
-      madeRoleId: row.madeRoleId,
-      groupId: row.groupId,
-      groupName: row.groupName,
-      eventId: null,
-      occurredAt: null,
-    });
-  }
-
-  // No role_bindings event left, but the person still holds roles: the
-  // trail was purged. A date before the oldest kept event is the same.
-  if (
-    (state.size > 0 && !earliestKept) ||
-    (earliestKept && earliestKept.getTime() > input.at.getTime())
-  ) {
-    return {
-      incomplete: true,
-      reason: "purged",
-      earliestKept: earliestKept ? earliestKept.toISOString() : null,
-      at: atIso,
-    };
-  }
-
-  // Newest first: undo each change that happened after the chosen instant.
-  const events = await db
-    .selectFrom("auditEvents")
-    .select(["id", "occurredAt", "oldValue", "newValue"])
-    .where("action", "=", "catalog")
-    .where("catalogTable", "=", "role_bindings")
-    .where("occurredAt", ">", input.at)
-    .where((eb) =>
-      eb.or([
-        sql<boolean>`coalesce(new_value->>'user_id', new_value->>'userId') = ${input.userId}`,
-        sql<boolean>`coalesce(old_value->>'user_id', old_value->>'userId') = ${input.userId}`,
-      ]),
-    )
-    // A role change deletes the binding and inserts the new one in one
-    // transaction, so both events share occurred_at. The id is a random
-    // uuid and does not say which was last: the insert, which has a new
-    // value, is the later write and is undone first.
-    .orderBy("occurredAt", "desc")
-    .orderBy(sql`case when new_value is null then 1 else 0 end`)
-    .orderBy("id", "desc")
-    .execute();
-
+/** Undoes each role change of `events` on `state`, for whom `mine` says. */
+function undo(
+  state: Map<BindingKey, StateRow>,
+  events: readonly TrailEvent[],
+  mine: (row: { userId: string | null; groupId: string | null }) => boolean,
+): void {
   for (const event of events) {
-    const after = bindingFromPayload(payloadOf(event.newValue));
-    const before = bindingFromPayload(payloadOf(event.oldValue));
-    if (after && after.userId === input.userId) {
+    const after = attributionFromPayload(payloadOf(event.newValue));
+    const before = attributionFromPayload(payloadOf(event.oldValue));
+    if (after && mine(after)) {
       state.delete(keyOf(after.scope, after.scopeId, after.groupId));
     }
-    if (before && before.userId === input.userId) {
+    if (before && mine(before)) {
       state.set(keyOf(before.scope, before.scopeId, before.groupId), {
         scope: before.scope,
         scopeId: before.scopeId,
@@ -208,6 +183,163 @@ export async function rightsAt(
         occurredAt: event.occurredAt,
       });
     }
+  }
+}
+
+function stateOf(
+  rows: ReadonlyArray<{
+    scope: string | null;
+    scopeId: string | null;
+    role: Role | null;
+    madeRoleId: string | null;
+    groupId: string | null;
+  }>,
+): Map<BindingKey, StateRow> {
+  const state = new Map<BindingKey, StateRow>();
+  for (const row of rows) {
+    if (row.scope !== "base" && row.scope !== "table") continue;
+    if (row.scopeId === null) continue;
+    state.set(keyOf(row.scope, row.scopeId, row.groupId), {
+      scope: row.scope,
+      scopeId: row.scopeId,
+      role: row.role,
+      madeRoleId: row.madeRoleId,
+      groupId: row.groupId,
+      groupName: null,
+      eventId: null,
+      occurredAt: null,
+    });
+  }
+  return state;
+}
+
+/**
+ * Before roles added up: the roles as they stood at the upgrade, a
+ * group's copies included, then every change after `at` undone.
+ */
+async function stateBeforeUnion(
+  db: Database,
+  userId: string,
+  at: Date,
+  union: Date,
+): Promise<Map<BindingKey, StateRow>> {
+  const state = stateOf(
+    await db
+      .selectFrom("bindingsBeforeUnion")
+      .select(["scope", "scopeId", "role", "madeRoleId", "groupId"])
+      .where("userId", "=", userId)
+      .execute(),
+  );
+  undo(
+    state,
+    await eventsAfter(
+      db,
+      "role_bindings",
+      at,
+      sql<boolean>`coalesce(new_value->>'user_id', new_value->>'userId', old_value->>'user_id', old_value->>'userId') = ${userId}`,
+      union,
+    ),
+    (row) => row.userId === userId,
+  );
+  return state;
+}
+
+/**
+ * Since roles add up: the person's own attributions and those of the
+ * groups they were in at `at`, each walked back from now.
+ */
+async function stateSinceUnion(
+  db: Database,
+  userId: string,
+  at: Date,
+): Promise<Map<BindingKey, StateRow>> {
+  const groups = new Set(
+    (
+      await db
+        .selectFrom("groupMembers")
+        .select("groupId")
+        .where("userId", "=", userId)
+        .execute()
+    ).map((row) => row.groupId),
+  );
+  const joins = await eventsAfter(
+    db,
+    "group_members",
+    at,
+    sql<boolean>`coalesce(new_value->>'user_id', old_value->>'user_id') = ${userId}`,
+  );
+  for (const event of joins) {
+    const joined = payloadOf(event.newValue);
+    const left = payloadOf(event.oldValue);
+    const joinedGroup = joined ? textField(joined, "group_id") : null;
+    const leftGroup = left ? textField(left, "group_id") : null;
+    if (joinedGroup) groups.delete(joinedGroup);
+    if (leftGroup) groups.add(leftGroup);
+  }
+  const held = [...groups];
+  const state = stateOf(
+    await db
+      .selectFrom("attributions")
+      .select(["scope", "scopeId", "role", "madeRoleId", "groupId"])
+      .where((eb) =>
+        eb.or([
+          eb("userId", "=", userId),
+          ...(held.length > 0 ? [eb("groupId", "in", held)] : []),
+        ]),
+      )
+      .execute(),
+  );
+  const theirs = sql<boolean>`(coalesce(new_value->>'user_id', old_value->>'user_id') = ${userId}${
+    held.length > 0
+      ? sql` or coalesce(new_value->>'group_id', old_value->>'group_id') = any(${held}::text[])`
+      : sql``
+  })`;
+  undo(
+    state,
+    await eventsAfter(db, "attributions", at, theirs),
+    (row) =>
+      row.userId === userId ||
+      (row.groupId !== null && groups.has(row.groupId)),
+  );
+  return state;
+}
+
+/**
+ * Rights the person held at `at`, theirs and their groups'. Before the
+ * upgrade where roles began to add up (ADR 0131), read back from the roles
+ * as they stood then. Incomplete when the oldest kept event of the roles
+ * is after `at`.
+ */
+export async function rightsAt(
+  db: Database,
+  input: { userId: string; at: Date },
+): Promise<RightsAtResult> {
+  const atIso = input.at.toISOString();
+  const earliest = await db
+    .selectFrom("auditEvents")
+    .select((eb) => eb.fn.min<Date | null>("occurredAt").as("at"))
+    .where("action", "=", "catalog")
+    .where("catalogTable", "in", [...ROLE_TRAILS])
+    .executeTakeFirst();
+  const earliestKept = earliest?.at ? new Date(earliest.at) : null;
+  const union = await unionSince(db);
+  const state =
+    union !== null && input.at.getTime() < union.getTime()
+      ? await stateBeforeUnion(db, input.userId, input.at, union)
+      : await stateSinceUnion(db, input.userId, input.at);
+
+  // No role event left, but the person holds roles: the trail was
+  // purged. A date before the oldest kept event is the same.
+  if (
+    (state.size > 0 && !earliestKept) ||
+    (earliestKept && earliestKept.getTime() > input.at.getTime())
+  ) {
+    return {
+      incomplete: true,
+      reason: "purged",
+      earliestKept: earliestKept ? earliestKept.toISOString() : null,
+      at: atIso,
+    };
   }
 
   // Fill group names for rows restored from the trail.

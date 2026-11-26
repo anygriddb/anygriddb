@@ -4,19 +4,9 @@
  * account that touched them, and the pool's own limits.
  */
 import { randomBytes } from "node:crypto";
-import {
-  copyFile,
-  mkdtemp,
-  readdir,
-  readFile,
-  rm,
-  writeFile,
-} from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { readFile, rm } from "node:fs/promises";
 import { join } from "node:path";
-import { fileURLToPath } from "node:url";
 import {
-  createDb,
   migrateDb,
   migrationNames,
   UpgradeRefused,
@@ -24,8 +14,16 @@ import {
 } from "@anygriddb/db";
 import { sql } from "kysely";
 import pg from "pg";
-import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createTestDatabase } from "../test-database.js";
+import {
+  catalogBefore,
+  emptyDatabase,
+  MIGRATIONS,
+  migrationsBefore,
+  migrationsOf,
+  olderBase,
+} from "./catalog-before.test-helpers.js";
 import { withAudit } from "./audit-context.js";
 import { loadEngine } from "./engine.js";
 import {
@@ -100,7 +98,7 @@ describe("catalog integrity", () => {
             set_config('anygrid.source', 'web', true)
         `.execute(tx);
         await tx
-          .insertInto("roleBindings")
+          .insertInto("attributions")
           .values({
             userId: owner,
             role: "editor",
@@ -112,7 +110,7 @@ describe("catalog integrity", () => {
     ).rejects.toSatisfy(isUniqueViolation);
   });
 
-  it("refuses the same role from the same group twice", async () => {
+  it("refuses a second role for the same group on the same object", async () => {
     const { id: baseId } = await insertBase(db, owner, { name: "Shared" });
     const group = await withAudit(
       db,
@@ -125,18 +123,20 @@ describe("catalog integrity", () => {
           .executeTakeFirstOrThrow(),
     );
     const binding = {
-      userId: owner,
       groupId: group.id,
       role: "viewer" as const,
       scope: "base" as const,
       scopeId: baseId,
     };
     await withAudit(db, { userId: owner, source: "web" }, (tx) =>
-      tx.insertInto("roleBindings").values(binding).execute(),
+      tx.insertInto("attributions").values(binding).execute(),
     );
     await expect(
       withAudit(db, { userId: owner, source: "web" }, (tx) =>
-        tx.insertInto("roleBindings").values(binding).execute(),
+        tx
+          .insertInto("attributions")
+          .values({ ...binding, role: "editor" })
+          .execute(),
       ),
     ).rejects.toSatisfy(isUniqueViolation);
   });
@@ -202,7 +202,7 @@ describe("catalog integrity", () => {
     expect(folder.deletedBy).toBeNull();
   });
 
-  it("indexes the trails an erasure rewrites and a webhook's table", async () => {
+  it("indexes the trails an erasure rewrites, a webhook's table and one role per subject", async () => {
     const found = await sql<{ name: string }>`
       select indexname as name from pg_indexes
       where schemaname = 'public'
@@ -212,18 +212,18 @@ describe("catalog integrity", () => {
           'row_signatures_user',
           'attachments_created_by',
           'webhooks_table_idx',
-          'role_bindings_direct',
-          'role_bindings_from_group',
+          'attributions_person',
+          'attributions_of_group',
           'users_email_lower',
           'users_email'
         )
     `.execute(db);
     expect(found.rows.map((row) => row.name).sort()).toEqual([
       "attachments_created_by",
+      "attributions_of_group",
+      "attributions_person",
       "external_status_events_user",
       "external_writes_user",
-      "role_bindings_direct",
-      "role_bindings_from_group",
       "row_signatures_user",
       "users_email",
       "users_email_lower",
@@ -246,58 +246,6 @@ describe("catalog integrity", () => {
     expect(row.id[14]).toBe("7");
   });
 });
-
-const MIGRATIONS = fileURLToPath(
-  new URL("../../../../packages/db/migrations/", import.meta.url),
-);
-
-/** A database that holds nothing, not even the record of a migration. */
-async function emptyDatabase() {
-  const adminUrl = inject("adminUrl");
-  const name = `catalog_upgrade_${randomBytes(6).toString("hex")}`;
-  const admin = new pg.Client({ connectionString: adminUrl });
-  await admin.connect();
-  try {
-    await admin.query(`CREATE DATABASE "${name}"`);
-  } finally {
-    await admin.end();
-  }
-  const url = new URL(adminUrl);
-  url.pathname = `/${name}`;
-  return createDb(url.toString());
-}
-
-/** A folder of the migrations before `upTo`: what an earlier version ships. */
-async function migrationsBefore(upTo: string): Promise<string> {
-  const earlier = await mkdtemp(join(tmpdir(), "migrations-"));
-  for (const file of await readdir(MIGRATIONS)) {
-    if (file.endsWith(".sql") && file < upTo) {
-      await copyFile(join(MIGRATIONS, file), join(earlier, file));
-    }
-  }
-  return earlier;
-}
-
-/** A folder of migrations written for one test. */
-async function migrationsOf(files: Record<string, string>): Promise<string> {
-  const folder = await mkdtemp(join(tmpdir(), "migrations-"));
-  for (const [name, text] of Object.entries(files)) {
-    await writeFile(join(folder, name), text);
-  }
-  return folder;
-}
-
-/** An empty database, migrated up to the file before `upTo`. */
-async function catalogBefore(upTo: string) {
-  const created = await emptyDatabase();
-  const earlier = await migrationsBefore(upTo);
-  try {
-    await migrateDb(created.pool, earlier);
-  } finally {
-    await rm(earlier, { recursive: true, force: true });
-  }
-  return created;
-}
 
 const STRUCTURE = "0130_structure_through_the_owner.sql";
 
@@ -416,7 +364,7 @@ describe("an upgrade of an instance whose row numbers ran out", () => {
       .returning("id")
       .execute();
     const userId = person?.id ?? "";
-    const baseId = (await insertBase(db, userId, { name: "Essais" })).id;
+    const baseId = (await olderBase(db, userId, "Essais")).id;
     const make = async (name: string) => {
       const { id } = await insertTable(db, userId, {
         baseId,
@@ -814,59 +762,53 @@ describe("catalog integrity on a catalog that already holds a role twice", () =>
         .execute();
       const id = (name: string) =>
         people.find((person) => person.displayName === name)?.id ?? "";
-      const { id: baseId } = await insertBase(db, id("owner"), {
-        name: "Before",
+      const { id: baseId } = await olderBase(db, id("owner"), "Before");
+      await db.transaction().execute(async (tx) => {
+        await sql`
+          select set_config('anygrid.user_id', ${id("owner")}, true),
+            set_config('anygrid.source', 'web', true)
+        `.execute(tx);
+        const group = await tx
+          .insertInto("groups")
+          .values({ displayName: `Crew ${suffix}` })
+          .returning("id")
+          .executeTakeFirstOrThrow();
+        const grant = (user: string, role: string, groupId: string | null) =>
+          sql`insert into role_bindings (user_id, role, scope, scope_id, group_id)
+              values (${id(user)}, ${role}::role, 'base', ${baseId}, ${groupId})`.execute(
+            tx,
+          );
+        // What two grants at once could leave behind.
+        await grant("owner", "viewer", null);
+        await grant("twice", "viewer", null);
+        await grant("twice", "editor", null);
+        await grant("twice", "commenter", null);
+        await grant("member", "editor", group.id);
+        await grant("member", "editor", group.id);
+        // A person's own role beside the one a group gives: both stay.
+        await grant("member", "viewer", null);
       });
-      await withAudit(
-        db,
-        { userId: id("owner"), source: "web" },
-        async (tx) => {
-          const group = await tx
-            .insertInto("groups")
-            .values({ displayName: `Crew ${suffix}` })
-            .returning("id")
-            .executeTakeFirstOrThrow();
-          const base = { scope: "base" as const, scopeId: baseId };
-          await tx
-            .insertInto("roleBindings")
-            .values([
-              // What two grants at once could leave behind.
-              { ...base, userId: id("owner"), role: "viewer" },
-              { ...base, userId: id("twice"), role: "viewer" },
-              { ...base, userId: id("twice"), role: "editor" },
-              { ...base, userId: id("twice"), role: "commenter" },
-              {
-                ...base,
-                userId: id("member"),
-                groupId: group.id,
-                role: "editor",
-              },
-              {
-                ...base,
-                userId: id("member"),
-                groupId: group.id,
-                role: "editor",
-              },
-              // A person's own role beside the one a group gives: both stay.
-              { ...base, userId: id("member"), role: "viewer" },
-            ])
-            .execute();
-        },
-      );
 
-      const ran = await migrateDb(pool);
-      expect(ran[0]).toBe("0104_catalog_integrity");
-      const left = await db
-        .selectFrom("roleBindings")
-        .innerJoin("users", "users.id", "roleBindings.userId")
-        .select(["users.displayName as name", "role", "groupId"])
-        .where("scopeId", "=", baseId)
-        .orderBy("users.displayName")
-        .orderBy("role")
-        .execute();
-      expect(
-        left.map((row) => [row.name, row.role, row.groupId !== null]),
-      ).toEqual([
+      // Up to 0104 only: what it leaves, as the versions after it found it.
+      const through = await migrationsBefore("0105");
+      try {
+        const ran = await migrateDb(pool, through);
+        expect(ran).toEqual(["0104_catalog_integrity"]);
+      } finally {
+        await rm(through, { recursive: true, force: true });
+      }
+      const { rows: left } = await sql<{
+        name: string;
+        role: string;
+        grouped: boolean;
+      }>`
+        select u.display_name as name, b.role::text as role,
+          b.group_id is not null as grouped
+        from role_bindings b join users u on u.id = b.user_id
+        where b.scope_id = ${baseId}
+        order by u.display_name, b.role
+      `.execute(db);
+      expect(left.map((row) => [row.name, row.role, row.grouped])).toEqual([
         ["member", "editor", true],
         ["member", "viewer", false],
         ["owner", "owner", false],
@@ -874,17 +816,16 @@ describe("catalog integrity on a catalog that already holds a role twice", () =>
       ]);
       // And from now on, the database refuses what was cleaned up.
       await expect(
-        withAudit(db, { userId: id("owner"), source: "web" }, (tx) =>
-          tx
-            .insertInto("roleBindings")
-            .values({
-              userId: id("twice"),
-              role: "viewer",
-              scope: "base",
-              scopeId: baseId,
-            })
-            .execute(),
-        ),
+        db.transaction().execute(async (tx) => {
+          await sql`
+            select set_config('anygrid.user_id', ${id("owner")}, true),
+              set_config('anygrid.source', 'web', true)
+          `.execute(tx);
+          await sql`insert into role_bindings (user_id, role, scope, scope_id)
+                    values (${id("twice")}, 'viewer', 'base', ${baseId})`.execute(
+            tx,
+          );
+        }),
       ).rejects.toSatisfy(isUniqueViolation);
     } finally {
       await close();
@@ -1214,7 +1155,7 @@ describe("one journal of deliveries on a catalog that kept two", () => {
         .values({ email: `hooks-${suffix}@example.com`, displayName: "Hooks" })
         .returning("id")
         .executeTakeFirstOrThrow();
-      const { id: baseId } = await insertBase(db, owner, { name: "Hooks" });
+      const { id: baseId } = await olderBase(db, owner, "Hooks");
       const table = await insertTable(db, owner, {
         baseId,
         name: "Orders",

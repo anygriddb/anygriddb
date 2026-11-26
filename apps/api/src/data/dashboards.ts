@@ -3,6 +3,8 @@ import {
   type AggregateFn,
   AppError,
   type Binding,
+  effectiveTableRole,
+  roleGrants,
   buildAggregates,
   buildGroupAggregates,
   buildHistogram,
@@ -50,6 +52,36 @@ export async function listDashboards(db: Database, baseId: string) {
     .execute();
 }
 
+/**
+ * Of these dashboards of a base, those whose every widget reads a table
+ * the reader may read: what someone reached through some of its tables
+ * is shown of them (ADR 0131).
+ */
+export async function dashboardsReadable(
+  db: Database,
+  bindings: readonly Binding[],
+  baseId: string,
+  dashboardIds: readonly string[],
+): Promise<Set<string>> {
+  if (dashboardIds.length === 0) return new Set();
+  const widgets = await db
+    .selectFrom("dashboardWidgets")
+    .select(["dashboardId", "config"])
+    .where("dashboardId", "in", dashboardIds)
+    .execute();
+  const shown = new Set(dashboardIds);
+  for (const widget of widgets) {
+    const tableId = widget.config.tableId;
+    if (
+      typeof tableId !== "string" ||
+      !roleGrants(effectiveTableRole(bindings, tableId, baseId), "rows.read")
+    ) {
+      shown.delete(widget.dashboardId);
+    }
+  }
+  return shown;
+}
+
 export async function getDashboard(db: Database, dashboardId: string) {
   const dashboard = await loadDashboard(db, dashboardId);
   const widgets = await db
@@ -63,19 +95,17 @@ export async function getDashboard(db: Database, dashboardId: string) {
 }
 
 /** A dashboard's widgets, saying nothing of a field hidden from the reader. */
-export async function widgetsForReader(
-  db: Database,
+export function widgetsForReader(
   reader: { userId: string; bindings: readonly Binding[] },
   baseId: string,
   widgets: readonly WidgetRow[],
-): Promise<WidgetRow[]> {
+): WidgetRow[] {
   const tableOf = (widget: WidgetRow): string | undefined => {
     const id = widget.config.tableId;
     return typeof id === "string" ? id : undefined;
   };
   const tables = [...new Set(widgets.flatMap((item) => tableOf(item) ?? []))];
-  const access = await readerAccess(
-    db,
+  const access = readerAccess(
     reader,
     tables.map((id) => ({ id, baseId })),
   );

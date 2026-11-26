@@ -4,6 +4,7 @@
  * refused when it would leave a base that had an owner with none, and
  * done when someone else still owns it.
  */
+import { holdersOf } from "../data/attributions.js";
 import { randomBytes } from "node:crypto";
 import type { Database } from "@anygriddb/db";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -32,16 +33,9 @@ describe("a base's last owner, through a group", () => {
   let baseId = "";
   let groupId = "";
 
+  /** Who owns the base, by a role of their own or a group's. */
   async function owners(): Promise<string[]> {
-    const rows = await db
-      .selectFrom("roleBindings")
-      .select("userId")
-      .distinct()
-      .where("scope", "=", "base")
-      .where("scopeId", "=", baseId)
-      .where("role", "=", "owner")
-      .execute();
-    return rows.map((row) => row.userId).sort();
+    return (await holdersOf(db, { baseId }, "base.manage")).sort();
   }
 
   beforeAll(async () => {

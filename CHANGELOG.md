@@ -8,6 +8,40 @@ first.
 
 ## Unreleased
 
+**Before upgrading:** read Administration › People › Rights to review with
+0.11.2. This upgrade (migration 0150) refuses until an operator accepts the
+cases it lists: set `ANYGRIDDB_ACCEPT_UPGRADE=0150` in `.env`, start again,
+then remove it. An instance that gives roles on tables, or field and row
+rules, and runs a version before 0.11.2 upgrades through 0.11.2 first.
+
+### Breaking
+
+- Roles add up (ADR 0131). What someone may do on a table is what its base
+  and the table give them together, by their own roles and their groups':
+  a role given on a table only adds, and no longer takes away what the base
+  gives. Everyone keeps exactly what they held on every existing table,
+  but in the cases Rights to review listed, which the upgrade carries out:
+  a table narrowed under a manager's role or a group's now gives that role
+  too; someone a rule bound holds a role on each table of the base instead
+  of one on the base; a base's role narrowed on some tables falls to what
+  they share (one of the four, a role an administrator made of exactly
+  those permissions, or one the upgrade makes, named "Floor of …").
+  Rights to review goes with the cases it listed.
+- A field or row rule narrows only the role it comes with: it is set on
+  someone who holds a role on the table and none on its base. Setting one
+  on someone the base reaches is refused (`rule_needs_table_role`).
+- A role that gives a token no way in (`api.access`) no longer keeps a
+  token out of a table that another role opens to it.
+
+### Changed
+
+- A group's role on a base is kept once, and reaches whoever is in the
+  group when it is asked, instead of a copy for each member.
+- Rights at a past date read, for a date before the upgrade, the roles as
+  they stood then.
+- Notices about a base go to whoever runs it, a made role that manages it
+  or a group's included, and no longer to the four's owners alone.
+
 ## 0.11.2 - 2026-11-26
 
 Before upgrading: nothing to do. Migration 0149 runs by itself. Then read

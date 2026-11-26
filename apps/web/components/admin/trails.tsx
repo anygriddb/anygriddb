@@ -99,6 +99,7 @@ export function ChangesTrail({
           data_columns: t`Field`,
           relations: t`Link`,
           role_bindings: t`Role`,
+          attributions: t`Role`,
           table_acls: t`Row and field rules`,
           column_acls: t`Row and field rules`,
           shares: t`Public link`,

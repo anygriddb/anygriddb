@@ -18,9 +18,11 @@ import {
   rolePermissions,
   ROLES,
   roleRank,
+  tableRules,
   tokenGiven,
   type Binding,
 } from "./rbac";
+import type { FilterGroup } from "./filter";
 
 const bindings: Binding[] = [
   { role: "viewer", scope: "table", scopeId: "table-1" },
@@ -163,25 +165,20 @@ describe("roleFor", () => {
 });
 
 describe("effectiveTableRole", () => {
-  it("lets a table override the base role, in both directions", () => {
+  it("adds a table's role to its base's, and never takes from it", () => {
     const layered: Binding[] = [
       { role: "editor", scope: "base", scopeId: "base-1" },
-      { role: "viewer", scope: "table", scopeId: "table-locked" },
+      { role: "viewer", scope: "table", scopeId: "table-lower" },
       { role: "commenter", scope: "base", scopeId: "base-2" },
+      { role: "owner", scope: "table", scopeId: "table-higher" },
     ];
     expect(effectiveTableRole(layered, "table-open", "base-1")).toBe("editor");
-    expect(effectiveTableRole(layered, "table-locked", "base-1")).toBe(
-      "viewer",
-    );
-    expect(can(layered, "rows.write", "table", "table-open", "base-1")).toBe(
+    // A lower role on a table leaves the base's whole.
+    expect(effectiveTableRole(layered, "table-lower", "base-1")).toBe("editor");
+    expect(can(layered, "rows.write", "table", "table-lower", "base-1")).toBe(
       true,
     );
-    expect(can(layered, "rows.write", "table", "table-locked", "base-1")).toBe(
-      false,
-    );
-    expect(can(layered, "rows.comment", "table", "table-x", "base-2")).toBe(
-      true,
-    );
+    expect(effectiveTableRole(layered, "table-higher", "base-2")).toBe("owner");
     expect(can(layered, "rows.write", "table", "table-x", "base-2")).toBe(
       false,
     );
@@ -239,14 +236,22 @@ describe("made roles", () => {
     ).toBe("owner");
   });
 
-  it("keep a table's role exact: it replaces the base's, made or not", () => {
+  it("add to the base's role on a table, made or not", () => {
     const bindings: Binding[] = [
       { role: "editor", scope: "base", scopeId: "b" },
       { role: REVIEWER, scope: "table", scopeId: "t" },
     ];
-    expect(can(bindings, "rows.write", "table", "t", "b")).toBe(false);
+    expect(can(bindings, "rows.write", "table", "t", "b")).toBe(true);
     expect(can(bindings, "rows.lock", "table", "t", "b")).toBe(true);
-    expect(can(bindings, "rows.write", "table", "other", "b")).toBe(true);
+    expect(can(bindings, "rows.lock", "table", "other", "b")).toBe(false);
+    expect(effectiveTableRole(bindings, "t", "b")).toEqual({
+      role: "editor",
+      made: [{ id: REVIEWER.id, name: REVIEWER.name }],
+      permissions: PERMISSIONS.filter(
+        (permission) =>
+          roleGrants("editor", permission) || permission === "rows.lock",
+      ),
+    });
   });
 
   it("are given only by someone who holds all they give", () => {
@@ -282,23 +287,16 @@ describe("made roles", () => {
     });
   });
 
-  it("give a token what they give only when they give it a way in", () => {
-    for (const role of ROLES) expect(tokenGiven(role)).toBe(role);
+  it("act through a token only when they give it a way in", () => {
+    for (const role of ROLES) expect(tokenGiven(role)).toBe(true);
     // Read in the application, never through a token.
-    expect(tokenGiven(REVIEWER)).toEqual({ ...REVIEWER, permissions: [] });
-    const reached: MadeRole = {
-      ...REVIEWER,
-      permissions: [...REVIEWER.permissions, "api.access"],
-    };
-    expect(tokenGiven(reached)).toBe(reached);
-    // A table's role that gives a token nothing still stands over the
-    // base's, so the table stays out of the token's reach.
-    const bindings: Binding[] = [
-      { role: "editor", scope: "base", scopeId: "b" },
-      { role: tokenGiven(REVIEWER), scope: "table", scopeId: "t" },
-    ];
-    expect(can(bindings, "rows.read", "table", "t", "b")).toBe(false);
-    expect(can(bindings, "rows.read", "table", "other", "b")).toBe(true);
+    expect(tokenGiven(REVIEWER)).toBe(false);
+    expect(
+      tokenGiven({
+        ...REVIEWER,
+        permissions: [...REVIEWER.permissions, "api.access"],
+      }),
+    ).toBe(true);
   });
 
   it("read rows, and hold only the catalogue's permissions", () => {
@@ -360,5 +358,89 @@ describe("what each caller of Administration holds", () => {
         instanceRoles: [],
       }),
     ).toEqual([]);
+  });
+});
+
+describe("tableRules", () => {
+  const mine: FilterGroup = {
+    conjunction: "and",
+    conditions: [{ column: "owner", op: "is", value: "me" }],
+  };
+  const theirs: FilterGroup = {
+    conjunction: "and",
+    conditions: [{ column: "team", op: "is", value: "north" }],
+  };
+
+  it("says nothing when no attribution that reaches the table narrows", () => {
+    const bindings: Binding[] = [
+      { role: "editor", scope: "base", scopeId: "b" },
+      { role: "viewer", scope: "table", scopeId: "other", rows: mine },
+    ];
+    expect(tableRules(bindings, "t", "b")).toBeUndefined();
+  });
+
+  it("narrows only the attribution a rule comes with", () => {
+    // A base's viewer, and the table's editor of their own rows.
+    const bindings: Binding[] = [
+      { role: "viewer", scope: "base", scopeId: "b" },
+      {
+        role: "editor",
+        scope: "table",
+        scopeId: "t",
+        rows: mine,
+        fields: { amount: "write", secret: "hide" },
+      },
+    ];
+    const rules = tableRules(bindings, "t", "b");
+    expect(rules?.rows("rows.read")).toBeUndefined();
+    expect(rules?.rows("rows.write")).toEqual(mine);
+    expect(rules?.access("amount")).toBe("write");
+    // The base's viewer reads every field, the rule's hidden one too.
+    expect(rules?.access("secret")).toBe("read");
+    expect(rules?.access("notes")).toBe("read");
+  });
+
+  it("joins the rows of several by OR, and reaches none without a giver", () => {
+    const bindings: Binding[] = [
+      { role: "editor", scope: "table", scopeId: "t", rows: mine },
+      { role: "viewer", scope: "table", scopeId: "t", rows: theirs },
+    ];
+    const rules = tableRules(bindings, "t", "b");
+    expect(rules?.rows("rows.read")).toEqual({
+      conjunction: "or",
+      conditions: [mine, theirs],
+    });
+    expect(rules?.rows("rows.write")).toEqual(mine);
+    expect(rules?.rows("base.manage")).toEqual({
+      conjunction: "or",
+      conditions: [],
+    });
+  });
+
+  it("never narrows who manages the table", () => {
+    const bindings: Binding[] = [
+      {
+        role: "owner",
+        scope: "table",
+        scopeId: "t",
+        rows: mine,
+        fields: { amount: "hide" },
+      },
+    ];
+    expect(tableRules(bindings, "t", "b")).toBeUndefined();
+  });
+
+  it("never gives a field above what its role gives", () => {
+    const bindings: Binding[] = [
+      {
+        role: "viewer",
+        scope: "table",
+        scopeId: "t",
+        fields: { amount: "write" },
+      },
+    ];
+    const rules = tableRules(bindings, "t", undefined);
+    expect(rules?.access("amount")).toBe("read");
+    expect(rules?.access("notes")).toBe("hide");
   });
 });

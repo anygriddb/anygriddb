@@ -86,6 +86,7 @@ describe("a thread of comments, resolved and opened again", () => {
       await joinBase(db, { baseId, userId, role });
       if (role === "commenter") {
         // The commenter reads the open row, and not the one kept from them.
+        await owner.call().catalog.splitBaseRole({ baseId, userId });
         await owner.call().catalog.setTableAcl({
           tableId,
           userId,

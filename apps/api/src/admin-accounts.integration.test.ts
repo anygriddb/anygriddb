@@ -233,7 +233,7 @@ describe("accounts in Administration", () => {
       });
       const id = (await idOf(email)) ?? "";
       const roles = await db
-        .selectFrom("roleBindings")
+        .selectFrom("attributions")
         .select(["scopeId", "role"])
         .where("userId", "=", id)
         .where("scope", "=", "base")
@@ -576,7 +576,7 @@ describe("accounts in Administration", () => {
         role: "viewer",
       });
       const roles = await db
-        .selectFrom("roleBindings")
+        .selectFrom("attributions")
         .select(["userId", "role"])
         .where("scope", "=", "base")
         .where("scopeId", "=", base.id)

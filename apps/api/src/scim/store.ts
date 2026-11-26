@@ -22,7 +22,6 @@ import { recordAuthEvent } from "../auth/auth-events.js";
 import { type AuditTx, withAudit } from "../data/audit-context.js";
 import { ERASED_USER_ID } from "../data/erasure.js";
 import { postgresCode } from "../data/pg-error.js";
-import { syncGroupBindings } from "./groups.js";
 
 export type ScimContext = { db: Database; actorId: string; baseUrl: string };
 
@@ -378,12 +377,11 @@ export async function deleteScimUser(context: ScimContext, id: string) {
   await change(context, async (tx) => {
     const account = await findAccount(tx, id, true);
     await assertNotLastAdmin(tx, account);
-    const left = await tx
+    // Out of every group: what a group gives stops reaching them.
+    await tx
       .deleteFrom("groupMembers")
       .where("userId", "=", account.id)
-      .returning("groupId")
       .execute();
-    for (const { groupId } of left) await syncGroupBindings(tx, groupId);
     await tx
       .updateTable("users")
       .set({
@@ -584,9 +582,6 @@ async function setMembers(
           .map((userId) => ({ groupId, userId })),
       )
       .execute();
-  }
-  if (leaving.length > 0 || joining.length > 0) {
-    await syncGroupBindings(tx, groupId);
   }
 }
 

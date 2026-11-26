@@ -105,10 +105,17 @@ describe("row writes through the REST API", () => {
     );
     await withAudit(database, { userId: owner, source: "web" }, (tx) =>
       tx
-        .insertInto("roleBindings")
+        .insertInto("attributions")
         .values([
-          { userId: editor, role: "editor", scope: "base", scopeId: baseId },
-          // The editor may read orders, not change them.
+          // The editor may read orders, not change them: roles add up, so
+          // they hold theirs table by table, and none on the base.
+          {
+            userId: editor,
+            role: "editor",
+            scope: "table",
+            scopeId: clientsId,
+          },
+          { userId: editor, role: "editor", scope: "table", scopeId: tasksId },
           { userId: editor, role: "viewer", scope: "table", scopeId: ordersId },
         ])
         .execute(),

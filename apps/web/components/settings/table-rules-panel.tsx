@@ -16,6 +16,7 @@ import { FilterBuilder } from "../table/filter-builder";
 import { useRoleLabel } from "./role-label";
 import {
   memberShown,
+  narrowable,
   restricts,
   ruledMembers,
   ruleToSave,
@@ -28,6 +29,8 @@ type Member = {
   displayName: string;
   baseRole: Grant | null;
   tableRole: Grant | null;
+  /** Whether their role on the base is their own, not a group's. */
+  baseOwn: boolean;
 };
 
 /** What was changed for one member and is not saved yet. */
@@ -46,6 +49,7 @@ const PREVIEW_ROWS = 5;
  * of the table has none to set: they read and change everything.
  */
 export function TableRulesPanel(props: {
+  baseId: string;
   tableId: string;
   /** The table's name: a base's settings hold a panel for each table. */
   tableName: string;
@@ -79,11 +83,12 @@ export function TableRulesPanel(props: {
   if (ruled.length === 0) {
     return (
       <p className="text-sm text-muted-foreground">
-        {t`Permissions are set for members who do not own the table. Invite someone, or give a member a role under Owner.`}
+        {t`A rule narrows only a role given on this table. Give someone a role here, and none on the base (which gives them the whole table), to set which rows and fields they see.`}
       </p>
     );
   }
 
+  const person = ruled.find((member) => member.userId === userId);
   const stored = rules.data?.rules.find((rule) => rule.userId === userId);
   const own = draft?.userId === userId ? draft : null;
   const access =
@@ -126,6 +131,29 @@ export function TableRulesPanel(props: {
     toast.success(
       restricts(rule) ? t`Permissions saved` : t`Restrictions cleared`,
     );
+  }
+
+  /** Their own role on the base, given table by table so a rule may narrow it. */
+  async function split() {
+    try {
+      await trpc.catalog.splitBaseRole.mutate({
+        baseId: props.baseId,
+        userId,
+      });
+    } catch (cause) {
+      toast.error(errorText(cause));
+      return;
+    }
+    await Promise.all([
+      queryClient.invalidateQueries({
+        queryKey: api.catalog.tableAccess.pathKey(),
+      }),
+      queryClient.invalidateQueries({
+        queryKey: api.catalog.members.pathKey(),
+      }),
+    ]);
+    await refresh();
+    toast.success(t`Role given table by table`);
   }
 
   async function clear() {
@@ -179,81 +207,107 @@ export function TableRulesPanel(props: {
       </div>
       {rules.isLoading ? <Spinner /> : null}
 
-      <div className="flex flex-col gap-2">
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-xs font-medium text-muted-foreground">
-            {t`Rows`}
-          </span>
-          <Select
-            aria-label={t`Rows this member sees`}
-            className="h-8 w-64"
-            value={rowFilter === null ? "all" : "some"}
-            onChange={(event) =>
-              edit({
-                rowFilter:
-                  event.target.value === "all"
-                    ? null
-                    : { conjunction: "and", conditions: [] },
-              })
-            }
-          >
-            <option value="all">{t`Every row`}</option>
-            <option value="some">{t`Only the rows that match`}</option>
-          </Select>
-        </div>
-        {rowFilter === null ? null : (
-          <>
-            <FilterBuilder
-              group={rowFilter}
-              columns={props.columns}
-              people={props.people}
-              onChange={(group) => edit({ rowFilter: group })}
-            />
-            <p className="text-xs text-muted-foreground">
-              {t`A row that does not match is hidden from this member in every view, export, and answer of the API. “Me”, in a collaborator field, keeps each person to their own rows.`}
-            </p>
-          </>
-        )}
-      </div>
-
-      <div className="flex flex-col gap-1">
-        <span className="text-xs font-medium text-muted-foreground">
-          {t`Fields`}
-        </span>
-        <ul className="divide-y divide-border text-sm">
-          {props.columns.map((column) => (
-            <li key={column.name} className="flex items-center gap-2 py-1.5">
-              <span className="min-w-0 flex-1 truncate">{column.label}</span>
+      {person && narrowable(person) ? (
+        <>
+          <div className="flex flex-col gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-xs font-medium text-muted-foreground">
+                {t`Rows`}
+              </span>
               <Select
-                aria-label={t`What this member may do with ${{ field: column.label }}`}
-                className="h-8 w-44"
-                value={access[column.name] ?? "write"}
+                aria-label={t`Rows this member sees`}
+                className="h-8 w-64"
+                value={rowFilter === null ? "all" : "some"}
                 onChange={(event) =>
                   edit({
-                    access: {
-                      ...access,
-                      [column.name]: event.target.value as FieldAccess,
-                    },
+                    rowFilter:
+                      event.target.value === "all"
+                        ? null
+                        : { conjunction: "and", conditions: [] },
                   })
                 }
               >
-                <option value="write">{t`Read and write`}</option>
-                <option value="read">{t`Read only`}</option>
-                <option value="hide">{t`Hidden`}</option>
+                <option value="all">{t`Every row`}</option>
+                <option value="some">{t`Only the rows that match`}</option>
               </Select>
-            </li>
-          ))}
-        </ul>
-      </div>
+            </div>
+            {rowFilter === null ? null : (
+              <>
+                <FilterBuilder
+                  group={rowFilter}
+                  columns={props.columns}
+                  people={props.people}
+                  onChange={(group) => edit({ rowFilter: group })}
+                />
+                <p className="text-xs text-muted-foreground">
+                  {t`A row that does not match is hidden from this member in every view, export, and answer of the API. “Me”, in a collaborator field, keeps each person to their own rows.`}
+                </p>
+              </>
+            )}
+          </div>
 
-      <div className="flex flex-wrap gap-2">
-        <Button size="sm" onClick={() => void save()}>
-          {t`Save`}
-        </Button>
-        <Button size="sm" variant="ghost" onClick={() => void clear()}>
-          {t`Clear restrictions`}
-        </Button>
-      </div>
+          <div className="flex flex-col gap-1">
+            <span className="text-xs font-medium text-muted-foreground">
+              {t`Fields`}
+            </span>
+            <ul className="divide-y divide-border text-sm">
+              {props.columns.map((column) => (
+                <li
+                  key={column.name}
+                  className="flex items-center gap-2 py-1.5"
+                >
+                  <span className="min-w-0 flex-1 truncate">
+                    {column.label}
+                  </span>
+                  <Select
+                    aria-label={t`What this member may do with ${{ field: column.label }}`}
+                    className="h-8 w-44"
+                    value={access[column.name] ?? "write"}
+                    onChange={(event) =>
+                      edit({
+                        access: {
+                          ...access,
+                          [column.name]: event.target.value as FieldAccess,
+                        },
+                      })
+                    }
+                  >
+                    <option value="write">{t`Read and write`}</option>
+                    <option value="read">{t`Read only`}</option>
+                    <option value="hide">{t`Hidden`}</option>
+                  </Select>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            <Button size="sm" onClick={() => void save()}>
+              {t`Save`}
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => void clear()}>
+              {t`Clear restrictions`}
+            </Button>
+          </div>
+        </>
+      ) : (
+        <div className="flex flex-col items-start gap-2 text-sm">
+          {person?.baseOwn ? (
+            <>
+              <p className="text-muted-foreground">
+                {t`${{ name: person.displayName }} reaches this table through their role on the base, which gives it whole. To narrow what they see here, give them that role on each table of the base instead.`}
+              </p>
+              <Button size="sm" variant="outline" onClick={() => void split()}>
+                {t`Give the role table by table`}
+              </Button>
+            </>
+          ) : (
+            <p className="text-muted-foreground">
+              {t`A group gives ${{ name: person?.displayName ?? "" }} their role on the base, which gives this table whole: a rule cannot narrow it.`}
+            </p>
+          )}
+        </div>
+      )}
 
       {viewing ? (
         <MemberPreview

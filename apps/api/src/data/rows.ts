@@ -2,6 +2,7 @@ import {
   type AggregateItem,
   AppError,
   type AuditRole,
+  type Permission,
   findAllowedTransition,
   isBlankCell,
   transitionKeyForStatus,
@@ -44,6 +45,7 @@ import {
   withExactNumbers,
 } from "@anygriddb/core";
 import { type RawBuilder, sql } from "kysely";
+import { reachersOf } from "./attributions.js";
 import {
   readWithin,
   runStatement,
@@ -681,18 +683,39 @@ export function assertFieldsWritable(
   }
 }
 
-/** Refuses a change to rows outside the writer's row rule. */
+/**
+ * The engine whose table's rows are those its reader may act on (ADR
+ * 0131): the attributions that give the act decide, as those that give
+ * reading decide what is read.
+ */
+function actingOn(engine: EngineCatalog, act: Permission): EngineCatalog {
+  const access = engine.access;
+  if (!access) return engine;
+  const own = engine.table.id;
+  return {
+    ...engine,
+    access: {
+      ...access,
+      rowFilter: (tableId, asked) =>
+        access.rowFilter(tableId, tableId === own ? (asked ?? act) : asked),
+    },
+  };
+}
+
+/** Refuses an act on rows outside what the actor's rules let them act on. */
 export async function assertRowsInScope(
   db: Database,
   engine: EngineCatalog,
   rowIds: readonly string[],
+  act: Permission,
 ): Promise<void> {
-  if (!engine.access?.rowFilter(engine.table.id)) return;
+  const scoped = actingOn(engine, act);
+  if (!scoped.access?.rowFilter(scoped.table.id)) return;
   const unique = [...new Set(rowIds)];
-  await readTransaction(db, engine, async (run) => {
+  await readTransaction(db, scoped, async (run) => {
     for (let start = 0; start < unique.length; start += MAX_READ_LIMIT) {
       const chunk = unique.slice(start, start + MAX_READ_LIMIT);
-      const [row] = await run(buildCountRows(engine, { rowIds: chunk }));
+      const [row] = await run(buildCountRows(scoped, { rowIds: chunk }));
       if (Number(row?.total ?? 0) !== chunk.length) {
         throw new AppError("access_denied");
       }
@@ -723,11 +746,12 @@ export async function assertRowsStayInRule(
   engine: EngineCatalog,
   rowIds: readonly string[],
 ): Promise<void> {
-  if (!engine.access?.rowFilter(engine.table.id)) return;
+  const scoped = actingOn(engine, "rows.write");
+  if (!scoped.access?.rowFilter(scoped.table.id)) return;
   const unique = [...new Set(rowIds)];
   for (let start = 0; start < unique.length; start += MAX_READ_LIMIT) {
     const chunk = unique.slice(start, start + MAX_READ_LIMIT);
-    const [row] = await run(buildCountRows(engine, { rowIds: chunk }));
+    const [row] = await run(buildCountRows(scoped, { rowIds: chunk }));
     if (Number(row?.total ?? 0) !== chunk.length) {
       throw new AppError("row_outside_rule");
     }
@@ -740,7 +764,9 @@ export async function assertOwnRowsStayInRule(
   engine: EngineCatalog,
   rowIds: readonly string[],
 ): Promise<void> {
-  if (!engine.access?.rowFilter(engine.table.id)) return;
+  if (!actingOn(engine, "rows.write").access?.rowFilter(engine.table.id)) {
+    return;
+  }
   await sql.raw("set local time zone 'UTC'").execute(tx);
   await assertRowsStayInRule(
     (statement) => runRows(tx, statement),
@@ -798,18 +824,7 @@ export async function baseCollaboratorIds(
   db: Database,
   baseId: string,
 ): Promise<Set<string>> {
-  const tableRows = await db
-    .selectFrom("dataTables")
-    .select("id")
-    .where("baseId", "=", baseId)
-    .execute();
-  const scopeIds = [baseId, ...tableRows.map((row) => row.id)];
-  const rows = await db
-    .selectFrom("roleBindings")
-    .select("userId")
-    .where("scopeId", "in", scopeIds)
-    .execute();
-  return new Set(rows.map((row) => row.userId));
+  return reachersOf(db, baseId);
 }
 
 export async function listCollaborators(db: Database, baseId: string) {

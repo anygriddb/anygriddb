@@ -14,6 +14,7 @@ import {
 import type { Database, ShareRow, TableRow, ViewRow } from "@anygriddb/db";
 import { sql } from "kysely";
 import { hashPassword, verifyPassword } from "../auth/argon2.js";
+import { liveAttribution } from "./attributions.js";
 import { withAudit } from "./audit-context.js";
 import { liveBase, liveTable, liveView } from "./live.js";
 import {
@@ -41,36 +42,45 @@ function isToken(value: string): boolean {
 }
 
 /* ------------------------------------------------------------------ */
-/* Table overrides                                                     */
+/* Roles on a table                                                    */
 /* ------------------------------------------------------------------ */
 
+/**
+ * Who reaches a table, by a role on its base or on it, their own or a
+ * group's (ADR 0131): what each gives, and the role of their own on the
+ * table, which adds to the base's.
+ */
 export async function listTableAccess(
   db: Database,
   table: { id: string; baseId: string },
 ) {
   const rows = await db
-    .selectFrom("roleBindings as b")
-    .innerJoin("users as u", "u.id", "b.userId")
-    .leftJoin("madeRoles as m", "m.id", "b.madeRoleId")
+    .selectFrom("attributions as a")
+    .leftJoin("groupMembers as gm", "gm.groupId", "a.groupId")
+    .innerJoin("users as u", (join) =>
+      join.on(sql<boolean>`u.id = coalesce(a.user_id, gm.user_id)`),
+    )
+    .leftJoin("madeRoles as m", "m.id", "a.madeRoleId")
     .select([
       "u.id as userId",
       "u.displayName",
       "u.email",
-      "b.role",
-      "b.scope",
-      "b.scopeId",
-      "b.groupId",
+      "a.role",
+      "a.scope",
+      "a.scopeId",
+      "a.groupId",
       ...MADE_COLUMNS,
     ])
     .where((eb) =>
       eb.or([
         eb.and([
-          eb("b.scope", "=", "base"),
-          eb("b.scopeId", "=", table.baseId),
+          eb("a.scope", "=", "base"),
+          eb("a.scopeId", "=", table.baseId),
         ]),
-        eb.and([eb("b.scope", "=", "table"), eb("b.scopeId", "=", table.id)]),
+        eb.and([eb("a.scope", "=", "table"), eb("a.scopeId", "=", table.id)]),
       ]),
     )
+    .where(liveAttribution)
     .execute();
   const people = new Map<
     string,
@@ -80,8 +90,10 @@ export async function listTableAccess(
       email: string;
       baseRole: Grant | null;
       tableRole: Grant | null;
-      /** Their own override, which the list changes: a key or an id. */
+      /** Their own role on the table, which the list changes: a key or an id. */
       tableGiven: string | null;
+      /** Whether they hold a role of their own on the base, not a group's. */
+      baseOwn: boolean;
       bindings: ReturnType<typeof bindingsFrom>;
     }
   >();
@@ -97,6 +109,7 @@ export async function listTableAccess(
       baseRole: null,
       tableRole: null,
       tableGiven: null,
+      baseOwn: false,
       bindings: [],
     };
     current.bindings = [...current.bindings, ...bindingsFrom([row])];
@@ -106,6 +119,9 @@ export async function listTableAccess(
     if (row.scope === "table" && row.groupId === null && own !== null) {
       current.tableGiven = typeof own === "string" ? own : own.id;
     }
+    if (row.scope === "base" && row.groupId === null && own !== null) {
+      current.baseOwn = true;
+    }
     people.set(row.userId, current);
   }
   return [...people.values()].map(
@@ -113,7 +129,10 @@ export async function listTableAccess(
   );
 }
 
-/** Sets or clears (`role` null) a table override for one user. */
+/**
+ * Gives one person a role on a table, which adds to what its base gives
+ * them, or takes it away (`role` null) with its rules.
+ */
 export async function setTableRole(
   db: Database,
   actorId: string,
@@ -133,22 +152,30 @@ export async function setTableRole(
     db,
     { userId: actorId, tableId: table.id, source: "web" },
     async (tx) => {
-      await tx
-        .deleteFrom("roleBindings")
-        .where("userId", "=", userId)
-        .where("scope", "=", "table")
-        .where("scopeId", "=", table.id)
-        .where("groupId", "is", null)
-        .execute();
       if (role) {
+        // A new role keeps the rules the table's role carried.
         await tx
-          .insertInto("roleBindings")
+          .insertInto("attributions")
           .values({
             userId,
             ...givenColumns(role),
             scope: "table",
             scopeId: table.id,
+            givenBy: actorId,
           })
+          .onConflict((conflict) =>
+            conflict
+              .columns(["userId", "scope", "scopeId"])
+              .where("userId", "is not", null)
+              .doUpdateSet({ ...givenColumns(role), givenBy: actorId }),
+          )
+          .execute();
+      } else {
+        await tx
+          .deleteFrom("attributions")
+          .where("userId", "=", userId)
+          .where("scope", "=", "table")
+          .where("scopeId", "=", table.id)
           .execute();
       }
     },
@@ -307,22 +334,22 @@ async function joinBase(
       if (!taken) throw new AppError("invalid_invitation");
       // A role a group gives does not count: it goes with the group.
       const existing = await tx
-        .selectFrom("roleBindings")
-        .select("role")
+        .selectFrom("attributions")
+        .select("id")
         .where("userId", "=", user.id)
         .where("scope", "=", "base")
         .where("scopeId", "=", invitation.baseId)
-        .where("groupId", "is", null)
         .execute();
       if (existing.length === 0) {
         await tx
-          .insertInto("roleBindings")
+          .insertInto("attributions")
           .values({
             userId: user.id,
             role: invitation.role,
             madeRoleId: invitation.madeRoleId,
             scope: "base",
             scopeId: invitation.baseId,
+            givenBy: invitation.invitedBy,
           })
           .execute();
       }

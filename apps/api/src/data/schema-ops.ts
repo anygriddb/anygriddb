@@ -266,8 +266,14 @@ export async function insertBase(
       throw new AppError("no_row");
     }
     await tx
-      .insertInto("roleBindings")
-      .values({ userId, role: "owner", scope: "base", scopeId: id })
+      .insertInto("attributions")
+      .values({
+        userId,
+        role: "owner",
+        scope: "base",
+        scopeId: id,
+        givenBy: userId,
+      })
       .execute();
     return { id };
   });

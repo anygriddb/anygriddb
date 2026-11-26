@@ -41,7 +41,7 @@ describe("invitations", () => {
   const roleOf = async (email: string, base: string) =>
     (
       await db
-        .selectFrom("roleBindings as b")
+        .selectFrom("attributions as b")
         .innerJoin("users as u", "u.id", "b.userId")
         .select("b.role")
         .where("u.email", "=", email)

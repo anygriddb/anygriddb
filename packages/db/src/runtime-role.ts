@@ -21,6 +21,12 @@ const RULES = [
   "status_transition_grants",
 ] as const;
 
+/**
+ * What was, kept to be read: the roles as they stood before attributions
+ * (ADR 0131), from which rights at an earlier date are read back.
+ */
+const RECORDS = ["bindings_before_union"] as const;
+
 const ROLE_NAME = /^[a-z_][a-z0-9_]{0,62}$/;
 
 /**
@@ -55,6 +61,10 @@ export async function grantRuntimeRole(
       (table) => `revoke update, delete, truncate on "${table}" from ${who}`,
     ),
     ...RULES.map(
+      (table) =>
+        `revoke insert, update, delete, truncate on "${table}" from ${who}`,
+    ),
+    ...RECORDS.map(
       (table) =>
         `revoke insert, update, delete, truncate on "${table}" from ${who}`,
     ),

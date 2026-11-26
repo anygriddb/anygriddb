@@ -8,7 +8,8 @@ import type { Database } from "@anygriddb/db";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { loadBindings } from "../auth/access.js";
 import { createTestDatabase } from "../test-database.js";
-import { clearTableAcl, readerEngine, setTableAcl } from "./acl.js";
+import { clearTableAcl, readerEngine } from "./acl.js";
+import { narrowOn } from "./rules.test-helpers.js";
 import { withAudit } from "./audit-context.js";
 import { insertComputed } from "./computed.js";
 import { loadEngine } from "./engine.js";
@@ -98,7 +99,7 @@ describe("a field read across two links", () => {
     baseId = (await insertBase(db, owner, { name: `Hops ${suffix}` })).id;
     await withAudit(db, { userId: owner, source: "web" }, (tx) =>
       tx
-        .insertInto("roleBindings")
+        .insertInto("attributions")
         .values({
           userId: reader,
           role: "editor",
@@ -192,7 +193,7 @@ describe("a field read across two links", () => {
 
   it("holds a reader's rules on the table two links away", async () => {
     // A field of C hidden from the reader stays hidden through both links.
-    await setTableAcl(db, owner, {
+    await narrowOn(db, owner, {
       tableId: tables.c,
       userId: reader,
       rowFilter: null,
@@ -202,7 +203,7 @@ describe("a field read across two links", () => {
     expect(JSON.stringify(hidden.seen_seen ?? [])).not.toContain("7");
     expect(hidden.sum_sum ?? null).not.toBe("7");
     // A row of C outside the reader's rule is not theirs to add up.
-    await setTableAcl(db, owner, {
+    await narrowOn(db, owner, {
       tableId: tables.c,
       userId: reader,
       rowFilter: {

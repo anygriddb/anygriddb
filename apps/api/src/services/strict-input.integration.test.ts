@@ -180,7 +180,7 @@ describe("a value is read exactly, or refused", () => {
     editorId = editor.id;
     await withAudit(db, { userId: owner, source: "web" }, (tx) =>
       tx
-        .insertInto("roleBindings")
+        .insertInto("attributions")
         .values({
           userId: editor.id,
           role: "editor",
@@ -423,7 +423,7 @@ describe("a value is read exactly, or refused", () => {
       });
     await withAudit(db, { userId: owner, source: "web" }, (tx) =>
       tx
-        .insertInto("roleBindings")
+        .insertInto("attributions")
         .values({
           userId: editorId,
           role: "editor",

@@ -7,6 +7,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { storeAttachment } from "./attachments.js";
 import { loadBindings } from "./auth/access.js";
 import { setTableAcl } from "./data/acl.js";
+import { narrowOn } from "./data/rules.test-helpers.js";
 import { withAudit } from "./data/audit-context.js";
 import {
   createDashboard,
@@ -52,7 +53,7 @@ describe("duplicating a base", () => {
     baseId = (await insertBase(db, owner, { name: "Ventes" })).id;
     await withAudit(db, { userId: owner, source: "web" }, (tx) =>
       tx
-        .insertInto("roleBindings")
+        .insertInto("attributions")
         .values({
           userId: viewer,
           role: "viewer",
@@ -329,21 +330,21 @@ describe("the file of an export, against the rules of today", () => {
   let runners: ReturnType<typeof jobRunners>;
 
   const noRule = () =>
-    setTableAcl(db, owner, {
+    narrowOn(db, owner, {
       tableId,
       userId: member,
       rowFilter: null,
       columns: [],
     });
   const hideAmount = () =>
-    setTableAcl(db, owner, {
+    narrowOn(db, owner, {
       tableId,
       userId: member,
       rowFilter: null,
       columns: [{ column: "title", access: "write" }],
     });
   const onlyOpen = () =>
-    setTableAcl(db, owner, {
+    narrowOn(db, owner, {
       tableId,
       userId: member,
       rowFilter: {
@@ -390,7 +391,7 @@ describe("the file of an export, against the rules of today", () => {
     baseId = (await insertBase(db, owner, { name: "Sales" })).id;
     await withAudit(db, { userId: owner, source: "web" }, (tx) =>
       tx
-        .insertInto("roleBindings")
+        .insertInto("attributions")
         .values({
           userId: member,
           role: "editor",
@@ -520,13 +521,16 @@ describe("the file of an export, against the rules of today", () => {
     }
   });
 
-  it("does not hold an owner of the table to rules that do not bind them", async () => {
-    await setTableAcl(db, owner, {
-      tableId,
-      userId: owner,
-      rowFilter: null,
-      columns: [{ column: "title", access: "read" }],
-    });
+  it("never holds an owner of the table to a rule: none can be set on them", async () => {
+    // Their role on the base gives the table whole (ADR 0131).
+    await expect(
+      setTableAcl(db, owner, {
+        tableId,
+        userId: owner,
+        rowFilter: null,
+        columns: [{ column: "title", access: "read" }],
+      }),
+    ).rejects.toThrow("A rule needs a role on its table");
     expect(await readable(await exported(owner), owner)).toBe(true);
   });
 });

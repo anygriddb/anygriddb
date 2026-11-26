@@ -55,6 +55,9 @@ export async function migrateStore(
   connectionString: string,
   log: QueueLog,
 ): Promise<void> {
-  await migrateDb(pool);
+  // An operator accepts what a migration's check refused by naming it.
+  await migrateDb(pool, undefined, {
+    accept: process.env.ANYGRIDDB_ACCEPT_UPGRADE,
+  });
   await migrateQueue(connectionString, log);
 }

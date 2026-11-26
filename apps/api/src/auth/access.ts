@@ -5,6 +5,7 @@ import {
   effectiveTableRole,
   enrollmentGate,
   readOnlyGiven,
+  tableRules,
   tokenGiven,
   roleFor,
 } from "@anygriddb/core";
@@ -24,24 +25,20 @@ import {
   withOpenBases,
 } from "../data/emergency-access.js";
 import { liveBase, liveTable } from "../data/live.js";
-import { bindingsFrom, MADE_COLUMNS } from "../data/made-roles.js";
+import { attributionsOf, attributionsOfOne } from "../data/attributions.js";
 
 export type FactorMethod = "totp" | "webauthn" | "email";
 type GridDecision = "ok" | "denied" | "enroll";
 
-/** An account's bindings, a made role's with what it gives now (ADR 0128). */
+/**
+ * What reaches an account now (ADR 0131): its attributions and its
+ * groups', a made role's with what it gives now (ADR 0128).
+ */
 export async function loadBindings(
   db: Pick<Database, "selectFrom">,
   userId: string,
 ): Promise<Binding[]> {
-  return bindingsFrom(
-    await db
-      .selectFrom("roleBindings as b")
-      .leftJoin("madeRoles as m", "m.id", "b.madeRoleId")
-      .select(["b.role", "b.scope", "b.scopeId", ...MADE_COLUMNS])
-      .where("b.userId", "=", userId)
-      .execute(),
-  );
+  return attributionsOfOne(db, userId);
 }
 
 /**
@@ -324,18 +321,13 @@ export async function gridChannelRights(
       ),
     ),
   ];
-  const [accounts, bindings, tables, inBases] = await Promise.all([
+  const [accounts, held, tables, inBases] = await Promise.all([
     db
       .selectFrom("users")
       .select(["id", "isAdmin"])
       .where("id", "in", userIds)
       .execute(),
-    db
-      .selectFrom("roleBindings as b")
-      .leftJoin("madeRoles as m", "m.id", "b.madeRoleId")
-      .select(["b.userId", "b.role", "b.scope", "b.scopeId", ...MADE_COLUMNS])
-      .where("b.userId", "in", userIds)
-      .execute(),
+    attributionsOf(db, userIds),
     channels.length === 0
       ? Promise.resolve([])
       : db
@@ -355,45 +347,14 @@ export async function gridChannelRights(
           .execute(),
   ]);
   if (accounts.length === 0) return answers;
-  const held = new Map<string, Binding[]>();
-  for (const row of bindings) {
-    held.set(row.userId, [
-      ...(held.get(row.userId) ?? []),
-      ...bindingsFrom([row]),
-    ]);
-  }
-  const tableIds = tables.map((table) => table.id);
-  const [refused, open, rowRules, fieldRules] = await Promise.all([
+  const [refused, open] = await Promise.all([
     accountsToEnrol(db, accounts, held),
     openBasesOf(
       db,
       accounts.filter((account) => account.isAdmin).map(({ id }) => id),
     ),
-    tableIds.length === 0
-      ? Promise.resolve([])
-      : db
-          .selectFrom("tableAcls")
-          .select(["userId", "tableId", "rowFilter"])
-          .where("userId", "in", userIds)
-          .where("tableId", "in", tableIds)
-          .execute(),
-    tableIds.length === 0
-      ? Promise.resolve([])
-      : db
-          .selectFrom("columnAcls")
-          .select(["userId", "tableId"])
-          .distinct()
-          .where("userId", "in", userIds)
-          .where("tableId", "in", tableIds)
-          .execute(),
   ]);
   const baseOf = new Map(tables.map((table) => [table.id, table.baseId]));
-  const ruled = new Set([
-    ...rowRules
-      .filter((rule) => rule.rowFilter)
-      .map((rule) => `${rule.userId}:${rule.tableId}`),
-    ...fieldRules.map((rule) => `${rule.userId}:${rule.tableId}`),
-  ]);
   const tablesOfBase = new Map<string, string[]>();
   for (const { id, baseId } of inBases) {
     tablesOfBase.set(baseId, [...(tablesOfBase.get(baseId) ?? []), id]);
@@ -416,12 +377,9 @@ export async function gridChannelRights(
       const baseId = baseOf.get(channel);
       if (baseId !== undefined) {
         if (!can(own, "rows.read", "table", channel, baseId)) continue;
-        const unruled = can(own, "members.manage", "table", channel, baseId);
         heard.set(
           asked,
-          unruled || !ruled.has(`${account.id}:${channel}`)
-            ? "rows"
-            : "changes",
+          tableRules(own, channel, baseId)?.narrows ? "changes" : "rows",
         );
         continue;
       }
@@ -476,14 +434,9 @@ export async function scopeBindings(
           : false,
     );
   }
-  // A token reaches only what a role lets a token reach (`api.access`). A
-  // table's role that does not still stands over the base's there: the
-  // table stays out of the token's reach rather than taking the base's.
-  list = list.flatMap((binding) => {
-    const role = tokenGiven(binding.role);
-    if (role === binding.role) return [binding];
-    return binding.scope === "base" ? [] : [{ ...binding, role }];
-  });
+  // A token reaches only what a role lets a token reach (`api.access`);
+  // one that does not gives it nothing, and takes nothing from another.
+  list = list.filter((binding) => tokenGiven(binding.role));
   if (scope.readOnly) {
     // A viewer's reach, and never more than the role gave.
     list = list.map((binding) => ({

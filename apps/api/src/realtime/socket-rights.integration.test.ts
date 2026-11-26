@@ -3,6 +3,8 @@
  * way a right is taken away, with the socket on another process than the
  * one that took it.
  */
+import { errorCode } from "../trpc/caller.test-helpers.js";
+import { giveTableByTable } from "../data/rules.test-helpers.js";
 import { randomBytes } from "node:crypto";
 import { EventEmitter } from "node:events";
 import type { Database } from "@anygriddb/db";
@@ -466,6 +468,7 @@ describe("what an open socket hears", () => {
     await change();
     expect(socket.sent.at(-1)).toMatchObject({ rowIds: [ROW] });
 
+    await giveTableByTable(db, adminId, { tableId, userId: member.id });
     await admin.call().catalog.setTableAcl({
       tableId,
       userId: member.id,
@@ -496,6 +499,7 @@ describe("what an open socket hears", () => {
     await admin
       .call()
       .admin.setBaseRole({ userId: member.id, baseId, role: "viewer" });
+    await giveTableByTable(db, adminId, { tableId, userId: member.id });
     await admin.call().catalog.setTableAcl({
       tableId,
       userId: member.id,
@@ -518,16 +522,21 @@ describe("what an open socket hears", () => {
     await admin
       .call()
       .admin.setBaseRole({ userId: member.id, baseId, role: "owner" });
-    await admin.call().catalog.setTableAcl({
-      tableId,
-      userId: member.id,
-      rowFilter: { conjunction: "and", conditions: [] },
-      columns: [],
-    });
+    await giveTableByTable(db, adminId, { tableId, userId: member.id });
+    // Whoever manages the table sets its rules: none can narrow them.
+    expect(
+      await errorCode(
+        admin.call().catalog.setTableAcl({
+          tableId,
+          userId: member.id,
+          rowFilter: { conjunction: "and", conditions: [] },
+          columns: [],
+        }),
+      ),
+    ).toBe("rule_binds_no_manager");
     const socket = await following(member.id);
     await change();
     expect(socket.sent.at(-1)).toMatchObject({ rowIds: [ROW] });
-    await admin.call().catalog.clearTableAcl({ tableId, userId: member.id });
   });
 
   it("answers as a single check would, for every kind of channel", async () => {

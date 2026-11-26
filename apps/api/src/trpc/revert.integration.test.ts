@@ -135,6 +135,7 @@ describe("putting a value back", () => {
       tableId,
       updates: [{ rowId, values: { [added.name]: "hidden" } }],
     });
+    await owner.call().catalog.splitBaseRole({ baseId, userId: editorId });
     await owner.call().catalog.setTableAcl({
       tableId,
       userId: editorId,
@@ -454,7 +455,7 @@ describe("putting a value back", () => {
     const role = await db
       .selectFrom("auditEvents")
       .select("id")
-      .where("catalogTable", "=", "role_bindings")
+      .where("catalogTable", "=", "attributions")
       .orderBy("occurredAt", "desc")
       .executeTakeFirstOrThrow();
     expect(

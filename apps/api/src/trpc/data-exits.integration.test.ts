@@ -9,7 +9,7 @@ import type { Database } from "@anygriddb/db";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { requestActor } from "../auth/access.js";
 import { createApiToken } from "../auth/tokens.js";
-import { setTableAcl } from "../data/acl.js";
+import { narrowOn } from "../data/rules.test-helpers.js";
 import { runAutomation, type AutomationDeps } from "../automations.js";
 import { recordingBus } from "../realtime/recording-bus.test-helpers.js";
 import { adminBench } from "./admin-bench.test-helpers.js";
@@ -168,7 +168,8 @@ describe("what takes rows out of a base", () => {
       (await read(exporter, await bearer(ids.exporter))).rows,
     ).toHaveLength(1);
 
-    // A table's role that lets no token in stands over the base's there.
+    // Roles add up (ADR 0131): a table's role that lets no token in takes
+    // nothing from the base's role that does.
     await owner.call().catalog.setTableRole({
       tableId: ids.secrets,
       userId: ids.exporter,
@@ -176,10 +177,12 @@ describe("what takes rows out of a base", () => {
     });
     const token = await bearer(ids.exporter);
     expect(
-      await errorCode(
-        exporter.call(token).rows.read({ tableId: ids.secrets, limit: 10 }),
-      ),
-    ).toBe("access_denied");
+      (
+        await exporter
+          .call(token)
+          .rows.read({ tableId: ids.secrets, limit: 10 })
+      ).rows,
+    ).toHaveLength(1);
     expect((await read(exporter, token)).rows).toHaveLength(1);
     expect(
       (await exporter.call().rows.read({ tableId: ids.secrets, limit: 10 }))
@@ -319,15 +322,17 @@ describe("what takes rows out of a base", () => {
     expect(await errorCode(copy(member, true))).toBe("access_denied");
     expect((await copy(member, false)).jobId).toBeTruthy();
     expect((await copy(exporter, true)).jobId).toBeTruthy();
-    // A copy carries no rule: whom one binds here copies no row.
-    await setTableAcl(db, ids.owner, {
+    // A copy carries no rule. A rule binds only someone with no role on
+    // the base (ADR 0131), and a copy makes a table there: they copy
+    // nothing at all.
+    await narrowOn(db, ids.owner, {
       tableId: ids.samples,
       userId: ids.exporter,
       rowFilter: null,
       columns: [{ column: "ref", access: "read" }],
     });
-    expect(await errorCode(copy(exporter, true))).toBe("copy_under_rules");
-    expect((await copy(exporter, false)).jobId).toBeTruthy();
+    expect(await errorCode(copy(exporter, true))).toBe("access_denied");
+    expect(await errorCode(copy(exporter, false))).toBe("access_denied");
   });
 
   it("copies a base with its rows only for who may export", async () => {

@@ -1,6 +1,6 @@
 # 0127 — A base's roles are packs of permissions, one per act
 
-- Status: Accepted
+- Status: Accepted; superseded in part by 0131 (a role on a table adds to its base's)
 - Date: 2026-11-25
 - Relates to: 0057 (who grants on a base), 0126 (parts of Administration)
 

@@ -65,7 +65,7 @@ describe("handing a leaving person's work over", () => {
   const ownersOf = async (baseId: string) =>
     (
       await db
-        .selectFrom("roleBindings")
+        .selectFrom("attributions")
         .select("userId")
         .where("scope", "=", "base")
         .where("scopeId", "=", baseId)

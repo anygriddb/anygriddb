@@ -304,7 +304,12 @@ async function assertLinkAllowed(
   const target = scope.engine.tables.get(relation.targetTableId);
   if (target) {
     const targetEngine = { ...scope.engine, table: target };
-    await assertRowsInScope(deps.db, targetEngine, namedTargets(link));
+    await assertRowsInScope(
+      deps.db,
+      targetEngine,
+      namedTargets(link),
+      "rows.read",
+    );
     if (writesOther && relation.fkColumn) {
       assertFieldsWritable(targetEngine, [relation.fkColumn]);
     }
@@ -360,7 +365,7 @@ async function prepare(
     existing.length > 0 ? "update" : "insert",
   );
   if (existing.length > 0) {
-    await assertRowsInScope(deps.db, scope.engine, existing);
+    await assertRowsInScope(deps.db, scope.engine, existing, "rows.write");
   }
   const checked = new Map<string, EngineColumn>();
   for (const row of rows) {
@@ -608,7 +613,12 @@ async function assertPlace(
   place: RowPlace,
 ): Promise<void> {
   if (isExternal(scope)) throw new AppError("external_action_unavailable");
-  await assertRowsInScope(deps.db, scope.engine, [placeTarget(place).rowId]);
+  await assertRowsInScope(
+    deps.db,
+    scope.engine,
+    [placeTarget(place).rowId],
+    "rows.write",
+  );
 }
 
 /** New rows, at the end of the table, or together beside a row. */
@@ -718,7 +728,7 @@ async function assertNewRowsInRule(
   ids: readonly string[],
 ): Promise<void> {
   try {
-    await assertRowsInScope(deps.db, scope.engine, ids);
+    await assertRowsInScope(deps.db, scope.engine, ids, "rows.write");
   } catch (error) {
     if (error instanceof AppError && error.code === "access_denied") {
       throw new AppError("row_outside_rule", { cause: error });
@@ -890,7 +900,7 @@ export async function moveRows(
   meta: WriteMeta,
 ): Promise<string[]> {
   await assertPlace(deps, scope, place);
-  await assertRowsInScope(deps.db, scope.engine, rowIds);
+  await assertRowsInScope(deps.db, scope.engine, rowIds, "rows.write");
   const ids = await moveRowRecords(
     deps.db,
     {
@@ -913,7 +923,7 @@ export async function deleteRows(
   // Here and nowhere else: every door a token has (REST, MCP, the app's
   // own API) deletes rows through this function.
   if (scope.noDelete) throw new AppError("token_cannot_delete");
-  await assertRowsInScope(deps.db, scope.engine, rowIds);
+  await assertRowsInScope(deps.db, scope.engine, rowIds, "rows.delete");
   const reason = resolveReason(scope, "all", meta);
   if (isExternal(scope)) {
     const ids = await deleteExternalRows(
@@ -1098,7 +1108,12 @@ export async function transitionRowAs(
   },
   meta: WriteMeta,
 ): Promise<{ from: string; to: string; transitionKey: string }> {
-  await assertRowsInScope(deps.db, scope.engine, [input.rowId]);
+  await assertRowsInScope(
+    deps.db,
+    scope.engine,
+    [input.rowId],
+    "rows.transition",
+  );
   const external = isExternal(scope);
   if (!external && !UUID.test(input.rowId)) {
     throw new AppError("invalid_row_id");
@@ -1143,7 +1158,7 @@ export async function changeStatus(
   status: "submitted" | "locked" | "draft",
   meta: WriteMeta,
 ): Promise<void> {
-  await assertRowsInScope(deps.db, scope.engine, [rowId]);
+  await assertRowsInScope(deps.db, scope.engine, [rowId], "rows.transition");
   if (isExternal(scope)) {
     // Kept by AnyGridDB beside the row, sealed by a fingerprint (ADR 0137).
     await transitionExternalRow(deps.db, {
@@ -1184,7 +1199,12 @@ export async function signRowAs(
   if (!isExternal(scope) && !UUID.test(input.rowId)) {
     throw new AppError("invalid_row_id");
   }
-  await assertRowsInScope(deps.db, scope.engine, [input.rowId]);
+  await assertRowsInScope(
+    deps.db,
+    scope.engine,
+    [input.rowId],
+    "rows.transition",
+  );
   const stored = await deps.db
     .selectFrom("passwordHashes")
     .select("hash")

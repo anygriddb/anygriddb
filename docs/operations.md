@@ -369,7 +369,11 @@ Read notes before major (or minor before 1.0). Migrations run in one-shot
 `prepare` under a lock; failure → app does not start
 (`docker compose logs prepare`). A release that needs a pre-step refuses
 with "Upgrade refused" and changes nothing (ADR 0106): start the previous
-version, do the step, upgrade again.
+version, do the step, upgrade again. When the refusal says what the upgrade
+would change and that it may be accepted (0.12.0, where roles add up: ADR
+0131), read it, then set `ANYGRIDDB_ACCEPT_UPGRADE` in `.env` to the
+migration it names (`0150`; several by commas) and start again; remove it
+once the upgrade has run.
 
 Version: Administration → Health, or
 `docker compose exec app anygriddb version`.

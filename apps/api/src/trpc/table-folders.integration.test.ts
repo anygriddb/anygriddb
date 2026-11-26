@@ -59,7 +59,7 @@ describe("table folders", () => {
   const grantTable = (userId: string, tableId: string) =>
     withAudit(db, { userId: ownerId, source: "web" }, (tx) =>
       tx
-        .insertInto("roleBindings")
+        .insertInto("attributions")
         .values({ userId, role: "viewer", scope: "table", scopeId: tableId })
         .execute(),
     );

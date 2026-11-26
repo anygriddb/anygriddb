@@ -1,19 +1,21 @@
 import { createHash } from "node:crypto";
 import { rulesOwner } from "./acting-context.js";
 import {
+  AppError,
   effectiveTableRole,
-  filterGroupSchema,
   roleGrants,
+  tableRules,
   type Binding,
-  type ColumnAccess,
   type ColumnAclEntry,
   type EngineAccess,
   type EngineCatalog,
   type FilterGroup,
   type TableAcl,
+  type TableRules,
 } from "@anygriddb/core";
 import type { Database } from "@anygriddb/db";
-import { withAudit } from "./audit-context.js";
+import { withAudit, type AuditTx } from "./audit-context.js";
+import { fieldsOf, givenOf, MADE_COLUMNS, rowsOf } from "./made-roles.js";
 import { liveColumnNames } from "./live.js";
 import {
   assembleEngine,
@@ -24,41 +26,80 @@ import {
   type CatalogRows,
 } from "./engine.js";
 
+/**
+ * The rules on a table (ADR 0131): each person's role given on the table
+ * that narrows what it gives, to some rows and field by field.
+ */
 export async function listTableAcls(
   db: Database,
   tableId: string,
 ): Promise<TableAcl[]> {
   const rows = await db
-    .selectFrom("tableAcls")
-    .selectAll()
-    .where("tableId", "=", tableId)
+    .selectFrom("attributions")
+    .select(["userId", "rowFilter", "fieldAccess"])
+    .where("scope", "=", "table")
+    .where("scopeId", "=", tableId)
+    .where("userId", "is not", null)
+    .where((eb) =>
+      eb.or([
+        eb("rowFilter", "is not", null),
+        eb("fieldAccess", "is not", null),
+      ]),
+    )
     .execute();
-  const columns = await db
-    .selectFrom("columnAcls")
-    .selectAll()
-    .where("tableId", "=", tableId)
+  return rows.flatMap((row) =>
+    row.userId === null
+      ? []
+      : [
+          {
+            userId: row.userId,
+            rowFilter: rowsOf(row.rowFilter),
+            columns: Object.entries(fieldsOf(row.fieldAccess) ?? {}).map(
+              ([column, access]) => ({ column, access }),
+            ),
+          },
+        ],
+  );
+}
+
+/**
+ * A rule narrows only the role it comes with: someone must hold a role
+ * given on this table, and nothing on its base, mine or a group's, that
+ * would give them the table whole.
+ */
+async function assertRuleNarrows(
+  tx: AuditTx,
+  table: { id: string; baseId: string },
+  userId: string,
+): Promise<void> {
+  const reached = await tx
+    .selectFrom("attributions as a")
+    .leftJoin("groupMembers as gm", "gm.groupId", "a.groupId")
+    .leftJoin("madeRoles as m", "m.id", "a.madeRoleId")
+    .select(["a.scope", "a.userId", "a.role", ...MADE_COLUMNS])
+    .where((eb) =>
+      eb.or([eb("a.userId", "=", userId), eb("gm.userId", "=", userId)]),
+    )
+    .where((eb) =>
+      eb.or([
+        eb.and([eb("a.scope", "=", "table"), eb("a.scopeId", "=", table.id)]),
+        eb.and([
+          eb("a.scope", "=", "base"),
+          eb("a.scopeId", "=", table.baseId),
+        ]),
+      ]),
+    )
     .execute();
-  const byUser = new Map<string, ColumnAclEntry[]>();
-  for (const column of columns) {
-    const list = byUser.get(column.userId) ?? [];
-    list.push({ column: column.columnName, access: column.access });
-    byUser.set(column.userId, list);
+  const own = reached.find(
+    (row) => row.scope === "table" && row.userId === userId,
+  );
+  if (!own || reached.some((row) => row.scope === "base")) {
+    throw new AppError("rule_needs_table_role");
   }
-  const userIds = new Set([
-    ...rows.map((row) => row.userId),
-    ...columns.map((column) => column.userId),
-  ]);
-  return [...userIds].map((userId) => {
-    const row = rows.find((item) => item.userId === userId);
-    const parsed = row?.rowFilter
-      ? filterGroupSchema.safeParse(row.rowFilter)
-      : null;
-    return {
-      userId,
-      rowFilter: parsed?.success ? parsed.data : null,
-      columns: byUser.get(userId) ?? [],
-    };
-  });
+  // Whoever manages the table sets its rules, and none binds them.
+  if (roleGrants(givenOf(own), "members.manage")) {
+    throw new AppError("rule_binds_no_manager");
+  }
 }
 
 /** Replaces one person's rules on a table, audited under the manager. */
@@ -76,56 +117,51 @@ export async function setTableAcl(
     db,
     { userId: actorId, tableId: input.tableId, source: "web" },
     async (tx) => {
+      const table = await tx
+        .selectFrom("dataTables")
+        .select(["id", "baseId"])
+        .where("id", "=", input.tableId)
+        .executeTakeFirstOrThrow();
+      await assertRuleNarrows(tx, table, input.userId);
       await tx
-        .deleteFrom("columnAcls")
-        .where("tableId", "=", input.tableId)
+        .updateTable("attributions")
+        .set({
+          rowFilter: input.rowFilter,
+          fieldAccess:
+            input.columns.length === 0
+              ? null
+              : Object.fromEntries(
+                  input.columns.map((entry) => [entry.column, entry.access]),
+                ),
+        })
         .where("userId", "=", input.userId)
+        .where("scope", "=", "table")
+        .where("scopeId", "=", input.tableId)
         .execute();
-      await tx
-        .deleteFrom("tableAcls")
-        .where("tableId", "=", input.tableId)
-        .where("userId", "=", input.userId)
-        .execute();
-      if (input.rowFilter !== null || input.columns.length > 0) {
-        await tx
-          .insertInto("tableAcls")
-          .values({
-            tableId: input.tableId,
-            userId: input.userId,
-            rowFilter: input.rowFilter,
-            updatedAt: new Date(),
-          })
-          .execute();
-      }
-      if (input.columns.length > 0) {
-        await tx
-          .insertInto("columnAcls")
-          .values(
-            input.columns.map((column) => ({
-              tableId: input.tableId,
-              userId: input.userId,
-              columnName: column.column,
-              access: column.access,
-            })),
-          )
-          .execute();
-      }
     },
   );
 }
 
+/** Takes away one person's rules on a table: their role there stays. */
 export async function clearTableAcl(
   db: Database,
   actorId: string,
   tableId: string,
   userId: string,
 ): Promise<void> {
-  await setTableAcl(db, actorId, {
-    tableId,
-    userId,
-    rowFilter: null,
-    columns: [],
-  });
+  await withAudit(
+    db,
+    { userId: actorId, tableId, source: "web" },
+    async (tx) => {
+      await tx
+        .updateTable("attributions")
+        .set({ rowFilter: null, fieldAccess: null })
+        .where("userId", "=", userId)
+        .where("scope", "=", "table")
+        .where("scopeId", "=", tableId)
+        .execute();
+    },
+  );
 }
 
 /** Who reads: the account and its roles, which decide the rules that apply. */
@@ -145,68 +181,26 @@ export function readableTables(
 
 /**
  * The reader's field and row rules over `tables`, or undefined when none
- * applies. Owners of a table ignore its rules. With column rules on a table,
- * a field they do not name is hidden, so a field added later stays hidden
- * until a manager opens it.
+ * applies: what the attributions that reach each table narrow (ADR 0131).
+ * Rows are read through the attributions that give reading, and changed
+ * through those that give the act (`rowFilter(table, act)`).
  */
-export async function readerAccess(
-  db: Database,
+export function readerAccess(
   reader: Reader,
   tables: ReadonlyArray<{ id: string; baseId: string }>,
-): Promise<EngineAccess | undefined> {
-  const restricted = tables
-    .filter(
-      (table) =>
-        !roleGrants(
-          effectiveTableRole(reader.bindings, table.id, table.baseId),
-          "members.manage",
-        ),
-    )
-    .map((table) => table.id);
-  if (restricted.length === 0) return undefined;
-  const owner = rulesOwner(reader.userId);
-  const [rowRules, columnRules] = await Promise.all([
-    db
-      .selectFrom("tableAcls")
-      .select(["tableId", "rowFilter"])
-      .where("userId", "=", owner)
-      .where("tableId", "in", restricted)
-      .execute(),
-    db
-      .selectFrom("columnAcls")
-      .select(["tableId", "columnName as column", "access"])
-      .where("userId", "=", owner)
-      .where("tableId", "in", restricted)
-      .execute(),
-  ]);
-  if (rowRules.length === 0 && columnRules.length === 0) return undefined;
-  const filters = new Map<string, FilterGroup>();
-  for (const rule of rowRules) {
-    if (!rule.rowFilter) continue;
-    const parsed = filterGroupSchema.safeParse(rule.rowFilter);
-    // A stored rule that no longer parses keeps no row rather than all.
-    filters.set(
-      rule.tableId,
-      parsed.success ? parsed.data : { conjunction: "or", conditions: [] },
-    );
+): EngineAccess | undefined {
+  const rules = new Map<string, TableRules>();
+  for (const table of tables) {
+    const held = tableRules(reader.bindings, table.id, table.baseId);
+    if (held) rules.set(table.id, held);
   }
-  const fields = new Map<string, Map<string, ColumnAccess>>();
-  for (const rule of columnRules) {
-    const map = fields.get(rule.tableId) ?? new Map<string, ColumnAccess>();
-    map.set(rule.column, rule.access);
-    fields.set(rule.tableId, map);
-  }
+  if (rules.size === 0) return undefined;
   return {
-    hidden: (tableId, column) => {
-      const map = fields.get(tableId);
-      return map !== undefined && (map.get(column) ?? "hide") === "hide";
-    },
-    readOnly: (tableId, column) => {
-      const map = fields.get(tableId);
-      return map !== undefined && map.get(column) === "read";
-    },
-    rowFilter: (tableId) => filters.get(tableId),
-    me: owner,
+    hidden: (tableId, column) => rules.get(tableId)?.access(column) === "hide",
+    readOnly: (tableId, column) =>
+      rules.get(tableId)?.access(column) === "read",
+    rowFilter: (tableId, act = "rows.read") => rules.get(tableId)?.rows(act),
+    me: rulesOwner(reader.userId),
   };
 }
 
@@ -221,7 +215,7 @@ export async function readerRulesPrint(
   reader: Reader,
   tableId: string,
 ): Promise<string | null> {
-  const { tables: live } = await loadCatalogRows(db, [tableId]);
+  const { tables: live, columns } = await loadCatalogRows(db, [tableId]);
   // A table in the trash is out of the catalog and still under its rules.
   const tables =
     live.length > 0
@@ -231,43 +225,24 @@ export async function readerRulesPrint(
           .select(["id", "baseId"])
           .where("id", "=", tableId)
           .execute();
-  const roleOn = (table: { id: string; baseId: string }) =>
-    effectiveTableRole(reader.bindings, table.id, table.baseId);
-  const bound = tables.filter(
-    (table) => !roleGrants(roleOn(table), "members.manage"),
-  );
-  if (bound.length === 0) return null;
-  const ids = bound.map((table) => table.id);
-  const owner = rulesOwner(reader.userId);
-  const [rowRules, columnRules] = await Promise.all([
-    db
-      .selectFrom("tableAcls")
-      .select(["tableId", "rowFilter"])
-      .where("userId", "=", owner)
-      .where("tableId", "in", ids)
-      .execute(),
-    db
-      .selectFrom("columnAcls")
-      .select(["tableId", "columnName as column", "access"])
-      .where("userId", "=", owner)
-      .where("tableId", "in", ids)
-      .execute(),
-  ]);
-  const held = bound
+  const held = tables
     .map((table) => {
-      const fields = columnRules.filter((rule) => rule.tableId === table.id);
+      const rules = tableRules(reader.bindings, table.id, table.baseId);
+      const readable = roleGrants(
+        effectiveTableRole(reader.bindings, table.id, table.baseId),
+        "rows.read",
+      );
+      const names = columns
+        .filter((column) => column.tableId === table.id)
+        .map((column) => column.name);
       return {
         table: table.id,
-        readable: roleGrants(roleOn(table), "rows.read"),
-        rows:
-          rowRules.find((rule) => rule.tableId === table.id)?.rowFilter ?? null,
+        readable,
+        rows: rules?.rows("rows.read") ?? null,
         fields:
-          fields.length === 0
-            ? null
-            : fields
-                .filter((rule) => rule.access !== "hide")
-                .map((rule) => rule.column)
-                .sort(),
+          rules?.narrows === true
+            ? names.filter((name) => rules.access(name) !== "hide").sort()
+            : null,
       };
     })
     .filter((rule) => !rule.readable || rule.rows || rule.fields)
@@ -285,7 +260,7 @@ export async function hiddenColumnNames(
   reader: Reader,
   table: { id: string; baseId: string },
 ): Promise<ReadonlySet<string>> {
-  const access = await readerAccess(db, reader, [table]);
+  const access = readerAccess(reader, [table]);
   if (!access) return new Set();
   const names = await liveColumnNames(db, table.id);
   return new Set([...names].filter((name) => access.hidden(table.id, name)));
@@ -305,7 +280,7 @@ export async function readerEngine(
   const baseOf = new Map(
     loaded.rows.tables.map((table) => [table.id, table.baseId]),
   );
-  const access = await readerAccess(db, reader, loaded.rows.tables);
+  const access = readerAccess(reader, loaded.rows.tables);
   return {
     engine: {
       ...loaded.engine,
@@ -334,7 +309,7 @@ export async function readerEngines(
   const rows = await loadCatalogRows(db, tableIds);
   const index = indexCatalog(rows);
   const baseOf = new Map(rows.tables.map((table) => [table.id, table.baseId]));
-  const access = await readerAccess(db, reader, rows.tables);
+  const access = readerAccess(reader, rows.tables);
   const readable = readableTables(reader.bindings, baseOf);
   return {
     engineOf: (tableId) => ({

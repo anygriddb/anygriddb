@@ -603,7 +603,7 @@ export const rowsRouter = t.router({
       handle(ctx, async () => {
         const access = await guardTable(ctx, input.tableId, "rows.read");
         const { engine } = await engineFor(ctx, access);
-        await assertRowsInScope(ctx.db, engine, [input.recordId]);
+        await assertRowsInScope(ctx.db, engine, [input.recordId], "rows.read");
         const rules = engine.access;
         const hidden = (name: string) =>
           rules !== undefined &&
@@ -789,7 +789,7 @@ export const rowsRouter = t.router({
       handle(ctx, async () => {
         const access = await guardTable(ctx, input.tableId, "rows.read");
         const { engine } = await engineFor(ctx, access);
-        await assertRowsInScope(ctx.db, engine, [input.rowId]);
+        await assertRowsInScope(ctx.db, engine, [input.rowId], "rows.read");
         return {
           comments: await listComments(ctx.db, input.tableId, input.rowId),
         };
@@ -812,7 +812,7 @@ export const rowsRouter = t.router({
       handle(ctx, async () => {
         const access = await guardTable(ctx, input.tableId, "rows.comment");
         const { engine } = await engineFor(ctx, access);
-        await assertRowsInScope(ctx.db, engine, [input.rowId]);
+        await assertRowsInScope(ctx.db, engine, [input.rowId], "rows.comment");
         await assertRowExists(ctx.db, engine, input.rowId);
         const created = await addComment(ctx.db, {
           tableId: input.tableId,
@@ -896,7 +896,7 @@ export const rowsRouter = t.router({
           "rows.comment",
         );
         const { engine } = await engineFor(ctx, access);
-        await assertRowsInScope(ctx.db, engine, [place.rowId]);
+        await assertRowsInScope(ctx.db, engine, [place.rowId], "rows.comment");
         await resolveComment(ctx.db, {
           commentId: input.commentId,
           userId: access.user.id,

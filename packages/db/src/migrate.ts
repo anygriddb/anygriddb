@@ -12,7 +12,10 @@
  * - A migration that may refuse a database says so in a file beside it,
  *   `NNNN_name.check.sql`, asked of every pending migration before the
  *   first of them runs: an upgrade that is refused changes nothing, and
- *   the version before starts again on the same data (ADR 0106).
+ *   the version before starts again on the same data (ADR 0106). An
+ *   operator who has read what a check refuses accepts it by naming the
+ *   migration (`accept`, from ANYGRIDDB_ACCEPT_UPGRADE): the checks read
+ *   the names as the setting `anygriddb.accept_upgrade` (ADR 0131).
  * - A database Drizzle migrated is adopted: its applied files are recorded
  *   without running them again.
  */
@@ -140,6 +143,21 @@ async function assertSupportedServer(client: pg.PoolClient): Promise<void> {
   }
 }
 
+/** Migrations named as their number or their whole name, by commas. */
+const ACCEPTED = /^(\d{4}(_[a-z0-9_]+)?)(,\d{4}(_[a-z0-9_]+)?)*$/;
+
+/** What an operator accepts, read strictly: a list it cannot misread. */
+export function acceptedUpgrades(value: string | undefined): string {
+  const said = (value ?? "").replace(/\s+/g, "");
+  if (said === "") return "";
+  if (said.length > 400 || !ACCEPTED.test(said)) {
+    throw new Error(
+      "ANYGRIDDB_ACCEPT_UPGRADE names the migrations whose check is accepted, by number and commas: 0150, or 0150,0151",
+    );
+  }
+  return said;
+}
+
 /**
  * Asks the check of each pending migration that has one, in a
  * transaction that may only read. A check refuses by raising.
@@ -147,11 +165,16 @@ async function assertSupportedServer(client: pg.PoolClient): Promise<void> {
 async function askChecks(
   client: pg.PoolClient,
   pending: readonly Migration[],
+  accept: string,
 ): Promise<void> {
   for (const migration of pending) {
     if (migration.check === null) continue;
     await client.query("begin transaction read only");
     try {
+      await client.query(
+        "select set_config('anygriddb.accept_upgrade', $1, true)",
+        [accept],
+      );
       await client.query(migration.check);
     } catch (error) {
       throw new UpgradeRefused(migration.name, error);
@@ -207,7 +230,9 @@ export async function migrationNames(): Promise<string[]> {
 export async function migrateDb(
   pool: pg.Pool,
   folder: string = migrationsFolder(),
+  options: { accept?: string } = {},
 ): Promise<string[]> {
+  const accept = acceptedUpgrades(options.accept);
   const migrations = await readMigrations(folder);
   const client = await pool.connect();
   const ran: string[] = [];
@@ -258,7 +283,7 @@ export async function migrateDb(
     }
     // A database that holds nothing has nothing a check could refuse,
     // and none of the tables a check reads.
-    if (applied.size > 0) await askChecks(client, pending);
+    if (applied.size > 0) await askChecks(client, pending, accept);
     for (const migration of pending) {
       await client.query("begin");
       try {

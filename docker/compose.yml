@@ -297,6 +297,8 @@ services:
       disable: true
     environment:
       DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}?sslmode=verify-full&sslrootcert=/certs/internal-authority.crt
+      # What an operator accepts of an upgrade that refused (ADR 0131).
+      ANYGRIDDB_ACCEPT_UPGRADE: ${ANYGRIDDB_ACCEPT_UPGRADE:-}
     volumes:
       - service_certs:/certs:ro
     depends_on:

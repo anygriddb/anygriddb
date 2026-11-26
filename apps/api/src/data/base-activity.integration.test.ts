@@ -9,7 +9,7 @@ import type { Database } from "@anygriddb/db";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { loadBindings } from "../auth/access.js";
 import { createTestDatabase } from "../test-database.js";
-import { setTableAcl } from "./acl.js";
+import { narrowOn } from "./rules.test-helpers.js";
 import { withAudit } from "./audit-context.js";
 import { baseActivity } from "./base-activity.js";
 import { loadEngine } from "./engine.js";
@@ -79,7 +79,7 @@ describe("a base's activity", () => {
     baseId = (await insertBase(db, owner, { name: "Ventes" })).id;
     await withAudit(db, { userId: owner }, (tx) =>
       tx
-        .insertInto("roleBindings")
+        .insertInto("attributions")
         .values([
           { userId: ada, role: "editor", scope: "base", scopeId: baseId },
           { userId: bob, role: "viewer", scope: "base", scopeId: baseId },
@@ -104,7 +104,7 @@ describe("a base's activity", () => {
       })
     ).id;
     // Ada does not see the margin; Bob sees only some orders.
-    await setTableAcl(db, owner, {
+    await narrowOn(db, owner, {
       tableId: clients,
       userId: ada,
       rowFilter: null,
@@ -113,7 +113,7 @@ describe("a base's activity", () => {
         { column: "margin", access: "hide" },
       ],
     });
-    await setTableAcl(db, owner, {
+    await narrowOn(db, owner, {
       tableId: orders,
       userId: bob,
       rowFilter: {

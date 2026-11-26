@@ -30,7 +30,6 @@ import {
   effectiveAccessInputSchema,
 } from "../admin-access.js";
 import { rightsAt, rightsAtCsv, rightsAtLabels } from "../data/rights-at.js";
-import { listRightsReview } from "../data/rights-review.js";
 import type { Context } from "./context.js";
 import { handle } from "./guard.js";
 import { tellOwnersOfRole } from "../data/role-notices.js";
@@ -237,23 +236,6 @@ export const adminBaseProcedures = {
         handle(ctx, async () => {
           await requireInstance(ctx);
           return effectiveAccess(ctx.db, input);
-        }),
-      ),
-    /**
-     * What the conversion to attributions (ADR 0131) will not keep
-     * exactly, read before it: each case, whom and where, and how many.
-     */
-    rightsReview: asking({ asks: ["access.oversee"] })
-      .input(
-        z.object({
-          limit: z.int().min(1).max(200).default(50),
-          offset: z.int().min(0).max(1_000_000).default(0),
-        }),
-      )
-      .query(({ ctx, input }) =>
-        handle(ctx, async () => {
-          await requireInstance(ctx);
-          return listRightsReview(ctx.db, input);
         }),
       ),
     /**

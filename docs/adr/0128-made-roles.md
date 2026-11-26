@@ -1,6 +1,6 @@
 # 0128 — Roles an administrator makes of a base's permissions
 
-- Status: Accepted
+- Status: Accepted; superseded in part by 0131 (a role on a table adds to its base's)
 - Date: 2026-11-25
 - Relates to: 0057 (who grants on a base), 0070 (groups), 0127 (permissions
   of a base)

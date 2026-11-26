@@ -8,7 +8,7 @@ import { randomBytes } from "node:crypto";
 import type { Database } from "@anygriddb/db";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { keyRing } from "../auth/key-ring.js";
-import { setTableAcl } from "../data/acl.js";
+import { narrowOn } from "../data/rules.test-helpers.js";
 import { withAudit } from "../data/audit-context.js";
 import { bindRole } from "../data/members.js";
 import type { Env } from "../env.js";
@@ -172,7 +172,7 @@ describe("the last value on a dashboard", () => {
 
   it("reads as its reader may: their rows, and nothing of a field hidden from them", async () => {
     // Vera reads account a only.
-    await setTableAcl(db, ownerId, {
+    await narrowOn(db, ownerId, {
       tableId,
       userId: viewerId,
       rowFilter: {
@@ -185,7 +185,7 @@ describe("the last value on a dashboard", () => {
     expect(await last()).toMatchObject({ value: "199.99" });
     // A field hidden from her reads as empty: so does the figure, as a
     // sum of it does.
-    await setTableAcl(db, ownerId, {
+    await narrowOn(db, ownerId, {
       tableId,
       userId: viewerId,
       rowFilter: null,
@@ -194,7 +194,7 @@ describe("the last value on a dashboard", () => {
     expect(await last({}, viewer)).toMatchObject({ value: null });
     // Nor does a field hidden from her put her rows in order: which row
     // holds its greatest value would say something of it.
-    await setTableAcl(db, ownerId, {
+    await narrowOn(db, ownerId, {
       tableId,
       userId: viewerId,
       rowFilter: null,

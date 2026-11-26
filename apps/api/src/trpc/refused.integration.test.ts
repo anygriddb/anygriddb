@@ -422,7 +422,7 @@ describe("every way in refuses whom its declared permission is missing", () => {
     }
     await withAudit(db, { userId: world.ownerId, source: "web" }, (tx) =>
       tx
-        .deleteFrom("roleBindings")
+        .deleteFrom("attributions")
         .where("userId", "=", userId)
         .where("scopeId", "=", world.baseId)
         .execute(),

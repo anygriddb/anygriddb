@@ -1,6 +1,7 @@
 import type { ColumnConfig } from "../field-config";
 import type { FieldType } from "../field-types";
 import type { FilterGroup } from "../filter";
+import type { Permission } from "../rbac";
 
 /**
  * How a link column reaches its rows. `forward` columns own the foreign
@@ -116,8 +117,11 @@ export type EngineAccess = {
   hidden: (tableId: string, columnName: string) => boolean;
   /** True when the reader may see the field but not change it. */
   readOnly: (tableId: string, columnName: string) => boolean;
-  /** Rows of the table the reader may see, or undefined for every row. */
-  rowFilter: (tableId: string) => FilterGroup | undefined;
+  /**
+   * Rows of the table the reader may see, or, given an act, may act on
+   * (ADR 0131); undefined for every row.
+   */
+  rowFilter: (tableId: string, act?: Permission) => FilterGroup | undefined;
   /** The reader, substituted for `me` in row filters. */
   me?: string;
 };

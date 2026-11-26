@@ -5,6 +5,7 @@ import {
   type Grant,
   type Permission,
   roleFor,
+  roleGrants,
 } from "@anygriddb/core";
 import { demand, demandAll, holds } from "../access/declaration.js";
 import { assertEnrolled, loadBindings, scopeBindings } from "../auth/access.js";
@@ -147,13 +148,47 @@ export async function guardBase(
   baseId: string,
   permission: Permission,
   creatingBase = false,
+  reach: BaseReach = "base",
 ): Promise<Actor & { role: Grant }> {
   return baseAccess(
     ctx,
     await authorize(ctx, creatingBase),
     baseId,
     permission,
+    reach,
   );
+}
+
+/**
+ * How a base is reached: by a role on the base itself, or, for what shows
+ * of a base only what reaches each table (its activity, its trash, a
+ * shortcut, the dashboards of tables one reads), by a role on one of its
+ * tables too (ADR 0131).
+ */
+export type BaseReach = "base" | "tables";
+
+/** What a role on a table gives on its base: to see it, and no more. */
+const SEES_BASE: Grant = { role: null, made: [], permissions: ["rows.read"] };
+
+async function seenThroughTables(
+  ctx: Context,
+  bindings: readonly Binding[],
+  baseId: string,
+): Promise<Grant | null> {
+  const tables = bindings
+    .filter(
+      (binding) =>
+        binding.scope === "table" && roleGrants(binding.role, "rows.read"),
+    )
+    .map((binding) => binding.scopeId);
+  if (tables.length === 0) return null;
+  const found = await ctx.db
+    .selectFrom("dataTables")
+    .select("id")
+    .where("baseId", "=", baseId)
+    .where("id", "in", tables)
+    .executeTakeFirst();
+  return found ? SEES_BASE : null;
 }
 
 /** The same, for a caller already asked who they are: see `tableAccess`. */
@@ -162,6 +197,7 @@ export async function baseAccess(
   actor: Actor,
   baseId: string,
   permission: Permission,
+  reach: BaseReach = "base",
 ): Promise<Actor & { role: Grant }> {
   const base = await ctx.db
     .selectFrom("bases")
@@ -174,7 +210,11 @@ export async function baseAccess(
   if (!base) {
     throw new AppError("access_denied");
   }
-  const role = roleFor(actor.bindings, "base", baseId);
+  const role =
+    roleFor(actor.bindings, "base", baseId) ??
+    (reach === "tables" && permission === "rows.read"
+      ? await seenThroughTables(ctx, actor.bindings, baseId)
+      : null);
   demand(role, permission);
   return { ...actor, role };
 }

@@ -104,7 +104,7 @@ describe("rights at a date", () => {
     const granted = await db
       .selectFrom("auditEvents")
       .select("occurredAt")
-      .where("catalogTable", "=", "role_bindings")
+      .where("catalogTable", "=", "attributions")
       .where(
         sql<boolean>`coalesce(new_value->>'user_id', new_value->>'userId') = ${personId}`,
       )
@@ -156,7 +156,7 @@ describe("rights at a date", () => {
       await sql`select set_config('anygrid.purge_audit', 'on', true)`.execute(
         tx,
       );
-      await sql`delete from audit_events where catalog_table = 'role_bindings'`.execute(
+      await sql`delete from audit_events where catalog_table = 'attributions'`.execute(
         tx,
       );
     });

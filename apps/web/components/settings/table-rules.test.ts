@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   memberShown,
   restricts,
+  narrowable,
   ruledMembers,
   ruleToSave,
   storedAccess,
@@ -14,23 +15,32 @@ const own = {
 };
 
 describe("ruledMembers", () => {
-  it("leaves out the owners of the table, by their role on it or on the base", () => {
-    const people: Array<{
-      name: string;
-      baseRole: Role | null;
-      tableRole: Role | null;
-    }> = [
-      { name: "owner of the base", baseRole: "owner", tableRole: null },
-      { name: "editor", baseRole: "editor", tableRole: null },
-      { name: "owner of the table", baseRole: "viewer", tableRole: "owner" },
-      { name: "viewer here", baseRole: "owner", tableRole: "viewer" },
-      { name: "of the table only", baseRole: null, tableRole: "commenter" },
-    ];
+  const people: Array<{
+    name: string;
+    baseRole: Role | null;
+    tableRole: Role | null;
+  }> = [
+    { name: "owner of the base", baseRole: "owner", tableRole: null },
+    { name: "editor of the base", baseRole: "editor", tableRole: null },
+    { name: "viewer here too", baseRole: "editor", tableRole: "viewer" },
+    { name: "owner of the table", baseRole: null, tableRole: "owner" },
+    { name: "of the table only", baseRole: null, tableRole: "commenter" },
+  ];
+
+  it("leaves out whoever manages the table, by the base or the table", () => {
     expect(ruledMembers(people).map((person) => person.name)).toEqual([
-      "editor",
-      "viewer here",
+      "editor of the base",
+      "viewer here too",
       "of the table only",
     ]);
+  });
+
+  it("narrows only those who reach the table by a role on it alone", () => {
+    expect(
+      ruledMembers(people)
+        .filter(narrowable)
+        .map((person) => person.name),
+    ).toEqual(["of the table only"]);
   });
 });
 

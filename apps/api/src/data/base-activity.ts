@@ -178,7 +178,7 @@ export async function baseActivity(
       "rows.read",
     ),
   );
-  const access = await readerAccess(db, reader, readable);
+  const access = readerAccess(reader, readable);
   const tables = readable.filter((table) => !access?.rowFilter(table.id));
   if (tables.length === 0) return { events: [], next: null };
 

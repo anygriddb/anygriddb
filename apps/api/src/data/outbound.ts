@@ -454,7 +454,7 @@ type BaseOverview = {
  * An owner of base `b` who can still act: an account that is not
  * disabled, with the role itself or through a group.
  */
-const LIVE_OWNER = sql<boolean>`exists (select 1 from role_bindings r join users u on u.id = r.user_id where r.scope = 'base' and r.scope_id = b.id and r.role = 'owner' and u.disabled_at is null)`;
+const LIVE_OWNER = sql<boolean>`exists (select 1 from attributions r left join group_members gm on gm.group_id = r.group_id join users u on u.id = coalesce(r.user_id, gm.user_id) where r.scope = 'base' and r.scope_id = b.id and r.role = 'owner' and (r.ends_at is null or r.ends_at > now()) and u.disabled_at is null)`;
 
 /**
  * Every live base of the instance with what an administrator weighs it
@@ -507,20 +507,22 @@ export async function listBaseOverview(
   const [ownerRows, memberRows, tableRows, fileRows, shareRows, feedRows] =
     await Promise.all([
       db
-        .selectFrom("roleBindings as r")
+        .selectFrom("attributions as r")
         .innerJoin("users as u", "u.id", "r.userId")
         .select(["r.scopeId as baseId", "u.displayName"])
         .where("r.scope", "=", "base")
         .where("r.scopeId", "in", ids)
         .where("r.role", "=", "owner")
-        .where("r.groupId", "is", null)
         .orderBy("u.displayName", "asc")
         .execute(),
       db
-        .selectFrom("roleBindings as r")
+        .selectFrom("attributions as r")
+        .leftJoin("groupMembers as gm", "gm.groupId", "r.groupId")
         .select([
           "r.scopeId as baseId",
-          sql<string>`count(distinct r.user_id)`.as("members"),
+          sql<string>`count(distinct coalesce(r.user_id, gm.user_id))`.as(
+            "members",
+          ),
         ])
         .where("r.scope", "=", "base")
         .where("r.scopeId", "in", ids)

@@ -3,11 +3,13 @@
  * migrated database: a writer neither creates a row outside it nor pushes
  * one out, and a refused write leaves nothing behind (ADR 0112).
  */
+import { loadBindings } from "../auth/access.js";
+import { setMemberRole } from "../data/members.js";
+import { setTableRole } from "../data/sharing.js";
 import { randomBytes } from "node:crypto";
-import type { Binding } from "@anygriddb/core";
 import { runStatement, type Database } from "@anygriddb/db";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { setTableAcl } from "../data/acl.js";
+import { narrowOn } from "../data/rules.test-helpers.js";
 import { importIntoTable, rowsSource } from "../data/import-commit.js";
 import { addRelation } from "../data/relations.js";
 import { insertBase, insertTable } from "../data/schema-ops.js";
@@ -39,21 +41,13 @@ describe("a row rule on what is written", () => {
   let dealsId = "";
 
   const deps = () => ({ db, bus, log: () => undefined });
-  const bindings = (): Binding[] => [
-    { role: "editor", scope: "base", scopeId: baseId },
-  ];
+  // Read as each request reads them: the rules ride on the roles.
   const scopeOf = async (id: string, userId = editor) => {
     const table = await findLiveTable(db, id);
     if (!table) throw new Error("no table");
     return loadRowScope(
       db,
-      {
-        userId,
-        bindings:
-          userId === owner
-            ? [{ role: "owner", scope: "base", scopeId: baseId }]
-            : bindings(),
-      },
+      { userId, bindings: await loadBindings(db, userId) },
       table,
     );
   };
@@ -92,6 +86,7 @@ describe("a row rule on what is written", () => {
         .execute()
     ).map((row) => row.id) as [string, string];
     baseId = (await insertBase(db, owner, { name: "B" })).id;
+    await setMemberRole(db, owner, { baseId, userId: editor, role: "editor" });
     tableId = (
       await insertTable(db, owner, {
         baseId,
@@ -102,7 +97,7 @@ describe("a row rule on what is written", () => {
         ],
       })
     ).id;
-    await setTableAcl(db, owner, {
+    await narrowOn(db, owner, {
       tableId,
       userId: editor,
       rowFilter: {
@@ -119,6 +114,8 @@ describe("a row rule on what is written", () => {
         columns: [{ name: "title", label: "Title", fieldType: "text" }],
       })
     ).id;
+    // Made after the editor's role went table by table: given apart.
+    await setTableRole(db, owner, { id: linkedId, baseId }, editor, "editor");
     [target] = await createRows(
       deps(),
       await scopeOf(linkedId, owner),
@@ -138,7 +135,10 @@ describe("a row rule on what is written", () => {
       kind: "many_to_many",
       targetTableId: linkedId,
     });
-    await setTableAcl(db, owner, {
+    // A table made after the editor's role went table by table gives
+    // them nothing until someone gives it (ADR 0131).
+    await setTableRole(db, owner, { id: linkTable, baseId }, editor, "editor");
+    await narrowOn(db, owner, {
       tableId: linkTable,
       userId: editor,
       rowFilter: {
@@ -170,7 +170,10 @@ describe("a row rule on what is written", () => {
       kind: "one_to_many",
       targetTableId: linkedId,
     });
-    await setTableAcl(db, owner, {
+    // A table made after the editor's role went table by table gives
+    // them nothing until someone gives it (ADR 0131).
+    await setTableRole(db, owner, { id: dealsId, baseId }, editor, "editor");
+    await narrowOn(db, owner, {
       tableId: dealsId,
       userId: editor,
       rowFilter: {

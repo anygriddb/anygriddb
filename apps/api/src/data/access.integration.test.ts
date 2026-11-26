@@ -15,7 +15,8 @@ import { uploadSlots, type UploadSlots } from "../upload-slots.js";
 import { loadBindings } from "../auth/access.js";
 import { createApiToken } from "../auth/tokens.js";
 import { writeSettings } from "../settings.js";
-import { clearTableAcl, readerEngine, setTableAcl } from "./acl.js";
+import { clearTableAcl, readerEngine } from "./acl.js";
+import { narrowOn } from "./rules.test-helpers.js";
 import { withAudit } from "./audit-context.js";
 import { insertComputed } from "./computed.js";
 import { loadEngine } from "./engine.js";
@@ -131,7 +132,7 @@ describe("field and row rules on PostgreSQL", () => {
     baseId = (await insertBase(database, owner, { name: "Access" })).id;
     await withAudit(database, { userId: owner, source: "web" }, (tx) =>
       tx
-        .insertInto("roleBindings")
+        .insertInto("attributions")
         .values({
           userId: editor,
           role: "editor",
@@ -283,7 +284,7 @@ describe("field and row rules on PostgreSQL", () => {
   });
 
   it("hides fields and rows everywhere they could show", async () => {
-    await setTableAcl(database, owner, {
+    await narrowOn(database, owner, {
       tableId: ordersId,
       userId: editor,
       rowFilter: rule("seller", "is", "alice"),
@@ -298,7 +299,7 @@ describe("field and row rules on PostgreSQL", () => {
         { column: "partner_salary", access: "write" },
       ],
     });
-    await setTableAcl(database, owner, {
+    await narrowOn(database, owner, {
       tableId: clientsId,
       userId: editor,
       rowFilter: rule("city", "is", "Paris"),
@@ -355,9 +356,9 @@ describe("field and row rules on PostgreSQL", () => {
 
     // Writes stay inside the rules.
     await expect(
-      assertRowsInScope(db, engine, [ids.second ?? ""]),
+      assertRowsInScope(db, engine, [ids.second ?? ""], "rows.write"),
     ).rejects.toThrow("Access denied");
-    await assertRowsInScope(db, engine, [ids.first ?? ""]);
+    await assertRowsInScope(db, engine, [ids.first ?? ""], "rows.write");
     expect(() => assertFieldsWritable(engine, ["seller"])).toThrow(
       "Access denied",
     );
@@ -379,7 +380,7 @@ describe("field and row rules on PostgreSQL", () => {
   });
 
   it("applies a row rule over a field the reader cannot see", async () => {
-    await setTableAcl(database, owner, {
+    await narrowOn(database, owner, {
       tableId: ordersId,
       userId: editor,
       rowFilter: rule("amount", "gt", 15),
@@ -428,9 +429,11 @@ describe("field and row rules on PostgreSQL", () => {
   it("keeps no row when a stored rule no longer compiles", async () => {
     await withAudit(database, { userId: owner, source: "web" }, (tx) =>
       tx
-        .updateTable("tableAcls")
+        .updateTable("attributions")
         .set({ rowFilter: rule("gone", "is", "x") })
-        .where("tableId", "=", ordersId)
+        .where("scope", "=", "table")
+        .where("scopeId", "=", ordersId)
+        .where("rowFilter", "is not", null)
         .execute(),
     );
     const page = await readPage(
@@ -506,7 +509,7 @@ describe("field and row rules on PostgreSQL", () => {
     );
     await deleteRows(database, editing, [mine]);
     await deleteRows(database, owned, [theirs]);
-    await setTableAcl(database, owner, {
+    await narrowOn(database, owner, {
       tableId: projectsId,
       userId: editor,
       rowFilter: null,
@@ -628,20 +631,21 @@ describe("field and row rules on PostgreSQL", () => {
         { rowId: ids.second ?? "", values: { files: [keys[1] ?? ""] } },
       ],
     );
-    const reader = {
+    // Read as each request reads it: the rules ride on the roles.
+    const reader = async () => ({
       userId: editor,
       bindings: await loadBindings(database, editor),
-    };
+    });
     const deps = {
       db: database,
       files: new DiskStore(filesRoot),
       uploads: uploadSlots(1),
     };
     // Without rules, reading the table is enough.
-    expect(await visibleToReader(deps, reader, ordersId, keys[1] ?? "")).toBe(
-      true,
-    );
-    await setTableAcl(database, owner, {
+    expect(
+      await visibleToReader(deps, await reader(), ordersId, keys[1] ?? ""),
+    ).toBe(true);
+    await narrowOn(database, owner, {
       tableId: ordersId,
       userId: editor,
       rowFilter: rule("seller", "is", "alice"),
@@ -650,21 +654,21 @@ describe("field and row rules on PostgreSQL", () => {
         { column: "files", access: "read" },
       ],
     });
-    expect(await visibleToReader(deps, reader, ordersId, keys[0] ?? "")).toBe(
-      true,
-    );
-    expect(await visibleToReader(deps, reader, ordersId, keys[1] ?? "")).toBe(
-      false,
-    );
-    await setTableAcl(database, owner, {
+    expect(
+      await visibleToReader(deps, await reader(), ordersId, keys[0] ?? ""),
+    ).toBe(true);
+    expect(
+      await visibleToReader(deps, await reader(), ordersId, keys[1] ?? ""),
+    ).toBe(false);
+    await narrowOn(database, owner, {
       tableId: ordersId,
       userId: editor,
       rowFilter: null,
       columns: [{ column: "title", access: "write" }],
     });
-    expect(await visibleToReader(deps, reader, ordersId, keys[0] ?? "")).toBe(
-      false,
-    );
+    expect(
+      await visibleToReader(deps, await reader(), ordersId, keys[0] ?? ""),
+    ).toBe(false);
     await clearTableAcl(database, owner, ordersId, editor);
   });
 

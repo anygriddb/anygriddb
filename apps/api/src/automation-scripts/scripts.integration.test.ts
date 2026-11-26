@@ -19,7 +19,7 @@ import pg from "pg";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { loadBindings } from "../auth/access.js";
 import { saveAutomation, setAutomationEnabled } from "../automations.js";
-import { setTableAcl } from "../data/acl.js";
+import { narrowOn } from "../data/rules.test-helpers.js";
 import { withAudit } from "../data/audit-context.js";
 import { readPage } from "../data/rows.js";
 import { insertBase, insertTable } from "../data/schema-ops.js";
@@ -94,7 +94,7 @@ describe("scripts in automations", () => {
     });
     await withAudit(db, { userId: owner, source: "web" }, (tx) =>
       tx
-        .insertInto("roleBindings")
+        .insertInto("attributions")
         .values([
           { userId: editor, role: "editor", scope: "base", scopeId: baseId },
           { userId: editor, role: "editor", scope: "base", scopeId: otherId },
@@ -264,7 +264,7 @@ describe("scripts in automations", () => {
     await addOrders([{ title: "C", seller: "bob", amount: 500 }]);
     await work();
     // The editor sees alice's orders, and not what they are worth.
-    await setTableAcl(db, owner, {
+    await narrowOn(db, owner, {
       tableId: ordersId,
       userId: editor,
       rowFilter: {

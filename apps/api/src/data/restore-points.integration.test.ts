@@ -19,7 +19,8 @@ import {
   setGroupRole,
 } from "../scim/groups.js";
 import { createTestDatabase } from "../test-database.js";
-import { listTableAcls, setTableAcl } from "./acl.js";
+import { listTableAcls } from "./acl.js";
+import { narrowOn } from "./rules.test-helpers.js";
 import { withAudit } from "./audit-context.js";
 import {
   createDashboard,
@@ -79,7 +80,7 @@ describe("restore points", () => {
     baseId = (await insertBase(db, owner, { name: "Ventes" })).id;
     await withAudit(db, { userId: owner }, (tx) =>
       tx
-        .insertInto("roleBindings")
+        .insertInto("attributions")
         .values([
           { userId: ada, role: "editor", scope: "base", scopeId: baseId },
           { userId: bob, role: "editor", scope: "base", scopeId: baseId },
@@ -112,7 +113,7 @@ describe("restore points", () => {
       })
     ).id;
     // Ada edits the clients, but does not see their margin.
-    await setTableAcl(db, owner, {
+    await narrowOn(db, owner, {
       tableId,
       userId: ada,
       rowFilter: null,
@@ -193,7 +194,7 @@ describe("restore points", () => {
     // Bob leaves the base after the point was made.
     await withAudit(db, { userId: owner }, (tx) =>
       tx
-        .deleteFrom("roleBindings")
+        .deleteFrom("attributions")
         .where("userId", "=", bob)
         .where("scopeId", "=", baseId)
         .execute(),
@@ -214,18 +215,20 @@ describe("restore points", () => {
       .where("id", "=", restored.baseId)
       .executeTakeFirstOrThrow();
     expect(base.name).toBe("Ventes (restaurée)");
-    expect(restored.report).toMatchObject({ members: 1, membersLeft: 1 });
+    // Ada's rule took her role table by table (ADR 0131): she comes back
+    // with the table, not as a member of the base.
+    expect(restored.report).toMatchObject({ members: 0, membersLeft: 1 });
     const roles = await db
-      .selectFrom("roleBindings")
+      .selectFrom("attributions")
       .select(["userId", "role"])
       .where("scope", "=", "base")
       .where("scopeId", "=", restored.baseId)
       .execute();
+    // Grace reads it through her group's one attribution.
     expect(roles).toEqual(
       expect.arrayContaining([
         { userId: owner, role: "owner" },
-        { userId: ada, role: "editor" },
-        { userId: grace, role: "viewer" },
+        { userId: null, role: "viewer" },
       ]),
     );
     expect(roles.map((role) => role.userId)).not.toContain(bob);

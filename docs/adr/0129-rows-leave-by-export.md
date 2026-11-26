@@ -1,6 +1,6 @@
 # 0129 — Rows leave a base by an export, and a token by its own permission
 
-- Status: Accepted
+- Status: Accepted; superseded in part by 0131 (a role without a token's way in takes nothing away)
 - Date: 2026-11-25
 - Relates to: 0127 (permissions of a base), 0128 (made roles), 0043
   (API tokens), 0094 (applications), 0077 (restore points)
