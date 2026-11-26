@@ -15,7 +15,7 @@ import {
   type StartedTestContainer,
 } from "testcontainers";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
-import { duplicateColumn } from "../data/data-ops.js";
+import { duplicateColumn, readAll } from "../data/data-ops.js";
 import { loadEngine } from "../data/engine.js";
 import { grantMember } from "../data/members.js";
 import { listBaseTables } from "../data/outbound.js";
@@ -939,5 +939,61 @@ describe("PostgreSQL sources", () => {
       String(index + 2),
     ).filter((value) => !ids.has(value));
     expect(missing).toEqual([]);
+  });
+
+  it("reads a client's table whole by its key, though rows go between its pages", async () => {
+    const deps = { db, key, settings };
+    pools ??= new SourcePools({ db, key, settings, log: () => undefined });
+    setSourcePools(pools);
+    await server?.exec([
+      "psql",
+      "-U",
+      "postgres",
+      "-d",
+      "erp",
+      "-c",
+      [
+        "create table receipts (id int primary key, note text not null)",
+        "insert into receipts select g, 'receipt ' || g from generate_series(1, 2500) g",
+        "grant select on receipts to anygriddb",
+      ].join("; "),
+    ]);
+    const source = await createSource(deps, admin, {
+      name: "Receipts",
+      ...connection(),
+      connectionLimit: 2,
+    });
+    const base = await insertBase(db, admin, { name: "Receipts" });
+    const {
+      tableIds: [receiptsId = ""],
+    } = await exposeTables(deps, admin, {
+      sourceId: source.id,
+      baseId: base.id,
+      tables: [{ schema: "public", name: "receipts" }],
+    });
+    const { engine } = await loadEngine(db, receiptsId, () => true);
+    const ids: string[] = [];
+    let pages = 0;
+    await readAll(db, engine, ["note"], async (page) => {
+      pages += 1;
+      ids.push(...page.map((row) => row.id));
+      // The client deletes its first row once the first page is read.
+      if (pages === 1) {
+        await server?.exec([
+          "psql",
+          "-U",
+          "postgres",
+          "-d",
+          "erp",
+          "-c",
+          "delete from receipts where id = 1",
+        ]);
+      }
+    });
+    // Each row once, none skipped for the one that went.
+    expect(pages).toBe(3);
+    expect(ids).toEqual(
+      Array.from({ length: 2500 }, (_, index) => String(index + 1)),
+    );
   });
 });

@@ -5,12 +5,14 @@
  */
 import { randomBytes } from "node:crypto";
 import type { Database } from "@anygriddb/db";
+import { sql } from "kysely";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { ImportFormat } from "@anygriddb/core";
 import ExcelJS from "exceljs";
 import { readImportFile, scanImportFile } from "../import-file.js";
 import { onDisk } from "../import-file.test-helpers.js";
 import { createTestDatabase } from "../test-database.js";
+import { withAudit } from "./audit-context.js";
 import { importIntoTable, type ImportSource } from "./import-commit.js";
 import { insertBase, insertTable } from "./schema-ops.js";
 
@@ -200,6 +202,43 @@ describe("an import read as it is written", () => {
     { source: 0, column: "code" },
     { source: 1, column: "qty" },
   ];
+
+  it("refuses the line of a row deleted while it imports, and writes the others", async () => {
+    const target = await table("Gone");
+    const csv = (qty: number) =>
+      `Code,Qty\n${Array.from({ length: 20 }, (_, index) => `g${String(index)},${String(qty)}`).join("\n")}\n`;
+    await importFile(target, "csv", csv(1), { mapping: CODE_QTY });
+    // The keys are read; then someone deletes one of the rows they found.
+    const result = await onDisk(csv(2), async (path) =>
+      importIntoTable(db, {
+        userId: owner,
+        table: target,
+        source: await fileSource(path, 500)(),
+        mapping: CODE_QTY,
+        upsertSource: 0,
+        addOptions: true,
+        canManage: true,
+        eventKey: `import:gone-${suffix}`,
+        onProgress: async (done) => {
+          if (done > 0) return;
+          await withAudit(
+            db,
+            { userId: owner, tableId: target.id, source: "test" },
+            (tx) =>
+              sql`delete from ${sql.table(target.physicalName)} where code = 'g5'`.execute(
+                tx,
+              ),
+          );
+        },
+      }),
+    );
+    expect(result).toMatchObject({ inserted: 0, updated: 19, failed: 1 });
+    // The header is line 1: g5 is on line 7.
+    expect(result.errors).toMatchObject([{ line: 7, code: "no_row" }]);
+    expect(
+      (await stored(target, ["code", "qty"])).map((row) => String(row.qty)),
+    ).toEqual(Array.from({ length: 19 }, () => "2"));
+  });
 
   it("refuses a NUL on its line and writes every other row", async () => {
     const target = await table("Nul");

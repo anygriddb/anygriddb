@@ -282,8 +282,11 @@ function afterClause(
   params: SqlParams,
 ): string {
   const after = spec.after ?? "";
+  // A client's copy is read in AnyGridDB's database, not in the client's
+  // dialect its key is compared in.
   if (
     !table.external ||
+    table.external.synced ||
     (spec.sort?.length ?? 0) > 0 ||
     (spec.groupBy?.length ?? 0) > 0 ||
     spec.newestFirst

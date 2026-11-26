@@ -140,7 +140,11 @@ export type StatementStream = (
   chunkSize: number,
 ) => AsyncGenerator<Record<string, unknown>[]>;
 
-/** A read under a time limit, so one query cannot hold a connection. */
+/**
+ * A read under a time limit, so one query cannot hold a connection. Given
+ * a transaction, it reads in it: the pages of one long read then all see
+ * the rows as they were when it began.
+ */
 export async function readWithin<T>(
   db: Database,
   timeout: string,
@@ -150,7 +154,7 @@ export async function readWithin<T>(
   ) => Promise<T>,
 ): Promise<T> {
   if (!/^\d+(ms|s|min)$/.test(timeout)) throw new Error("Invalid timeout");
-  return db.transaction().execute(async (tx) => {
+  const within = async (tx: Database) => {
     await sql.raw(`set local statement_timeout = '${timeout}'`).execute(tx);
     // Instants add and subtract in UTC, as on every engine (ADR 0005);
     // the reader's zone applies where a formula asks for it.
@@ -159,5 +163,6 @@ export async function readWithin<T>(
       (statement) => runStatement(tx, statement),
       (statement, chunkSize) => streamStatement(tx, statement, chunkSize),
     );
-  });
+  };
+  return db.isTransaction ? within(db) : db.transaction().execute(within);
 }

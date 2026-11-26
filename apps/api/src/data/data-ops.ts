@@ -270,30 +270,58 @@ export async function applyTemplate(
 /* Duplication                                                         */
 /* ------------------------------------------------------------------ */
 
-/** Reads every row in pages of 1000, up to `max` (`MAX_COPY_ROWS`). */
+type ReadAllSpec = Omit<ReadSpec, "limit" | "offset" | "fields" | "after">;
+
+/**
+ * Reads every row in pages of 1000, up to `max` (`MAX_COPY_ROWS`), each
+ * once though rows go meanwhile: pages counted by an offset alone would
+ * skip a row for each one deleted before it. Rows kept in AnyGridDB's
+ * database (its tables, a client's copy) are read in one snapshot; a
+ * client's live rows, in their key's order, page after page by their key.
+ */
 export async function readAll(
   db: Database,
   engine: EngineCatalog,
   fields: string[],
   onPage: (rows: RowRecord[]) => void | Promise<void>,
-  base: Omit<ReadSpec, "limit" | "offset" | "fields"> = {},
+  base: ReadAllSpec = {},
   max: number = MAX_COPY_ROWS,
 ): Promise<void> {
+  const live = engine.table.external && !engine.table.external.synced;
+  if (live || db.isTransaction) {
+    return readPages(db, engine, fields, onPage, base, max);
+  }
+  return db
+    .transaction()
+    .setIsolationLevel("repeatable read")
+    .setAccessMode("read only")
+    .execute((tx) => readPages(tx, engine, fields, onPage, base, max));
+}
+
+async function readPages(
+  db: Database,
+  engine: EngineCatalog,
+  fields: string[],
+  onPage: (rows: RowRecord[]) => void | Promise<void>,
+  base: ReadAllSpec,
+  max: number,
+): Promise<void> {
+  const external = engine.table.external;
+  const byKey =
+    external !== undefined &&
+    !external.synced &&
+    (base.sort?.length ?? 0) === 0 &&
+    !base.newestFirst;
+  let after: string | undefined;
   for (let offset = 0; offset < max; offset += PAGE) {
-    const page = await readPage(
-      db,
-      engine,
-      {
-        ...base,
-        limit: Math.min(PAGE, max - offset),
-        offset,
-        fields,
-        groupBy: undefined,
-      },
-      { total: false },
-    );
+    const limit = Math.min(PAGE, max - offset);
+    const spec: ReadSpec = { ...base, limit, fields, groupBy: undefined };
+    if (!byKey) spec.offset = offset;
+    else if (after !== undefined) spec.after = after;
+    const page = await readPage(db, engine, spec, { total: false });
     await onPage(page.rows);
-    if (page.rows.length < Math.min(PAGE, max - offset)) return;
+    if (page.rows.length < limit) return;
+    after = String(page.rows[page.rows.length - 1]?.id);
   }
 }
 

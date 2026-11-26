@@ -283,6 +283,13 @@ describe("reading a client's table", () => {
           sort: [{ column: "no", direction: "desc" }],
         }),
       ).toThrow(expect.objectContaining({ code: "invalid_offset" }));
+      // A client's copy is read in AnyGridDB's database, in its own order.
+      expect(() =>
+        read(
+          { ...lines, external: { ...held, synced: true } },
+          { after: '{"k0":"eu","k1":7}' },
+        ),
+      ).toThrow(expect.objectContaining({ code: "invalid_offset" }));
       // An id that names no key is no row to start after.
       expect(() => read(lines, { after: "7" })).toThrow(
         expect.objectContaining({ code: "invalid_row_id" }),
