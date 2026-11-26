@@ -5,10 +5,11 @@
  */
 import { randomBytes } from "node:crypto";
 import type { Database } from "@anygriddb/db";
+import { sql } from "kysely";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createTestDatabase } from "../test-database.js";
 import { runRows, withAudit } from "./audit-context.js";
-import { duplicateTable } from "./data-ops.js";
+import { duplicateTable, readAll } from "./data-ops.js";
 import { createFolder, moveTableToFolder } from "./folders.js";
 import { loadEngine } from "./engine.js";
 import { addRelation, setLinks } from "./relations.js";
@@ -345,5 +346,54 @@ describe("a table copied with its rows", () => {
         .flat()
         .sort(),
     ).toEqual(expect.arrayContaining(["helpers", "related"]));
+  });
+
+  it("reads a table whole as it was, though rows go between its pages", async () => {
+    const baseId = (await insertBase(db, owner, { name: "Ledger" })).id;
+    const { id } = await insertTable(db, owner, {
+      baseId,
+      name: "Lines",
+      columns: [{ label: "Code", fieldType: "text" }],
+    });
+    const engine = await engineOf(id);
+    const physical = (await tableRow(id)).physicalName;
+    const codes = [
+      "X-0",
+      ...Array.from({ length: 1_500 }, (_, index) => `K-${String(index + 1)}`),
+    ];
+    await insertRows(
+      db,
+      engine,
+      {
+        userId: owner,
+        tableId: id,
+        physicalName: physical,
+        baseId,
+        reason: null,
+        source: "test",
+      },
+      codes.map((code) => ({ code })),
+    );
+    const read: string[] = [];
+    let pages = 0;
+    await readAll(db, engine, ["code"], async (page) => {
+      pages += 1;
+      read.push(...page.map((row) => String(row.code)));
+      // Someone deletes the first row once the first page is read.
+      if (pages === 1) {
+        await withAudit(
+          db,
+          { userId: owner, tableId: id, source: "test" },
+          (tx) =>
+            sql`delete from ${sql.table(physical)} where code = 'X-0'`.execute(
+              tx,
+            ),
+        );
+      }
+    });
+    // Every row once, as the table was when the read began: none is
+    // skipped for the one that went.
+    expect(pages).toBe(2);
+    expect(read).toEqual(codes);
   });
 });

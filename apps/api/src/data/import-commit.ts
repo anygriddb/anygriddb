@@ -646,15 +646,9 @@ export async function importIntoTable(
       detail: column.label,
     });
   };
-  const refuseOutside = (item: { line: number }) => {
+  const refuseLine = (item: { line: number }, code: LineRefusal) => {
     failed += 1;
-    note({
-      line: item.line,
-      column: "",
-      value: "",
-      message: "Refused",
-      code: "row_outside_rule",
-    });
+    note({ line: item.line, column: "", value: "", message: "Refused", code });
   };
   const context: WriteContext = {
     userId: input.userId,
@@ -907,7 +901,7 @@ export async function importIntoTable(
           input.onWritten?.({ inserted, updated });
           return written;
         },
-        refuseOutside,
+        refuseLine,
       );
       await writeWithinRule(
         updates,
@@ -922,7 +916,7 @@ export async function importIntoTable(
           input.onWritten?.({ inserted, updated });
           return written;
         },
-        refuseOutside,
+        refuseLine,
       );
     }
     // A key this batch added finds its row in the batches after it.
@@ -950,22 +944,26 @@ export async function importIntoTable(
   };
 }
 
+/** What refuses one line of a batch, and not the whole import. */
+type LineRefusal = "row_outside_rule" | "no_row";
+
 /**
- * Writes a batch in one transaction. When a row rule refuses it, nothing of
- * it was kept: its rows are written again one by one, so the lines outside
- * the rule are named and the others kept. Returns each row's id, or
- * undefined where it was refused.
+ * Writes a batch in one transaction. When a row rule refuses it, or a row
+ * it changes was deleted since its key was found, nothing of it was kept:
+ * its rows are written again one by one, so the lines refused are named
+ * and the others kept. Returns each row's id, or undefined where it was
+ * refused.
  */
 async function writeWithinRule<Item>(
   items: readonly Item[],
   write: (part: readonly Item[]) => Promise<string[]>,
-  refuse: (item: Item) => void,
+  refuse: (item: Item, code: LineRefusal) => void,
 ): Promise<Array<string | undefined>> {
   if (items.length === 0) return [];
   try {
     return await write(items);
   } catch (error) {
-    if (!isOutsideRule(error)) throw error;
+    if (!lineRefusal(error)) throw error;
   }
   const ids: Array<string | undefined> = [];
   for (const item of items) {
@@ -973,16 +971,20 @@ async function writeWithinRule<Item>(
       const [id] = await write([item]);
       ids.push(id);
     } catch (error) {
-      if (!isOutsideRule(error)) throw error;
-      refuse(item);
+      const code = lineRefusal(error);
+      if (!code) throw error;
+      refuse(item, code);
       ids.push(undefined);
     }
   }
   return ids;
 }
 
-function isOutsideRule(error: unknown): boolean {
-  return error instanceof AppError && error.code === "row_outside_rule";
+function lineRefusal(error: unknown): LineRefusal | undefined {
+  return error instanceof AppError &&
+    (error.code === "row_outside_rule" || error.code === "no_row")
+    ? error.code
+    : undefined;
 }
 
 /** A client's foreign keys, imported as the key each one holds. */

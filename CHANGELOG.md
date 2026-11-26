@@ -29,6 +29,11 @@ first.
   storage quota, each counted without the others. The room is now asked
   again as each file is recorded, one after the other, and a file refused
   then leaves nothing in the store.
+- An import that finds rows by their key could add a row a second time,
+  and an export leave one out of its file, when another row was deleted
+  while they read the table: a table is now read whole as it was when the
+  read began. An import line whose row was deleted meanwhile is refused on
+  its own line; the rest of the import is written, where it used to stop.
 
 ## 0.11.0 - 2026-11-26
 
