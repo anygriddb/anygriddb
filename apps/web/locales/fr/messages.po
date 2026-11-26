@@ -848,6 +848,10 @@ msgstr "{ms} ms"
 msgid "{name} ({email})"
 msgstr "{name} ({email})"
 
+#: components/admin/roles-tab.tsx
+msgid "{name} (copy)"
+msgstr "{name} (copie)"
+
 #: components/admin/accounts-tab.tsx
 msgid "{name} added"
 msgstr "{name} ajouté"
@@ -5173,6 +5177,10 @@ msgstr "Dupliquer la ligne"
 #: components/shell/sidebar.tsx
 msgid "Duplicate structure"
 msgstr "Dupliquer la structure"
+
+#: components/admin/roles-tab.tsx
+msgid "Duplicate the role {name}"
+msgstr "Dupliquer le rôle {name}"
 
 #: lib/errors.ts
 msgid "Duplicate values prevent uniqueness"
