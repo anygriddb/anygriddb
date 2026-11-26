@@ -8,6 +8,12 @@ first.
 
 ## Unreleased
 
+## 0.11.1 - 2026-11-26
+
+Before upgrading: nothing to do. Migration 0148 runs by itself. An
+administrator who had turned off the alert of a locked account in
+Administration keeps it off, now in their notification preferences.
+
 ### Changed
 
 - Whether an administrator hears of an account that locks, and how, is one
