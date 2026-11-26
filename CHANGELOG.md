@@ -32,6 +32,13 @@ rules, and runs a version before 0.11.2 upgrades through 0.11.2 first.
   on someone the base reaches is refused (`rule_needs_table_role`).
 - A role that gives a token no way in (`api.access`) no longer keeps a
   token out of a table that another role opens to it.
+- Reading rows through a token or an application asks **Export**
+  (`data.export`) besides **Reach by a token** (`api.access`): a table read
+  a page at a time is an extraction (ADR 0131). The four shipped roles give
+  both, so nobody who holds one loses anything; a made role with the way
+  in and without Export no longer reads rows by a token, and still writes
+  them. Tick Export on it to keep its scripts reading. The API console in
+  a session reads as before.
 
 ### Changed
 

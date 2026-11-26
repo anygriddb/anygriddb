@@ -107,6 +107,7 @@ import {
   authorize,
   guardBase,
   guardTable,
+  guardTableRows,
   handle,
   tableAccess,
   type TableAccess,
@@ -302,11 +303,11 @@ async function stoppedByViewFilter(
 }
 
 export const rowsRouter = t.router({
-  read: asking({ asks: ["rows.read"] })
+  read: asking({ asks: ["rows.read"], also: ["data.export"] })
     .input(rowsReadInputSchema)
     .query(({ ctx, input }) =>
       handle(ctx, async () => {
-        const access = await guardTable(ctx, input.tableId, "rows.read");
+        const access = await guardTableRows(ctx, input.tableId);
         const { engine } = await engineFor(ctx, access);
         const spec = await readSpec(ctx, access, input, engine);
         let page: Awaited<ReturnType<typeof readPage>>;
@@ -341,11 +342,11 @@ export const rowsRouter = t.router({
         };
       }),
     ),
-  get: asking({ asks: ["rows.read"] })
+  get: asking({ asks: ["rows.read"], also: ["data.export"] })
     .input(rowsGetInputSchema)
     .query(({ ctx, input }) =>
       handle(ctx, async () => {
-        const access = await guardTable(ctx, input.tableId, "rows.read");
+        const access = await guardTableRows(ctx, input.tableId);
         const { engine } = await engineFor(ctx, access);
         const rows = await readByIds(
           ctx.db,
@@ -358,11 +359,11 @@ export const rowsRouter = t.router({
         return { rows: await withSignatures(ctx, engine, rows) };
       }),
     ),
-  aggregate: asking({ asks: ["rows.read"] })
+  aggregate: asking({ asks: ["rows.read"], also: ["data.export"] })
     .input(rowsAggregateInputSchema)
     .query(({ ctx, input }) =>
       handle(ctx, async () => {
-        const access = await guardTable(ctx, input.tableId, "rows.read");
+        const access = await guardTableRows(ctx, input.tableId);
         const { engine } = await engineFor(ctx, access);
         const asked = { ...input, limit: 1 };
         const spec = await readSpec(ctx, access, asked, engine);
@@ -518,11 +519,11 @@ export const rowsRouter = t.router({
         return { link: row?.[input.column] ?? [] };
       }),
     ),
-  linkCandidates: asking({ asks: ["rows.read"] })
+  linkCandidates: asking({ asks: ["rows.read"], also: ["data.export"] })
     .input(linkCandidatesInputSchema)
     .query(({ ctx, input }) =>
       handle(ctx, async () => {
-        const access = await guardTable(ctx, input.tableId, "rows.read");
+        const access = await guardTableRows(ctx, input.tableId);
         const { engine } = await engineFor(ctx, access);
         const column = engine.table.columns.find(
           (item) => item.name === input.column,
@@ -597,11 +598,11 @@ export const rowsRouter = t.router({
         return { ok: true as const };
       }),
     ),
-  audit: asking({ asks: ["rows.read"] })
+  audit: asking({ asks: ["rows.read"], also: ["data.export"] })
     .input(auditReadInputSchema)
     .query(({ ctx, input }) =>
       handle(ctx, async () => {
-        const access = await guardTable(ctx, input.tableId, "rows.read");
+        const access = await guardTableRows(ctx, input.tableId);
         const { engine } = await engineFor(ctx, access);
         await assertRowsInScope(ctx.db, engine, [input.recordId], "rows.read");
         const rules = engine.access;

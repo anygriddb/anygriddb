@@ -108,8 +108,8 @@ export const OPERATION_ASKS = {
   listBases: { filters: ["rows.read"] },
   listTables: { filters: ["rows.read"] },
   openApiDocument: { filters: ["rows.read"] },
-  listRecords: { asks: ["rows.read"] },
-  getRecord: { asks: ["rows.read"] },
+  listRecords: { asks: ["rows.read"], also: ["data.export"] },
+  getRecord: { asks: ["rows.read"], also: ["data.export"] },
   createRecords: { asks: ["rows.read", "rows.write"] },
   updateRecords: { asks: ["rows.read", "rows.write"] },
   transitionRecord: { asks: ["rows.read", "rows.transition"] },
@@ -130,6 +130,8 @@ async function tableFor(
   if (!table) throw new AppError("not_found");
   demand(role, "rows.read", "not_found");
   demand(role, permission);
+  // Rows read through a token are an extraction (ADR 0131, §6).
+  if (permission === "rows.read" && actor.scope) demand(role, "data.export");
   return table;
 }
 
