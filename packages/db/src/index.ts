@@ -9,6 +9,7 @@ export {
   type Tx,
 } from "./client.js";
 export {
+  acceptedUpgrades,
   migrateDb,
   migrationNames,
   PostgresTooOld,

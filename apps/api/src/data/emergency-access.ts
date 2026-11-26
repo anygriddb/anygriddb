@@ -5,6 +5,7 @@
  * and until when. The same notice goes out when an administrator gives
  * themselves a role on a base, which is the other way in.
  */
+import { holdersOf, holdsOnBase } from "./attributions.js";
 import { AppError, type Binding, trimEndRun, ceilingOf } from "@anygriddb/core";
 import type { Database } from "@anygriddb/db";
 import { sql } from "kysely";
@@ -187,15 +188,10 @@ export async function openEmergencyAccess(
       .forUpdate()
       .executeTakeFirst();
     if (!base) throw new AppError("unknown_base");
-    const member = await tx
-      .selectFrom("roleBindings")
-      .select("id")
-      .where("userId", "=", input.admin.id)
-      .where("scope", "=", "base")
-      .where("scopeId", "=", base.id)
-      .executeTakeFirst();
     // A member has their role: there is nothing to open.
-    if (member) throw new AppError("already_member");
+    if (await holdsOnBase(tx, input.admin.id, base.id)) {
+      throw new AppError("already_member");
+    }
     // One opening at a time: asking again starts the hour again.
     await tx
       .updateTable("emergencyAccess")
@@ -312,6 +308,10 @@ export async function tellOwners(
     owners?: readonly string[];
   },
 ): Promise<number> {
+  // Who runs the base: its owners, and whoever a made role lets run it.
+  const runners = input.owners
+    ? []
+    : await holdersOf(deps.db, { baseId: input.baseId }, "base.manage");
   const owners = await deps.db
     .selectFrom("users as u")
     .select(["u.id", "u.email"])
@@ -320,15 +320,7 @@ export async function tellOwners(
     .where((eb) =>
       input.owners
         ? eb("u.id", "in", input.owners.length ? [...input.owners] : [""])
-        : eb.exists(
-            eb
-              .selectFrom("roleBindings as b")
-              .select("b.id")
-              .whereRef("b.userId", "=", "u.id")
-              .where("b.scope", "=", "base")
-              .where("b.scopeId", "=", input.baseId)
-              .where("b.role", "=", "owner"),
-          ),
+        : eb("u.id", "in", runners.length > 0 ? runners : [""]),
     )
     .execute();
   if (owners.length === 0) return 0;

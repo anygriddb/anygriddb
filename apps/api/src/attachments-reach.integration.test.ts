@@ -109,7 +109,7 @@ describe("which file a key opens", () => {
     baseId = (await insertBase(db, owner, { name: "Files" })).id;
     await withAudit(db, { userId: owner, source: "web" }, (tx) =>
       tx
-        .insertInto("roleBindings")
+        .insertInto("attributions")
         .values({
           userId: viewer,
           role: "viewer",

@@ -785,7 +785,7 @@ describe("jobs, trash, and authors", () => {
       });
       await withAudit(db, { userId: owner, source: "web" }, (tx) =>
         tx
-          .insertInto("roleBindings")
+          .insertInto("attributions")
           .values({
             userId: viewer,
             role: "viewer",

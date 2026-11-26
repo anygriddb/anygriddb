@@ -90,7 +90,7 @@ describe("a field hidden from its reader", () => {
     baseId = (await insertBase(db, owner, { name: "Pay" })).id;
     await withAudit(db, { userId: owner, source: "web" }, (tx) =>
       tx
-        .insertInto("roleBindings")
+        .insertInto("attributions")
         .values({
           userId: member,
           role: "editor",
@@ -161,6 +161,7 @@ describe("a field hidden from its reader", () => {
         },
       })
     ).id;
+    await manager.catalog.splitBaseRole({ baseId, userId: member });
     await manager.catalog.setTableAcl({
       tableId,
       userId: member,

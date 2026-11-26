@@ -242,7 +242,7 @@ export async function listUsers(
     created: sqlTag`u.created_at`,
     lastSeen,
     mfa: hasFactor,
-    bases: sqlTag`(select count(distinct b.scope_id) from role_bindings b where b.user_id = u.id and b.scope = 'base')`,
+    bases: sqlTag`(select count(distinct b.scope_id) from attributions b left join group_members gm on gm.group_id = b.group_id where coalesce(b.user_id, gm.user_id) = u.id and b.scope = 'base')`,
     status: sqlTag`(case when u.disabled_at is not null then 2 when ${lockedNow} then 1 else 0 end)`,
   }[query.sort];
   const direction = query.direction === "desc" ? sqlTag`desc` : sqlTag`asc`;
@@ -268,7 +268,7 @@ export async function listUsers(
       signOn.as("signOn"),
       hasFactor.as("mfa"),
       lastSeen.as("lastSeen"),
-      sqlTag<number>`(select count(distinct b.scope_id)::int from role_bindings b where b.user_id = u.id and b.scope = 'base')`.as(
+      sqlTag<number>`(select count(distinct b.scope_id)::int from attributions b left join group_members gm on gm.group_id = b.group_id where coalesce(b.user_id, gm.user_id) = u.id and b.scope = 'base')`.as(
         "bases",
       ),
     ])
@@ -563,7 +563,7 @@ export async function getAccountDetail(db: Database, userId: string) {
         .execute(),
       listApiTokens(db, userId),
       db
-        .selectFrom("roleBindings as b")
+        .selectFrom("attributions as b")
         .innerJoin("bases as base", "base.id", "b.scopeId")
         .leftJoin("groups as g", "g.id", "b.groupId")
         .leftJoin("madeRoles as m", "m.id", "b.madeRoleId")
@@ -574,7 +574,19 @@ export async function getAccountDetail(db: Database, userId: string) {
           "g.displayName as viaGroup",
           ...MADE_COLUMNS,
         ])
-        .where("b.userId", "=", userId)
+        .where((eb) =>
+          eb.or([
+            eb("b.userId", "=", userId),
+            eb(
+              "b.groupId",
+              "in",
+              eb
+                .selectFrom("groupMembers")
+                .select("groupId")
+                .where("userId", "=", userId),
+            ),
+          ]),
+        )
         .where("b.scope", "=", "base")
         .where(liveBase("base"))
         .orderBy("base.name", "asc")
@@ -685,7 +697,7 @@ export async function listBaseChoices(
       "b.name",
       sqlTag<
         string[]
-      >`array(select u.display_name from role_bindings r join users u on u.id = r.user_id where r.scope = 'base' and r.scope_id = b.id and r.role = 'owner' and r.group_id is null order by u.display_name limit 3)`.as(
+      >`array(select u.display_name from attributions r join users u on u.id = r.user_id where r.scope = 'base' and r.scope_id = b.id and r.role = 'owner' order by u.display_name limit 3)`.as(
         "owners",
       ),
     ])

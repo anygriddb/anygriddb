@@ -427,7 +427,7 @@ describe("the administration API", () => {
     });
     expect(
       await db
-        .selectFrom("roleBindings")
+        .selectFrom("attributions")
         .select("role")
         .where("userId", "=", answer.userId)
         .execute(),

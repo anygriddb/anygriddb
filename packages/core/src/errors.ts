@@ -118,6 +118,15 @@ export const ERRORS = {
   invalid_permissions: [BAD, "Invalid permissions"],
   /** Nobody gives a role that gives more than they hold. */
   role_beyond_reach: [403, "Role beyond the giver's own"],
+  /**
+   * A rule narrows only the role it comes with (ADR 0131): it needs a
+   * role given on its table, and none on the base that gives it whole.
+   */
+  rule_needs_table_role: [BAD, "A rule needs a role on its table"],
+  /** Whoever manages a table sets its rules: none narrows them. */
+  rule_binds_no_manager: [BAD, "A rule does not narrow who manages the table"],
+  /** Someone holds no role of their own on the base to give table by table. */
+  no_base_role: [BAD, "No role of their own on the base"],
   invalid_relation: [BAD, "Invalid relation"],
   invalid_link_selection: [BAD, "Invalid link selection"],
   airtable_unauthorized: [BAD, "Airtable refused the token"],

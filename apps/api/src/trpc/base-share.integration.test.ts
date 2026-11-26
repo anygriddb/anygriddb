@@ -12,7 +12,7 @@ import type { Database } from "@anygriddb/db";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { storeAttachment } from "../attachments.js";
 import { keyRing } from "../auth/key-ring.js";
-import { setTableAcl } from "../data/acl.js";
+import { narrowOn } from "../data/rules.test-helpers.js";
 import { withAudit } from "../data/audit-context.js";
 import { loadEngine } from "../data/engine.js";
 import { insertRows } from "../data/rows.js";
@@ -70,7 +70,7 @@ describe("a base shared by one link", () => {
     });
     await withAudit(db, { userId: owner }, (tx) =>
       tx
-        .insertInto("roleBindings")
+        .insertInto("attributions")
         .values({
           userId: ada,
           madeRoleId: steward.id,
@@ -123,7 +123,7 @@ describe("a base shared by one link", () => {
       [{ name: "Acme", margin: "12", files: [file.key] }],
     );
     // Ada reads the clients, but not their margin.
-    await setTableAcl(db, owner, {
+    await narrowOn(db, owner, {
       tableId: clients,
       userId: ada,
       rowFilter: null,
@@ -169,18 +169,11 @@ describe("a base shared by one link", () => {
     expect((await rowsOf(link.token, notes)).total).toBe(0);
   });
 
-  it("reads as the member who made it: a field hidden from them stays hidden", async () => {
+  it("opens for nobody a rule binds: a base's link needs a role on the base", async () => {
+    // Ada's rule took her role table by table (ADR 0131), and the link
+    // asks what only a role on the base gives: it opens nothing.
     const link = await createBaseShare(db, { baseId, createdBy: ada });
-    const opened = await open(link.token);
-    expect(
-      opened.tables
-        .find((table) => table.name === "Clients")
-        ?.columns.map((column) => column.name)
-        .sort(),
-    ).toEqual(["files", "name"]);
-    const [row] = (await rowsOf(link.token, clients)).rows;
-    expect(row).toMatchObject({ name: "Acme" });
-    expect(row).not.toHaveProperty("margin");
+    expect(await errorCode(open(link.token))).toBe("unknown_share");
   });
 
   it("asks its password, and locks guesses but not who gave it", async () => {
@@ -239,7 +232,7 @@ describe("a base shared by one link", () => {
     const byAda = await createBaseShare(db, { baseId, createdBy: ada });
     await withAudit(db, { userId: owner }, (tx) =>
       tx
-        .deleteFrom("roleBindings")
+        .deleteFrom("attributions")
         .where("userId", "=", ada)
         .where("scopeId", "=", baseId)
         .execute(),

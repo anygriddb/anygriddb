@@ -129,7 +129,7 @@ export async function removeTable(
       await runRows(tx, buildDropTable(table.physicalName));
     }
     await tx
-      .deleteFrom("roleBindings")
+      .deleteFrom("attributions")
       .where("scope", "=", "table")
       .where("scopeId", "=", table.id)
       .execute();
@@ -162,7 +162,7 @@ export async function removeBase(
     .execute();
   await withAudit(db, { userId }, async (tx) => {
     await tx
-      .deleteFrom("roleBindings")
+      .deleteFrom("attributions")
       .where("scope", "=", "base")
       .where("scopeId", "=", baseId)
       .execute();

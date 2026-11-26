@@ -2,6 +2,7 @@ import {
   AppError,
   type Binding,
   effectiveTableRole,
+  tableRules,
   isHomeTable,
   type BaseTemplate,
   buildDuplicateJunction,
@@ -30,7 +31,6 @@ import {
 } from "@anygriddb/core";
 import { demand } from "../access/declaration.js";
 import { runStatement, type Database } from "@anygriddb/db";
-import { readerAccess } from "./acl.js";
 import { runRows, withAudit } from "./audit-context.js";
 import { insertComputed } from "./computed.js";
 import {
@@ -498,16 +498,15 @@ async function copyRows(
  * so it is refused to whom such rules apply there. Asked when the copy is
  * asked for, and again when the job runs.
  */
-export async function assertMayCopyRows(
-  db: Database,
+export function assertMayCopyRows(
   reader: { userId: string; bindings: readonly Binding[] },
   table: { id: string; baseId: string },
-): Promise<void> {
+): void {
   demand(
     effectiveTableRole(reader.bindings, table.id, table.baseId),
     "data.export",
   );
-  if (await readerAccess(db, reader, [table])) {
+  if (tableRules(reader.bindings, table.id, table.baseId)?.narrows) {
     throw new AppError("copy_under_rules");
   }
 }

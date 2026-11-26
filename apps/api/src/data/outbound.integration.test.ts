@@ -323,7 +323,7 @@ describe("every public link and calendar feed, for an administrator", () => {
         .returning("id")
         .executeTakeFirstOrThrow();
       await tx
-        .insertInto("roleBindings")
+        .insertInto("attributions")
         .values([
           ...[dan, cleo, bob].map((userId) => ({
             userId: userId ?? "",
@@ -333,13 +333,16 @@ describe("every public link and calendar feed, for an administrator", () => {
           })),
           // An owner through a group counts as a member, not by name.
           {
-            userId: eve ?? "",
             role: "owner" as const,
             scope: "base" as const,
             scopeId: achats,
             groupId: group.id,
           },
         ])
+        .execute();
+      await tx
+        .insertInto("groupMembers")
+        .values({ groupId: group.id, userId: eve ?? "" })
         .execute();
     });
     const columns = [

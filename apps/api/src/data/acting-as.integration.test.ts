@@ -154,6 +154,8 @@ describe("acting as another person", () => {
         tableId,
         values: { who: "theirs", salary: 2 },
       });
+      // A rule narrows only a role given on its table (ADR 0131).
+      await admin.call().catalog.splitBaseRole({ baseId, userId: memberId });
       await admin.call().catalog.setTableAcl({
         tableId,
         userId: memberId,

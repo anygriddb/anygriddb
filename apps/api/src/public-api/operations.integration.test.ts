@@ -10,7 +10,8 @@ import type { Database } from "@anygriddb/db";
 import pg from "pg";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { loadBindings } from "../auth/access.js";
-import { readerEngine, setTableAcl } from "../data/acl.js";
+import { readerEngine } from "../data/acl.js";
+import { narrowOn } from "../data/rules.test-helpers.js";
 import { withAudit } from "../data/audit-context.js";
 import { insertComputed } from "../data/computed.js";
 import { addRelation } from "../data/relations.js";
@@ -127,7 +128,7 @@ describe("a base's tables, as the public API describes them", () => {
     baseId = (await insertBase(db, owner, { name: "Atlas" })).id;
     await withAudit(db, { userId: owner, source: "web" }, (tx) =>
       tx
-        .insertInto("roleBindings")
+        .insertInto("attributions")
         .values({
           userId: editor,
           role: "editor",
@@ -203,7 +204,7 @@ describe("a base's tables, as the public API describes them", () => {
       always,
     );
     // The editor does not see a city's country.
-    await setTableAcl(db, owner, {
+    await narrowOn(db, owner, {
       tableId: cities,
       userId: editor,
       rowFilter: null,

@@ -4,7 +4,6 @@
   "admin.access.list": ["administrator", "auditor"],
   "admin.access.revokeToken": ["administrator"],
   "admin.access.rightsAt": ["administrator", "auditor"],
-  "admin.access.rightsReview": ["administrator", "auditor"],
   "admin.access.switchOff": ["administrator"],
   "admin.accessReport": ["administrator", "auditor"],
   "admin.account": ["administrator", "support", "auditor", "account_manager"],

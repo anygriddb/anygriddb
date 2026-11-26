@@ -374,6 +374,7 @@ export {
   roleGrantsAll,
   rolePermissions,
   roleRank,
+  tableRules,
   type Binding,
   type Given,
   type Grant,
@@ -385,6 +386,7 @@ export {
   type MadeRole,
   type Permission,
   type Role,
+  type TableRules,
 } from "./rbac";
 
 export {

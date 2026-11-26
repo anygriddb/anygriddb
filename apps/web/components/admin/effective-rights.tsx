@@ -70,7 +70,7 @@ export function EffectiveRights({
               <span className="text-muted-foreground">
                 {table.role ? roleLabel(table.role) : t`No access`}
                 {" · "}
-                {table.overridden ? `${t`Table override`} · ` : null}
+                {table.overridden ? `${t`Adds a role on the table`} · ` : null}
                 {originOf(table.origin)}
               </span>
             </li>

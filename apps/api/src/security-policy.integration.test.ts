@@ -1196,7 +1196,7 @@ describe("the security policy", () => {
       expect((await erased()).length).toBe(before + 1);
       expect(
         await db
-          .selectFrom("roleBindings")
+          .selectFrom("attributions")
           .select(["userId", "role"])
           .where("scope", "=", "base")
           .where("scopeId", "=", base.id)
@@ -1229,7 +1229,7 @@ describe("the security policy", () => {
       });
       expect(
         await db
-          .selectFrom("roleBindings")
+          .selectFrom("attributions")
           .select(["userId", "role"])
           .where("scope", "=", "base")
           .where("scopeId", "=", base.id)

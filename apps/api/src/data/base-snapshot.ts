@@ -20,7 +20,6 @@ import {
   type EngineCatalog,
   FAR_ROW_NUMBER,
   type FieldType,
-  filterGroupSchema,
   type FormulaExpr,
   type KeptRowStamp,
   type MadeNames,
@@ -73,7 +72,13 @@ import { createHash, randomUUID } from "node:crypto";
 import { join } from "node:path";
 import { runStatement, type Database } from "@anygriddb/db";
 import { sql } from "kysely";
-import { givenOf, type GivenColumns, MADE_COLUMNS } from "./made-roles.js";
+import {
+  fieldsOf,
+  givenOf,
+  type GivenColumns,
+  MADE_COLUMNS,
+  rowsOf,
+} from "./made-roles.js";
 import {
   cleanFilename,
   loadAttachmentMeta,
@@ -198,15 +203,14 @@ type SnapshotAttachments = Map<string, { name: string; size: number }>;
  */
 async function baseMembers(db: Database, baseId: string) {
   // One role of their own a person holds on a base (the index on
-  // `role_bindings` keeps it so).
+  // `attributions` keeps it so).
   const rows = await db
-    .selectFrom("roleBindings as b")
-    .innerJoin("users as u", "u.id", "b.userId")
-    .leftJoin("madeRoles as m", "m.id", "b.madeRoleId")
-    .select(["u.email", "b.role", ...MADE_COLUMNS])
-    .where("b.scope", "=", "base")
-    .where("b.scopeId", "=", baseId)
-    .where("b.groupId", "is", null)
+    .selectFrom("attributions as a")
+    .innerJoin("users as u", "u.id", "a.userId")
+    .leftJoin("madeRoles as m", "m.id", "a.madeRoleId")
+    .select(["u.email", "a.role", ...MADE_COLUMNS])
+    .where("a.scope", "=", "base")
+    .where("a.scopeId", "=", baseId)
     .execute();
   return rows.flatMap((row) => {
     const role = snapshotRoleOf(givenOf(row));
@@ -259,8 +263,8 @@ function givenBack(
 type TableAccess = NonNullable<SnapshotTable["access"]>;
 
 /**
- * Each person's own access to the base's tables, by email: a role that
- * replaces the base's on a table, and their row and field rules. A rule
+ * Each person's own access to the base's tables, by email: a role given
+ * on a table, and the row and field rules it carries (ADR 0131). A rule
  * that no longer reads hides every row, as it does in the grid.
  */
 async function tablesAccess(
@@ -278,44 +282,33 @@ async function tablesAccess(
     return current;
   };
   const roles = await db
-    .selectFrom("roleBindings as b")
-    .innerJoin("users as u", "u.id", "b.userId")
-    .leftJoin("madeRoles as m", "m.id", "b.madeRoleId")
-    .select(["b.scopeId as tableId", "u.email", "b.role", ...MADE_COLUMNS])
-    .where("b.scope", "=", "table")
-    .where("b.scopeId", "in", tableIds)
-    .where("b.groupId", "is", null)
+    .selectFrom("attributions as a")
+    .innerJoin("users as u", "u.id", "a.userId")
+    .leftJoin("madeRoles as m", "m.id", "a.madeRoleId")
+    .select([
+      "a.scopeId as tableId",
+      "u.email",
+      "a.role",
+      "a.rowFilter",
+      "a.fieldAccess",
+      ...MADE_COLUMNS,
+    ])
+    .where("a.scope", "=", "table")
+    .where("a.scopeId", "in", tableIds)
     .execute();
   for (const row of roles) {
     const role = snapshotRoleOf(givenOf(row));
-    if (role) entry(row.tableId, row.email).role = role;
-  }
-  const rules = await db
-    .selectFrom("tableAcls as a")
-    .innerJoin("users as u", "u.id", "a.userId")
-    .select(["a.tableId", "u.email", "a.rowFilter"])
-    .where("a.tableId", "in", tableIds)
-    .execute();
-  for (const row of rules) {
-    if (!row.rowFilter) continue;
-    const parsed = filterGroupSchema.safeParse(row.rowFilter);
-    entry(row.tableId, row.email).rowFilter = parsed.success
-      ? parsed.data
-      : { conjunction: "or", conditions: [] };
-  }
-  const columns = await db
-    .selectFrom("columnAcls as c")
-    .innerJoin("users as u", "u.id", "c.userId")
-    .select(["c.tableId", "u.email", "c.columnName", "c.access"])
-    .where("c.tableId", "in", tableIds)
-    .orderBy("c.columnName")
-    .execute();
-  for (const row of columns) {
+    if (!role) continue;
     const current = entry(row.tableId, row.email);
-    current.columns = [
-      ...(current.columns ?? []),
-      { column: row.columnName, access: row.access },
-    ];
+    current.role = role;
+    const rows = rowsOf(row.rowFilter);
+    if (rows) current.rowFilter = rows;
+    const fields = fieldsOf(row.fieldAccess);
+    if (fields) {
+      current.columns = Object.entries(fields)
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([column, access]) => ({ column, access }));
+    }
   }
   return new Map(
     [...found].map(([tableId, byEmail]) => [tableId, [...byEmail.values()]]),
@@ -1187,8 +1180,27 @@ type Restoring = {
 };
 
 /**
+ * The members a rule binds on one of the snapshot's tables. A snapshot
+ * made before roles added up (ADR 0131) may hold a rule beside a role on
+ * the base: such a person is given back a role on each table instead, as
+ * the upgrade does, so the rule still narrows what they see.
+ */
+function ruledMembers(tables: readonly SnapshotTable[]): Set<string> {
+  return new Set(
+    tables.flatMap((table) =>
+      (table.access ?? []).flatMap((item) =>
+        item.rowFilter || item.columns?.length
+          ? [item.email.toLowerCase()]
+          : [],
+      ),
+    ),
+  );
+}
+
+/**
  * Gives the snapshot's members with an active account here their role on
- * the new base. Its importer keeps theirs.
+ * the new base. Its importer keeps theirs. A member a rule binds gets it
+ * on each table instead (`ruledMembers`): returned, by account.
  */
 async function restoreMembers(
   db: Database,
@@ -1196,7 +1208,9 @@ async function restoreMembers(
   members: NonNullable<BaseSnapshot["members"]>,
   restoring: Restoring,
   report: SnapshotImportReport,
-): Promise<void> {
+  ruled: ReadonlySet<string>,
+): Promise<Map<string, GivenColumns>> {
+  const held = new Map<string, GivenColumns>();
   const grants = new Map<string, GivenColumns>();
   for (const member of members) {
     const email = member.email.toLowerCase();
@@ -1207,12 +1221,14 @@ async function restoreMembers(
     else if (id === restoring.userId) continue;
     else if (!given || restoring.unmatched.has(email)) {
       report.membersRoleMissing += 1;
-    } else grants.set(id, given);
+    } else if (ruled.has(email)) held.set(id, given);
+    else grants.set(id, given);
   }
-  if (grants.size === 0) return;
+  report.members += grants.size + held.size;
+  if (grants.size === 0) return held;
   await withAudit(db, { userId: restoring.userId, source: "snapshot" }, (tx) =>
     tx
-      .insertInto("roleBindings")
+      .insertInto("attributions")
       .values(
         [...grants].map(([userId, given]) => ({
           userId,
@@ -1223,25 +1239,27 @@ async function restoreMembers(
       )
       .execute(),
   );
-  report.members += grants.size;
+  return held;
 }
 
 /**
  * Gives each person their own role and rules on the new tables, as the
  * snapshot keeps them: nobody sees more of the new base than they saw of
- * the base it was made of.
+ * the base it was made of. A member held from the base (`restoreMembers`)
+ * gets its role on each table, with the rules there.
  */
 async function restoreTableAccess(
   db: Database,
   tables: readonly SnapshotTable[],
   ids: ReadonlyMap<string, string>,
   restoring: Restoring,
+  held: ReadonlyMap<string, GivenColumns>,
 ): Promise<void> {
   for (const table of tables) {
     const tableId = ids.get(table.key);
-    if (!tableId || !table.access?.length) continue;
+    if (!tableId || (!table.access?.length && held.size === 0)) continue;
     const granted = new Map<string, TableAccess[number]>();
-    for (const item of table.access) {
+    for (const item of table.access ?? []) {
       const email = item.email.toLowerCase();
       const id = restoring.accounts.get(email);
       if (!id || id === restoring.userId) continue;
@@ -1249,54 +1267,38 @@ async function restoreTableAccess(
       if (restoring.unmatched.has(email)) continue;
       granted.set(id, item);
     }
-    if (granted.size === 0) continue;
-    const entries = [...granted];
-    const roles = entries.flatMap(([userId, item]) => {
-      const given = item.role ? givenBack(item.role, restoring.made) : null;
-      return given
-        ? [{ userId, ...given, scope: "table" as const, scopeId: tableId }]
-        : [];
-    });
-    const rules = entries.flatMap(([userId, item]) =>
-      item.rowFilter || item.columns?.length
-        ? [
-            {
-              tableId,
-              userId,
-              rowFilter: item.rowFilter ?? null,
-              updatedAt: new Date(),
-            },
-          ]
-        : [],
+    const roles = [...new Set([...granted.keys(), ...held.keys()])].flatMap(
+      (userId) => {
+        const item = granted.get(userId);
+        const given = item?.role
+          ? givenBack(item.role, restoring.made)
+          : (held.get(userId) ?? null);
+        if (!given) return [];
+        return [
+          {
+            userId,
+            ...given,
+            scope: "table" as const,
+            scopeId: tableId,
+            rowFilter: item?.rowFilter ?? null,
+            fieldAccess: item?.columns?.length
+              ? Object.fromEntries(
+                  item.columns.map((column) => [column.column, column.access]),
+                )
+              : null,
+          },
+        ];
+      },
     );
-    const columns = entries.flatMap(([userId, item]) =>
-      (item.columns ?? []).map((column) => ({
-        tableId,
-        userId,
-        columnName: column.column,
-        access: column.access,
-      })),
-    );
+    if (roles.length === 0) continue;
     await withAudit(
       db,
       { userId: restoring.userId, tableId, source: "snapshot" },
       async (tx) => {
         for (let start = 0; start < roles.length; start += ACCESS_BATCH) {
           await tx
-            .insertInto("roleBindings")
+            .insertInto("attributions")
             .values(roles.slice(start, start + ACCESS_BATCH))
-            .execute();
-        }
-        for (let start = 0; start < rules.length; start += ACCESS_BATCH) {
-          await tx
-            .insertInto("tableAcls")
-            .values(rules.slice(start, start + ACCESS_BATCH))
-            .execute();
-        }
-        for (let start = 0; start < columns.length; start += ACCESS_BATCH) {
-          await tx
-            .insertInto("columnAcls")
-            .values(columns.slice(start, start + ACCESS_BATCH))
             .execute();
         }
       },
@@ -1764,9 +1766,17 @@ export async function importBaseSnapshot(
           ...(await madeRolesOf(db, parsed)),
         }
       : undefined;
-    if (restoring && parsed.members?.length) {
-      await restoreMembers(db, created.id, parsed.members, restoring, report);
-    }
+    const held =
+      restoring && parsed.members?.length
+        ? await restoreMembers(
+            db,
+            created.id,
+            parsed.members,
+            restoring,
+            report,
+            ruledMembers(parsed.tables),
+          )
+        : new Map<string, GivenColumns>();
     // Formulas may read lookups and rollups, which need the links first:
     // tables start with their stored fields, formulas come at the end.
     const formulas = new Map<string, ColumnDefinition[]>();
@@ -1814,7 +1824,9 @@ export async function importBaseSnapshot(
         await moveTableToFolder(db, userId, { tableId, folderId });
       }
     }
-    if (restoring) await restoreTableAccess(db, parsed.tables, ids, restoring);
+    if (restoring) {
+      await restoreTableAccess(db, parsed.tables, ids, restoring, held);
+    }
     await input.beforeRows?.(created.id);
 
     // People in user cells: members of the new base, found by email. A

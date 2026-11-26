@@ -76,7 +76,7 @@ export const catalogTableProcedures = {
         );
         await guardBase(ctx, table.baseId, "schema.manage");
         if (input.withData) {
-          await assertMayCopyRows(ctx.db, { userId: user.id, bindings }, table);
+          assertMayCopyRows({ userId: user.id, bindings }, table);
         }
         const job = await enqueueJob(queueDeps(ctx), {
           kind: "duplicate_table",

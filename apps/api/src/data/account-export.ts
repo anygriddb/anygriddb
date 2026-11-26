@@ -209,7 +209,7 @@ export async function writeAccountDataFile(
 
   const [bases, tables, groups, sessions, tokens] = await Promise.all([
     db
-      .selectFrom("roleBindings as b")
+      .selectFrom("attributions as b")
       .innerJoin("bases as base", "base.id", "b.scopeId")
       .leftJoin("groups as g", "g.id", "b.groupId")
       .leftJoin("madeRoles as m", "m.id", "b.madeRoleId")
@@ -220,13 +220,25 @@ export async function writeAccountDataFile(
         "m.name as madeName",
         "g.displayName as viaGroup",
       ])
-      .where("b.userId", "=", userId)
+      .where((eb) =>
+        eb.or([
+          eb("b.userId", "=", userId),
+          eb(
+            "b.groupId",
+            "in",
+            eb
+              .selectFrom("groupMembers")
+              .select("groupId")
+              .where("userId", "=", userId),
+          ),
+        ]),
+      )
       .where("b.scope", "=", "base")
       .where(liveBase("base"))
       .orderBy("base.name", "asc")
       .execute(),
     db
-      .selectFrom("roleBindings as b")
+      .selectFrom("attributions as b")
       .innerJoin("dataTables as t", "t.id", "b.scopeId")
       .innerJoin("bases as base", "base.id", "t.baseId")
       .leftJoin("groups as g", "g.id", "b.groupId")
@@ -239,7 +251,19 @@ export async function writeAccountDataFile(
         "m.name as madeName",
         "g.displayName as viaGroup",
       ])
-      .where("b.userId", "=", userId)
+      .where((eb) =>
+        eb.or([
+          eb("b.userId", "=", userId),
+          eb(
+            "b.groupId",
+            "in",
+            eb
+              .selectFrom("groupMembers")
+              .select("groupId")
+              .where("userId", "=", userId),
+          ),
+        ]),
+      )
       .where("b.scope", "=", "table")
       .where(liveTable("t"))
       .where(liveBase("base"))

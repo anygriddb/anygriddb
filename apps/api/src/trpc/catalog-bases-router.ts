@@ -150,11 +150,7 @@ export const catalogBaseProcedures = {
         bindings,
       );
       const readable = readableTables(bindings, baseIndex(rows));
-      const access = await readerAccess(
-        ctx.db,
-        { userId: user.id, bindings },
-        rows.tables,
-      );
+      const access = readerAccess({ userId: user.id, bindings }, rows.tables);
       // Client tables read from a copy (ADR 0034), and when it was made.
       const externalIds = rows.tables
         .filter((table) => table.storage === "external")
@@ -321,11 +317,7 @@ export const catalogBaseProcedures = {
         );
         if (tables.length === 0) return [];
         const readable = readableTables(bindings, baseIndex(rows));
-        const access = await readerAccess(
-          ctx.db,
-          { userId: user.id, bindings },
-          rows.tables,
-        );
+        const access = readerAccess({ userId: user.id, bindings }, rows.tables);
         const index = indexCatalog(rows);
         const engines = tables.map((table) => ({
           ...assembleEngine(table.id, rows, readable, index),
@@ -386,6 +378,8 @@ export const catalogBaseProcedures = {
           ctx,
           input.baseId,
           "rows.read",
+          false,
+          "tables",
         );
         return baseActivity(ctx.db, { userId: user.id, bindings }, input);
       }),

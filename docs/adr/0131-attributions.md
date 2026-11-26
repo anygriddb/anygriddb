@@ -94,7 +94,15 @@ An attribution gives a role to someone, somewhere, maybe until a date:
   widest.
 - **A table's attribution and its base:** whoever holds an attribution on a
   table sees its base and, of it, only what reaches that table (the base's
-  list of tables, its activity on that table).
+  list of tables, its activity and trash on that table, and the dashboards
+  whose every widget reads a table they read).
+- **Who manages a table is never narrowed:** a rule on an attribution that
+  gives `members.manage` holds nothing, and setting one is refused.
+- **A rule needs a role on its table alone:** a role on the base, one's own
+  or a group's, gives the table whole. So a person's own role on a base can
+  be **given table by table** (the same role on each of its tables, none on
+  the base), the conversion's case (d) done by hand; someone with roles on
+  some tables only stays in the base's members.
 - **One decision** in `packages/core`, read by every check through
   `demand`, `granted` and `holds` (ADR 0134); the one that lets a table's
   role replace its base's goes.

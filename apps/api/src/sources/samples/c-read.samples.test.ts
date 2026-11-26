@@ -2,13 +2,16 @@
  * Suite C: read engine on Chinook — paging, filters, sort, group, formulas,
  * lookups, ACL, limit bound.
  */
+import { loadBindings } from "../../auth/access.js";
+import { setTableRole } from "../../data/sharing.js";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { EngineCatalog } from "@anygriddb/core";
 import { loadEngine } from "../../data/engine.js";
 import { aggregateRows, readPage, visibleFields } from "../../data/rows.js";
 import { addColumn } from "../../data/schema-ops.js";
 import { insertComputed } from "../../data/computed.js";
-import { readerEngine, setTableAcl } from "../../data/acl.js";
+import { readerEngine } from "../../data/acl.js";
+import { narrowOn } from "../../data/rules.test-helpers.js";
 import { withAudit } from "../../data/audit-context.js";
 import { sampleWorld, type SampleWorld } from "./engines.js";
 import { SAMPLE_ENGINES } from "./types.js";
@@ -312,7 +315,7 @@ describe("samples C read engine on Chinook", () => {
         { userId: control.actorId, source: "web" },
         (tx) =>
           tx
-            .insertInto("roleBindings")
+            .insertInto("attributions")
             .values({
               userId: member,
               role: "editor",
@@ -336,7 +339,15 @@ describe("samples C read engine on Chinook", () => {
         .filter((c) => c.id !== unitPrice.id && c.fieldType !== "formula")
         .slice(0, 8)
         .map((c) => ({ column: c.name, access: "read" as const }));
-      await setTableAcl(control.db, control.actorId, {
+      // A rule narrows only a role given on its table (ADR 0131).
+      await setTableRole(
+        control.db,
+        control.actorId,
+        { id: trackId, baseId: control.baseId },
+        member,
+        "editor",
+      );
+      await narrowOn(control.db, control.actorId, {
         tableId: trackId,
         userId: member,
         rowFilter: null,
@@ -344,7 +355,7 @@ describe("samples C read engine on Chinook", () => {
       });
       const { engine: reader } = await readerEngine(control.db, trackId, {
         userId: member,
-        bindings: [{ role: "editor", scope: "base", scopeId: control.baseId }],
+        bindings: await loadBindings(control.db, member),
       });
       const fields = visibleFields(reader);
       const page = await readPage(

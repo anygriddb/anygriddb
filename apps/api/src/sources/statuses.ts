@@ -15,6 +15,7 @@
  * only then reads the row. Nothing holds a connection while a client's
  * transaction runs.
  */
+import { holdersOf } from "../data/attributions.js";
 import { createHash } from "node:crypto";
 import {
   AppError,
@@ -1141,17 +1142,13 @@ async function recipients(
     .where("id", "=", tableId)
     .executeTakeFirst();
   if (!table) return [];
-  const owners = await db
-    .selectFrom("roleBindings")
-    .select("userId")
-    .where("role", "=", "owner")
-    .where((eb) =>
-      eb.or([
-        eb.and([eb("scope", "=", "base"), eb("scopeId", "=", table.baseId)]),
-        eb.and([eb("scope", "=", "table"), eb("scopeId", "=", table.id)]),
-      ]),
+  const owners = (
+    await holdersOf(
+      db,
+      { baseId: table.baseId, tableId: table.id },
+      "base.manage",
     )
-    .execute();
+  ).map((userId) => ({ userId }));
   const ids = rows.map((row) => row.rowId);
   const movers = await db
     .selectFrom("externalStatuses")

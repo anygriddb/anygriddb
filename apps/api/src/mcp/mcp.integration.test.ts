@@ -69,7 +69,7 @@ describe("the MCP server", () => {
     ).id;
     await withAudit(database, { userId: owner, source: "web" }, (tx) =>
       tx
-        .insertInto("roleBindings")
+        .insertInto("attributions")
         .values({
           userId: editor,
           role: "editor",

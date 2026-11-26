@@ -123,7 +123,7 @@ describe("files sent to a public form", () => {
     const baseId = (await insertBase(db, owner, { name: "Achats" })).id;
     await withAudit(db, { userId: owner, source: "web" }, (tx) =>
       tx
-        .insertInto("roleBindings")
+        .insertInto("attributions")
         .values({
           userId: editor,
           role: "editor",

@@ -1,12 +1,16 @@
 /**
  * Roles an administrator makes of the permissions of a base (ADR 0128):
- * a name and the acts it gives. A binding, a group's role and an invitation
- * keep one of the four in `role` or a made role in `made_role_id`, never
- * both; every read of what one gives goes through `givenOf`.
+ * a name and the acts it gives. An attribution (a person's or a group's,
+ * ADR 0131) and an invitation keep one of the four in `role` or a made
+ * role in `made_role_id`, never both; every read of what one gives goes
+ * through `givenOf`.
  */
 import {
   AppError,
   type Binding,
+  type ColumnAccess,
+  filterGroupSchema,
+  type FilterGroup,
   type Given,
   type Grant,
   madePermissions,
@@ -47,16 +51,54 @@ export function givenOf(row: GivenRow): Given | null {
   };
 }
 
+/** A filter no row passes. */
+const NO_ROW: FilterGroup = { conjunction: "or", conditions: [] };
+
+const ACCESSES: ReadonlySet<string> = new Set(["hide", "read", "write"]);
+
+/** The rows a stored rule reaches: one that no longer parses, none. */
+export function rowsOf(stored: unknown): FilterGroup | null {
+  if (stored === null || stored === undefined) return null;
+  const parsed = filterGroupSchema.safeParse(stored);
+  return parsed.success ? parsed.data : NO_ROW;
+}
+
+/** Each field's access a stored rule says: anything else hides it. */
+export function fieldsOf(
+  stored: Readonly<Record<string, string>> | null | undefined,
+): Record<string, ColumnAccess> | null {
+  if (!stored) return null;
+  const fields: Record<string, ColumnAccess> = {};
+  for (const [column, access] of Object.entries(stored)) {
+    fields[column] = ACCESSES.has(access) ? (access as ColumnAccess) : "hide";
+  }
+  return fields;
+}
+
 /** Bindings as the rules read them, from rows joined with their made role. */
 export function bindingsFrom(
-  rows: ReadonlyArray<GivenRow & { scope: Binding["scope"]; scopeId: string }>,
+  rows: ReadonlyArray<
+    GivenRow & {
+      scope: Binding["scope"];
+      scopeId: string;
+      rowFilter?: unknown;
+      fieldAccess?: Readonly<Record<string, string>> | null;
+    }
+  >,
 ): Binding[] {
   const bindings: Binding[] = [];
   for (const row of rows) {
     const role = givenOf(row);
-    if (role !== null) {
-      bindings.push({ role, scope: row.scope, scopeId: row.scopeId });
-    }
+    if (role === null) continue;
+    const rows = rowsOf(row.rowFilter);
+    const fields = fieldsOf(row.fieldAccess);
+    bindings.push({
+      role,
+      scope: row.scope,
+      scopeId: row.scopeId,
+      ...(rows ? { rows } : {}),
+      ...(fields ? { fields } : {}),
+    });
   }
   return bindings;
 }
@@ -113,13 +155,12 @@ export async function ownGiven(
   scopeId: string,
 ): Promise<Given | null> {
   const row = await db
-    .selectFrom("roleBindings as b")
-    .leftJoin("madeRoles as m", "m.id", "b.madeRoleId")
-    .select(["b.role", ...MADE_COLUMNS])
-    .where("b.userId", "=", userId)
-    .where("b.scope", "=", scope)
-    .where("b.scopeId", "=", scopeId)
-    .where("b.groupId", "is", null)
+    .selectFrom("attributions as a")
+    .leftJoin("madeRoles as m", "m.id", "a.madeRoleId")
+    .select(["a.role", ...MADE_COLUMNS])
+    .where("a.userId", "=", userId)
+    .where("a.scope", "=", scope)
+    .where("a.scopeId", "=", scopeId)
     .executeTakeFirst();
   return row ? givenOf(row) : null;
 }
@@ -147,11 +188,12 @@ export async function groupGiven(
   baseId: string,
 ): Promise<Given | null> {
   const row = await db
-    .selectFrom("groupRoles as r")
-    .leftJoin("madeRoles as m", "m.id", "r.madeRoleId")
-    .select(["r.role", ...MADE_COLUMNS])
-    .where("r.groupId", "=", groupId)
-    .where("r.baseId", "=", baseId)
+    .selectFrom("attributions as a")
+    .leftJoin("madeRoles as m", "m.id", "a.madeRoleId")
+    .select(["a.role", ...MADE_COLUMNS])
+    .where("a.groupId", "=", groupId)
+    .where("a.scope", "=", "base")
+    .where("a.scopeId", "=", baseId)
     .executeTakeFirst();
   return row ? givenOf(row) : null;
 }
@@ -205,15 +247,10 @@ export async function listMadeRoles(db: Database): Promise<MadeRoleListed[]> {
       "m.permissions",
       "m.updatedAt",
       eb
-        .selectFrom("roleBindings as b")
+        .selectFrom("attributions as a")
         .select(eb.fn.countAll<string>().as("n"))
-        .whereRef("b.madeRoleId", "=", "m.id")
+        .whereRef("a.madeRoleId", "=", "m.id")
         .as("bindings"),
-      eb
-        .selectFrom("groupRoles as g")
-        .select(eb.fn.countAll<string>().as("n"))
-        .whereRef("g.madeRoleId", "=", "m.id")
-        .as("groups"),
       eb
         .selectFrom("invitations as i")
         .select(eb.fn.countAll<string>().as("n"))
@@ -229,10 +266,7 @@ export async function listMadeRoles(db: Database): Promise<MadeRoleListed[]> {
     name: row.name,
     permissions: madePermissions(row.permissions) ?? [],
     updatedAt: row.updatedAt,
-    holders:
-      Number(row.bindings ?? 0) +
-      Number(row.groups ?? 0) +
-      Number(row.waiting ?? 0),
+    holders: Number(row.bindings ?? 0) + Number(row.waiting ?? 0),
   }));
 }
 
@@ -310,15 +344,9 @@ export async function deleteMadeRole(
       .forUpdate()
       .executeTakeFirst();
     if (!role) throw new AppError("unknown_role");
-    const [bound, grouped, waiting] = await Promise.all([
+    const [bound, waiting] = await Promise.all([
       tx
-        .selectFrom("roleBindings")
-        .select("id")
-        .where("madeRoleId", "=", id)
-        .limit(1)
-        .executeTakeFirst(),
-      tx
-        .selectFrom("groupRoles")
+        .selectFrom("attributions")
         .select("id")
         .where("madeRoleId", "=", id)
         .limit(1)
@@ -332,7 +360,7 @@ export async function deleteMadeRole(
         .limit(1)
         .executeTakeFirst(),
     ]);
-    if (bound || grouped || waiting) throw new AppError("role_in_use");
+    if (bound || waiting) throw new AppError("role_in_use");
     await tx.deleteFrom("madeRoles").where("id", "=", id).execute();
   });
 }

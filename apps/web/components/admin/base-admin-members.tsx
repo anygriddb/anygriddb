@@ -26,10 +26,13 @@ type Member = {
   userId: string;
   displayName: string;
   email: string;
-  role: Grant;
+  /** None for someone who holds roles on some of its tables only. */
+  role: Grant | null;
   /** Their own role, which the list changes: a key or a made role's id. */
   given: string | null;
   direct: boolean;
+  /** Roles on some of its tables, none on the base (ADR 0131). */
+  tablesOnly: boolean;
   groups: string[];
 };
 
@@ -68,7 +71,11 @@ export function BaseAdminMembers({
     members,
     columns.sort,
     (member, key) =>
-      key === "account" ? member.displayName : roleLabel(member.role),
+      key === "account"
+        ? member.displayName
+        : member.tablesOnly
+          ? t`Some tables only`
+          : roleLabel(member.role),
     (member) => member.userId,
   );
   const already = new Set(
@@ -146,6 +153,11 @@ export function BaseAdminMembers({
                         });
                       }}
                     >
+                      {member.tablesOnly ? (
+                        <option value="" disabled>
+                          {t`Some tables only`}
+                        </option>
+                      ) : null}
                       <RoleOptions />
                     </Select>
                   ) : (

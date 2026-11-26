@@ -1,3 +1,6 @@
+import type { ColumnAccess } from "./acl";
+import type { FilterGroup } from "./filter";
+
 export type Scope = "base" | "table" | "row" | "column";
 
 /**
@@ -180,14 +183,13 @@ export function readOnlyGiven(given: Given): Given {
 }
 
 /**
- * What a role gives through a token: all it gives when it gives a token's
- * way in (`api.access`, which each of the four gives), nothing otherwise.
+ * Whether a role acts through a token: each of the four does, a made role
+ * when it gives a token's way in (`api.access`). One that does not gives
+ * a token nothing, and takes nothing away from what another role gives
+ * (ADR 0131).
  */
-export function tokenGiven(given: Given): Given {
-  if (typeof given === "string" || roleGrants(given, "api.access")) {
-    return given;
-  }
-  return { ...given, permissions: [] };
+export function tokenGiven(given: Given): boolean {
+  return typeof given === "string" || roleGrants(given, "api.access");
 }
 
 /** A public link: a form takes answers in; a view's or a base's shows rows. */
@@ -348,10 +350,18 @@ export function isInstancePermission(
   return (INSTANCE_PERMISSIONS as readonly string[]).includes(value);
 }
 
+/**
+ * One attribution (ADR 0131): a role on a base or a table, given to the
+ * person or to one of their groups. On a table it may narrow what it
+ * gives: to some rows (`rows`), and field by field (`fields`, a field not
+ * named being hidden). A rule narrows only the attribution it comes with.
+ */
 export type Binding = {
   role: Given;
   scope: Scope;
   scopeId: string;
+  rows?: FilterGroup | null;
+  fields?: Readonly<Record<string, ColumnAccess>> | null;
 };
 
 const ROLE_RANK: Record<Role, number> = {
@@ -400,20 +410,143 @@ export function roleFor(
   };
 }
 
+/** What two grants give together: each permission either gives. */
+function unionOf(first: Grant | null, second: Grant | null): Grant | null {
+  if (first === null) return second;
+  if (second === null) return first;
+  const rankOf = (grant: Grant) =>
+    typeof grant === "string" ? grant : grant.role;
+  const one = rankOf(first);
+  const other = rankOf(second);
+  const role =
+    one === null
+      ? other
+      : other === null || ROLE_RANK[one] >= ROLE_RANK[other]
+        ? one
+        : other;
+  if (typeof first === "string" && typeof second === "string") return role;
+  if (role === "owner") return "owner";
+  const made = new Map<string, { id: string; name: string }>();
+  for (const grant of [first, second]) {
+    if (typeof grant === "string") continue;
+    for (const item of grant.made) made.set(item.id, item);
+  }
+  return {
+    role,
+    made: [...made.values()],
+    permissions: PERMISSIONS.filter(
+      (permission) =>
+        roleGrants(first, permission) || roleGrants(second, permission),
+    ),
+  };
+}
+
 /**
- * Role on a table: a binding on the table itself overrides, otherwise the
- * role on its base applies. A table override may grant less than the base.
+ * What applies on a table: what its base gives and what the table itself
+ * gives, together (ADR 0131). A role given on a table only adds.
  */
 export function effectiveTableRole(
   bindings: readonly Binding[],
   tableId: string,
   baseId: string | undefined,
 ): Grant | null {
-  const own = roleFor(bindings, "table", tableId);
-  if (own) {
-    return own;
+  return unionOf(
+    roleFor(bindings, "table", tableId),
+    baseId ? roleFor(bindings, "base", baseId) : null,
+  );
+}
+
+/** A filter no row passes: an attribution that gives nothing here. */
+const NO_ROW: FilterGroup = { conjunction: "or", conditions: [] };
+
+const ACCESS_RANK: Record<ColumnAccess, number> = {
+  hide: 0,
+  read: 1,
+  write: 2,
+};
+
+/** Whether an attribution's rules hold: who manages the table is never narrowed. */
+function narrowing(binding: Binding): boolean {
+  return (
+    (binding.rows != null || binding.fields != null) &&
+    !roleGrants(binding.role, "members.manage")
+  );
+}
+
+/** The rows an attribution reaches: every row when no rule holds. */
+function rowsThrough(binding: Binding): FilterGroup | null {
+  return narrowing(binding) ? (binding.rows ?? null) : null;
+}
+
+/** A field's access through one attribution, never above its role. */
+function fieldThrough(binding: Binding, column: string): ColumnAccess {
+  if (!roleGrants(binding.role, "rows.read")) return "hide";
+  const fields = narrowing(binding) ? binding.fields : null;
+  const said = fields ? (fields[column] ?? "hide") : "write";
+  if (said === "write" && !roleGrants(binding.role, "rows.write")) {
+    return "read";
   }
-  return baseId ? roleFor(bindings, "base", baseId) : null;
+  return said;
+}
+
+/**
+ * The rules that narrow someone's access to one table, or undefined when
+ * no attribution that reaches it carries one. The rows reached for an act
+ * are those of every attribution that gives it, by OR (one without a
+ * filter: every row); a field takes the widest access any of them gives.
+ */
+export type TableRules = {
+  rows: (act: Permission) => FilterGroup | undefined;
+  access: (column: string) => ColumnAccess;
+  /**
+   * Whether the rules keep anything of the table from its reader: some
+   * rows, or a field no attribution that reads rows shows whole.
+   */
+  narrows: boolean;
+};
+
+export function tableRules(
+  bindings: readonly Binding[],
+  tableId: string,
+  baseId: string | undefined,
+): TableRules | undefined {
+  const reach = bindings.filter(
+    (binding) =>
+      (binding.scope === "table" && binding.scopeId === tableId) ||
+      (binding.scope === "base" &&
+        baseId !== undefined &&
+        binding.scopeId === baseId),
+  );
+  if (!reach.some(narrowing)) return undefined;
+  const rows = (act: Permission): FilterGroup | undefined => {
+    const givers = reach.filter((binding) => roleGrants(binding.role, act));
+    if (givers.some((binding) => !rowsThrough(binding))) return undefined;
+    const filters = givers.flatMap((binding) => {
+      const through = rowsThrough(binding);
+      return through ? [through] : [];
+    });
+    if (filters.length === 0) return NO_ROW;
+    if (filters.length === 1) return filters[0];
+    return { conjunction: "or", conditions: filters };
+  };
+  return {
+    rows,
+    narrows:
+      rows("rows.read") !== undefined ||
+      !reach.some(
+        (binding) =>
+          !(narrowing(binding) && binding.fields) &&
+          roleGrants(binding.role, "rows.read"),
+      ),
+    access: (column) => {
+      let best: ColumnAccess = "hide";
+      for (const binding of reach) {
+        const access = fieldThrough(binding, column);
+        if (ACCESS_RANK[access] > ACCESS_RANK[best]) best = access;
+      }
+      return best;
+    },
+  };
 }
 
 /**

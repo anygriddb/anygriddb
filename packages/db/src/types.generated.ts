@@ -48,8 +48,6 @@ export type AuthAction =
 
 export type AutomationRunStatus = "failed" | "skipped" | "success";
 
-export type ColumnAccess = "hide" | "read" | "write";
-
 export type DashboardWidgetKind = "chart" | "metric" | "view_embed";
 
 export type EmailOtpPurpose = "enroll" | "login";
@@ -224,6 +222,21 @@ export interface Attachments {
   width: number | null;
 }
 
+export interface Attributions {
+  createdAt: Generated<Timestamp>;
+  endsAt: Timestamp | null;
+  fieldAccess: Record<string, "hide" | "read" | "write"> | null;
+  givenBy: string | null;
+  groupId: string | null;
+  id: Generated<string>;
+  madeRoleId: string | null;
+  role: Role | null;
+  rowFilter: Record<string, unknown> | null;
+  scope: Scope;
+  scopeId: string;
+  userId: string | null;
+}
+
 export interface AuditEvents {
   action: AuditAction;
   catalogTable: string | null;
@@ -327,6 +340,17 @@ export interface Bases {
   purgeStartedAt: Timestamp | null;
 }
 
+export interface BindingsBeforeUnion {
+  createdAt: Timestamp | null;
+  groupId: string | null;
+  id: string;
+  madeRoleId: string | null;
+  role: Role | null;
+  scope: Scope | null;
+  scopeId: string | null;
+  userId: string | null;
+}
+
 export interface CalendarFeeds {
   createdAt: Generated<Timestamp>;
   id: Generated<string>;
@@ -334,14 +358,6 @@ export interface CalendarFeeds {
   tokenHash: string;
   userId: string;
   viewId: string;
-}
-
-export interface ColumnAcls {
-  access: ColumnAccess;
-  columnName: string;
-  id: Generated<string>;
-  tableId: string;
-  userId: string;
 }
 
 export interface Comments {
@@ -582,15 +598,6 @@ export interface ExternalWriteSteps {
 export interface GroupMembers {
   groupId: string;
   userId: string;
-}
-
-export interface GroupRoles {
-  baseId: string;
-  createdAt: Generated<Timestamp>;
-  groupId: string;
-  id: Generated<string>;
-  madeRoleId: string | null;
-  role: Role | null;
 }
 
 export interface Groups {
@@ -948,17 +955,6 @@ export interface RestorePoints {
   size: Int8;
 }
 
-export interface RoleBindings {
-  createdAt: Generated<Timestamp>;
-  groupId: string | null;
-  id: Generated<string>;
-  madeRoleId: string | null;
-  role: Role | null;
-  scope: Scope;
-  scopeId: string;
-  userId: string;
-}
-
 export interface RowSignatures {
   displayName: string;
   fingerprint: string | null;
@@ -1127,14 +1123,6 @@ export interface StatusTransitions {
   toStateId: string;
 }
 
-export interface TableAcls {
-  id: Generated<string>;
-  rowFilter: Record<string, unknown> | null;
-  tableId: string;
-  updatedAt: Generated<Timestamp>;
-  userId: string;
-}
-
 export interface TableFolders {
   baseId: string;
   createdAt: Generated<Timestamp>;
@@ -1256,6 +1244,7 @@ export interface DB {
   alertOptouts: AlertOptouts;
   apiTokens: ApiTokens;
   attachments: Attachments;
+  attributions: Attributions;
   auditEvents: AuditEvents;
   authEvents: AuthEvents;
   automationMatches: AutomationMatches;
@@ -1265,8 +1254,8 @@ export interface DB {
   backupCodes: BackupCodes;
   backupRuns: BackupRuns;
   bases: Bases;
+  bindingsBeforeUnion: BindingsBeforeUnion;
   calendarFeeds: CalendarFeeds;
-  columnAcls: ColumnAcls;
   comments: Comments;
   dashboards: Dashboards;
   dashboardWidgets: DashboardWidgets;
@@ -1285,7 +1274,6 @@ export interface DB {
   externalWrites: ExternalWrites;
   externalWriteSteps: ExternalWriteSteps;
   groupMembers: GroupMembers;
-  groupRoles: GroupRoles;
   groups: Groups;
   installationTokens: InstallationTokens;
   instanceAlerts: InstanceAlerts;
@@ -1321,7 +1309,6 @@ export interface DB {
   relations: Relations;
   releaseStatus: ReleaseStatus;
   restorePoints: RestorePoints;
-  roleBindings: RoleBindings;
   rowSignatures: RowSignatures;
   scimTokens: ScimTokens;
   sessions: Sessions;
@@ -1335,7 +1322,6 @@ export interface DB {
   statusStates: StatusStates;
   statusTransitionGrants: StatusTransitionGrants;
   statusTransitions: StatusTransitions;
-  tableAcls: TableAcls;
   tableFolders: TableFolders;
   totpSecrets: TotpSecrets;
   trailShipping: TrailShipping;

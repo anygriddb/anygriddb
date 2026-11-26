@@ -43,6 +43,7 @@ import {
   membersInputSchema,
   revokeInputSchema,
   revokeMember,
+  splitBaseRole,
 } from "../data/members.js";
 import { listGroupRoles, listGroups, setGroupRole } from "../scim/groups.js";
 import { readPage, safeTimeZone, visibleFields } from "../data/rows.js";
@@ -160,6 +161,27 @@ export const catalogAccessProcedures = {
           await ownGiven(ctx.db, input.userId, "base", input.baseId),
         );
         await revokeMember(ctx.db, user.id, input);
+        return { ok: true as const };
+      }),
+    ),
+  /**
+   * Someone's own role on the base, given table by table instead (ADR
+   * 0131), so that a rule may narrow one table alone.
+   */
+  splitBaseRole: asking({ asks: ["members.manage"] })
+    .input(revokeInputSchema)
+    .mutation(({ ctx, input }) =>
+      handle(ctx, async () => {
+        const { user, role } = await guardBase(
+          ctx,
+          input.baseId,
+          "members.manage",
+        );
+        assertMayTouch(
+          role,
+          await ownGiven(ctx.db, input.userId, "base", input.baseId),
+        );
+        await splitBaseRole(ctx.db, user.id, input);
         return { ok: true as const };
       }),
     ),

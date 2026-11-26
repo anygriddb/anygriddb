@@ -45,6 +45,8 @@ export const catalogTrashProcedures = {
           ctx,
           input.baseId,
           "rows.read",
+          false,
+          "tables",
         );
         const shapeBase = roleGrants(role, "schema.manage");
         const items = await listTrash(ctx.db, input.baseId, user.id);

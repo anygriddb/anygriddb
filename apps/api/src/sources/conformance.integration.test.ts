@@ -10,6 +10,8 @@
  * Everything goes the way an administrator's does: a source is declared,
  * its table exposed, each formula added as a field, and rows read.
  */
+import { loadBindings } from "../auth/access.js";
+import { setTableRole } from "../data/sharing.js";
 import { createHash, randomBytes } from "node:crypto";
 import {
   AppError,
@@ -65,7 +67,8 @@ import { exposeTables, setTableWrites } from "./expose.js";
 import { loadTableCircuit, saveTableCircuit } from "../data/status-circuits.js";
 import { setSourcePools, SourcePools } from "./pools.js";
 import { dropUnusedCopy, runSync, setTableSync } from "./sync.js";
-import { readerEngine, setTableAcl } from "../data/acl.js";
+import { readerEngine } from "../data/acl.js";
+import { narrowOn } from "../data/rules.test-helpers.js";
 import { withAudit } from "../data/audit-context.js";
 import {
   createSource,
@@ -4153,20 +4156,8 @@ describe("conformance of formulas across engines", () => {
         .returning("id")
         .executeTakeFirstOrThrow()
     ).id;
-    const bindings = [
-      { role: "editor" as const, scope: "base" as const, scopeId: baseId },
-    ];
-    await withAudit(db, { userId: actorId, source: "web" }, (tx) =>
-      tx
-        .insertInto("roleBindings")
-        .values({
-          userId: member,
-          role: "editor",
-          scope: "base",
-          scopeId: baseId,
-        })
-        .execute(),
-    );
+    // An editor of each client's table alone: a rule narrows only a role
+    // given on its table (ADR 0131).
     const traces = new Map<Engine, unknown[]>();
     for (const [engine, { sourceId, schema }] of declared) {
       const trace: unknown[] = [];
@@ -4186,7 +4177,14 @@ describe("conformance of formulas across engines", () => {
       const owned = await loadEngine(db, tableId, () => true);
       const field = (physical: string) => columnOf(owned.engine, physical);
       // Sales only; salaries hidden; names read-only.
-      await setTableAcl(db, actorId, {
+      await setTableRole(
+        db,
+        actorId,
+        { id: tableId, baseId },
+        member,
+        "editor",
+      );
+      await narrowOn(db, actorId, {
         tableId,
         userId: member,
         rowFilter: {
@@ -4201,6 +4199,7 @@ describe("conformance of formulas across engines", () => {
           { column: field("name"), access: "read" },
         ],
       });
+      const bindings = await loadBindings(db, member);
       const { engine: reader } = await readerEngine(db, tableId, {
         userId: member,
         bindings,
@@ -4881,7 +4880,14 @@ describe("conformance of formulas across engines", () => {
           .returning("id")
           .executeTakeFirstOrThrow()
       ).id;
-      await setTableAcl(db, actorId, {
+      await setTableRole(
+        db,
+        actorId,
+        { id: ledgerId, baseId: table.baseId },
+        ruledUser,
+        "editor",
+      );
+      await narrowOn(db, actorId, {
         tableId: ledgerId,
         userId: ruledUser,
         rowFilter: {
@@ -4894,7 +4900,7 @@ describe("conformance of formulas across engines", () => {
       });
       const { engine: ruled } = await readerEngine(db, ledgerId, {
         userId: ruledUser,
-        bindings: [{ role: "editor", scope: "base", scopeId: table.baseId }],
+        bindings: await loadBindings(db, ruledUser),
       });
       const outside = await importIntoTable(db, {
         userId: ruledUser,

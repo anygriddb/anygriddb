@@ -121,7 +121,7 @@ test("an administrator ends a session, reads the sign-ins, and exports access", 
     // The list says when each base was last used: this one when its
     // table was made, which is the newest event the trail holds of it.
     const used = await control.query<{ at: Date }>(
-      "select max(e.occurred_at) as at from audit_events e join data_tables t on t.id = e.table_id join role_bindings r on r.scope = 'base' and r.scope_id = t.base_id join users u on u.id = r.user_id where u.email = $1",
+      "select max(e.occurred_at) as at from audit_events e join data_tables t on t.id = e.table_id join attributions r on r.scope = 'base' and r.scope_id = t.base_id join users u on u.id = r.user_id where u.email = $1",
       [email],
     );
     const lastUsed = new Intl.DateTimeFormat("en-GB").format(used.rows[0]?.at);
@@ -318,7 +318,7 @@ test("an administrator ends a session, reads the sign-ins, and exports access", 
       table: string;
     }>(
       `select u.id as user, t.id as table from users u
-         join role_bindings r on r.user_id = u.id and r.role = 'owner'
+         join attributions r on r.user_id = u.id and r.role = 'owner'
          join data_tables t on t.base_id = r.scope_id
         where u.email = $1 limit 1`,
       [email],
@@ -629,7 +629,7 @@ test("an administrator ends a session, reads the sign-ins, and exports access", 
       [email],
     );
     await control.query(
-      "update bases set name = $1 where id in (select r.scope_id from role_bindings r join users u on u.id = r.user_id where r.scope = 'base' and r.role = 'owner' and u.email = $2)",
+      "update bases set name = $1 where id in (select r.scope_id from attributions r join users u on u.id = r.user_id where r.scope = 'base' and r.role = 'owner' and u.email = $2)",
       [baseName, email],
     );
     await control.query("commit");
@@ -924,7 +924,7 @@ test("an administrator deletes a departed owner and names who takes the base", a
     ]);
     expect(gone.rowCount).toBe(0);
     const owners = await control.query(
-      "select u.email from role_bindings r join users u on u.id = r.user_id join bases b on b.id = r.scope_id where r.scope = 'base' and r.role = 'owner' and b.name = 'Lab' and u.email in ($1, $2)",
+      "select u.email from attributions r join users u on u.id = r.user_id join bases b on b.id = r.scope_id where r.scope = 'base' and r.role = 'owner' and b.name = 'Lab' and u.email in ($1, $2)",
       [heirEmail, leavingEmail],
     );
     expect(owners.rows).toEqual([{ email: heirEmail }]);
@@ -1248,7 +1248,7 @@ test("an administrator opens a base to read it, and its owner is told why", asyn
     await owner.getByRole("button", { name: "Add a row", exact: true }).click();
     const baseId = (
       await control.query<{ id: string }>(
-        "select r.scope_id as id from role_bindings r join users u on u.id = r.user_id where u.email = $1 and r.scope = 'base' and r.role = 'owner'",
+        "select r.scope_id as id from attributions r join users u on u.id = r.user_id where u.email = $1 and r.scope = 'base' and r.role = 'owner'",
         [ownerEmail],
       )
     ).rows[0]?.id;
@@ -1416,7 +1416,7 @@ test("an administrator hands a leaving person's base to someone who stays", asyn
 
     // The base has two owners now, the person who leaves still among them.
     const owners = await control.query<{ email: string }>(
-      "select u.email from role_bindings r join users u on u.id = r.user_id where r.scope = 'base' and r.role = 'owner' and r.scope_id = (select r2.scope_id from role_bindings r2 join users u2 on u2.id = r2.user_id where u2.email = $1 and r2.scope = 'base' and r2.role = 'owner') order by u.email",
+      "select u.email from attributions r join users u on u.id = r.user_id where r.scope = 'base' and r.role = 'owner' and r.scope_id = (select r2.scope_id from attributions r2 join users u2 on u2.id = r2.user_id where u2.email = $1 and r2.scope = 'base' and r2.role = 'owner') order by u.email",
       [leavingEmail],
     );
     expect(owners.rows.map((row) => row.email).sort()).toEqual(
@@ -1749,76 +1749,4 @@ test("an administrator makes a role, and whoever holds it does what it gives", a
   expect(await accessibilityViolations(holder)).toEqual([]);
   await theirs.close();
   expect(blocked).toEqual([]);
-});
-
-// Before roles add up (ADR 0131): whose access the next minor version
-// will not keep exactly, read with this one, and gone once changed here.
-test("an administrator reads whose rights the next version changes", async ({
-  page,
-}) => {
-  const control = new pg.Client({ connectionString: controlUrl });
-  await control.connect();
-  try {
-    const { email } = await signUpWithTable(page, "Review Admin");
-    await control.query("update users set is_admin = true where email = $1", [
-      email,
-    ]);
-    const stamp = uniqueStamp();
-    const narrowed = `Narrowed ${stamp}`;
-    // An editor of the base, narrowed to a viewer on its table.
-    await control.query("begin");
-    await control.query(
-      "select set_config('anygrid.user_id', (select id::text from users where email = $1), true)",
-      [email],
-    );
-    const made = await control.query<{ id: string }>(
-      "insert into users (email, display_name) values ($1, $2) returning id",
-      [`e2e-narrowed-${stamp}@example.com`, narrowed],
-    );
-    const personId = made.rows[0]?.id ?? "";
-    const place = await control.query<{ baseId: string; tableId: string }>(
-      `select b.id as "baseId", t.id as "tableId"
-         from role_bindings o
-         join users u on u.id = o.user_id
-         join bases b on b.id = o.scope_id
-         join data_tables t on t.base_id = b.id
-        where u.email = $1 and o.scope = 'base' and t.name = 'Samples'`,
-      [email],
-    );
-    const { baseId, tableId } = place.rows[0] ?? { baseId: "", tableId: "" };
-    await control.query(
-      `insert into role_bindings (user_id, role, scope, scope_id)
-       values ($1, 'editor', 'base', $2), ($1, 'viewer', 'table', $3)`,
-      [personId, baseId, tableId],
-    );
-    await control.query("commit");
-
-    await page.goto("/admin");
-    await openAdmin(page, "People", "Rights to review");
-    const line = page.getByRole("listitem").filter({ hasText: narrowed });
-    await expect(line.filter({ hasText: "Base role lowered" })).toBeVisible();
-    await expect(line.filter({ hasText: "Lost on the base" })).toContainText(
-      "Import, Publish",
-    );
-    expect(await accessibilityViolations(page)).toEqual([]);
-
-    // The narrowing lifted, nothing is said of them.
-    await control.query("begin");
-    await control.query(
-      "select set_config('anygrid.user_id', (select id::text from users where email = $1), true)",
-      [email],
-    );
-    await control.query(
-      "delete from role_bindings where user_id = $1 and scope = 'table'",
-      [personId],
-    );
-    await control.query("commit");
-    await page.reload();
-    await expect(
-      page.getByRole("heading", { name: "Rights to review" }),
-    ).toBeVisible();
-    await expect(page.getByText(narrowed)).toHaveCount(0);
-  } finally {
-    await control.end();
-  }
 });

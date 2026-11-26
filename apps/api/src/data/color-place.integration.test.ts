@@ -61,7 +61,7 @@ describe("a colour and a place", () => {
       .executeTakeFirstOrThrow();
     await withAudit(db, { userId: ownerId, source: "web" }, (tx) =>
       tx
-        .insertInto("roleBindings")
+        .insertInto("attributions")
         .values({
           userId: editor.id,
           role: "editor",

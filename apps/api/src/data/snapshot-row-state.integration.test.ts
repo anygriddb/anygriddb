@@ -226,7 +226,7 @@ describe("what a base's copies keep of its rows", () => {
     baseId = (await insertBase(db, owner, { name: "Essais" })).id;
     await withAudit(db, { userId: owner }, (tx) =>
       tx
-        .insertInto("roleBindings")
+        .insertInto("attributions")
         .values({
           userId: ada,
           role: "editor",

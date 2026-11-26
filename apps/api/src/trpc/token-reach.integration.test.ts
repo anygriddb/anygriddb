@@ -134,7 +134,7 @@ describe("what a token reaches", () => {
 
   const memberOf = async (baseId: string) =>
     (await db
-      .selectFrom("roleBindings")
+      .selectFrom("attributions")
       .select("role")
       .where("userId", "=", ada)
       .where("scope", "=", "base")

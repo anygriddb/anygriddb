@@ -14,7 +14,7 @@ import {
 } from "./notify/deliver-person.js";
 import type { Publisher } from "./realtime/bus.js";
 import { liveColumn, liveTable } from "./data/live.js";
-import { bindingsFrom, MADE_COLUMNS } from "./data/made-roles.js";
+import { attributionsOf } from "./data/attributions.js";
 import { loadBindings } from "./auth/access.js";
 import type { SmtpConfig } from "./mail.js";
 
@@ -49,18 +49,10 @@ async function readersOf(
   userIds: readonly string[],
 ): Promise<Set<string>> {
   if (userIds.length === 0) return new Set();
-  const bindings = await db
-    .selectFrom("roleBindings as b")
-    .leftJoin("madeRoles as m", "m.id", "b.madeRoleId")
-    .select(["b.userId", "b.role", "b.scope", "b.scopeId", ...MADE_COLUMNS])
-    .where("b.userId", "in", [...userIds])
-    .where("b.scopeId", "in", [table.id, table.baseId])
-    .execute();
+  const held = await attributionsOf(db, userIds);
   const readers = new Set<string>();
   for (const userId of userIds) {
-    const own = bindingsFrom(
-      bindings.filter((binding) => binding.userId === userId),
-    );
+    const own = held.get(userId) ?? [];
     if (
       roleGrants(effectiveTableRole(own, table.id, table.baseId), "rows.read")
     ) {

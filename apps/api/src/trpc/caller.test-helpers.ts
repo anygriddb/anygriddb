@@ -145,14 +145,14 @@ export async function joinBase(
   input: { baseId: string; userId: string; role: Role },
 ): Promise<void> {
   const owner = await db
-    .selectFrom("roleBindings")
+    .selectFrom("attributions")
     .select("userId")
     .where("scope", "=", "base")
     .where("scopeId", "=", input.baseId)
     .where("role", "=", "owner")
-    .where("groupId", "is", null)
+    .where("userId", "is not", null)
     .executeTakeFirstOrThrow();
-  await setMemberRole(db, owner.userId, input);
+  await setMemberRole(db, owner.userId ?? "", input);
 }
 
 /** "ok", or the code a call failed with: an AppError's, or tRPC's. */

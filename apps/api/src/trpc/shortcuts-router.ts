@@ -24,7 +24,13 @@ export const shortcutsRouter = t.router({
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
         if ("baseId" in input) {
-          const { user } = await guardBase(ctx, input.baseId, "rows.read");
+          const { user } = await guardBase(
+            ctx,
+            input.baseId,
+            "rows.read",
+            false,
+            "tables",
+          );
           await setPin(ctx.db, user.id, { baseId: input.baseId }, input.pinned);
         } else {
           const { user } = await guardTable(ctx, input.tableId, "rows.read");

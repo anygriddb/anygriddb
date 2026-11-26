@@ -225,6 +225,11 @@ export function BaseSettings({ baseId }: { baseId: string }) {
                       );
                     }}
                   >
+                    {member.tablesOnly ? (
+                      <option value="" disabled>
+                        {t`Some tables only`}
+                      </option>
+                    ) : null}
                     <RoleOptions />
                   </Select>
                   <Tooltip content={t`Remove ${{ name: member.displayName }}`}>
@@ -370,11 +375,12 @@ export function BaseSettings({ baseId }: { baseId: string }) {
       {manageMembers ? (
         <RuledSection
           title={t`Per-table access`}
-          description={t`A table override replaces the base role either way. A member's permissions then narrow the rows they see and what they may do with each field.`}
+          description={t`A role given on a table adds to what the base gives, and never takes from it. Someone who holds a role on a table and none on the base may then be narrowed there: to some rows, and field by field.`}
         >
           {base.tables.map((table) => (
             <TableAccess
               key={table.id}
+              baseId={baseId}
               tableId={table.id}
               name={table.name}
               columns={table.columns}
@@ -558,11 +564,13 @@ function PendingInvitations({ baseId }: { baseId: string }) {
 }
 
 function TableAccess({
+  baseId,
   tableId,
   name,
   columns,
   people,
 }: {
+  baseId: string;
   tableId: string;
   name: string;
   columns: CatalogBase["tables"][number]["columns"];
@@ -605,7 +613,7 @@ function TableAccess({
               }}
             >
               <option value="">
-                {t`Inherited (${{ role: roleLabel(person.baseRole) }})`}
+                {t`The base's alone (${{ role: roleLabel(person.baseRole) }})`}
               </option>
               <RoleOptions />
             </Select>
@@ -613,6 +621,7 @@ function TableAccess({
         ))}
       </ul>
       <TableRulesPanel
+        baseId={baseId}
         tableId={tableId}
         tableName={name}
         columns={columns}

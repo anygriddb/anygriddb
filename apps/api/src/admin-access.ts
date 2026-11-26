@@ -105,7 +105,7 @@ export async function effectiveAccess(
 
   const [bindings, tables] = await Promise.all([
     db
-      .selectFrom("roleBindings as b")
+      .selectFrom("attributions as b")
       .leftJoin("groups as g", "g.id", "b.groupId")
       .leftJoin("madeRoles as m", "m.id", "b.madeRoleId")
       .select([
@@ -116,8 +116,23 @@ export async function effectiveAccess(
         "g.displayName as groupName",
         ...MADE_COLUMNS,
       ])
-      .where("b.userId", "=", userId)
+      .where((eb) =>
+        eb.or([
+          eb("b.userId", "=", userId),
+          eb(
+            "b.groupId",
+            "in",
+            eb
+              .selectFrom("groupMembers")
+              .select("groupId")
+              .where("userId", "=", userId),
+          ),
+        ]),
+      )
       .where("b.scope", "in", ["base", "table"])
+      .where((eb) =>
+        eb.or([eb("b.endsAt", "is", null), eb("b.endsAt", ">", new Date())]),
+      )
       .execute(),
     db
       .selectFrom("dataTables")

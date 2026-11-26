@@ -15,7 +15,8 @@ import { storeAttachment } from "../attachments.js";
 import { DiskStore, readFile as readStored } from "../files/index.js";
 import { writeSettings } from "../settings.js";
 import { createTestDatabase } from "../test-database.js";
-import { listTableAcls, setTableAcl } from "./acl.js";
+import { listTableAcls } from "./acl.js";
+import { narrowOn } from "./rules.test-helpers.js";
 import { withAudit } from "./audit-context.js";
 import { importBaseSnapshot } from "./base-snapshot.js";
 import {
@@ -74,7 +75,7 @@ describe("snapshots with files and people", () => {
     baseId = (await insertBase(db, owner, { name: "Dossiers" })).id;
     await withAudit(db, { userId: owner }, (tx) =>
       tx
-        .insertInto("roleBindings")
+        .insertInto("attributions")
         .values([
           { userId: ada, role: "editor", scope: "base", scopeId: baseId },
           { userId: bob, role: "viewer", scope: "base", scopeId: baseId },
@@ -98,7 +99,7 @@ describe("snapshots with files and people", () => {
       })
     ).id;
     // Ada edits, but not the files, and only the rows with a name.
-    await setTableAcl(db, owner, {
+    await narrowOn(db, owner, {
       tableId,
       userId: ada,
       rowFilter: {
@@ -196,10 +197,12 @@ describe("snapshots with files and people", () => {
       expect(packed.kind).toBe("zip");
       if (packed.kind !== "zip") return;
       expect(packed.filename).toBe("Dossiers.anygriddb.zip");
+      // Ada's rule took her role table by table (ADR 0131): she is no
+      // member of the base, and her role travels with the table.
       expect(result.snapshot.members).toEqual(
         expect.arrayContaining([
           { email: `owner-${suffix}@example.com`, role: "owner" },
-          { email: `ada-${suffix}@example.com`, role: "editor" },
+          { email: `bob-${suffix}@example.com`, role: "viewer" },
         ]),
       );
       const table = result.snapshot.tables[0];
@@ -208,6 +211,7 @@ describe("snapshots with files and people", () => {
       expect(table?.access).toEqual([
         {
           email: `ada-${suffix}@example.com`,
+          role: "editor",
           rowFilter: {
             conjunction: "and",
             conditions: [{ column: "name", op: "is_not_empty" }],
@@ -273,21 +277,22 @@ describe("snapshots with files and people", () => {
         filesRefused: 0,
         people: 2,
         peopleDropped: 1,
-        members: 1,
+        members: 0,
         membersMissing: 1,
         membersLeft: 0,
         membersRoleMissing: 0,
         widgetsLeft: 0,
       });
+      const { tableId, rows } = await rowsOf(imported.baseId);
       const role = await db
-        .selectFrom("roleBindings")
+        .selectFrom("attributions")
         .select("role")
         .where("userId", "=", ada)
-        .where("scopeId", "=", imported.baseId)
+        .where("scope", "=", "table")
+        .where("scopeId", "=", tableId)
         .executeTakeFirst();
       expect(role?.role).toBe("editor");
 
-      const { tableId, rows } = await rowsOf(imported.baseId);
       // Her rules come with her role: the new base hides what the old did.
       expect(await listTableAcls(db, tableId)).toEqual([
         {

@@ -161,6 +161,18 @@ test("an owner invites an address, its account accepts, and reads what its permi
   await expect(
     rules.getByLabel("Member whose permissions are set").getByRole("option"),
   ).toHaveText([`Guest ${stamp}`]);
+  // Their role on the base gives the table whole: given table by table, a
+  // rule may then narrow this one alone.
+  await expect(
+    rules.getByText(
+      `Guest ${stamp} reaches this table through their role on the base`,
+    ),
+  ).toBeVisible();
+  expect(await accessibilityViolations(page)).toEqual([]);
+  await rules
+    .getByRole("button", { name: "Give the role table by table" })
+    .click();
+  await expect(page.getByText("Role given table by table")).toBeVisible();
   await rules.getByRole("button", { name: "View as" }).click();
   const preview = rules.getByRole("region", {
     name: `Preview: Guest ${stamp}`,
@@ -186,13 +198,14 @@ test("an owner invites an address, its account accepts, and reads what its permi
   expect(await accessibilityViolations(page)).toEqual([]);
   await rules.getByRole("button", { name: "Save", exact: true }).click();
   await expect(page.getByText("Permissions saved")).toBeVisible();
-  // The table as they read it: two rows, the fields by their labels.
+  // The table as they read it: two rows, the fields by their labels, none
+  // to write, since a commenter writes no row.
   await expect(preview.getByText("Commenter · 2 visible rows")).toBeVisible();
   await expect(preview.getByRole("columnheader")).toHaveText([
-    "Name",
-    "Notes",
-    "Status",
-    "Seller",
+    "Name (read only)",
+    "Notes (read only)",
+    "Status (read only)",
+    "Seller (read only)",
   ]);
   await expect(preview.getByRole("cell", { name: "Chair" })).toBeVisible();
   await expect(preview.getByRole("cell", { name: "Lamp" })).toBeVisible();

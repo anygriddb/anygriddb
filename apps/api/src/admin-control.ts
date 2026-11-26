@@ -728,10 +728,16 @@ export async function accessReportCsv(db: Database): Promise<string> {
     .orderBy("u.createdAt", "asc")
     .execute();
   const bindings = await db
-    .selectFrom("roleBindings as r")
+    .selectFrom("attributions as r")
+    .leftJoin("groupMembers as gm", "gm.groupId", "r.groupId")
     .innerJoin("bases as b", "b.id", "r.scopeId")
     .leftJoin("madeRoles as m", "m.id", "r.madeRoleId")
-    .select(["r.userId", "b.name", "r.role", "m.name as madeName"])
+    .select([
+      sqlTag<string | null>`coalesce(r.user_id, gm.user_id)`.as("userId"),
+      "b.name",
+      "r.role",
+      "m.name as madeName",
+    ])
     .where("r.scope", "=", "base")
     .where("b.deletedAt", "is", null)
     .orderBy("b.name")
