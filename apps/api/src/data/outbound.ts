@@ -561,6 +561,8 @@ export async function listBaseOverview(
           sql<string>`coalesce(sum(a.size), 0)`.as("fileBytes"),
         ])
         .where("t.baseId", "in", ids)
+        // What a base holds: a file no cell names is not its (ADR 0136).
+        .where("a.releasedAt", "is", null)
         .groupBy("t.baseId")
         .execute(),
       db
@@ -676,7 +678,7 @@ export async function listBaseTables(
       >`(select greatest(c.reltuples, 0)::bigint from pg_class c where c.oid = to_regclass(quote_ident(t.physical_name)) and t.source_id is null)`.as(
         "estimatedRows",
       ),
-      sql<string>`(select coalesce(sum(a.size), 0) from attachments a where a.table_id = t.id)`.as(
+      sql<string>`(select coalesce(sum(a.size), 0) from attachments a where a.table_id = t.id and a.released_at is null)`.as(
         "fileBytes",
       ),
       lastActivity("t").as("lastActivityAt"),

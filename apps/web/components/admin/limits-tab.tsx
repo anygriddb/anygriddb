@@ -47,6 +47,12 @@ async function sendLimits(
   }
 }
 
+/** The quotas of storage, whose 0 is none. */
+const QUOTAS: ReadonlySet<LimitId> = new Set<LimitId>([
+  "storage.base_mib",
+  "storage.account_mib",
+]);
+
 function useLimitNames(): Record<LimitId, string> {
   const { t } = useLingui();
   return {
@@ -258,6 +264,8 @@ function useLimitNames(): Record<LimitId, string> {
     "import.zip_entries": t`Parts of a spreadsheet's archive`,
     "import.zip_entry_bytes": t`A part of a spreadsheet's archive`,
     "import.zip_total_bytes": t`A spreadsheet's archive, unpacked`,
+    "storage.base_mib": t`Files a base holds`,
+    "storage.account_mib": t`Files an account sent`,
   };
 }
 
@@ -349,6 +357,7 @@ function useScopeNames(): Record<LimitScope, string> {
     link: t`A link`,
     file: t`A file`,
     cell: t`A cell`,
+    base: t`A base`,
   };
 }
 
@@ -407,9 +416,23 @@ export function LimitsTab() {
   const set = settings.data.limits;
   const number = new Intl.NumberFormat(intlLocale(i18n.locale));
   const amount = (row: LimitRow, value: number) =>
-    row.unit === "bytes"
-      ? formatBytes(value)
-      : `${number.format(value)} ${units[row.unit]}`;
+    // A quota of storage of 0 is none (ADR 0136).
+    QUOTAS.has(row.id) && value === 0
+      ? t`No quota`
+      : row.unit === "bytes"
+        ? formatBytes(value)
+        : `${number.format(value)} ${units[row.unit]}`;
+  // What is used now: a base's or an account's most, then how many hold
+  // the limit; storage is counted in bytes.
+  const usage = (row: LimitRow, used: { most: number; past: number }) => {
+    const most = QUOTAS.has(row.id)
+      ? formatBytes(used.most)
+      : number.format(used.most);
+    const past = number.format(used.past);
+    return row.scope === "base"
+      ? t`Now: at most ${{ most }} for one base; ${{ past }} at the limit.`
+      : t`Now: at most ${{ most }} for one account; ${{ past }} at the limit.`;
+  };
   const changed = (family: LimitFamily) =>
     Object.keys(splitDraft(draft, family)[0]).length > 0;
   // Each part of the page saves its own fields; what was set elsewhere is
@@ -444,6 +467,9 @@ export function LimitsTab() {
     row.setBy === "limits" && row.bounds !== undefined;
   const hint = (row: LimitRow) => {
     const [floor, top] = row.bounds ?? [row.value, row.value];
+    const bounds = QUOTAS.has(row.id)
+      ? t`In MiB, up to ${{ top: number.format(top) }}; 0, as shipped, is no quota.`
+      : t`From ${{ floor: number.format(floor) }} to ${{ top: number.format(top) }}; shipped with ${{ shipped: number.format(row.value) }}.`;
     return (
       <p
         id={`limit-${row.id}-hint`}
@@ -453,7 +479,7 @@ export function LimitsTab() {
             : "text-xs font-normal text-muted-foreground"
         }
       >
-        {t`From ${{ floor: number.format(floor) }} to ${{ top: number.format(top) }}; shipped with ${{ shipped: number.format(row.value) }}.`}
+        {bounds}
       </p>
     );
   };
@@ -581,7 +607,7 @@ export function LimitsTab() {
                       <span className="font-medium">{names[row.id]}</span>
                       {row.used ? (
                         <p className="text-xs text-muted-foreground">
-                          {t`Now: at most ${{ most: number.format(row.used.most) }} for one account; ${{ past: number.format(row.used.past) }} at the limit.`}
+                          {usage(row, row.used)}
                         </p>
                       ) : null}
                       {settable(row) ? hint(row) : null}

@@ -47,7 +47,8 @@ export type LimitScope =
   | "session"
   | "link"
   | "file"
-  | "cell";
+  | "cell"
+  | "base";
 
 /**
  * A limit that refuses (or makes wait) what goes past it, or a ceiling a
@@ -200,6 +201,11 @@ export const LIMITS = {
     60,
     7 * 24 * 60,
   ),
+  // What files a base and an account may hold, 0 for no quota (ADR 0136).
+  // Set in Administration, up to a tebibyte.
+  // In MiB, as an administrator writes a quota; 0 is none (ADR 0136).
+  "storage.base_mib": settable("mebibytes", 0, "base", 0, 1024 * 1024),
+  "storage.account_mib": settable("mebibytes", 0, "account", 0, 1024 * 1024),
   // Imports, exports, copies.
   "import.max_rows": rows("IMPORT_MAX_ROWS"),
   "export.max_rows": rows("EXPORT_MAX_ROWS"),

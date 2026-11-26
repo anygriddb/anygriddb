@@ -44,7 +44,12 @@ import { readingIn, useRefusedText } from "../../lib/cell-reading";
 import { attachmentList, isLinkArray } from "../../lib/format";
 import { useLocale } from "../../lib/i18n";
 import { useFormatBytes } from "../../lib/format-bytes";
-import { filesThatFit, tableFileUrl } from "../../lib/send-file";
+import {
+  FileRefused,
+  filesThatFit,
+  sendFile,
+  tableFileUrl,
+} from "../../lib/send-file";
 import { readTypedDate, shownDate } from "../../lib/typed-date";
 import { trpc, useTRPC } from "../../lib/trpc";
 import type { CatalogColumn, RowItem } from "../../lib/types";
@@ -934,24 +939,20 @@ function AttachmentEditor({ column, row, onDone }: EditorProps) {
     try {
       const added: string[] = [];
       for (const file of fit) {
-        const body = new FormData();
-        body.append("file", file, file.name);
-        const response = await fetch(tableFileUrl(table.id), {
-          method: "POST",
-          body,
-        });
-        if (!response.ok) {
+        try {
+          added.push((await sendFile(tableFileUrl(table.id), file)).key);
+        } catch (cause) {
+          if (!(cause instanceof FileRefused)) throw cause;
           toast.error(
-            response.status === 413
-              ? t`File too large`
-              : response.status === 503
-                ? t`Too many files are being sent right now. Try again in a moment.`
-                : t`Upload refused`,
+            cause.reason === "full"
+              ? errorText(cause)
+              : cause.reason === "too_large"
+                ? t`File too large`
+                : cause.reason === "busy"
+                  ? t`Too many files are being sent right now. Try again in a moment.`
+                  : t`Upload refused`,
           );
-          continue;
         }
-        const meta = (await response.json()) as { key: string };
-        added.push(meta.key);
       }
       if (added.length > 0) {
         await updateCells([

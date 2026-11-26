@@ -40,6 +40,8 @@ export function FormFiles({
     switch (reason) {
       case "too_large":
         return t`“${{ name }}” is too large`;
+      case "full":
+        return t`“${{ name }}” could not be kept: the storage an administrator allows is full`;
       case "busy":
         return t`Too many files are being sent right now. Try again in a moment.`;
       case "too_many":

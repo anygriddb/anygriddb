@@ -40,6 +40,10 @@ msgid "“{field}”: with a comma for decimals, a point here reads two ways. Wr
 msgstr "“{field}”: with a comma for decimals, a point here reads two ways. Write it 1234 or 1,234"
 
 #: components/views/form-files.tsx
+msgid "“{name}” could not be kept: the storage an administrator allows is full"
+msgstr "“{name}” could not be kept: the storage an administrator allows is full"
+
+#: components/views/form-files.tsx
 msgid "“{name}” could not be sent"
 msgstr "“{name}” could not be sent"
 
@@ -1277,6 +1281,10 @@ msgstr "A backup's report"
 #: components/fields/code-image.tsx
 msgid "A barcode draws up to 80 letters, digits, and signs, without accents"
 msgstr "A barcode draws up to 80 letters, digits, and signs, without accents"
+
+#: components/admin/limits-tab.tsx
+msgid "A base"
+msgstr "A base"
 
 #: components/admin/limits-tab.tsx
 msgid "A base an administrator opens"
@@ -5994,6 +6002,14 @@ msgstr "File too large: a spreadsheet takes 64 MB at most."
 msgid "Files"
 msgstr "Files"
 
+#: components/admin/limits-tab.tsx
+msgid "Files a base holds"
+msgstr "Files a base holds"
+
+#: components/admin/limits-tab.tsx
+msgid "Files an account sent"
+msgstr "Files an account sent"
+
 #: components/fields/field-meta.tsx
 msgid "Files and images"
 msgstr "Files and images"
@@ -6820,6 +6836,10 @@ msgstr "In an emergency"
 #: components/admin/identity-tab.tsx
 msgid "In mail"
 msgstr "In mail"
+
+#: components/admin/limits-tab.tsx
+msgid "In MiB, up to {top}; 0, as shipped, is no quota."
+msgstr "In MiB, up to {top}; 0, as shipped, is no quota."
 
 #: components/table/filter-builder.tsx
 msgid "in N days"
@@ -8902,6 +8922,10 @@ msgstr "no primary key: read-only"
 msgid "No public link or calendar feed on this instance."
 msgstr "No public link or calendar feed on this instance."
 
+#: components/admin/limits-tab.tsx
+msgid "No quota"
+msgstr "No quota"
+
 #: components/settings/restore-points.tsx
 msgid "No restore point yet."
 msgstr "No restore point yet."
@@ -9215,6 +9239,10 @@ msgstr "Notify people when they are assigned"
 #: components/admin/limits-tab.tsx
 msgid "Now: at most {most} for one account; {past} at the limit."
 msgstr "Now: at most {most} for one account; {past} at the limit."
+
+#: components/admin/limits-tab.tsx
+msgid "Now: at most {most} for one base; {past} at the limit."
+msgstr "Now: at most {most} for one base; {past} at the limit."
 
 #: components/fields/field-meta.tsx
 #: lib/aggregate-labels.ts
@@ -14180,6 +14208,14 @@ msgstr "This file is not in UTF-8: it is read as Windows-1252. Check its accents
 #: lib/errors.ts
 msgid "This file is too long: at most 200 people in one file"
 msgstr "This file is too long: at most 200 people in one file"
+
+#: lib/errors.ts
+msgid "This file would take the base past the storage an administrator allows: remove files it no longer needs, or ask an administrator"
+msgstr "This file would take the base past the storage an administrator allows: remove files it no longer needs, or ask an administrator"
+
+#: lib/errors.ts
+msgid "This file would take your files past the storage an administrator allows: remove files you no longer need, or ask an administrator"
+msgstr "This file would take your files past the storage an administrator allows: remove files you no longer need, or ask an administrator"
 
 #: lib/errors.ts
 msgid "This filter on a field kept in AnyGridDB matches more than 1,000 rows: narrow it"

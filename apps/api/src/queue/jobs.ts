@@ -38,6 +38,8 @@ export const TASKS = {
   auditPurge: "audit_purge",
   trashPurge: "trash_purge",
   fileSweep: "file_sweep",
+  /** Files no cell names, released; those released long ago, deleted (ADR 0136). */
+  fileRelease: "file_release",
   /** Reads rows of writes to client tables again, to settle them. */
   externalSettle: "external_settle",
   /** One check of one client table for changes made elsewhere. */

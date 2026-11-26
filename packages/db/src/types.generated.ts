@@ -215,6 +215,7 @@ export interface Attachments {
   height: number | null;
   key: string;
   mime: string;
+  releasedAt: Timestamp | null;
   size: Int8;
   stagedShareId: string | null;
   stagedUntil: Timestamp | null;

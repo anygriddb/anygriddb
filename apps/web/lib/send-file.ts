@@ -3,17 +3,25 @@ import { MAX_CELL_FILES } from "@anygriddb/core";
 /** A file a form sent ahead of its answer: the key the answer names, and what the form shows. */
 export type SentFile = { key: string; filename: string; size: number };
 
-/** Why the server refused a file, from its answer's status. */
-type FileRefusal = "too_large" | "busy" | "too_many" | "refused";
+/** Why the server refused a file, from its answer. */
+type FileRefusal = "too_large" | "full" | "busy" | "too_many" | "refused";
+
+/** A quota of storage the file would pass (ADR 0136). */
+const FULL = new Set(["base_storage_full", "account_storage_full"]);
 
 export class FileRefused extends Error {
-  constructor(readonly reason: FileRefusal) {
+  constructor(
+    readonly reason: FileRefusal,
+    /** The server's code, which `useErrorText` says in words. */
+    readonly code?: string,
+  ) {
     super(reason);
     this.name = "FileRefused";
   }
 }
 
-export function refusalOf(status: number): FileRefusal {
+export function refusalOf(status: number, code?: string): FileRefusal {
+  if (code !== undefined && FULL.has(code)) return "full";
   if (status === 413) return "too_large";
   if (status === 503) return "busy";
   if (status === 429) return "too_many";
@@ -55,7 +63,17 @@ export async function sendFile(
   const body = new FormData();
   body.append("file", file, file.name);
   const response = await fetch(url, { method: "POST", body, headers });
-  if (!response.ok) throw new FileRefused(refusalOf(response.status));
+  if (!response.ok) {
+    const answer: unknown = await response.json().catch(() => null);
+    const code =
+      answer &&
+      typeof answer === "object" &&
+      "code" in answer &&
+      typeof answer.code === "string"
+        ? answer.code
+        : undefined;
+    throw new FileRefused(refusalOf(response.status, code), code);
+  }
   const meta = (await response.json()) as SentFile;
   return { key: meta.key, filename: meta.filename, size: meta.size };
 }

@@ -23,6 +23,7 @@ import {
 } from "../automations.js";
 import type { Env } from "../env.js";
 import type { FileStore } from "../files/index.js";
+import { releaseAllFiles, releaseFilesOf } from "../files/release.js";
 import { jobRunners } from "../job-runners.js";
 import {
   enqueueSystemJob,
@@ -453,6 +454,16 @@ export function taskGroups(deps: TaskDeps): WorkerGroup[] {
           deps.log(error, "staged attachment delete failed");
         });
       }),
+    [TASKS.fileRelease]: async (payload) => {
+      const tableId =
+        typeof payload === "object" && payload !== null && "tableId" in payload
+          ? String(payload.tableId)
+          : null;
+      await withPulse(deps, "file_release", async () => {
+        if (tableId) await releaseFilesOf(deps.db, tableId);
+        else await releaseAllFiles(deps.db);
+      });
+    },
     [TASKS.fileSweep]: () =>
       withPulse(deps, "file_sweep", async () => {
         await sweepOrphanFiles(deps, {
@@ -630,6 +641,12 @@ export function taskGroups(deps: TaskDeps): WorkerGroup[] {
           identifier: "external_seals",
         },
         {
+          task: TASKS.fileRelease,
+          match: "15 4 * * *",
+          options: once,
+          identifier: "file_release",
+        },
+        {
           task: TASKS.fileSweep,
           match: "45 4 * * *",
           options: once,
@@ -712,6 +729,7 @@ export const TASK_ASKS: Record<TaskName, Declaration> = {
   audit_purge: { exception: "instance" },
   trash_purge: { exception: "instance" },
   file_sweep: { exception: "instance" },
+  file_release: { exception: "instance" },
   external_settle: { exception: "instance" },
   external_watch: { exception: "instance" },
   external_watches: { exception: "instance" },
