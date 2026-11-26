@@ -12,7 +12,7 @@
  */
 import { isIP, type LookupFunction } from "node:net";
 import { hostname } from "node:os";
-import { AppError } from "@anygriddb/core";
+import { AppError, ceilingOf } from "@anygriddb/core";
 import type { Database } from "@anygriddb/db";
 import { z } from "zod";
 import { recordAuthEvent } from "../auth/auth-events.js";
@@ -32,7 +32,7 @@ import {
 } from "./siem.js";
 
 /** Connecting, the handshake and the write, together. */
-const SEND_TIMEOUT_MS = 5_000;
+const SEND_TIMEOUT_MS = ceilingOf("timeout.syslog_ms");
 
 /**
  * The collector this process sends to, said once at its start. Kept here

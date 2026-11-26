@@ -17,6 +17,7 @@ import {
   effectiveTableRole,
   normalizeViewConfig,
   viewFilter,
+  ceilingOf,
 } from "@anygriddb/core";
 import { granted } from "../access/declaration.js";
 import type { Database } from "@anygriddb/db";
@@ -28,8 +29,8 @@ import { readPage } from "./rows.js";
 
 const TOKEN = /^agcal_[A-Za-z0-9_-]{43}$/;
 /** Events from six months ago to two years ahead, 3,000 at most. */
-const PAST_DAYS = 183;
-const FUTURE_DAYS = 731;
+const PAST_DAYS = ceilingOf("feed.past_days");
+const FUTURE_DAYS = ceilingOf("feed.future_days");
 const PAGE = 1_000;
 const PAGES = 3;
 

@@ -1,3 +1,4 @@
+import { ceilingOf } from "@anygriddb/core";
 import { Readable } from "node:stream";
 import {
   CreateBucketCommand,
@@ -37,9 +38,9 @@ export type S3Config = {
 };
 
 /** Wall time for one S3 HTTP round-trip (handler + AbortSignal). */
-const REQUEST_TIMEOUT_MS = 60_000;
+const REQUEST_TIMEOUT_MS = ceilingOf("timeout.object_store_ms");
 /** Time to open a TCP/TLS socket to the endpoint. */
-const CONNECT_TIMEOUT_MS = 10_000;
+const CONNECT_TIMEOUT_MS = ceilingOf("timeout.object_store_connect_ms");
 
 /**
  * Any S3-compatible service: AWS, Scaleway, OVH, Ceph, Garage, SeaweedFS,

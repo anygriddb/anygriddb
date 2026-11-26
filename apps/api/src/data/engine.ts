@@ -13,6 +13,7 @@ import {
   parseColumnConfig,
   parseServerVersion,
   SYNC_SCHEMA,
+  ceilingOf,
 } from "@anygriddb/core";
 import type { ColumnRow, Database, RelationRow, TableRow } from "@anygriddb/db";
 import { sql } from "kysely";
@@ -364,7 +365,7 @@ export function assembleEngine(
  * How many links a read follows from its tables: as deep as the compiler
  * follows a chain of computed fields.
  */
-const MAX_HOPS = 15;
+const MAX_HOPS = ceilingOf("formula.lookup_hops");
 
 const COMPUTED_TYPES: ReadonlySet<string> = new Set([
   "formula",

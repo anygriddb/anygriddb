@@ -24,7 +24,15 @@ export type LimitUnit =
   | "groups"
   | "actions"
   | "characters"
-  | "secrets";
+  | "secrets"
+  | "milliseconds"
+  | "seconds"
+  | "attempts"
+  | "items"
+  | "levels"
+  | "accounts"
+  | "bases"
+  | "mebibytes";
 
 /** Over what a limit is counted. */
 export type LimitScope =
@@ -34,7 +42,12 @@ export type LimitScope =
   | "automation"
   | "socket"
   | "request"
-  | "view";
+  | "view"
+  | "channel"
+  | "session"
+  | "link"
+  | "file"
+  | "cell";
 
 /**
  * A limit that refuses (or makes wait) what goes past it, or a ceiling a
@@ -43,14 +56,15 @@ export type LimitScope =
 export type LimitKind = "enforce" | "display";
 
 /**
- * Where the value is set today: fixed by the code, by the operator's
- * environment, or in Administration (the security policy, the instance's
+ * Where the value is set today: fixed by the code, by what an exchange is
+ * (`protocol`: a link's, a code's, a challenge's life, never changed), by
+ * the operator's environment, or in Administration (the security policy, the instance's
  * settings, or "Limits and usage" itself). A limit set in "Limits and
  * usage" that the environment may fix names its variable (`fixedBy`): set
  * there, it wins (ADR 0083).
  */
 export type LimitSetBy =
-  "code" | "environment" | "security" | "settings" | "limits";
+  "code" | "environment" | "security" | "settings" | "limits" | "protocol";
 
 export type LimitEntry = {
   unit: LimitUnit;
@@ -142,6 +156,17 @@ function display(unit: LimitUnit, value: number): LimitEntry {
   return { unit, value, scope: "view", kind: "display", setBy: "code" };
 }
 
+/** A limit the code keeps, or a protocol's fixed duration. */
+function fixed(
+  unit: LimitUnit,
+  value: number,
+  scope: LimitScope,
+  setBy: "code" | "protocol" = "code",
+  kind: LimitKind = "enforce",
+): LimitEntry {
+  return { unit, value, scope, kind, setBy };
+}
+
 export const LIMITS = {
   // Requests a client's address may send a minute, by kind (ADR 0009).
   // Set in Administration, between the bounds ADR 0132 records.
@@ -207,6 +232,270 @@ export const LIMITS = {
   "automation.max_loop_rows": enforce("rows", 100, "automation"),
   "automation.max_script_chars": enforce("characters", 20_000, "automation"),
   "automation.max_secrets": enforce("secrets", 10, "automation"),
+  // More of the work in the background and live connections.
+  "alerts.reminder_hours": fixed("hours", 24, "instance"),
+  "sockets.message_chars": fixed("characters", 16_384, "socket"),
+  "sockets.buffered_bytes": fixed("bytes", 1_048_576, "socket"),
+  "sockets.queued_messages": fixed("items", 256, "socket"),
+  "sockets.early_messages": fixed("items", 64, "socket"),
+  // More of files, imports and snapshots.
+  "export.account_list_rows": fixed("rows", 10_000, "account"),
+  "export.csv_chars": fixed("characters", 8_000_000, "request"),
+  "import.errors_listed": fixed("items", 200, "view", "code", "display"),
+  "import.options_added": fixed("items", 200, "request"),
+  "logo.bytes": fixed("bytes", 262_144, "instance"),
+  "snapshot.link_pairs": fixed("items", 5000, "request"),
+  "snapshot.rows": fixed("rows", 100_000, "file"),
+  "snapshot.line_bytes": fixed("bytes", 4_194_304, "file"),
+  "snapshot.tables": fixed("items", 100, "file"),
+  "snapshot.folders": fixed("items", 500, "file"),
+  "snapshot.bytes": fixed("bytes", 41_943_040, "file"),
+  "snapshot.archive_bytes": fixed("bytes", 2_147_483_648, "file"),
+  "snapshot.files": fixed("items", 50_000, "file"),
+  "snapshot.comments": fixed("items", 1_000_000, "file"),
+  "snapshot.dashboards": fixed("items", 500, "file"),
+  "snapshot.widgets": fixed("items", 500, "file"),
+  "attachment.max_bytes_top": fixed("bytes", 524_288_000, "instance"),
+  // More of what a page reads and shows.
+  "widget.rows": fixed("rows", 20, "view", "code", "display"),
+  "comments.listed": fixed("items", 500, "request"),
+  "chart.series": fixed("items", 8, "view", "code", "display"),
+  "chart.categories": fixed("items", 40, "view", "code", "display"),
+  "api.records_per_call": fixed("rows", 100, "request"),
+  "request.input_depth": fixed("levels", 128, "request"),
+  "read.offset": fixed("rows", 10_000_000, "request"),
+  "chart.histogram_bins": fixed("items", 40, "view", "code", "display"),
+  "display.table_activity": fixed("items", 8, "view", "code", "display"),
+  // What a cell, a formula, a filter and a view hold.
+  "formula.lookup_hops": fixed("levels", 15, "request"),
+  "conversion.options_added": fixed("items", 200, "request"),
+  "grid.series_rows": fixed("rows", 1000, "request"),
+  "cell.place_chars": fixed("characters", 64, "cell"),
+  "cell.list_items": fixed("items", 100, "cell"),
+  "cell.files": fixed("items", 20, "cell"),
+  "filter.depth": fixed("levels", 5, "view"),
+  "filter.conditions": fixed("items", 100, "view"),
+  "formula.nodes": fixed("items", 500, "request"),
+  "formula.depth": fixed("levels", 40, "request"),
+  "formula.source_chars": fixed("characters", 4000, "request"),
+  "formula.repeat_chars": fixed("characters", 10_000, "cell"),
+  "formula.sql_chars": fixed("characters", 1_000_000, "request"),
+  "formula.json_path_steps": fixed("items", 32, "request"),
+  "formula.computed_chars": fixed("characters", 100_000, "cell"),
+  "cell.json_chars": fixed("characters", 20_000, "cell"),
+  "cell.json_depth": fixed("levels", 100, "cell"),
+  "comments.mentions": fixed("items", 20, "request"),
+  "write.rows_per_call": fixed("rows", 500, "request"),
+  "write.links_per_cell": fixed("items", 500, "cell"),
+  "view.sorts": fixed("items", 10, "view"),
+  "view.frozen_fields": fixed("items", 10, "view"),
+  // Signing in, codes and links; a protocol's durations never change.
+  "auth.second_factor_attempts": fixed("attempts", 5, "session"),
+  "auth.email_code_attempts": fixed("attempts", 5, "session"),
+  "auth.email_codes_per_hour": fixed("items", 5, "account"),
+  "auth.pending_sign_ups": fixed("items", 3, "address"),
+  "auth.waiting_guesses": fixed("items", 4, "account"),
+  "link.password_attempts": fixed("attempts", 10, "link"),
+  "link.lock_minutes": fixed("minutes", 15, "link"),
+  "protocol.second_factor_ms": fixed(
+    "milliseconds",
+    300_000,
+    "session",
+    "protocol",
+  ),
+  "protocol.email_code_ms": fixed(
+    "milliseconds",
+    600_000,
+    "session",
+    "protocol",
+  ),
+  "protocol.email_code_gap_ms": fixed(
+    "milliseconds",
+    60_000,
+    "account",
+    "protocol",
+  ),
+  "protocol.sign_on_state_ms": fixed(
+    "milliseconds",
+    600_000,
+    "session",
+    "protocol",
+  ),
+  "protocol.provider_discovery_ms": fixed(
+    "milliseconds",
+    3_600_000,
+    "instance",
+    "protocol",
+  ),
+  "protocol.erase_sign_in_ms": fixed(
+    "milliseconds",
+    600_000,
+    "session",
+    "protocol",
+  ),
+  "protocol.install_token_ms": fixed(
+    "milliseconds",
+    3_600_000,
+    "instance",
+    "protocol",
+  ),
+  "protocol.reset_link_ms": fixed(
+    "milliseconds",
+    3_600_000,
+    "account",
+    "protocol",
+  ),
+  "protocol.admin_reset_link_ms": fixed(
+    "milliseconds",
+    86_400_000,
+    "account",
+    "protocol",
+  ),
+  "protocol.account_link_ms": fixed(
+    "milliseconds",
+    604_800_000,
+    "account",
+    "protocol",
+  ),
+  "protocol.saml_request_ms": fixed(
+    "milliseconds",
+    600_000,
+    "session",
+    "protocol",
+  ),
+  "protocol.sign_up_link_ms": fixed(
+    "milliseconds",
+    86_400_000,
+    "address",
+    "protocol",
+  ),
+  "protocol.proof_ms": fixed("milliseconds", 300_000, "session", "protocol"),
+  "protocol.token_days": fixed("days", 30, "account", "protocol"),
+  "protocol.totp_step_ms": fixed("milliseconds", 30_000, "session", "protocol"),
+  "protocol.passkey_ms": fixed("milliseconds", 300_000, "session", "protocol"),
+  "protocol.logout_token_chars": fixed(
+    "characters",
+    8192,
+    "request",
+    "protocol",
+  ),
+  "protocol.logout_token_seconds": fixed("seconds", 300, "request", "protocol"),
+  "protocol.sign_on_again_seconds": fixed(
+    "seconds",
+    2_592_000,
+    "session",
+    "protocol",
+  ),
+  "protocol.acting_as_ms": fixed(
+    "milliseconds",
+    1_800_000,
+    "session",
+    "protocol",
+  ),
+  "protocol.base_opening_minutes": fixed("minutes", 60, "session", "protocol"),
+  "protocol.invitation_ms": fixed(
+    "milliseconds",
+    1_209_600_000,
+    "address",
+    "protocol",
+  ),
+  "protocol.link_unlocked_ms": fixed(
+    "milliseconds",
+    43_200_000,
+    "link",
+    "protocol",
+  ),
+  "protocol.oauth_code_ms": fixed(
+    "milliseconds",
+    600_000,
+    "request",
+    "protocol",
+  ),
+  "protocol.oauth_refresh_days": fixed("days", 90, "account", "protocol"),
+  "protocol.admin_lock_minutes": fixed("minutes", 60, "account", "protocol"),
+  "link.embed_origins": fixed("items", 20, "link"),
+  // Channels, directories, stores read by copy, and calls out.
+  "sync.max_rows": fixed("rows", 1_000_000, "instance"),
+  "webhook.failures_before_off": fixed("attempts", 10, "channel"),
+  "channel.failures_before_pause": fixed("attempts", 5, "channel"),
+  "channel.deliveries_per_window": fixed("items", 20, "channel"),
+  "channel.rate_window_ms": fixed("milliseconds", 3_600_000, "channel"),
+  "channel.same_subject_ms": fixed("milliseconds", 300_000, "channel"),
+  "channel.per_instance": fixed("channels", 50, "instance"),
+  "scim.page_rows": fixed("rows", 200, "request"),
+  "scim.group_members": fixed("accounts", 10_000, "request"),
+  "accounts.bulk": fixed("accounts", 100, "request"),
+  "people.file_rows": fixed("rows", 200, "file"),
+  "people.file_bytes": fixed("bytes", 256_000, "file"),
+  "people.file_bases": fixed("bases", 20, "file"),
+  "notice.recipients": fixed("accounts", 500, "request"),
+  "notice.subject_chars": fixed("characters", 200, "request"),
+  "notice.body_chars": fixed("characters", 5000, "request"),
+  "notice.per_hour": fixed("items", 5, "instance"),
+  "copy.answer_bytes": fixed("bytes", 268_435_456, "request"),
+  "copy.collections_listed": fixed("items", 1000, "instance"),
+  "copy.fields_read": fixed("items", 300, "request"),
+  "copy.indices_listed": fixed("items", 1000, "instance"),
+  "source.tables_listed": fixed("items", 2000, "instance"),
+  "timeout.mcp_call_ms": fixed("milliseconds", 60_000, "request"),
+  "timeout.object_store_ms": fixed("milliseconds", 60_000, "request"),
+  "timeout.object_store_connect_ms": fixed("milliseconds", 10_000, "request"),
+  "timeout.outbound_ms": fixed("milliseconds", 10_000, "request"),
+  "timeout.provider_ms": fixed("milliseconds", 10_000, "request"),
+  "timeout.syslog_ms": fixed("milliseconds", 5000, "request"),
+  "timeout.release_check_ms": fixed("milliseconds", 10_000, "request"),
+  "timeout.import_call_ms": fixed("milliseconds", 30_000, "request"),
+  "timeout.client_status_fence_ms": fixed("milliseconds", 300_000, "request"),
+  "timeout.first_bytes_ms": fixed("milliseconds", 10_000, "request"),
+  // More of what is kept, and for how long.
+  "retention.closed_alerts_days": fixed("days", 90, "instance"),
+  "retention.backup_runs_days": fixed("days", 400, "instance"),
+  "retention.staged_file_hours": fixed("hours", 24, "instance"),
+  "trail.table_open_hours": fixed("hours", 1, "account"),
+  "logs.lines_kept": fixed("items", 500, "instance"),
+  "logs.bytes_kept": fixed("bytes", 524_288, "instance"),
+  "restore.points_per_base": fixed("items", 20, "instance"),
+  "retention.staged_import_seconds": fixed("seconds", 1800, "request"),
+  "retention.queued_import_seconds": fixed("seconds", 7200, "request"),
+  "retention.staged_workbook_seconds": fixed("seconds", 1800, "request"),
+  "retention.queued_workbook_seconds": fixed("seconds", 7200, "request"),
+  "retention.parse_folder_ms": fixed("milliseconds", 3_600_000, "instance"),
+  // More of an automation's shape.
+  "automation.script_log_lines": fixed("items", 50, "automation"),
+  "automation.script_log_chars": fixed("characters", 500, "automation"),
+  "automation.script_error_chars": fixed("characters", 300, "automation"),
+  "automation.email_recipients": fixed("items", 10, "automation"),
+  "automation.event_depth": fixed("levels", 3, "automation"),
+  "automation.script_answer_bytes": fixed("bytes", 1_048_576, "automation"),
+  // The last ceilings found outside the catalogue.
+  "import.call_answer_bytes": fixed("bytes", 16_777_216, "request"),
+  "release.answer_bytes": fixed("bytes", 1_048_576, "request"),
+  "feed.past_days": fixed("days", 183, "view"),
+  "feed.future_days": fixed("days", 731, "view"),
+  "retention.staged_snapshot_seconds": fixed("seconds", 1800, "request"),
+  "retention.queued_snapshot_seconds": fixed("seconds", 7200, "request"),
+  "usage.active_days": fixed("days", 30, "view", "code", "display"),
+  "usage.trend_days": fixed("days", 90, "view", "code", "display"),
+  "auth.acting_reason_chars": fixed("characters", 200, "session"),
+  "import.field_name_chars": fixed("characters", 100, "file"),
+  "request.link_calls": fixed("items", 10, "request"),
+  "copy.id_chars": fixed("characters", 500, "request"),
+  "automation.script_time_ms": fixed("milliseconds", 10_000, "automation"),
+  "automation.script_run_ms": fixed("milliseconds", 60_000, "automation"),
+  "automation.script_memory_bytes": fixed("bytes", 67_108_864, "automation"),
+  "automation.script_calls": fixed("items", 100, "automation"),
+  "automation.script_call_bytes": fixed("bytes", 262_144, "automation"),
+  "automation.script_reply_bytes": fixed("bytes", 4_194_304, "automation"),
+  "automation.script_output_bytes": fixed("bytes", 65_536, "automation"),
+  "automation.script_heap_mb": fixed("mebibytes", 128, "automation"),
+  "automation.script_start_ms": fixed("milliseconds", 10_000, "automation"),
+  "automation.script_grace_ms": fixed("milliseconds", 2000, "automation"),
+  "import.parse_heap_mb": fixed("mebibytes", 512, "file"),
+  "import.scan_ms": fixed("milliseconds", 300_000, "file"),
+  "import.batch_ms": fixed("milliseconds", 60_000, "file"),
+  "import.zip_entries": fixed("items", 2000, "file"),
+  "import.zip_entry_bytes": fixed("bytes", 1_073_741_824, "file"),
+  "import.zip_total_bytes": fixed("bytes", 2_147_483_648, "file"),
 } as const satisfies Record<string, LimitEntry>;
 
 export type LimitId = keyof typeof LIMITS;

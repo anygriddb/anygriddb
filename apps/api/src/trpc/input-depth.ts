@@ -1,8 +1,9 @@
+import { ceilingOf } from "@anygriddb/core";
 /**
  * How deep a request's input may nest. Far past any filter, formula or JSON
  * cell a page sends, and far short of what a recursive schema survives.
  */
-export const MAX_INPUT_DEPTH = 128;
+export const MAX_INPUT_DEPTH = ceilingOf("request.input_depth");
 
 /** Whether a value nests past `limit`. Walked with a stack, never recursed. */
 export function nestsPast(value: unknown, limit = MAX_INPUT_DEPTH): boolean {

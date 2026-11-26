@@ -7,7 +7,7 @@
  * The mapping says each field's type; a few documents say which fields
  * hold several values, which no mapping tells.
  */
-import { AppError, type MappedField } from "@anygriddb/core";
+import { AppError, type MappedField, ceilingOf } from "@anygriddb/core";
 import { inScope } from "../table-scope.js";
 import type {
   SourceCheck,
@@ -32,8 +32,8 @@ import { isCopyableName, rowId } from "./values.js";
 
 /** Documents read to tell which fields hold several values, or long texts. */
 const SAMPLE = 200;
-const MAX_INDICES = 1_000;
-const MAX_FIELDS = 300;
+const MAX_INDICES = ceilingOf("copy.indices_listed");
+const MAX_FIELDS = ceilingOf("copy.fields_read");
 /** A scroll lives this long between two pages. */
 const SCROLL = "5m";
 /** Longer than this, or on several lines, a text is a long one. */

@@ -5,7 +5,7 @@ import {
   type RequestOptions,
 } from "node:https";
 import type { LookupFunction } from "node:net";
-import { AppError } from "@anygriddb/core";
+import { AppError, ceilingOf } from "@anygriddb/core";
 import {
   assertOutboundTarget,
   isOutboundBlocked,
@@ -14,7 +14,7 @@ import {
   type ResolvedAddress,
 } from "./target.js";
 
-export const OUTBOUND_TIMEOUT_MS = 10_000;
+export const OUTBOUND_TIMEOUT_MS = ceilingOf("timeout.outbound_ms");
 
 const REDIRECT = new Set([301, 302, 303, 307, 308]);
 

@@ -2,11 +2,12 @@
  * Origins allowed to embed a public share (ADR 0067): HTTPS only, explicit
  * list, never `*`. Empty or null means the share is not embeddable.
  */
+import { ceilingOf } from "./limits";
 import { z } from "zod";
 import { AppError } from "./errors.js";
 
 /** Cap on origins stored per share (matches the migration check). */
-const MAX_EMBED_ORIGINS = 20;
+const MAX_EMBED_ORIGINS = ceilingOf("link.embed_origins");
 
 /**
  * One HTTPS origin: scheme, host, optional port; no path, query, hash, or

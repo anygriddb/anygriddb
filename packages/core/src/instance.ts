@@ -59,7 +59,7 @@ export const POLICY_BOUNDS = {
 } as const;
 
 /** An administrator is never locked out for good: the instance needs one. */
-export const ADMIN_LOCK_MINUTES = 60;
+export const ADMIN_LOCK_MINUTES = ceilingOf("protocol.admin_lock_minutes");
 
 const bounded = (key: keyof typeof POLICY_BOUNDS) =>
   z.int().min(POLICY_BOUNDS[key].min).max(POLICY_BOUNDS[key].max);
@@ -90,7 +90,9 @@ const cidrSchema = z
 export const DEFAULT_ATTACHMENT_MAX_BYTES = ceilingOf("attachment.max_bytes");
 
 /** The largest ceiling an instance may choose, in the UI or the environment. */
-export const ATTACHMENT_MAX_BYTES_CEILING = 500 * 1024 * 1024;
+export const ATTACHMENT_MAX_BYTES_CEILING = ceilingOf(
+  "attachment.max_bytes_top",
+);
 
 /** One tile's address, from the template an operator gives. */
 export function fillMapTileUrl(

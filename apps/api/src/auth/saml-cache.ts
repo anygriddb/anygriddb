@@ -1,3 +1,4 @@
+import { ceilingOf } from "@anygriddb/core";
 import type { KeyRing } from "./key-ring.js";
 import type { Database } from "@anygriddb/db";
 import type { CacheItem, CacheProvider } from "@node-saml/node-saml";
@@ -5,7 +6,7 @@ import { encryptSecret, decryptSecret } from "./crypto.js";
 import { hashSessionToken } from "./session.js";
 
 const REQUEST_KIND = "saml-request";
-const REQUEST_TTL_MS = 10 * 60 * 1000;
+const REQUEST_TTL_MS = ceilingOf("protocol.saml_request_ms");
 
 /**
  * The AuthnRequest ids SAML must see again in `InResponseTo`. Stored in

@@ -27,6 +27,11 @@ first.
 
 ### Added
 
+- Administration › Limits and usage lists every limit the instance keeps,
+  in three more parts (signing in, codes and links; what a cell, a formula
+  and a view hold; channels, directories and calls out), each with who sets
+  it: how long a link, a code or a challenge lasts is the exchange's own
+  and never changes. Every value is the one the instance kept before.
 - `anygriddb_undeclared_permission_total` counts the checks that asked a
   permission their way in does not declare. It should stay at 0: report one
   that does not.

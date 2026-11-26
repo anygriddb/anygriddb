@@ -8,13 +8,13 @@
  */
 import http from "node:http";
 import https from "node:https";
-import { AppError } from "@anygriddb/core";
+import { AppError, ceilingOf } from "@anygriddb/core";
 import type { SourceConnection } from "../sources/types.js";
 import { connectionError } from "../sources/copy/errors.js";
 import type { ConnectOptions } from "../sources/copy/types.js";
 
 /** An answer larger than this is not read: a page of rows is far smaller. */
-const MAX_ANSWER_BYTES = 256 * 1024 * 1024;
+const MAX_ANSWER_BYTES = ceilingOf("copy.answer_bytes");
 
 export type HttpAnswer = { status: number; body: unknown };
 

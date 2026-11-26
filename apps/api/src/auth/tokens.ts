@@ -1,13 +1,13 @@
 import { createHash, randomBytes } from "node:crypto";
 import type { Database, Executor, Tx } from "@anygriddb/db";
 import type { SessionUser } from "./session.js";
-import { AppError, type InstanceSettings } from "@anygriddb/core";
+import { AppError, type InstanceSettings, ceilingOf } from "@anygriddb/core";
 import { recordAuthEvent } from "./auth-events.js";
 import { readGateSettings } from "../settings.js";
 
 const API_TOKEN = /^ag_[A-Za-z0-9_-]{43,128}$/;
 /** A token's lifetime when its owner names none, within the policy's. */
-const DEFAULT_TOKEN_DAYS = 30;
+const DEFAULT_TOKEN_DAYS = ceilingOf("protocol.token_days");
 
 /**
  * The days a new token lives (ADR 0043): what its owner asks, up to the

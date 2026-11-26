@@ -6,13 +6,14 @@
  * reads only the fields a line is allowed to show. It is empty after a
  * restart, and it is this process's copy alone.
  */
+import { ceilingOf } from "@anygriddb/core";
 import { Writable } from "node:stream";
 import { serializeError } from "./logged-error.js";
 import { logUrl } from "./log-url.js";
 import { stripCrlf } from "./http.js";
 
-const DEFAULT_MAX_LINES = 500;
-const DEFAULT_MAX_BYTES = 512 * 1024;
+const DEFAULT_MAX_LINES = ceilingOf("logs.lines_kept");
+const DEFAULT_MAX_BYTES = ceilingOf("logs.bytes_kept");
 const MAX_MESSAGE = 500;
 const MAX_STACK = 4_000;
 const MAX_URL = 500;

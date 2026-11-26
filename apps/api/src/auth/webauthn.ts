@@ -11,9 +11,9 @@ import type { Env } from "../env.js";
 import { factorMethods } from "./access.js";
 import { recordAuthEvent } from "./auth-events.js";
 import { relyingParty } from "./relying-party.js";
-import { AppError } from "@anygriddb/core";
+import { AppError, ceilingOf } from "@anygriddb/core";
 
-const CEREMONY_TTL_MS = 5 * 60 * 1000;
+const CEREMONY_TTL_MS = ceilingOf("protocol.passkey_ms");
 
 type StoredWebAuthnCredential = {
   userId: string;

@@ -138,7 +138,7 @@ function clip(text: string): string {
   return text.length > KEPT_CELL ? text.slice(0, KEPT_CELL) : text;
 }
 
-const MAX_HEADER = 100;
+const MAX_HEADER = ceilingOf("import.field_name_chars");
 
 /** At most `length` code units, never half a character. */
 function cutName(text: string, length: number): string {

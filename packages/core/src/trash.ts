@@ -1,3 +1,4 @@
+import { ceilingOf } from "./limits";
 import { z } from "zod";
 import { AppError } from "./errors";
 import { isHomeSchemaName } from "./query/home";
@@ -7,7 +8,7 @@ import { isHomeSchemaName } from "./query/home";
  * with their data, before they are purged for good, unless an
  * administrator chose otherwise (`trashDays`).
  */
-export const TRASH_DAYS = 30;
+export const TRASH_DAYS = ceilingOf("retention.trash_days");
 
 const TRASH_KINDS = ["base", "table", "column", "view"] as const;
 const trashItemSchema = z

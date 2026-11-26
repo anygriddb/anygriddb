@@ -7,13 +7,13 @@
  * hash is kept. It works once, for an hour.
  */
 import { createHash, randomBytes } from "node:crypto";
-import { AppError } from "@anygriddb/core";
+import { AppError, ceilingOf } from "@anygriddb/core";
 import type { Database } from "@anygriddb/db";
 import { hasAccounts } from "../admin.js";
 import { recordAuthEvent } from "./auth-events.js";
 
 /** How long a token works once made. */
-export const INSTALL_TOKEN_TTL_MS = 60 * 60 * 1000;
+export const INSTALL_TOKEN_TTL_MS = ceilingOf("protocol.install_token_ms");
 
 function hashInstallToken(token: string): string {
   return createHash("sha256").update(token).digest("hex");

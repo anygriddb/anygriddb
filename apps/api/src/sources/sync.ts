@@ -36,6 +36,7 @@ import {
   SYNC_SCHEMA,
   watchKind,
   type WatchColumn,
+  ceilingOf,
 } from "@anygriddb/core";
 import { runStatement, type Database } from "@anygriddb/db";
 import { sql } from "kysely";
@@ -53,7 +54,7 @@ import { checkSeals, type SealDeps } from "./statuses.js";
 /** Rows read from the client's table at a time. */
 const PAGE = Math.min(1_000, MAX_READ_LIMIT);
 /** A copy stops here: past it, the table is better read live. */
-const SYNC_ROW_LIMIT = 1_000_000;
+const SYNC_ROW_LIMIT = ceilingOf("sync.max_rows");
 /** Changes one refresh tells row by row; past it, one event per kind. */
 const EVENT_LIMIT = 200;
 /** A refresh that failed is tried again this soon, at most. */

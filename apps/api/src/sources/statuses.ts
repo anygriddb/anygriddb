@@ -31,6 +31,7 @@ import {
   sealRow,
   sealText,
   shownSealValue,
+  ceilingOf,
 } from "@anygriddb/core";
 import type { Database } from "@anygriddb/db";
 import { sql } from "kysely";
@@ -835,7 +836,7 @@ async function markChecked(
 }
 
 /** How long a lock may wait for writes and read its row before it is undone. */
-const FENCE_TIMEOUT_MS = 5 * 60_000;
+const FENCE_TIMEOUT_MS = ceilingOf("timeout.client_status_fence_ms");
 
 /**
  * A lock whose process stopped between taking the status and sealing the

@@ -25,6 +25,7 @@ import {
   WIDGET_ROW_MAX,
   WIDGET_SIZES,
   widgetConfigForReader,
+  ceilingOf,
 } from "@anygriddb/core";
 import type { Database, DashboardRow, WidgetRow } from "@anygriddb/db";
 import { readerAccess, readerEngine } from "./acl.js";
@@ -670,7 +671,7 @@ export function histogramSeries(
 }
 
 /** Series drawn, at most: more fold into "Others". */
-const MAX_SERIES = 8;
+const MAX_SERIES = ceilingOf("chart.series");
 /** Aggregates that add up: series past the limit fold into one. */
 const ADDITIVE = new Set<AggregateFn>([
   "count_all",

@@ -3,10 +3,11 @@
  * a search narrows it, and a table asked for by its name is read whatever
  * the list would have kept.
  */
+import { ceilingOf } from "@anygriddb/core";
 import type { SourceTable, TableName, TableScope } from "./types.js";
 
 /** Tables one list returns. */
-const MAX_TABLES = 2_000;
+const MAX_TABLES = ceilingOf("source.tables_listed");
 
 /** One more than a list keeps: the extra row says it was cut. */
 export const TABLES_READ = MAX_TABLES + 1;

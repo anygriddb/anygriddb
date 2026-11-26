@@ -1,3 +1,4 @@
+import { ceilingOf } from "@anygriddb/core";
 import type { KeyRing } from "./key-ring.js";
 import type { Database } from "@anygriddb/db";
 import { factorMethods } from "./access.js";
@@ -7,7 +8,7 @@ import { hashSessionToken, isSessionToken } from "./session.js";
 import { consumeTotpCode } from "./totp.js";
 
 /** How old a sign-in may be to stand where nothing else can be asked. */
-export const FRESH_SIGN_IN_MS = 10 * 60_000;
+export const FRESH_SIGN_IN_MS = ceilingOf("protocol.erase_sign_in_ms");
 
 /**
  * What deleting one's own account found of its proof: `missing` when a

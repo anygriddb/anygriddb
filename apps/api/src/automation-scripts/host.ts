@@ -4,6 +4,7 @@ import {
   fillSecrets,
   rowIdSchema,
   secretNames,
+  ceilingOf,
 } from "@anygriddb/core";
 import { z } from "zod";
 import type { TableRow } from "../data/engine.js";
@@ -69,7 +70,7 @@ const updateSchema = z
 /** Calls one script may make to addresses outside the instance. */
 export const SCRIPT_REQUESTS = 10;
 /** What one such call may be answered. */
-export const SCRIPT_ANSWER_BYTES = 1024 * 1024;
+export const SCRIPT_ANSWER_BYTES = ceilingOf("automation.script_answer_bytes");
 
 /** Headers a request sets itself, or that would change where it goes. */
 const KEPT_HEADERS = new Set([

@@ -8,7 +8,7 @@
  * other members a server tells of: the operator's list of allowed hosts
  * holds for every address AnyGridDB reaches.
  */
-import { AppError } from "@anygriddb/core";
+import { AppError, ceilingOf } from "@anygriddb/core";
 import {
   Binary,
   BSONRegExp,
@@ -53,8 +53,8 @@ import {
 /** Documents read to tell a collection's fields: its newest ones. */
 const SAMPLE = 200;
 /** Collections listed, and fields kept in one: past these, a page is unusable. */
-const MAX_COLLECTIONS = 1_000;
-const MAX_FIELDS = 300;
+const MAX_COLLECTIONS = ceilingOf("copy.collections_listed");
+const MAX_FIELDS = ceilingOf("copy.fields_read");
 /** Collections sampled at once. */
 const SAMPLING = 4;
 const CONNECT_MS = 10_000;

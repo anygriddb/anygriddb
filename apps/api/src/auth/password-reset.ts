@@ -10,17 +10,17 @@
  */
 import { dropAccountTokens } from "./tokens.js";
 import { createHash, randomBytes } from "node:crypto";
-import { AppError, type InstanceSettings } from "@anygriddb/core";
+import { AppError, type InstanceSettings, ceilingOf } from "@anygriddb/core";
 import type { Database } from "@anygriddb/db";
 import { sql } from "kysely";
 import { hashPassword } from "./argon2.js";
 import { clearFailures } from "./lockout.js";
 
 /** Asked by the person: an hour. Sent by an administrator: a day. */
-export const SELF_RESET_TTL_MS = 60 * 60 * 1000;
-export const ADMIN_RESET_TTL_MS = 24 * 60 * 60 * 1000;
+export const SELF_RESET_TTL_MS = ceilingOf("protocol.reset_link_ms");
+export const ADMIN_RESET_TTL_MS = ceilingOf("protocol.admin_reset_link_ms");
 /** The first link of an account an administrator creates: a week. */
-export const ACCOUNT_LINK_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+export const ACCOUNT_LINK_TTL_MS = ceilingOf("protocol.account_link_ms");
 
 const RESET_TOKEN = /^[A-Za-z0-9_-]{43}$/;
 

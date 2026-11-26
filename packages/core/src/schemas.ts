@@ -1,3 +1,4 @@
+import { ceilingOf } from "./limits";
 import { z } from "zod";
 import { cellValueSchema } from "./cell-values";
 import { rollupFnSchema } from "./field-config";
@@ -351,7 +352,7 @@ export const addRelationInputSchema = z.object({
 });
 
 /** How many links one write names, whichever way it says them. */
-export const MAX_LINKS_WRITTEN = 500;
+export const MAX_LINKS_WRITTEN = ceilingOf("write.links_per_cell");
 
 export const setLinksInputSchema = z
   .object({
@@ -521,7 +522,7 @@ export const auditReadInputSchema = z.object({
 });
 
 /** The tables the home page lists: what each holds, and its last change. */
-export const TABLE_ACTIVITY_MAX = 8;
+export const TABLE_ACTIVITY_MAX = ceilingOf("display.table_activity");
 
 export const tableActivityInputSchema = z.object({
   tableIds: z.array(z.uuid()).min(1).max(TABLE_ACTIVITY_MAX),

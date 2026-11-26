@@ -33,9 +33,9 @@ export const viewTypeSchema = z.enum(VIEW_TYPES);
 const ROW_HEIGHTS = ["short", "medium", "tall", "extra"] as const;
 
 /** Soft product ceilings for view chrome (UI + schema stay in lockstep). */
-export const MAX_VIEW_SORTS = 10;
+export const MAX_VIEW_SORTS = ceilingOf("view.sorts");
 export const MAX_VIEW_GROUPS = ceilingOf("view.groups");
-export const MAX_FROZEN_COLUMNS = 10;
+export const MAX_FROZEN_COLUMNS = ceilingOf("view.frozen_fields");
 
 const columnList = z.array(columnNameSchema).max(200);
 

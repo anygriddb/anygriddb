@@ -5,15 +5,15 @@
  * one code a minute and five an hour at most.
  */
 import { randomInt, timingSafeEqual } from "node:crypto";
-import { AppError } from "@anygriddb/core";
+import { AppError, ceilingOf } from "@anygriddb/core";
 import type { Database, EmailOtpPurpose } from "@anygriddb/db";
 import { sign, signatures, type KeyRing } from "./key-ring.js";
 
-export const EMAIL_OTP_TTL_MS = 10 * 60_000;
-export const EMAIL_OTP_ATTEMPT_LIMIT = 5;
+export const EMAIL_OTP_TTL_MS = ceilingOf("protocol.email_code_ms");
+export const EMAIL_OTP_ATTEMPT_LIMIT = ceilingOf("auth.email_code_attempts");
 /** A code a minute at most, and five an hour, for an account and a purpose. */
-export const EMAIL_OTP_SEND_GAP_MS = 60_000;
-export const EMAIL_OTP_SEND_HOUR_LIMIT = 5;
+export const EMAIL_OTP_SEND_GAP_MS = ceilingOf("protocol.email_code_gap_ms");
+export const EMAIL_OTP_SEND_HOUR_LIMIT = ceilingOf("auth.email_codes_per_hour");
 const HOUR_MS = 60 * 60_000;
 
 export function generateEmailOtp(): string {

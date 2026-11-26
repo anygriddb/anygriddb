@@ -4,7 +4,7 @@
  * enqueue time; the worker sends one message each and never logs an
  * address or the body.
  */
-import { AppError } from "@anygriddb/core";
+import { AppError, ceilingOf } from "@anygriddb/core";
 import type { Database } from "@anygriddb/db";
 import { z } from "zod";
 import { recordAuthEvent } from "./auth/auth-events.js";
@@ -16,11 +16,11 @@ import { addJob, TASKS } from "./queue/jobs.js";
 import { readMailVoice, readSettings } from "./settings.js";
 import type { Env } from "./env.js";
 
-export const MAX_OPERATOR_MAIL_RECIPIENTS = 500;
-const MAX_OPERATOR_MAIL_SUBJECT = 200;
-const MAX_OPERATOR_MAIL_BODY = 5_000;
+export const MAX_OPERATOR_MAIL_RECIPIENTS = ceilingOf("notice.recipients");
+const MAX_OPERATOR_MAIL_SUBJECT = ceilingOf("notice.subject_chars");
+const MAX_OPERATOR_MAIL_BODY = ceilingOf("notice.body_chars");
 /** At most this many operator sends per rolling hour on the instance. */
-export const MAX_OPERATOR_MAIL_PER_HOUR = 5;
+export const MAX_OPERATOR_MAIL_PER_HOUR = ceilingOf("notice.per_hour");
 
 export const operatorMailRecipientsSchema = z.discriminatedUnion("mode", [
   z.object({ mode: z.literal("all_active") }),

@@ -1,10 +1,11 @@
+import { ceilingOf } from "@anygriddb/core";
 import { randomBytes } from "node:crypto";
 import type { Database } from "@anygriddb/db";
 import { hashSessionToken, isSessionToken, type SignOn } from "./session.js";
 
 export const MFA_COOKIE = "__Host-ag_mfa";
-const MFA_TTL_MS = 5 * 60 * 1000;
-export const MFA_ATTEMPT_LIMIT = 5;
+const MFA_TTL_MS = ceilingOf("protocol.second_factor_ms");
+export const MFA_ATTEMPT_LIMIT = ceilingOf("auth.second_factor_attempts");
 
 export async function createLoginChallenge(
   db: Database,

@@ -16,7 +16,7 @@ import {
 } from "./realtime/channels.js";
 import { acquireLock } from "./realtime/locks.js";
 
-const MAX_MESSAGE_CHARS = 16_384;
+const MAX_MESSAGE_CHARS = ceilingOf("sockets.message_chars");
 /**
  * The socket server's own options. A page's message holds ASCII tokens only,
  * so one the parser accepts is never more bytes than characters: anything
@@ -35,11 +35,11 @@ const BEAT = JSON.stringify({ type: "beat" });
  * messages at most; one that stopped is closed (1013) rather than kept in
  * this process's memory, and reads again what it shows when it comes back.
  */
-export const MAX_BUFFERED_BYTES = 1_048_576;
+export const MAX_BUFFERED_BYTES = ceilingOf("sockets.buffered_bytes");
 /** A page follows a few channels; a dashboard, one per table it shows. */
 export const MAX_CHANNELS_PER_SOCKET = ceilingOf("sockets.channels_per_socket");
 /** Messages of one socket waiting: all its channels asked again, and more. */
-export const MAX_QUEUED_MESSAGES = 256;
+export const MAX_QUEUED_MESSAGES = ceilingOf("sockets.queued_messages");
 /** "I am on this cell", as fast as someone moves, then a few a second. */
 export const PRESENCE_BURST = 20;
 const PRESENCE_PER_SECOND = 5;

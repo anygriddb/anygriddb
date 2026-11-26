@@ -1,3 +1,4 @@
+import { ceilingOf } from "./limits";
 /**
  * Mentions in comments are written `@[Display name](user-id)`. The name is
  * only for reading; the id decides who is notified.
@@ -5,7 +6,7 @@
 const MENTION =
   /@\[([^\]\n]{1,100})\]\(([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\)/gi;
 
-const MAX_MENTIONS = 20;
+const MAX_MENTIONS = ceilingOf("comments.mentions");
 
 /** Distinct mentioned user ids, in order, at most 20. */
 export function parseMentions(body: string): string[] {

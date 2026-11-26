@@ -7,7 +7,7 @@
  * another origin is refused, as the protocol asks (DNS rebinding).
  */
 import { declaredRoute } from "../access/routes.js";
-import { AppError, publicError } from "@anygriddb/core";
+import { AppError, publicError, ceilingOf } from "@anygriddb/core";
 import type { Database } from "@anygriddb/db";
 import { NodeStreamableHTTPServerTransport } from "@modelcontextprotocol/node";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
@@ -20,7 +20,7 @@ import { createAnyGridMcpServer } from "./server.js";
 type Deps = { db: Database; bus: Bus; publicUrl: string };
 
 /** A call that has not answered by then is told so, and its socket closed. */
-const MCP_REQUEST_MS = 60_000;
+const MCP_REQUEST_MS = ceilingOf("timeout.mcp_call_ms");
 
 function errorBody(error: AppError) {
   const body = publicError(error);

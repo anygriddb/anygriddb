@@ -4,7 +4,7 @@
  */
 import { outboundFetch } from "../outbound/index.js";
 import type { KeyRing } from "../auth/key-ring.js";
-import { AppError, trimEndRun } from "@anygriddb/core";
+import { AppError, trimEndRun, ceilingOf } from "@anygriddb/core";
 import type { Database } from "@anygriddb/db";
 import { z } from "zod";
 import { decryptSecret, encryptSecret } from "../auth/crypto.js";
@@ -190,7 +190,7 @@ export function environmentOidc(
   };
 }
 
-const DISCOVERY_TIMEOUT_MS = 10_000;
+const DISCOVERY_TIMEOUT_MS = ceilingOf("timeout.provider_ms");
 
 /**
  * How the identity provider is reached: through the outbound service, its

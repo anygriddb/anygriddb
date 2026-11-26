@@ -5,6 +5,7 @@
  * due is decided here, from facts the server gathers and the thresholds
  * the administrators chose: nothing here reads a clock or a database.
  */
+import { ceilingOf } from "./limits";
 import type { InstanceSettings } from "./instance";
 
 const ALERT_KINDS = [
@@ -25,7 +26,7 @@ export const ALERT_CHOICES = [...ALERT_KINDS, "account_locked"] as const;
 export type AlertChoice = (typeof ALERT_CHOICES)[number];
 
 /** Hours between two mails about an alert that stays open. */
-const ALERT_REMINDER_HOURS = 24;
+const ALERT_REMINDER_HOURS = ceilingOf("alerts.reminder_hours");
 
 const HOUR_MS = 3_600_000;
 const DAY_MS = 24 * HOUR_MS;

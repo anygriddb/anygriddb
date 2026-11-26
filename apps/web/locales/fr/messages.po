@@ -1270,9 +1270,17 @@ msgstr "Une sauvegarde a échoué"
 msgid "A backup finished"
 msgstr "Une sauvegarde s’est terminée"
 
+#: components/admin/limits-tab.tsx
+msgid "A backup's report"
+msgstr "Rapport d’une sauvegarde"
+
 #: components/fields/code-image.tsx
 msgid "A barcode draws up to 80 letters, digits, and signs, without accents"
 msgstr "Un code-barres dessine jusqu’à 80 lettres, chiffres et signes, sans accents"
+
+#: components/admin/limits-tab.tsx
+msgid "A base an administrator opens"
+msgstr "Base ouverte par un administrateur"
 
 #: components/shell/home-page.tsx
 msgid "A base holds tables. A table is a real SQL table: one AnyGridDB keeps in PostgreSQL, or one of a database an administrator connected."
@@ -1302,6 +1310,10 @@ msgstr "Qui gère une base la garde entière sur l’instance avant un changemen
 msgid "A base's owners invite people. You can withdraw an invitation sent by mistake, or send the link again."
 msgstr "Les propriétaires d’une base invitent les personnes. Vous pouvez retirer une invitation envoyée par erreur, ou renvoyer le lien."
 
+#: components/admin/limits-tab.tsx
+msgid "A batch of a file's rows"
+msgstr "Lot de lignes d’un fichier"
+
 #: components/fields/formula-docs.ts
 msgid "A blank value."
 msgstr "Une valeur vide."
@@ -1314,6 +1326,18 @@ msgstr "Clic sur un bouton"
 msgid "A calendar needs a date field that the client's database holds."
 msgstr "Un calendrier demande un champ date que la base du client contient."
 
+#: components/admin/limits-tab.tsx
+msgid "A call of an import from another product"
+msgstr "Appel d’un import depuis un autre produit"
+
+#: components/admin/limits-tab.tsx
+msgid "A call of MCP"
+msgstr "Appel MCP"
+
+#: components/admin/limits-tab.tsx
+msgid "A call out of the instance"
+msgstr "Appel sortant de l’instance"
+
 #: components/table/automations-dialog.tsx
 msgid "A call to a public HTTPS address, made by the instance: 10 calls a script, 1 MiB an answer. It answers status, ok, headers.get(name), text(), and json()."
 msgstr "Un appel à une adresse HTTPS publique, fait par l’instance : 10 appels par script, 1 Mio par réponse. Il répond status, ok, headers.get(name), text() et json()."
@@ -1322,9 +1346,33 @@ msgstr "Un appel à une adresse HTTPS publique, fait par l’instance : 10 appe
 msgid "A call to its address (incoming webhook)"
 msgstr "Appel de son adresse (webhook entrant)"
 
+#: components/admin/limits-tab.tsx
+msgid "A call to the object store"
+msgstr "Appel au stockage d’objets"
+
+#: components/admin/limits-tab.tsx
+msgid "A cell"
+msgstr "Une cellule"
+
 #: components/admin/step-up.tsx
 msgid "A change made in Administration asks for your password or second factor again. The proof stays valid for five minutes."
 msgstr "Une modification faite dans l’Administration redemande votre mot de passe ou votre second facteur. La preuve reste valable cinq minutes."
+
+#: components/admin/limits-tab.tsx
+msgid "A channel"
+msgstr "Un canal"
+
+#: components/admin/limits-tab.tsx
+msgid "A channel's window"
+msgstr "Fenêtre d’un canal"
+
+#: components/admin/limits-tab.tsx
+msgid "A client's row held while its status changes"
+msgstr "Ligne cliente tenue pendant son changement de statut"
+
+#: components/admin/limits-tab.tsx
+msgid "A code by email"
+msgstr "Code par courriel"
 
 #: components/settings/second-factor.tsx
 msgid "A code by email is not offered to an administrator: it reaches the mailbox a password is reset from."
@@ -1362,6 +1410,14 @@ msgstr "Une virgule : 1,234 vaut un virgule deux cent trente-quatre"
 #: components/admin/limits-tab.tsx
 msgid "A connection"
 msgstr "Une connexion"
+
+#: components/admin/limits-tab.tsx
+msgid "A connection's first bytes"
+msgstr "Premiers octets d’une connexion"
+
+#: components/admin/limits-tab.tsx
+msgid "A CSV file downloaded"
+msgstr "Fichier CSV téléchargé"
 
 #: components/admin/limits-tab.tsx
 msgid "A CSV or text file imported"
@@ -1413,6 +1469,14 @@ msgstr "Un champ des lignes liées"
 msgid "A field this view filters on changed type: the view shows no rows until its filter is corrected."
 msgstr "Un champ filtré par cette vue a changé de type : la vue n’affiche aucune ligne tant que son filtre n’est pas corrigé."
 
+#: components/admin/limits-tab.tsx
+msgid "A field's name an import makes"
+msgstr "Nom de champ qu’un import crée"
+
+#: components/admin/limits-tab.tsx
+msgid "A file"
+msgstr "Un fichier"
+
 #: lib/errors.ts
 msgid "A file could not be attached. Add it again."
 msgstr "Un fichier n’a pas pu être joint. Ajoutez-le de nouveau."
@@ -1424,6 +1488,22 @@ msgstr "Un fichier de cette version n’est plus stocké"
 #: components/admin/limits-tab.tsx
 msgid "A file in a cell"
 msgstr "Un fichier dans une cellule"
+
+#: components/admin/limits-tab.tsx
+msgid "A file of people"
+msgstr "Fichier de personnes"
+
+#: components/admin/limits-tab.tsx
+msgid "A file read through"
+msgstr "Lecture complète d’un fichier"
+
+#: components/admin/limits-tab.tsx
+msgid "A file sent and not yet used"
+msgstr "Fichier envoyé et pas encore utilisé"
+
+#: components/admin/limits-tab.tsx
+msgid "A file sent to import, not yet imported"
+msgstr "Fichier envoyé pour import, pas encore importé"
 
 #: components/settings/base-settings.tsx
 msgid "A file to keep elsewhere: schema, views, dashboards, rows, members, and attachments, in a .zip archive. Import it again from “New base”: its rows come back as drafts, dated from the import. Comments, the history of changes, automations, webhooks, and public links stay with this base."
@@ -1444,6 +1524,14 @@ msgstr "Un dossier porte déjà ce nom"
 #: components/table/automations-dialog.tsx
 msgid "A form is submitted"
 msgstr "Un formulaire est envoyé"
+
+#: components/admin/limits-tab.tsx
+msgid "A formula, once written as a query"
+msgstr "Formule, une fois écrite en requête"
+
+#: components/admin/limits-tab.tsx
+msgid "A formula's text"
+msgstr "Texte d’une formule"
 
 #: lib/errors.ts
 msgid "A group already has this name"
@@ -1469,13 +1557,37 @@ msgstr "Un kanban demande un champ « Choix unique » que la base du client co
 msgid "A latitude and a longitude"
 msgstr "Une latitude et une longitude"
 
+#: components/admin/limits-tab.tsx
+msgid "A line a script logs"
+msgstr "Ligne qu’un script journalise"
+
+#: components/admin/limits-tab.tsx
+msgid "A line of a snapshot"
+msgstr "Ligne d’un instantané"
+
+#: components/admin/limits-tab.tsx
+msgid "A line to the syslog collector"
+msgstr "Ligne vers le collecteur syslog"
+
+#: components/admin/limits-tab.tsx
+msgid "A link"
+msgstr "Un lien"
+
 #: components/views/form-view.tsx
 msgid "A link can fill fields: add ?prefill_field_name=value to its address, and &hide_field_name=true to hide a filled field."
 msgstr "Un lien peut remplir des champs : ajoutez ?prefill_nom_du_champ=valeur à son adresse, et &hide_nom_du_champ=true pour masquer un champ rempli."
 
+#: components/admin/limits-tab.tsx
+msgid "A link locked after too many tries"
+msgstr "Lien verrouillé après trop d’essais"
+
 #: components/admin/security-tab.tsx
 msgid "A link works once: an hour when the person asks, a day when an administrator sends it. Second factors stay in place."
 msgstr "Un lien sert une fois : une heure quand la personne le demande, un jour quand un administrateur l’envoie. Les seconds facteurs restent en place."
+
+#: components/admin/limits-tab.tsx
+msgid "A link's password, given"
+msgstr "Mot de passe d’un lien, donné"
 
 #: components/admin/identity-tab.tsx
 #: lib/errors.ts
@@ -1485,6 +1597,10 @@ msgstr "Un logo est une image PNG, JPEG ou WebP de 256 Kio au plus"
 #: components/admin/security-tab.tsx
 msgid "A longer password is the strongest rule: AnyGridDB asks for no mix of characters, and never for a change on a schedule."
 msgstr "Un mot de passe plus long est la règle la plus solide : AnyGridDB n’impose ni mélange de caractères, ni changement à date fixe."
+
+#: components/admin/limits-tab.tsx
+msgid "A message a page sends live"
+msgstr "Message qu’une page envoie en direct"
 
 #: components/auth/auth-page.tsx
 msgid "A message is on its way to {awaiting}. Open the link it holds to finish: it works for a day."
@@ -1499,6 +1615,14 @@ msgid "A notice waiting for a digest"
 msgstr "Un avis en attente d’un résumé"
 
 #: components/admin/limits-tab.tsx
+msgid "A notice's subject"
+msgstr "Objet d’un avis"
+
+#: components/admin/limits-tab.tsx
+msgid "A notice's text"
+msgstr "Texte d’un avis"
+
+#: components/admin/limits-tab.tsx
 msgid "A notification not read"
 msgstr "Une notification non lue"
 
@@ -1510,9 +1634,21 @@ msgstr "Une notification lue"
 msgid "A number given to each new row"
 msgstr "Un numéro donné à chaque nouvelle ligne"
 
+#: components/admin/limits-tab.tsx
+msgid "A part of a spreadsheet's archive"
+msgstr "Partie de l’archive d’un classeur"
+
+#: components/admin/limits-tab.tsx
+msgid "A passkey's ceremony"
+msgstr "Cérémonie d’une clé d’accès"
+
 #: components/fields/field-meta.tsx
 msgid "A phone number"
 msgstr "Un numéro de téléphone"
+
+#: components/admin/limits-tab.tsx
+msgid "A place's name"
+msgstr "Nom d’un lieu"
 
 #: components/admin/identity-tab.tsx
 msgid "A PNG, JPEG, or WebP image of 256 KiB at most. It is drawn small, in a square, wherever the mark above is: a symbol reads better than a name written out."
@@ -1530,13 +1666,33 @@ msgstr "Un point : 1,234 vaut mille deux cent trente-quatre"
 msgid "A private address for your calendar application (Outlook, Google Calendar, Apple Calendar…). It shows what you can read of this view, from six months back to two years ahead. Keep it to yourself: whoever has it reads these rows."
 msgstr "Une adresse privée pour votre application de calendrier (Outlook, Google Agenda, Apple Calendrier…). Elle montre ce que vous pouvez lire de cette vue, de six mois en arrière à deux ans devant. Gardez-la pour vous : qui la connaît lit ces lignes."
 
+#: components/admin/limits-tab.tsx
+msgid "A provider's logout token"
+msgstr "Jeton de déconnexion d’un fournisseur"
+
+#: components/admin/limits-tab.tsx
+msgid "A provider's logout token, its age"
+msgstr "Âge d’un jeton de déconnexion"
+
 #: lib/errors.ts
 msgid "A reason is required"
 msgstr "Un motif est requis"
 
 #: components/admin/limits-tab.tsx
+msgid "A record's key in a store read by copy"
+msgstr "Clé d’un enregistrement d’un magasin copié"
+
+#: components/admin/limits-tab.tsx
 msgid "A request"
 msgstr "Une requête"
+
+#: components/admin/limits-tab.tsx
+msgid "A reset link an administrator sends"
+msgstr "Lien de réinitialisation envoyé par un administrateur"
+
+#: components/admin/limits-tab.tsx
+msgid "A reset link asked for"
+msgstr "Lien de réinitialisation demandé"
 
 #: components/admin/limits-tab.tsx
 msgid "A restore point"
@@ -1594,6 +1750,10 @@ msgstr "Une ligne qui ne correspond pas est cachée à ce membre dans chaque vue
 msgid "A rule of the client's database refuses this value"
 msgstr "Une règle de la base du client refuse cette valeur"
 
+#: components/admin/limits-tab.tsx
+msgid "A SAML request under way"
+msgstr "Requête SAML en cours"
+
 #: components/fields/field-meta.tsx
 msgid "A score drawn as symbols"
 msgstr "Une note dessinée en symboles"
@@ -1618,9 +1778,29 @@ msgstr "Un script est arrêté après 10 secondes, à 64 Mio de mémoire, ou apr
 msgid "A script makes 10 calls at most"
 msgstr "Un script fait 10 appels au plus"
 
+#: components/admin/limits-tab.tsx
+msgid "A script past its time, before it is ended"
+msgstr "Script au-delà de son temps, avant son arrêt"
+
 #: components/admin/api-tokens-tab.tsx
 msgid "A script that calls the API with this token will be refused at once."
 msgstr "Un script qui appelle l’API avec ce jeton sera refusé aussitôt."
+
+#: components/admin/limits-tab.tsx
+msgid "A script's error"
+msgstr "Erreur d’un script"
+
+#: components/admin/limits-tab.tsx
+msgid "A script's memory"
+msgstr "Mémoire d’un script"
+
+#: components/admin/limits-tab.tsx
+msgid "A script's process starting"
+msgstr "Démarrage du processus d’un script"
+
+#: components/admin/limits-tab.tsx
+msgid "A script's time"
+msgstr "Temps d’un script"
 
 #: components/shell/welcome-page.tsx
 msgid "A second factor is asked at each sign-in after your password: an authenticator app, or a passkey."
@@ -1629,6 +1809,10 @@ msgstr "Un second facteur est demandé à chaque connexion après votre mot de p
 #: components/shell/welcome-page.tsx
 msgid "A second factor is asked at each sign-in after your password. On this instance it is required before you create a base."
 msgstr "Un second facteur est demandé à chaque connexion après votre mot de passe. Sur cette instance, il est requis avant de créer une base."
+
+#: components/admin/limits-tab.tsx
+msgid "A second factor's challenge"
+msgstr "Défi d’un second facteur"
 
 #: components/table/automations-dialog.tsx
 msgid "A secret address is created when you save. A JSON POST (64 KiB at most) triggers it; each field of the body becomes a variable, listed below."
@@ -1667,6 +1851,10 @@ msgstr "Un choix plus court purge aussi, à la purge de la nuit suivante, ce qui
 msgid "A shorter length also brings forward the end of the points already made; a longer one applies to those made after it. Points that have ended are deleted at the nightly purge."
 msgstr "Une durée plus courte avance aussi la fin des points déjà créés ; une plus longue vaut pour ceux créés après elle. Les points arrivés à leur fin sont supprimés à la purge de la nuit."
 
+#: components/admin/limits-tab.tsx
+msgid "A sign-in"
+msgstr "Une connexion"
+
 #: components/admin/security-tab.tsx
 msgid "A sign-in or a token in use counts as activity. Email is not set up: accounts are disabled without warning. Administrators and accounts managed by your identity provider (SCIM) are never disabled; an administrator can enable an account again."
 msgstr "Une connexion ou un jeton utilisé compte comme une activité. L’envoi d’emails n’est pas configuré : les comptes sont désactivés sans avertissement. Les administrateurs et les comptes gérés par votre fournisseur d’identité (SCIM) ne sont jamais désactivés ; un administrateur peut réactiver un compte."
@@ -1675,13 +1863,41 @@ msgstr "Une connexion ou un jeton utilisé compte comme une activité. L’envoi
 msgid "A sign-in or a token in use counts as activity. The person is warned by email a week before. Administrators and accounts managed by your identity provider (SCIM) are never disabled; an administrator can enable an account again."
 msgstr "Une connexion ou un jeton utilisé compte comme une activité. La personne est prévenue par email une semaine avant. Les administrateurs et les comptes gérés par votre fournisseur d’identité (SCIM) ne sont jamais désactivés ; un administrateur peut réactiver un compte."
 
+#: components/admin/limits-tab.tsx
+msgid "A sign-in recent enough to erase an account"
+msgstr "Connexion assez récente pour effacer un compte"
+
+#: components/admin/limits-tab.tsx
+msgid "A sign-up's link"
+msgstr "Lien d’une inscription"
+
 #: components/shell/new-table-dialog.tsx
 msgid "A single Name field."
 msgstr "Un seul champ Nom."
 
+#: components/admin/limits-tab.tsx
+msgid "A single sign-on under way"
+msgstr "Authentification unique en cours"
+
 #: lib/errors.ts
 msgid "A site that embeds a link is an address starting with https://, with no path and no wildcard: 20 at most"
 msgstr "Un site qui intègre un lien est une adresse commençant par https://, sans chemin ni joker : 20 au plus"
+
+#: components/admin/limits-tab.tsx
+msgid "A snapshot sent, not yet imported"
+msgstr "Instantané envoyé, pas encore importé"
+
+#: components/admin/limits-tab.tsx
+msgid "A snapshot waiting for its job"
+msgstr "Instantané en attente de son travail"
+
+#: components/admin/limits-tab.tsx
+msgid "A snapshot, without its files"
+msgstr "Instantané, sans ses fichiers"
+
+#: components/admin/limits-tab.tsx
+msgid "A snapshot's archive"
+msgstr "Archive d’un instantané"
 
 #: lib/errors.ts
 msgid "A source already has this name"
@@ -1707,6 +1923,10 @@ msgstr "Les tables surveillées d’une source ne peuvent pas être lues"
 msgid "A spreadsheet imported"
 msgstr "Un classeur importé"
 
+#: components/admin/limits-tab.tsx
+msgid "A spreadsheet's archive, unpacked"
+msgstr "Archive d’un classeur, décompressée"
+
 #: lib/errors.ts
 msgid "A starting point is not applied when the tables live in a source. Create the base empty, then add its tables."
 msgstr "Un point de départ n’est pas appliqué quand les tables vivent dans une source. Créez la base vide, puis ajoutez ses tables."
@@ -1726,6 +1946,10 @@ msgstr "Une surcharge remplace le rôle sur la base pour une table, dans un sens
 #: lib/errors.ts
 msgid "A table that lives in an external source is not duplicated. Add another table there."
 msgstr "Une table qui vit dans une source externe n’est pas dupliquée. Ajoutez-en une autre là-bas."
+
+#: components/admin/limits-tab.tsx
+msgid "A table's opening, written once"
+msgstr "Ouverture d’une table, écrite une fois"
 
 #: components/views/timeline-view.tsx
 msgid "A timeline needs a date field that the client's database holds."
@@ -1767,6 +1991,14 @@ msgstr "Un nombre entier de {min} à {max}."
 #: components/admin/logs-tab.tsx
 msgid "A word in a message, a path, or a code"
 msgstr "Un mot dans un message, un chemin ou un code"
+
+#: components/admin/limits-tab.tsx
+msgid "A workbook sent, not yet imported"
+msgstr "Classeur envoyé, pas encore importé"
+
+#: components/admin/limits-tab.tsx
+msgid "A workbook waiting for its job"
+msgstr "Classeur en attente de son travail"
 
 #: components/admin/security-tab.tsx
 msgid "A year at least: the trash restores a deleted row from this trail. What a shorter choice deletes cannot be brought back; signatures are never deleted."
@@ -1876,6 +2108,10 @@ msgstr "Réglages du compte"
 msgid "Account unlocked"
 msgstr "Compte déverrouillé"
 
+#: components/admin/limits-tab.tsx
+msgid "accounts"
+msgstr "comptes"
+
 #: components/admin/account-page.tsx
 #: components/admin/admin-sections.ts
 #: components/admin/api-tokens-tab.tsx
@@ -1883,6 +2119,10 @@ msgstr "Compte déverrouillé"
 #: components/admin/health-tab.tsx
 msgid "Accounts"
 msgstr "Comptes"
+
+#: components/admin/limits-tab.tsx
+msgid "Accounts a directory reads at once"
+msgstr "Comptes qu’un annuaire lit à la fois"
 
 #: components/admin/health-tab.tsx
 msgid "Accounts active (30 days)"
@@ -1895,6 +2135,10 @@ msgstr "Comptes actifs au cours des 30 derniers jours"
 #: components/admin/security-tab.tsx
 msgid "Accounts and access"
 msgstr "Comptes et accès"
+
+#: components/admin/limits-tab.tsx
+msgid "Accounts changed at once"
+msgstr "Comptes modifiés d’un coup"
 
 #: components/admin/account-handoff.tsx
 #: components/admin/base-admin-members.tsx
@@ -2485,9 +2729,17 @@ msgstr "Un compte a été verrouillé après des échecs de connexion"
 msgid "An address"
 msgstr "Une adresse"
 
+#: components/admin/limits-tab.tsx
+msgid "An administrator acting as someone"
+msgstr "Administrateur qui agit au nom d’une personne"
+
 #: components/admin/account-actions.tsx
 msgid "An administrator already can"
 msgstr "Un administrateur le peut déjà"
+
+#: components/admin/limits-tab.tsx
+msgid "An administrator locked out"
+msgstr "Administrateur verrouillé"
 
 #: components/settings/base-links.tsx
 #: components/table/share-dialog.tsx
@@ -2502,13 +2754,45 @@ msgstr "Le seul mot de passe d’un administrateur ouvre tous les comptes et tou
 msgid "An administrator's second factor is an authenticator app or a passkey, not a code by email"
 msgstr "Le second facteur d’un administrateur est une application d’authentification ou une clé d’accès, pas un code par email"
 
+#: components/admin/limits-tab.tsx
+msgid "An alert sent again"
+msgstr "Alerte renvoyée"
+
+#: components/admin/limits-tab.tsx
+msgid "An alert that has ended"
+msgstr "Alerte terminée"
+
+#: components/admin/limits-tab.tsx
+msgid "An answer a script's call reads"
+msgstr "Réponse que lit l’appel d’un script"
+
+#: components/admin/limits-tab.tsx
+msgid "An answer of a store read through its API"
+msgstr "Réponse d’un magasin lu par son API"
+
+#: components/admin/limits-tab.tsx
+msgid "An answer of an import from another product"
+msgstr "Réponse d’un import depuis un autre produit"
+
 #: components/admin/security-tab.tsx
 msgid "An API token lives at most"
 msgstr "Un jeton d’API vit au plus"
 
+#: components/admin/limits-tab.tsx
+msgid "An API token, unless its maker says"
+msgstr "Jeton d’API, sauf choix de son auteur"
+
 #: components/admin/oauth-clients-tab.tsx
 msgid "An application asks a person for access to bases they choose, then calls the API and MCP with a token. Register it here with the addresses it may send the person back to."
 msgstr "Une application demande à une personne l’accès à des bases qu’elle choisit, puis appelle l’API et MCP avec un jeton. Enregistrez-la ici avec les adresses vers lesquelles elle peut renvoyer la personne."
+
+#: components/admin/limits-tab.tsx
+msgid "An application's code"
+msgstr "Code d’une application"
+
+#: components/admin/limits-tab.tsx
+msgid "An application's renewal"
+msgstr "Renouvellement d’une application"
 
 #: components/admin/limits-tab.tsx
 msgid "An application's tokens"
@@ -2521,6 +2805,10 @@ msgstr "Une application d’authentification est configurée."
 #: components/settings/account-settings.tsx
 msgid "An authenticator app or a passkey, asked at each sign-in after your password."
 msgstr "Une application d’authentification ou une clé d’accès, demandée à chaque connexion après votre mot de passe."
+
+#: components/admin/limits-tab.tsx
+msgid "An authenticator's code"
+msgstr "Code d’une application d’authentification"
 
 #: components/admin/limits-tab.tsx
 msgid "An automation"
@@ -2562,13 +2850,29 @@ msgstr "Une ligne développée dessine le texte de ce champ sous forme de code, 
 msgid "An export's file kept"
 msgstr "Le fichier d’un export, gardé"
 
+#: components/admin/limits-tab.tsx
+msgid "An identity provider's settings, read again"
+msgstr "Réglages du fournisseur d’identité, relus"
+
 #: components/admin/notifications-tab.tsx
 msgid "An import failed"
 msgstr "Un import a échoué"
 
+#: components/admin/limits-tab.tsx
+msgid "An import waiting for its job"
+msgstr "Import en attente de son travail"
+
+#: components/admin/limits-tab.tsx
+msgid "An import's working folder"
+msgstr "Dossier de travail d’un import"
+
 #: components/admin/notifications-tab.tsx
 msgid "An integration is failing"
 msgstr "Une intégration échoue"
+
+#: components/admin/limits-tab.tsx
+msgid "An invitation"
+msgstr "Invitation"
 
 #: components/fields/field-meta.tsx
 msgid "An object or a list, which a formula reads into"
@@ -2770,6 +3074,10 @@ msgstr "Demander aussi le second facteur d’AnyGridDB"
 msgid "Asked by the person"
 msgstr "Demandé par la personne"
 
+#: components/admin/limits-tab.tsx
+msgid "Asking for a newer version"
+msgstr "Recherche d’une nouvelle version"
+
 #: components/table/circuit-editor.tsx
 msgid "Asks a reason"
 msgstr "Demande un motif"
@@ -2869,6 +3177,10 @@ msgstr "Automatisations"
 msgid "Automations of {table}"
 msgstr "Automatisations de {table}"
 
+#: components/admin/limits-tab.tsx
+msgid "Automations one change sets off in turn"
+msgstr "Automatisations qu’un changement déclenche en chaîne"
+
 #: components/fields/field-meta.tsx
 msgid "Autonumber"
 msgstr "Numéro auto"
@@ -2959,6 +3271,10 @@ msgstr "Code-barres"
 msgid "Barcode of {value}"
 msgstr "Code-barres de {value}"
 
+#: components/admin/limits-tab.tsx
+msgid "Bars of a histogram"
+msgstr "Barres d’un histogramme"
+
 #: components/admin/bases-tab.tsx
 #: components/admin/invitations-panel.tsx
 #: components/admin/rights-at.tsx
@@ -3044,6 +3360,10 @@ msgstr "Restauration d’une base"
 msgid "Base restored, beside this one"
 msgstr "Base restaurée, à côté de celle-ci"
 
+#: components/admin/limits-tab.tsx
+msgid "bases"
+msgstr "bases"
+
 #: components/admin/accounts-tab.tsx
 #: components/admin/admin-sections.ts
 #: components/admin/base-admin-page.tsx
@@ -3054,6 +3374,10 @@ msgstr "Base restaurée, à côté de celle-ci"
 #: components/shell/sidebar.tsx
 msgid "Bases"
 msgstr "Bases"
+
+#: components/admin/limits-tab.tsx
+msgid "Bases a file of people names"
+msgstr "Bases qu’un fichier de personnes nomme"
 
 #: components/admin/health-tab.tsx
 msgid "Bases active (30 days)"
@@ -3092,6 +3416,10 @@ msgstr "Avant de l’installer, vérifiez que son empreinte SHA-256 est bien cel
 #: components/settings/restore-points.tsx
 msgid "Before the yearly import"
 msgstr "Avant l’import annuel"
+
+#: components/admin/limits-tab.tsx
+msgid "Between two codes by email"
+msgstr "Entre deux codes par courriel"
 
 #: components/dashboards/dashboard-board.tsx
 msgid "Bins"
@@ -3193,6 +3521,10 @@ msgstr "Flux de calendrier"
 msgid "Call a URL"
 msgstr "Appeler une URL"
 
+#: components/admin/limits-tab.tsx
+msgid "Calls of public links in one request"
+msgstr "Appels de liens publics dans une requête"
+
 #: components/admin/notifications-tab.tsx
 msgid "Calls one address when a job starts, one when it succeeds, and one when it fails."
 msgstr "Appelle une adresse au démarrage d’une tâche, une autre quand elle réussit, et une autre quand elle échoue."
@@ -3268,6 +3600,10 @@ msgstr "Champs de carte"
 #: components/views/kanban-view.tsx
 msgid "Card title"
 msgstr "Titre des cartes"
+
+#: components/admin/limits-tab.tsx
+msgid "Categories of a chart"
+msgstr "Catégories d’un graphique"
 
 #: components/dashboards/dashboard-board.tsx
 msgid "Categories shown"
@@ -3384,6 +3720,10 @@ msgstr "Canaux et battements"
 #: components/admin/notifications-tab.tsx
 msgid "Channels hear failures as they happen. Heartbeats ping a monitor when a chosen schedule runs. A secret is stored encrypted and is not shown again."
 msgstr "Les canaux entendent les échecs au fil de l’eau. Les battements interrogent un moniteur quand une planification choisie s’exécute. Un secret est chiffré et n’est plus affiché."
+
+#: components/admin/limits-tab.tsx
+msgid "Channels, directories and calls out"
+msgstr "Canaux, annuaires et appels sortants"
 
 #: components/admin/limits-tab.tsx
 msgid "characters"
@@ -3630,6 +3970,10 @@ msgstr "Code affiché par l’application"
 msgid "Code to scan with your authenticator app"
 msgstr "Code à scanner avec votre application d’authentification"
 
+#: components/admin/limits-tab.tsx
+msgid "Codes by email an hour"
+msgstr "Codes par courriel par heure"
+
 #: components/fields/field-meta.tsx
 msgid "Collaborator"
 msgstr "Collaborateur"
@@ -3654,6 +3998,10 @@ msgstr "Replier toutes les bases"
 #: components/views/kanban-view.tsx
 msgid "Collapse column {name}"
 msgstr "Replier la colonne {name}"
+
+#: components/admin/limits-tab.tsx
+msgid "Collections or indices listed"
+msgstr "Collections ou index listés"
 
 #: components/admin/notifications-tab.tsx
 msgid "Collector address"
@@ -3732,6 +4080,14 @@ msgstr "Commentateur"
 msgid "Comments"
 msgstr "Commentaires"
 
+#: components/admin/limits-tab.tsx
+msgid "Comments a row shows"
+msgstr "Commentaires qu’une ligne montre"
+
+#: components/admin/limits-tab.tsx
+msgid "Comments of a snapshot"
+msgstr "Commentaires d’un instantané"
+
 #: components/admin/health-tab.tsx
 msgid "commit not recorded"
 msgstr "commit non enregistré"
@@ -3763,6 +4119,10 @@ msgstr "Calculé à partir d’autres champs"
 #: components/fields/field-link-settings.tsx
 msgid "Concatenate"
 msgstr "Concaténer"
+
+#: components/admin/limits-tab.tsx
+msgid "Conditions of a filter"
+msgstr "Conditions d’un filtre"
 
 #: components/history/earlier.tsx
 msgid "Configuration"
@@ -4230,6 +4590,10 @@ msgstr "Tableaux de bord"
 msgid "Dashboards of {name}"
 msgstr "Tableaux de bord de {name}"
 
+#: components/admin/limits-tab.tsx
+msgid "Dashboards of a snapshot"
+msgstr "Tableaux de bord d’un instantané"
+
 #: components/admin/permission-labels.ts
 msgid "Data"
 msgstr "Données"
@@ -4294,6 +4658,18 @@ msgstr "jours"
 msgid "Days"
 msgstr "Jours"
 
+#: components/admin/limits-tab.tsx
+msgid "Days a calendar feed reaches ahead"
+msgstr "Jours qu’un flux de calendrier anticipe"
+
+#: components/admin/limits-tab.tsx
+msgid "Days a calendar feed reaches back"
+msgstr "Jours qu’un flux de calendrier remonte"
+
+#: components/admin/limits-tab.tsx
+msgid "Days an account counts as active"
+msgstr "Jours où un compte compte comme actif"
+
 #: components/fields/field-editor.tsx
 msgid "Days are read in this time zone: {zone}."
 msgstr "Les jours sont lus dans ce fuseau horaire : {zone}."
@@ -4301,6 +4677,10 @@ msgstr "Les jours sont lus dans ce fuseau horaire : {zone}."
 #: components/admin/api-tokens-tab.tsx
 msgid "Days it lives"
 msgstr "Durée (jours)"
+
+#: components/admin/limits-tab.tsx
+msgid "Days of usage Health shows"
+msgstr "Jours d’usage que montre l’état de santé"
 
 #: lib/known-text.ts
 msgid "Deals"
@@ -5123,6 +5503,10 @@ msgstr "erreur, {error}"
 msgid "Errors"
 msgstr "Erreurs"
 
+#: components/admin/limits-tab.tsx
+msgid "Errors an import lists"
+msgstr "Erreurs qu’un import liste"
+
 #: lib/key-names.ts
 msgctxt "keyboard key"
 msgid "Esc"
@@ -5421,6 +5805,14 @@ msgstr "Automatisations en échec (24 h)"
 msgid "Failed deliveries (24 h)"
 msgstr "Envois en échec (24 h)"
 
+#: components/admin/limits-tab.tsx
+msgid "Failed deliveries before a channel pauses"
+msgstr "Livraisons manquées avant la pause d’un canal"
+
+#: components/admin/limits-tab.tsx
+msgid "Failed deliveries before a webhook stops"
+msgstr "Livraisons manquées avant l’arrêt d’un webhook"
+
 #: components/admin/health-tab.tsx
 msgid "Failed jobs (24 h)"
 msgstr "Tâches en échec (24 h)"
@@ -5522,6 +5914,10 @@ msgstr "nom_du_champ"
 msgid "Fields"
 msgstr "Champs"
 
+#: components/admin/limits-tab.tsx
+msgid "Fields a view keeps in place"
+msgstr "Champs qu’une vue fige"
+
 #: lib/errors.ts
 msgid "Fields are kept in this side schema: it cannot change while they exist"
 msgstr "Des champs sont conservés dans ce schéma latéral : il ne peut pas changer tant qu’ils existent"
@@ -5537,6 +5933,10 @@ msgstr "Les champs marqués d’un astérisque doivent être remplis avant l’a
 #: components/admin/sources-tab.tsx
 msgid "Fields people add to this source's tables are kept there, one side table per exposed table (a database on MySQL and MariaDB, the account's own schema on Oracle). Left empty, AnyGridDB keeps them in its own database: they filter a view, but cannot sort or group it. The client's tables are never changed."
 msgstr "Les champs ajoutés aux tables de cette source y sont conservés, une table latérale par table exposée (une base de données sur MySQL et MariaDB, le schéma du compte lui-même sur Oracle). Laissé vide, AnyGridDB les conserve dans sa propre base : ils filtrent une vue, mais ne peuvent ni la trier ni la regrouper. Les tables du client ne sont jamais modifiées."
+
+#: components/admin/limits-tab.tsx
+msgid "Fields read of a collection or an index"
+msgstr "Champs lus d’une collection ou d’un index"
 
 #: components/dashboards/dashboard-board.tsx
 msgid "Figures follow the copy of {date}"
@@ -5598,9 +5998,17 @@ msgstr "Fichiers"
 msgid "Files and images"
 msgstr "Fichiers et images"
 
+#: components/admin/limits-tab.tsx
+msgid "Files in a cell"
+msgstr "Fichiers d’une cellule"
+
 #: components/admin/permission-labels.ts
 msgid "Files into a table, and a workbook as new tables."
 msgstr "Des fichiers dans une table, et un classeur en nouvelles tables."
+
+#: components/admin/limits-tab.tsx
+msgid "Files of a snapshot"
+msgstr "Fichiers d’un instantané"
 
 #: components/admin/limits-tab.tsx
 msgid "Files sent"
@@ -5714,6 +6122,10 @@ msgstr "Nom du dossier"
 #: lib/errors.ts
 msgid "Folder not found"
 msgstr "Dossier introuvable"
+
+#: components/admin/limits-tab.tsx
+msgid "Folders of a snapshot"
+msgstr "Dossiers d’un instantané"
 
 #: components/admin/security-tab.tsx
 msgid "For"
@@ -6458,6 +6870,10 @@ msgstr "L’incrémental met à jour les lignes qui ont bougé depuis le dernier
 msgid "Indices"
 msgstr "Indices"
 
+#: components/admin/limits-tab.tsx
+msgid "Indices listed"
+msgstr "Index listés"
+
 #: components/admin/logs-tab.tsx
 msgid "Info"
 msgstr "Information"
@@ -6867,6 +7283,14 @@ msgstr "Il s’arrête tout de suite et garde ses réglages : une personne qui 
 msgid "It's copied"
 msgstr "C’est copié"
 
+#: components/admin/limits-tab.tsx
+msgid "items"
+msgstr "éléments"
+
+#: components/admin/limits-tab.tsx
+msgid "Items of a list in a cell"
+msgstr "Éléments d’une liste dans une cellule"
+
 #: components/admin/outbound-tab.tsx
 msgid "Its address stops working now, for everyone who has it. The view stays as it is."
 msgstr "Son adresse cesse de fonctionner tout de suite, pour tous ceux qui l’ont. La vue reste telle quelle."
@@ -6974,6 +7398,10 @@ msgstr "Met les textes bout à bout, comme l’opérateur &."
 #: components/fields/field-meta.tsx
 msgid "JSON"
 msgstr "JSON"
+
+#: components/admin/limits-tab.tsx
+msgid "JSON in a cell"
+msgstr "JSON dans une cellule"
 
 #: components/shell/shortcuts-dialog.tsx
 msgid "Jump to the edge of the grid"
@@ -7180,8 +7608,28 @@ msgid "Level"
 msgstr "Niveau"
 
 #: components/admin/limits-tab.tsx
+msgid "levels"
+msgstr "niveaux"
+
+#: components/admin/limits-tab.tsx
+msgid "Levels of a filter"
+msgstr "Niveaux d’un filtre"
+
+#: components/admin/limits-tab.tsx
+msgid "Levels of a formula"
+msgstr "Niveaux d’une formule"
+
+#: components/admin/limits-tab.tsx
 msgid "Levels of grouping"
 msgstr "Niveaux de regroupement"
+
+#: components/admin/limits-tab.tsx
+msgid "Levels of JSON in a cell"
+msgstr "Niveaux du JSON d’une cellule"
+
+#: components/admin/limits-tab.tsx
+msgid "Levels of what a call sends"
+msgstr "Niveaux de ce qu’envoie un appel"
 
 #: components/shell/about-dialog.tsx
 msgid "Licenses of the libraries it uses"
@@ -7219,6 +7667,18 @@ msgstr "Limites enregistrées"
 #: components/dashboards/dashboard-board.tsx
 msgid "Line"
 msgstr "Courbe"
+
+#: components/admin/limits-tab.tsx
+msgid "Lines a script logs"
+msgstr "Lignes qu’un script journalise"
+
+#: components/admin/limits-tab.tsx
+msgid "Lines of each list in an account's data"
+msgstr "Lignes de chaque liste des données d’un compte"
+
+#: components/admin/limits-tab.tsx
+msgid "Lines of the log Administration shows"
+msgstr "Lignes du journal que montre l’administration"
 
 #: components/table/import-dialog.tsx
 msgid "Lines replaced by a later line"
@@ -7271,6 +7731,14 @@ msgstr "Lien vers des lignes"
 msgid "Linked table"
 msgstr "Table liée"
 
+#: components/admin/limits-tab.tsx
+msgid "Links a lookup follows"
+msgstr "Liens qu’une recherche suit"
+
+#: components/admin/limits-tab.tsx
+msgid "Links a snapshot carries per field"
+msgstr "Liens qu’un instantané porte par champ"
+
 #: components/admin/admin-sections.ts
 #: components/admin/base-admin-page.tsx
 #: components/admin/bases-tab.tsx
@@ -7280,6 +7748,10 @@ msgstr "Liens et flux"
 #: components/admin/security-tab.tsx
 msgid "Links that no longer fit stop opening at once, and open again if you change your mind."
 msgstr "Les liens qui ne conviennent plus cessent aussitôt de s’ouvrir, et s’ouvrent de nouveau si vous changez d’avis."
+
+#: components/admin/limits-tab.tsx
+msgid "Links written to one cell"
+msgstr "Liens écrits dans une cellule"
 
 #: components/table/view-tabs.tsx
 msgid "List"
@@ -7641,6 +8113,10 @@ msgstr "Membres"
 msgid "Members and access of {name}"
 msgstr "Membres et accès de {name}"
 
+#: components/admin/limits-tab.tsx
+msgid "Members of a directory's group"
+msgstr "Membres d’un groupe de l’annuaire"
+
 #: components/admin/health-tab.tsx
 msgid "Memory used"
 msgstr "Mémoire utilisée"
@@ -7663,6 +8139,14 @@ msgstr "Écrire aux comptes"
 msgid "Message after submit"
 msgstr "Message après envoi"
 
+#: components/admin/limits-tab.tsx
+msgid "Messages before a connection is ready"
+msgstr "Messages avant qu’une connexion soit prête"
+
+#: components/admin/limits-tab.tsx
+msgid "Messages waiting for a connection"
+msgstr "Messages en attente d’une connexion"
+
 #: components/dashboards/dashboard-board.tsx
 msgid "Metric"
 msgstr "Métrique"
@@ -7675,9 +8159,14 @@ msgstr "Métriques"
 msgid "Metrics, charts, and embedded views over this base’s tables."
 msgstr "Métriques, graphiques et vues intégrées sur les tables de cette base."
 
+#: components/admin/limits-tab.tsx
 #: components/admin/settings-tab.tsx
 msgid "MiB"
 msgstr "Mio"
+
+#: components/admin/limits-tab.tsx
+msgid "milliseconds"
+msgstr "millisecondes"
 
 #: components/admin/sources-tab.tsx
 msgid "min"
@@ -8687,10 +9176,19 @@ msgstr "Avis envoyé par email"
 msgid "Notice queued for {0, plural, one {# account} other {# accounts}}"
 msgstr "Avis mis en file pour {0, plural, one {# compte} other {# comptes}}"
 
+#: components/admin/limits-tab.tsx
+msgid "Notices a channel sends in its window"
+msgstr "Avis qu’un canal envoie dans sa fenêtre"
+
+#: components/admin/limits-tab.tsx
+msgid "Notices to accounts an hour"
+msgstr "Avis aux comptes par heure"
+
 #: components/admin/support-tab.tsx
 msgid "Notification channel ({kind})"
 msgstr "Canal de notification ({kind})"
 
+#: components/admin/limits-tab.tsx
 #: components/admin/support-tab.tsx
 msgid "Notification channels"
 msgstr "Canaux de notification"
@@ -9029,6 +9527,14 @@ msgstr "Facultatif : les bases auxquelles la personne accède dès le départ, 
 msgid "Options"
 msgstr "Options"
 
+#: components/admin/limits-tab.tsx
+msgid "Options a conversion adds to a field"
+msgstr "Options qu’une conversion ajoute à un champ"
+
+#: components/admin/limits-tab.tsx
+msgid "Options an import adds to a field"
+msgstr "Options qu’un import ajoute à un champ"
+
 #: components/table/filter-builder.tsx
 #: components/table/view-toolbar.tsx
 msgid "or"
@@ -9117,6 +9623,14 @@ msgstr "Paramètres : limit (1000 au plus), offset, view, sort (liste, - pour d
 #: components/fields/formula-docs.ts
 msgid "Part of the list, counted from 1; -1 is the last value."
 msgstr "Une partie de la liste, comptée depuis 1 ; -1 est la dernière valeur."
+
+#: components/admin/limits-tab.tsx
+msgid "Parts of a formula"
+msgstr "Éléments d’une formule"
+
+#: components/admin/limits-tab.tsx
+msgid "Parts of a spreadsheet's archive"
+msgstr "Parties de l’archive d’un classeur"
 
 #: components/admin/auth-labels.ts
 msgid "Passkey"
@@ -9255,9 +9769,17 @@ msgstr "personnes reprises en texte (nom et adresse)"
 msgid "People here"
 msgstr "Personnes présentes"
 
+#: components/admin/limits-tab.tsx
+msgid "People in a file of people"
+msgstr "Personnes d’un fichier de personnes"
+
 #: components/fields/field-meta.tsx
 msgid "People of the base"
 msgstr "Les personnes de la base"
+
+#: components/admin/limits-tab.tsx
+msgid "People one comment mentions"
+msgstr "Personnes qu’un commentaire mentionne"
 
 #: components/record/mention-input.tsx
 msgid "People to mention"
@@ -9651,6 +10173,10 @@ msgstr "Bases accessibles :"
 msgid "Reaches"
 msgstr "Portée"
 
+#: components/admin/limits-tab.tsx
+msgid "Reaching the object store"
+msgstr "Connexion au stockage d’objets"
+
 #: components/admin/sources-tab.tsx
 msgid "read"
 msgstr "lecture"
@@ -9703,9 +10229,17 @@ msgstr "Lien en lecture seule"
 msgid "Reading"
 msgstr "Lecture"
 
+#: components/admin/limits-tab.tsx
+msgid "Reading an identity provider"
+msgstr "Lecture d’un fournisseur d’identité"
+
 #: components/admin/open-base.tsx
 msgid "Reading the base"
 msgstr "Lire la base"
+
+#: components/admin/limits-tab.tsx
+msgid "Reads and writes a script asks"
+msgstr "Lectures et écritures qu’un script demande"
 
 #: components/admin/open-base.tsx
 msgid "reads it until {until}"
@@ -9766,6 +10300,14 @@ msgstr "Ouvertes récemment"
 msgid "Recipients"
 msgstr "Destinataires"
 
+#: components/admin/limits-tab.tsx
+msgid "Recipients of a notice to accounts"
+msgstr "Destinataires d’un avis aux comptes"
+
+#: components/admin/limits-tab.tsx
+msgid "Recipients of an automation's mail"
+msgstr "Destinataires du courriel d’une automatisation"
+
 #: components/table/automations-dialog.tsx
 msgid "Recipients, separated by commas"
 msgstr "Destinataires, séparés par des virgules"
@@ -9781,6 +10323,10 @@ msgstr "Reconnexion…"
 #: components/shell/sidebar.tsx
 msgid "Record who opens this table on the change trail"
 msgstr "Noter sur le journal des changements qui ouvre cette table"
+
+#: components/admin/limits-tab.tsx
+msgid "Records one call of the API writes"
+msgstr "Enregistrements qu’un appel de l’API écrit"
 
 #: components/fields/option-color.tsx
 msgid "Red"
@@ -10268,6 +10814,10 @@ msgstr "Points de restauration"
 msgid "Restore points kept for"
 msgstr "Durée de conservation des points de restauration"
 
+#: components/admin/limits-tab.tsx
+msgid "Restore points of a base"
+msgstr "Points de restauration d’une base"
+
 #: components/admin/bases-tab.tsx
 #: lib/trash.tsx
 msgid "Restored from the trash"
@@ -10582,8 +11132,20 @@ msgid "Rows a loop goes through"
 msgstr "Lignes parcourues par une boucle"
 
 #: components/admin/limits-tab.tsx
+msgid "Rows a page may skip"
+msgstr "Lignes qu’une page peut sauter"
+
+#: components/admin/limits-tab.tsx
 msgid "Rows a page reads"
 msgstr "Lignes qu’une page lit"
+
+#: components/admin/limits-tab.tsx
+msgid "Rows a series typed in figures reaches"
+msgstr "Lignes qu’une série de nombres atteint"
+
+#: components/admin/limits-tab.tsx
+msgid "Rows a widget shows"
+msgstr "Lignes qu’un widget montre"
 
 #: components/fields/field-editor.tsx
 msgid "Rows already empty here stay so until someone changes this field."
@@ -10617,6 +11179,14 @@ msgstr "Lignes importées en une fois"
 msgid "Rows in “{state}” ({count}) move to"
 msgstr "Les lignes de « {state} » ({count}) vont vers"
 
+#: components/admin/limits-tab.tsx
+msgid "Rows of a synced copy"
+msgstr "Lignes d’une copie synchronisée"
+
+#: components/admin/limits-tab.tsx
+msgid "Rows of a table in a snapshot"
+msgstr "Lignes d’une table dans un instantané"
+
 #: components/fields/field-meta.tsx
 msgid "Rows of another table"
 msgstr "Des lignes d’une autre table"
@@ -10628,6 +11198,10 @@ msgstr "Lignes des états retirés"
 #: components/fields/link-selection.tsx
 msgid "Rows offered"
 msgstr "Lignes proposées"
+
+#: components/admin/limits-tab.tsx
+msgid "Rows one change writes"
+msgstr "Lignes qu’un changement écrit"
 
 #: components/dashboards/dashboard-board.tsx
 msgid "Rows ordered by"
@@ -10965,6 +11539,10 @@ msgstr "Second facteur actif"
 msgid "Second factors removed"
 msgstr "Seconds facteurs retirés"
 
+#: components/admin/limits-tab.tsx
+msgid "seconds"
+msgstr "secondes"
+
 #: components/table/automations-dialog.tsx
 msgid "Secret name"
 msgstr "Nom du secret"
@@ -11197,6 +11775,10 @@ msgstr "Séries (optionnel)"
 msgid "Series are drawn"
 msgstr "Les séries sont dessinées"
 
+#: components/admin/limits-tab.tsx
+msgid "Series of a chart"
+msgstr "Séries d’un graphique"
+
 #: components/admin/notifications-tab.tsx
 msgid "Server"
 msgstr "Serveur"
@@ -11242,8 +11824,16 @@ msgid "Set by"
 msgstr "Réglé par"
 
 #: components/admin/limits-tab.tsx
+msgid "Set by AnyGridDB: how much a channel, a directory or a store sends or answers, and how long a call out may take."
+msgstr "Fixées par AnyGridDB : ce qu’un canal, un annuaire ou un magasin envoie ou répond, et la durée d’un appel sortant."
+
+#: components/admin/limits-tab.tsx
 msgid "Set by AnyGridDB."
 msgstr "Réglé par AnyGridDB."
+
+#: components/admin/limits-tab.tsx
+msgid "Set by AnyGridDB. How long a link, a code or a challenge lasts is the exchange's own and never changes."
+msgstr "Fixées par AnyGridDB. La durée d’un lien, d’un code ou d’un défi est celle de l’échange et ne change jamais."
 
 #: components/admin/limits-tab.tsx
 msgid "Set here, each within its bounds; the pages one connection follows, by AnyGridDB."
@@ -11527,6 +12117,10 @@ msgstr "Connexions et codes"
 msgid "Sign-ins to this account will no longer ask for a code by email."
 msgstr "Les connexions à ce compte ne demanderont plus de code par email."
 
+#: components/admin/limits-tab.tsx
+msgid "Sign-ins waiting their turn"
+msgstr "Connexions qui attendent leur tour"
+
 #: components/admin/security-tab.tsx
 msgid "Sign-ins, failures, and what administrators changed, with the address. The CNIL recommends keeping such logs six months to a year."
 msgstr "Les connexions, les échecs et ce que les administrateurs ont modifié, avec l’adresse. La CNIL recommande de conserver ces journaux de six mois à un an."
@@ -11564,6 +12158,10 @@ msgstr "L’inscription n’est ouverte qu’aux adresses de votre organisation"
 #: components/admin/sign-in-trail.tsx
 msgid "Sign-ups"
 msgstr "Inscriptions"
+
+#: components/admin/limits-tab.tsx
+msgid "Sign-ups waiting at one address"
+msgstr "Inscriptions en attente pour une adresse"
 
 #: components/admin/change-labels.ts
 #: components/table/circuit-editor.tsx
@@ -11620,6 +12218,10 @@ msgstr "Signée avec le mot de passe"
 msgid "Signed with the password or a second factor"
 msgstr "Signée avec le mot de passe ou un second facteur"
 
+#: components/admin/limits-tab.tsx
+msgid "Signing in, codes and links"
+msgstr "Connexion, codes et liens"
+
 #: components/admin/notifications-tab.tsx
 msgid "Signing secret"
 msgstr "Secret de signature"
@@ -11650,6 +12252,10 @@ msgstr "Choix unique"
 msgid "Single sign-on"
 msgstr "Authentification unique"
 
+#: components/admin/limits-tab.tsx
+msgid "Single sign-on asked again"
+msgstr "Authentification unique redemandée"
+
 #: components/admin/security-tab.tsx
 msgid "Single sign-on only (administrators keep a password)"
 msgstr "Authentification unique seulement (les administrateurs gardent un mot de passe)"
@@ -11665,6 +12271,10 @@ msgstr "L’authentification unique seule est activée : c’est le dernier adm
 #: components/admin/auth-labels.ts
 msgid "Single sign-on unlinked"
 msgstr "Authentification unique déliée"
+
+#: components/admin/limits-tab.tsx
+msgid "Sites a link may be shown in"
+msgstr "Sites où un lien peut s’afficher"
 
 #: components/table/share-dialog.tsx
 msgid "Sites that may embed it (optional)"
@@ -11742,6 +12352,10 @@ msgstr "Trier Z → A"
 #: components/table/view-toolbar.tsx
 msgid "Sorted by {0, plural, one {# field} other {# fields}}"
 msgstr "Trié par {0, plural, one {# champ} other {# champs}}"
+
+#: components/admin/limits-tab.tsx
+msgid "Sorts of a view"
+msgstr "Tris d’une vue"
 
 #: components/admin/health-tab.tsx
 #: components/admin/trails.tsx
@@ -11910,6 +12524,10 @@ msgstr "Étape"
 #: components/table/circuit-editor.tsx
 msgid "Steps"
 msgstr "Étapes"
+
+#: components/admin/limits-tab.tsx
+msgid "Steps of a path into JSON"
+msgstr "Étapes d’un chemin dans du JSON"
 
 #: components/shell/app-shell.tsx
 msgid "Stop"
@@ -12179,13 +12797,25 @@ msgstr "Table, base ou action"
 msgid "Tables"
 msgstr "Tables"
 
+#: components/admin/limits-tab.tsx
+msgid "Tables a base's activity names"
+msgstr "Tables que nomme l’activité d’une base"
+
 #: components/admin/permission-labels.ts
 msgid "Tables and fields"
 msgstr "Tables et champs"
 
+#: components/admin/limits-tab.tsx
+msgid "Tables listed of a client's database"
+msgstr "Tables listées d’une base cliente"
+
 #: components/admin/sources-tab.tsx
 msgid "Tables of {name}"
 msgstr "Tables de {name}"
+
+#: components/admin/limits-tab.tsx
+msgid "Tables of a snapshot"
+msgstr "Tables d’un instantané"
 
 #: lib/errors.ts
 msgid "Tables of this source are in a base, or in its trash: delete them first"
@@ -12293,6 +12923,14 @@ msgstr "Tester la connexion"
 msgid "Text"
 msgstr "Texte"
 
+#: components/admin/limits-tab.tsx
+msgid "Text a formula computes"
+msgstr "Texte que calcule une formule"
+
+#: components/admin/limits-tab.tsx
+msgid "Text a formula repeats"
+msgstr "Texte qu’une formule répète"
+
 #: lib/errors.ts
 msgid "Text too long for the client's database column"
 msgstr "Texte trop long pour la colonne de la base du client"
@@ -12353,6 +12991,10 @@ msgstr "L’adresse du serveur de tuiles d’où les vues carte tirent leur fond
 #: components/table/share-dialog.tsx
 msgid "The addresses of the sites that may show this link in a frame, each starting with https://. Without one, no site can."
 msgstr "Les adresses des sites qui peuvent afficher ce lien dans un cadre, chacune commençant par https://. Sans adresse, aucun site ne le peut."
+
+#: components/admin/limits-tab.tsx
+msgid "The answer to a check for a newer version"
+msgstr "Réponse à la recherche d’une nouvelle version"
 
 #: components/admin/permission-labels.ts
 msgid "The API, MCP and the applications given access act here with this role. Without it, a token reaches nothing here."
@@ -12544,6 +13186,10 @@ msgstr "Le jour : 03/04/2026 est le 3 avril"
 msgid "The environment"
 msgstr "L’environnement"
 
+#: components/admin/limits-tab.tsx
+msgid "The exchange itself"
+msgstr "L’échange lui-même"
+
 #: components/fields/formula-docs.ts
 msgid "The false value."
 msgstr "La valeur fausse."
@@ -12608,6 +13254,10 @@ msgstr "La première ligne donne les noms de colonnes."
 msgid "The first line of the file must name the columns email and name"
 msgstr "La première ligne du fichier doit nommer les colonnes email et nom"
 
+#: components/admin/limits-tab.tsx
+msgid "The first link of a new account"
+msgstr "Premier lien d’un nouveau compte"
+
 #: components/table/color-rules-editor.tsx
 msgid "The first matching rule colours the row."
 msgstr "La première règle correspondante colore la ligne."
@@ -12649,6 +13299,10 @@ msgid "The identity provider will no longer be able to provision anything with t
 msgstr "Le fournisseur d’identité ne pourra plus rien provisionner avec ce jeton."
 
 #: components/admin/limits-tab.tsx
+msgid "The installation token"
+msgstr "Jeton d’installation"
+
+#: components/admin/limits-tab.tsx
 msgid "The instance"
 msgstr "L’instance"
 
@@ -12675,6 +13329,10 @@ msgstr "Le certificat de l’instance expire le {when}."
 #: lib/errors.ts
 msgid "The instance's environment sets this: its operator changes it where the instance is installed"
 msgstr "L’environnement de l’instance fixe ce réglage : son opérateur le change là où l’instance est installée"
+
+#: components/admin/limits-tab.tsx
+msgid "The instance's logo"
+msgstr "Logo de l’instance"
 
 #: components/fields/formula-docs.ts
 msgid "The ISO week number."
@@ -12756,6 +13414,10 @@ msgstr "La liste sans ses doublons."
 msgid "The list's values as one text, separated by a comma by default."
 msgstr "Les valeurs de la liste en un texte, séparées par une virgule par défaut."
 
+#: components/admin/limits-tab.tsx
+msgid "The log Administration shows"
+msgstr "Journal que montre l’administration"
+
 #: components/admin/trails.tsx
 msgid "The log shows who changed which fields. Values stay in each row's history, behind the table's access rights."
 msgstr "Le journal montre qui a changé quels champs. Les valeurs restent visibles dans l’historique de chaque ligne, selon les droits sur la table."
@@ -12772,6 +13434,14 @@ msgstr "Le relais de courrier a refusé le compte ou le mot de passe"
 msgid "The mean of the numbers given."
 msgstr "Moyenne des nombres donnés."
 
+#: components/admin/limits-tab.tsx
+msgid "The memory of a file's reading"
+msgstr "Mémoire de la lecture d’un fichier"
+
+#: components/admin/limits-tab.tsx
+msgid "The memory of a script's process"
+msgstr "Mémoire du processus d’un script"
+
 #: components/fields/formula-docs.ts
 msgid "The minutes."
 msgstr "Les minutes."
@@ -12787,6 +13457,10 @@ msgstr "Le mois, de 1 à 12."
 #: components/table/import-dialog.tsx
 msgid "The month: 03/04/2026 is 4 March"
 msgstr "Le mois : 03/04/2026 est le 4 mars"
+
+#: components/admin/limits-tab.tsx
+msgid "The most a file in a cell may be set to"
+msgstr "Taille maximale réglable d’un fichier de cellule"
 
 #: components/admin/identity-tab.tsx
 msgid "The name before the sender's address. Empty: the instance's name, and without one the address alone."
@@ -12855,6 +13529,14 @@ msgstr "La personne pourra de nouveau se connecter."
 #: components/admin/security-tab.tsx
 msgid "The person, with a link sent by email"
 msgstr "La personne, avec un lien envoyé par email"
+
+#: components/admin/limits-tab.tsx
+msgid "The proof Administration asks for"
+msgstr "Preuve que demande l’administration"
+
+#: components/admin/limits-tab.tsx
+msgid "The reason for acting as someone"
+msgstr "Motif pour agir au nom d’une personne"
 
 #: components/admin/integrations-tab.tsx
 msgid "The redirect URL is derived from PUBLIC_URL after you save."
@@ -12948,6 +13630,10 @@ msgstr "Les lignes que vous avez supprimées reviennent en brouillon, avec leur 
 msgid "The same events, as syslog over TLS, to a collector of your network."
 msgstr "Les mêmes événements, en syslog sur TLS, vers un collecteur de votre réseau."
 
+#: components/admin/limits-tab.tsx
+msgid "The same notice not sent again"
+msgstr "Même avis non renvoyé pendant"
+
 #: lib/errors.ts
 msgid "The schema kept for AnyGridDB does not exist in the client's database: its administrator must create it"
 msgstr "Le schéma réservé à AnyGridDB n’existe pas dans la base du client : son administrateur doit le créer"
@@ -12967,6 +13653,10 @@ msgstr "Le script a été arrêté"
 #: lib/errors.ts
 msgid "The script's call got no answer"
 msgstr "L’appel du script n’a pas reçu de réponse"
+
+#: components/admin/limits-tab.tsx
+msgid "The scripts of one run together"
+msgstr "Scripts d’une exécution ensemble"
 
 #: components/fields/formula-docs.ts
 msgid "The seconds."
@@ -14078,6 +14768,22 @@ msgstr "Corbeille de {name}"
 msgid "Trash purge"
 msgstr "Purge de la corbeille"
 
+#: components/admin/limits-tab.tsx
+msgid "tries"
+msgstr "essais"
+
+#: components/admin/limits-tab.tsx
+msgid "Tries at a code by email"
+msgstr "Essais d’un code par courriel"
+
+#: components/admin/limits-tab.tsx
+msgid "Tries at a link's password"
+msgstr "Essais du mot de passe d’un lien"
+
+#: components/admin/limits-tab.tsx
+msgid "Tries at a second factor"
+msgstr "Essais d’un second facteur"
+
 #: components/history/earlier.tsx
 #: components/table/automations-dialog.tsx
 msgid "Trigger"
@@ -14666,12 +15372,20 @@ msgid "What"
 msgstr "Quoi"
 
 #: components/admin/limits-tab.tsx
+msgid "What a cell, a formula and a view hold"
+msgstr "Ce que tiennent une cellule, une formule et une vue"
+
+#: components/admin/limits-tab.tsx
 msgid "What a page reads and shows"
 msgstr "Ce qu’une page lit et montre"
 
 #: components/admin/roles-tab.tsx
 msgid "What a role gives someone on a base or a table. The four below come with every instance. Make others from the same permissions, then give them as the four are, from a base's settings or from here."
 msgstr "Ce qu’un rôle donne à quelqu’un sur une base ou une table. Les quatre ci-dessous viennent avec toute instance. Créez-en d’autres avec les mêmes permissions, puis donnez-les comme les quatre, depuis les réglages d’une base ou d’ici."
+
+#: components/admin/limits-tab.tsx
+msgid "What a script hands to the actions after it"
+msgstr "Ce qu’un script passe aux actions suivantes"
 
 #: components/admin/api-tokens-tab.tsx
 msgid "What a script of yours asks of Administration: list and make accounts, list invitations, read the settings and change those of the instance's running. A token gives no proof that it is you, so it does nothing that asks for one here."
@@ -14717,6 +15431,10 @@ msgstr "Ce qui vous attend, et ce qui a changé dans vos tables."
 msgid "What its scripts logged"
 msgstr "Ce que ses scripts ont écrit au journal"
 
+#: components/admin/limits-tab.tsx
+msgid "What one call of a script carries"
+msgstr "Ce que porte un appel d’un script"
+
 #: components/settings/account-settings.tsx
 msgid "What only you can change. Rights on a base are set in that base."
 msgstr "Ce que vous seul pouvez changer. Les droits sur une base se règlent dans cette base."
@@ -14732,6 +15450,10 @@ msgstr "Ce que chacun peut ouvrir aux scripts et à quiconque a un lien."
 #: components/table/import-dialog.tsx
 msgid "What separates the decimals in this file?"
 msgstr "Quel signe sépare les décimales dans ce fichier ?"
+
+#: components/admin/limits-tab.tsx
+msgid "What the instance answers a script's call"
+msgstr "Ce que l’instance répond à l’appel d’un script"
 
 #: components/admin/settings-tab.tsx
 msgid "What the operator fixed in the instance's environment: it changes there, with a restart. Passwords and keys are never shown."
@@ -14760,6 +15482,10 @@ msgstr "Ce que ce membre peut faire de {field}"
 #: components/table/view-tabs.tsx
 msgid "What this view is for (empty: no description)"
 msgstr "À quoi sert cette vue (vide : aucune description)"
+
+#: components/admin/limits-tab.tsx
+msgid "What waits for a slow connection"
+msgstr "Ce qui attend une connexion lente"
 
 #: components/shell/base-activity.tsx
 msgid "What was done in {base}, newest first: in the tables and fields you see, without their values. A row's values are in its history."
@@ -14906,6 +15632,10 @@ msgstr "Qui les propriétaires peuvent inviter"
 #: lib/errors.ts
 msgid "Widget not found"
 msgstr "Widget introuvable"
+
+#: components/admin/limits-tab.tsx
+msgid "Widgets of a snapshot"
+msgstr "Widgets d’un instantané"
 
 #: components/grid/grid-view.tsx
 msgid "Width in pixels"

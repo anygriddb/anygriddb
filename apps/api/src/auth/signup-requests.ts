@@ -6,18 +6,18 @@
  * or joined to an account by its address can reach a person who does not
  * read that mailbox.
  */
-import { trimEndRun } from "@anygriddb/core";
+import { trimEndRun, ceilingOf } from "@anygriddb/core";
 import { createHash, randomBytes } from "node:crypto";
 import type { Database } from "@anygriddb/db";
 import { sql } from "kysely";
 
 /** A link works for a day. */
-const SIGNUP_LINK_TTL_MS = 24 * 60 * 60 * 1000;
+const SIGNUP_LINK_TTL_MS = ceilingOf("protocol.sign_up_link_ms");
 /**
  * Live requests one address may have: past this, a sign-up gets the same
  * answer and mails nothing, so nobody can flood a mailbox with links.
  */
-export const MAX_PENDING_PER_ADDRESS = 3;
+export const MAX_PENDING_PER_ADDRESS = ceilingOf("auth.pending_sign_ups");
 
 const SIGNUP_TOKEN = /^[A-Za-z0-9_-]{43}$/;
 

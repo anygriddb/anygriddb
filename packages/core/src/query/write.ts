@@ -1,3 +1,4 @@
+import { ceilingOf } from "../limits";
 import { assertCellValue, type CellColumn } from "../cell-values";
 import {
   type FieldType,
@@ -29,7 +30,7 @@ const ROW_ID =
  */
 const STATUS_KEY = /^[a-z][a-z0-9_]{0,63}$/;
 
-export const MAX_BATCH_ROWS = 500;
+export const MAX_BATCH_ROWS = ceilingOf("write.rows_per_call");
 
 /** A row's place: a decimal, as PostgreSQL's numeric writes it. */
 const POSITION = /^-?\d{1,19}(?:\.\d{1,16000})?$/;

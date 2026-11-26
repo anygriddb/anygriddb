@@ -51,6 +51,12 @@ type Outgoing =
       logs: string[];
     };
 
+/**
+ * What a script's log and error keep: the catalogue's values, written out
+ * (`automation.script_log_lines`, `…_log_chars`, `…_error_chars`), since
+ * this process reads nothing of the product. `runner-limits.test.ts` holds them
+ * equal, reading this file as text.
+ */
 const MAX_LOG_LINES = 50;
 const MAX_LOG_LENGTH = 500;
 const MAX_ERROR_LENGTH = 300;

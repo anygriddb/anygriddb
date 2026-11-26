@@ -4,6 +4,7 @@
  * number, which pairs each row with the links that name it. No map of old
  * ids to new ones is held anywhere.
  */
+import { ceilingOf } from "../limits";
 import { AppError } from "../errors";
 import { ownerCall } from "./ddl";
 import { assertIdentifier, quoteIdent, type ParameterizedSql } from "./params";
@@ -20,7 +21,7 @@ const ROW_ID =
 export const FAR_ROW_NUMBER = "4503599627370496";
 
 /** The most pairs one statement links: well inside the pool's time limit. */
-export const MAX_SNAPSHOT_LINK_PAIRS = 5_000;
+export const MAX_SNAPSHOT_LINK_PAIRS = ceilingOf("snapshot.link_pairs");
 
 function assertSeqs(values: readonly string[]): void {
   for (const value of values) {

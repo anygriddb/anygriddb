@@ -4,12 +4,13 @@
  * read the same. `$` then steps: `.name`, `["any name"]`, `[n]`. A path
  * without `$` (`.a.b`, as jq writes it) starts there.
  */
+import { ceilingOf } from "../limits";
 import { AppError } from "../errors";
 
 /** One step of a JSON path: a member's name, or a place in a list (from 0). */
 export type JsonStep = { key: string } | { index: number };
 
-const MAX_STEPS = 32;
+const MAX_STEPS = ceilingOf("formula.json_path_steps");
 const NAME = /^[\p{L}_][\p{L}\p{N}_]*/u;
 
 /** The steps of a path, or `invalid_arguments` naming JSON_EXTRACT. */

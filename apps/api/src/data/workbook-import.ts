@@ -12,6 +12,7 @@ import {
   type MadeNames,
   MAX_WORKBOOK_SHEETS,
   OPTION_COLORS,
+  ceilingOf,
 } from "@anygriddb/core";
 import type { Database } from "@anygriddb/db";
 import { z } from "zod";
@@ -36,9 +37,9 @@ import {
 } from "./staged-uploads.js";
 
 /** A workbook waits half an hour for its sheets to be chosen. */
-const WORKBOOK_TTL_SECONDS = 30 * 60;
+const WORKBOOK_TTL_SECONDS = ceilingOf("retention.staged_workbook_seconds");
 /** A queued one keeps its file two hours, enough to wait its turn. */
-const WORKBOOK_JOB_TTL_SECONDS = 2 * 60 * 60;
+const WORKBOOK_JOB_TTL_SECONDS = ceilingOf("retention.queued_workbook_seconds");
 
 const sheetSchema = z.object({
   sheet: z.int().min(0),

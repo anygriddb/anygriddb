@@ -11,10 +11,10 @@
  * as rate limits are (ADR 0009): with several API processes, as many
  * guesses as processes may be compared together.
  */
-import { AppError } from "@anygriddb/core";
+import { AppError, ceilingOf } from "@anygriddb/core";
 
 /** Guesses about one subject that may wait behind the one being compared. */
-export const MAX_WAITING_GUESSES = 4;
+export const MAX_WAITING_GUESSES = ceilingOf("auth.waiting_guesses");
 
 type Line = { length: number; last: Promise<void> };
 
