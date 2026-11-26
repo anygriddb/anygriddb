@@ -27,7 +27,13 @@ import {
   widgetData,
   widgetsForReader,
 } from "../data/dashboards.js";
-import { authorize, baseAccess, guardBase, handle } from "./guard.js";
+import {
+  assertTokenMayExport,
+  authorize,
+  baseAccess,
+  guardBase,
+  handle,
+} from "./guard.js";
 import { asking, t } from "./init.js";
 import type { Context } from "./context.js";
 
@@ -189,7 +195,7 @@ export const dashboardsRouter = t.router({
         return { ok: true as const };
       }),
     ),
-  widgetData: asking({ asks: ["rows.read"] })
+  widgetData: asking({ asks: ["rows.read"], also: ["data.export"] })
     .input(widgetDataInputSchema)
     .query(({ ctx, input }) =>
       handle(ctx, async () => {
@@ -202,6 +208,13 @@ export const dashboardsRouter = t.router({
         await dashboardAccess(ctx, actor, dashboard);
         const widget = widgets.find((item) => item.id === input.widgetId);
         if (!widget) throw new AppError("unknown_widget");
+        const read = widget.config.tableId;
+        if (typeof read === "string") {
+          assertTokenMayExport(
+            ctx,
+            effectiveTableRole(bindings, read, dashboard.baseId),
+          );
+        }
         return widgetData(
           { db: ctx.db },
           {

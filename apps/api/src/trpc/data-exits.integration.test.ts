@@ -195,6 +195,40 @@ describe("what takes rows out of a base", () => {
     });
   });
 
+  it("reads rows by a token only where the role also exports", async () => {
+    // A way in for a token, and no export (ADR 0131, §6).
+    const reachOnly = (
+      await admin.call().admin.roles.create({
+        name: "Reach without export",
+        permissions: ["rows.read", "api.access"],
+      })
+    ).id;
+    await give("member", reachOnly);
+    try {
+      const token = await bearer(ids.member);
+      expect(
+        await errorCode(
+          member.call(token).rows.read({ tableId: ids.samples, limit: 10 }),
+        ),
+      ).toBe("access_denied");
+      // In a session it reads, as it always did.
+      expect(
+        (await member.call().rows.read({ tableId: ids.samples, limit: 10 }))
+          .rows,
+      ).toHaveLength(1);
+      // A role that exports reads by its token.
+      expect(
+        (
+          await exporter
+            .call(await bearer(ids.exporter))
+            .rows.read({ tableId: ids.samples, limit: 10 })
+        ).rows,
+      ).toHaveLength(1);
+    } finally {
+      await give("member", ids.keeps);
+    }
+  });
+
   it("makes a view's link only for who may export, and opens it only while they may", async () => {
     expect(
       await errorCode(member.call().catalog.createShare({ viewId: ids.grid })),

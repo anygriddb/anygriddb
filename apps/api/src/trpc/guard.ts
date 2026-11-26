@@ -116,6 +116,25 @@ export function assertGrantsAll(
   demandAll(role, permissions);
 }
 
+/**
+ * Rows read through a token are an extraction (ADR 0131, §6): a token, an
+ * application's included, reads rows only where its role also exports. A
+ * session reads them, the API console's included.
+ */
+export function assertTokenMayExport(ctx: Context, role: Grant | null): void {
+  if (ctx.tokenScope) demand(role, "data.export");
+}
+
+/** Reads a table's rows: `rows.read`, and an export for a token. */
+export async function guardTableRows(
+  ctx: Context,
+  tableId: string,
+): Promise<TableAccess> {
+  const access = await guardTable(ctx, tableId, "rows.read");
+  assertTokenMayExport(ctx, access.role);
+  return access;
+}
+
 /** Authorizes `permission` on a table, with the base role as fallback. */
 export async function guardTable(
   ctx: Context,
