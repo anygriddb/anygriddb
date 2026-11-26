@@ -18,7 +18,6 @@ import {
 } from "./restore-points";
 import { trashPurgeJobInputSchema } from "./trash";
 import { importWorkbookJobInputSchema } from "./workbook";
-import { ceilingOf } from "./limits";
 
 /**
  * Background jobs: long imports, exports, and copies run in a worker
@@ -55,13 +54,6 @@ export const JOB_LEASE_MS = 2 * 60_000;
 export const JOB_HEARTBEAT_MS = 30_000;
 /** Progress is written and published at most this often. */
 export const JOB_PROGRESS_INTERVAL_MS = 1_000;
-/** Queued or running jobs one person may have at once. */
-export const MAX_ACTIVE_JOBS = ceilingOf("jobs.active_per_account");
-/** Finished jobs stay listed this long. */
-export const JOB_RETENTION_DAYS = ceilingOf("jobs.retention_days");
-/** An export file can be downloaded this long. */
-export const EXPORT_FILE_HOURS = ceilingOf("export.file_hours");
-
 export function isActiveJob(status: JobStatus): boolean {
   return status === "queued" || status === "running";
 }

@@ -517,6 +517,13 @@ test("an administrator ends a session, reads the sign-ins, and exports access", 
     await expect(reports).toHaveValue("30");
     // The rows of a file too, while the environment fixes none: set, read
     // again, then emptied back to the shipped value.
+    // Jobs, connections and an automation's pace are set here too.
+    await expect(
+      page.getByLabel("Jobs queued or running", { exact: true }),
+    ).toHaveValue("5");
+    await expect(
+      page.getByLabel("Live connections", { exact: true }),
+    ).toHaveValue("64");
     const exported = page.getByLabel("Rows exported at once", { exact: true });
     const saveFiles = part("Imports, exports, copies and files").getByRole(
       "button",

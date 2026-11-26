@@ -59,8 +59,8 @@ import { madeNamesFor, readGateSettings, readMailVoice } from "./settings.js";
 import { liveBase, liveTable } from "./data/live.js";
 import {
   firstDropToTell,
-  MAX_DELAY_MINUTES,
   nextMinute,
+  paceIn,
   releaseWaitingRuns,
   reserveMinute,
   startRun,
@@ -939,7 +939,12 @@ export async function runAutomation(
   if (context.dropped) return log("skipped", [], "Delayed too long");
   // A press of a button is answered now: it does not wait for a place.
   startedAt ??=
-    (await startRun(deps.db, automation.id, deps.clock?.())) ?? undefined;
+    (await startRun(
+      deps.db,
+      automation.id,
+      paceIn((await readGateSettings(deps.db)).limits),
+      deps.clock?.(),
+    )) ?? undefined;
   if (!startedAt) return log("skipped", [], "Rate limit");
   if (!automation.createdBy) return log("failed", [], "Access denied");
   const creatorId = automation.createdBy;
@@ -1540,11 +1545,12 @@ async function takePlace(
 ): Promise<Date | null> {
   const at = deps.clock?.();
   const now = at ?? new Date();
+  const pace = paceIn((await readGateSettings(deps.db)).limits);
   const queuedAt = input.queuedAt ?? now.toISOString();
   const again = { ...input, queuedAt };
   if (input.queuedAt === undefined) {
     const given = await deps.db.transaction().execute(async (tx) => {
-      const minute = await reserveMinute(tx, automation.id, at);
+      const minute = await reserveMinute(tx, automation.id, pace, at);
       if (minute && !minute.due) {
         await addJob(tx, TASKS.automationRun, again, {
           runAt: minute.runAt,
@@ -1564,12 +1570,12 @@ async function takePlace(
     }
   } else if (
     now.getTime() - new Date(input.queuedAt).getTime() >=
-    MAX_DELAY_MINUTES * 60_000
+    pace.maxDelayMinutes * 60_000
   ) {
     await dropRun(deps, automation, context, at);
     return null;
   }
-  const started = await startRun(deps.db, automation.id, at);
+  const started = await startRun(deps.db, automation.id, pace, at);
   if (started) return started;
   // This minute went to runs that came late to theirs: the next one.
   await addJob(deps.db, TASKS.automationRun, again, {

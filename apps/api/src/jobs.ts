@@ -6,14 +6,12 @@ import {
   AppError,
   type Binding,
   effectiveTableRole,
-  EXPORT_FILE_HOURS,
   JOB_HEARTBEAT_MS,
   JOB_LEASE_MS,
-  JOB_RETENTION_DAYS,
   jobInputSchemas,
   type JobKind,
   type JobStatus,
-  MAX_ACTIVE_JOBS,
+  limitIn,
   progressDue,
   type PublicError,
   publicError,
@@ -29,6 +27,7 @@ import { gridChannel } from "./realtime/channels.js";
 import { deleteFiles, type FileStore } from "./files/index.js";
 import { notifyJobOutcome } from "./notify/dispatch.js";
 import { addJob, TASKS, type SqlExecutor } from "./queue/jobs.js";
+import { readGateSettings } from "./settings.js";
 
 export type { JobRow };
 
@@ -101,10 +100,22 @@ export type QueueDeps = {
   key?: KeyRing;
 };
 
-/** Refuses a sixth queued or running job for the same person. */
-export async function assertJobCapacity(
+/**
+ * Queued or running jobs one person may have at once, as Administration
+ * sets it (ADR 0132).
+ */
+async function jobsAllowed(db: Database): Promise<number> {
+  return limitIn(
+    "jobs.active_per_account",
+    (await readGateSettings(db)).limits,
+  );
+}
+
+/** Refuses a job past those a person may have queued or running. */
+async function countJobs(
   db: Database,
   userId: string,
+  allowed: number,
 ): Promise<void> {
   const active = await db
     .selectFrom("jobs")
@@ -112,9 +123,17 @@ export async function assertJobCapacity(
     .where("userId", "=", userId)
     .where("status", "in", ["queued", "running"])
     .executeTakeFirst();
-  if ((active?.value ?? 0) >= MAX_ACTIVE_JOBS) {
+  if ((active?.value ?? 0) >= allowed) {
     throw new AppError("too_many_jobs");
   }
+}
+
+/** Refuses a job past those a person may have queued or running. */
+export async function assertJobCapacity(
+  db: Database,
+  userId: string,
+): Promise<void> {
+  await countJobs(db, userId, await jobsAllowed(db));
 }
 
 /**
@@ -122,13 +141,14 @@ export async function assertJobCapacity(
  * person: two requests at once would both count before either has written.
  */
 async function holdJobCapacity(
-  tx: Parameters<typeof assertJobCapacity>[0],
+  tx: Database,
   userId: string,
+  allowed: number,
 ): Promise<void> {
   await sqlTag`select pg_advisory_xact_lock(hashtext(${`jobs:${userId}`}))`.execute(
     tx,
   );
-  await assertJobCapacity(tx, userId);
+  await countJobs(tx, userId, allowed);
 }
 
 /**
@@ -153,8 +173,9 @@ export async function enqueueJob(
   if (!parsed.success) {
     throw new AppError("invalid_job");
   }
+  const allowed = await jobsAllowed(deps.db);
   const job = await deps.db.transaction().execute(async (tx) => {
-    await holdJobCapacity(tx, input.userId);
+    await holdJobCapacity(tx, input.userId, allowed);
     const row = await tx
       .insertInto("jobs")
       .values({
@@ -255,6 +276,11 @@ export async function runQueuedJob(
   await runJob(deps, job, runners[job.kind], stopping);
 }
 
+/** How long an export file can be downloaded, as Administration sets it. */
+async function fileHours(db: Database): Promise<number> {
+  return limitIn("export.file_hours", (await readGateSettings(db)).limits);
+}
+
 async function finishJob(
   db: Database,
   id: string,
@@ -276,7 +302,7 @@ async function finishJob(
       errorDetail: patch.error?.detail ?? null,
       fileKey: patch.fileKey ?? null,
       fileExpiresAt: patch.fileKey
-        ? new Date(Date.now() + EXPORT_FILE_HOURS * 3_600_000)
+        ? new Date(Date.now() + (await fileHours(db)) * 3_600_000)
         : null,
       finishedAt: new Date(),
       leaseUntil: null,
@@ -475,7 +501,11 @@ export async function purgeJobs(deps: {
       )
       .execute();
   }
-  const cutoff = new Date(Date.now() - JOB_RETENTION_DAYS * 86_400_000);
+  const days = limitIn(
+    "jobs.retention_days",
+    (await readGateSettings(deps.db)).limits,
+  );
+  const cutoff = new Date(Date.now() - days * 86_400_000);
   const old = await deps.db
     .deleteFrom("jobs")
     .where("createdAt", "<", cutoff)
@@ -725,8 +755,9 @@ export async function retryJob(
   if (!jobCanRetry(job)) {
     throw new AppError("job_not_retryable");
   }
+  const allowed = await jobsAllowed(deps.db);
   const queued = await deps.db.transaction().execute(async (tx) => {
-    await holdJobCapacity(tx, userId);
+    await holdJobCapacity(tx, userId, allowed);
     const row = await tx
       .updateTable("jobs")
       .set({

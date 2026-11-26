@@ -21,6 +21,16 @@ first.
   **Limits and usage** too, between 100,000 and 10,000,000. An instance
   that sets `IMPORT_MAX_ROWS` or `EXPORT_MAX_ROWS` keeps them: the variable
   wins, and the page shows its value with no field to change it.
+- **Limits and usage** sets the jobs one person may have queued or running
+  (1 to 50, 5 by default), how long finished jobs stay listed (1 to 90
+  days, 7) and an export file can be downloaded (1 to 168 hours, 24), the
+  live connections one account may hold (4 to 256, 64), and how fast one
+  automation runs (30 to 3,000 runs a minute, 300) and how long a run may
+  wait for its turn (1 hour to 7 days, a day).
+- An account's live connections are counted across every process of the
+  instance (migration 0144, an unlogged table), as requests are: one
+  served by several processes holds the same number as one served by a
+  single process. "Limits and usage" shows the most one account holds.
 
 ### Changed
 

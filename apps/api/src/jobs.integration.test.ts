@@ -16,6 +16,7 @@ import {
   type QueueDeps,
 } from "./jobs.js";
 import { recordingBus } from "./realtime/recording-bus.test-helpers.js";
+import { writeSettings } from "./settings.js";
 import { createTestDatabase } from "./test-database.js";
 
 const suffix = randomBytes(6).toString("hex");
@@ -102,6 +103,44 @@ describe("a job retried by its author", () => {
     await expect(startExport(neighbour)).resolves.toMatchObject({
       status: "queued",
     });
+  });
+
+  it("holds the jobs and the file's hours Administration sets", async () => {
+    await writeSettings(db, author, {
+      limits: { "jobs.active_per_account": 2, "export.file_hours": 2 },
+    });
+    try {
+      const [few] = (
+        await db
+          .insertInto("users")
+          .values({ email: `few-${suffix}@example.com`, displayName: "Few" })
+          .returning("id")
+          .execute()
+      ).map((row) => row.id) as [string];
+      const answers = await Promise.allSettled(
+        Array.from({ length: 4 }, () => startExport(few)),
+      );
+      const started = answers.flatMap((answer) =>
+        answer.status === "fulfilled" ? [answer.value] : [],
+      );
+      expect(started).toHaveLength(2);
+      const [first] = started;
+      if (!first) throw new Error("no job");
+      const claimed = await claimJob(db, first.id);
+      if (!claimed) throw new Error("not claimed");
+      const done = await runJob(
+        deps,
+        claimed,
+        () => Promise.resolve({ result: { rows: 0 }, fileKey: "exports/x" }),
+        new AbortController().signal,
+      );
+      const hours =
+        ((done?.fileExpiresAt?.getTime() ?? 0) - Date.now()) / 3_600_000;
+      expect(hours).toBeGreaterThan(1.9);
+      expect(hours).toBeLessThanOrEqual(2);
+    } finally {
+      await writeSettings(db, author, { limits: {} });
+    }
   });
 
   it("queues a failed export again, as it was asked, and it can run", async () => {

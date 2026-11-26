@@ -753,6 +753,13 @@ export interface Jobs {
   userId: string | null;
 }
 
+export interface LiveSockets {
+  open: number;
+  processId: string;
+  seenAt: Generated<Timestamp>;
+  userId: string;
+}
+
 export interface LoginChallenges {
   attempts: Generated<number>;
   bindIssuer: string | null;
@@ -1291,6 +1298,7 @@ export interface DB {
   integrationSchedules: IntegrationSchedules;
   invitations: Invitations;
   jobs: Jobs;
+  liveSockets: LiveSockets;
   loginChallenges: LoginChallenges;
   madeRoles: MadeRoles;
   notificationDefaults: NotificationDefaults;

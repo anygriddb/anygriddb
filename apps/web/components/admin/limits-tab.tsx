@@ -108,7 +108,7 @@ function useFamilyNames(): Record<
     },
     work: {
       title: t`Work in the background and live connections`,
-      description: t`Set by AnyGridDB.`,
+      description: t`Set here, each within its bounds; the pages one connection follows, by AnyGridDB.`,
     },
     files: {
       title: t`Imports, exports, copies and files`,

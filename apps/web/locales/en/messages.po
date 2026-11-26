@@ -11237,6 +11237,10 @@ msgstr "Set by"
 msgid "Set by AnyGridDB."
 msgstr "Set by AnyGridDB."
 
+#: components/admin/limits-tab.tsx
+msgid "Set here, each within its bounds; the pages one connection follows, by AnyGridDB."
+msgstr "Set here, each within its bounds; the pages one connection follows, by AnyGridDB."
+
 #: components/admin/integrations-tab.tsx
 msgid "Set in the instance's environment"
 msgstr "Set in the instance's environment"

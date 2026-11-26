@@ -68,8 +68,11 @@ async function rateUse(
 }
 
 /** Jobs queued or running: the most one account holds, and how many hold all they may. */
-async function jobsUse(db: Database): Promise<LimitUse> {
-  const limit = LIMITS["jobs.active_per_account"].value;
+async function jobsUse(
+  db: Database,
+  settings: InstanceSettings,
+): Promise<LimitUse> {
+  const limit = limitIn("jobs.active_per_account", settings.limits);
   const { rows } = await sql<{ most: number; past: number }>`
     select coalesce(max(n), 0)::int as most,
            count(*) filter (where n >= ${limit})::int as past
@@ -86,6 +89,28 @@ async function jobsUse(db: Database): Promise<LimitUse> {
 /** What the environment fixes of a limit, when it does (ADR 0083). */
 function fixedByEnv(entry: LimitEntry, env: Env): number | undefined {
   return entry.fixedBy === undefined ? undefined : env[entry.fixedBy];
+}
+
+/**
+ * Live connections: the most one account holds across the instance, and
+ * how many hold all they may. Rows a stopped process left are not counted.
+ */
+async function socketsUse(
+  db: Database,
+  settings: InstanceSettings,
+): Promise<LimitUse> {
+  const limit = limitIn("sockets.per_account", settings.limits);
+  const { rows } = await sql<{ most: number; past: number }>`
+    select coalesce(max(n), 0)::int as most,
+           count(*) filter (where n >= ${limit})::int as past
+      from (
+        select sum("open") as n
+          from live_sockets
+         where seen_at > now() - interval '90 seconds'
+         group by user_id
+      ) held
+  `.execute(db);
+  return rows[0] ?? { most: 0, past: 0 };
 }
 
 /** The value a limit has now, wherever it is set. */
@@ -114,16 +139,22 @@ export async function limitsAndUsage(
   env: Env,
   settings: InstanceSettings,
 ): Promise<LimitRow[]> {
-  const [rates, jobs] = await Promise.all([rateUse(db, settings), jobsUse(db)]);
+  const [rates, jobs, sockets] = await Promise.all([
+    rateUse(db, settings),
+    jobsUse(db, settings),
+    socketsUse(db, settings),
+  ]);
   const counted = new Set<LimitId>(Object.values(BUCKET_LIMITS));
   return (Object.keys(LIMITS) as LimitId[]).map((id) => {
     const entry: LimitEntry = LIMITS[id];
     const used =
       id === "jobs.active_per_account"
         ? jobs
-        : counted.has(id)
-          ? (rates.get(id as SettableLimitId) ?? { most: 0, past: 0 })
-          : null;
+        : id === "sockets.per_account"
+          ? sockets
+          : counted.has(id)
+            ? (rates.get(id as SettableLimitId) ?? { most: 0, past: 0 })
+            : null;
     // What the environment fixes is its operator's to change (ADR 0083).
     const setBy: LimitSetBy =
       fixedByEnv(entry, env) === undefined ? entry.setBy : "environment";
