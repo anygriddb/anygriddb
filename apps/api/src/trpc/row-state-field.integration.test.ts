@@ -6,30 +6,15 @@
 import { randomBytes } from "node:crypto";
 import type { Database } from "@anygriddb/db";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { keyRing } from "../auth/key-ring.js";
-import type { Env } from "../env.js";
 import { createTestDatabase } from "../test-database.js";
-import {
-  browserFactory,
-  enrollTotp,
-  errorCode,
-} from "./caller.test-helpers.js";
+import { enrollTotp, errorCode, plainBrowsers } from "./caller.test-helpers.js";
 
 const suffix = randomBytes(6).toString("hex");
 
 describe("a field of the row's state", () => {
   let db: Database;
   let close: (() => Promise<void>) | undefined;
-  const env = {
-    AUTH_ENCRYPTION_KEY: keyRing(randomBytes(32)),
-    PUBLIC_URL: "https://grid.example.org",
-  } as unknown as Env;
-  const hub = {
-    closeUser: () => 0,
-    closeAllBut: () => 0,
-    closeSession: () => 0,
-  };
-  const owner = browserFactory({ db: () => db, env, hub })();
+  const owner = plainBrowsers(() => db)();
   let tableId = "";
   const rowIds: Record<string, string> = {};
 

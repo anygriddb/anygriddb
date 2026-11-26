@@ -3,11 +3,13 @@
  * migrated database: each browser keeps its own cookie jar, behind one
  * client address.
  */
+import { randomBytes } from "node:crypto";
 import { AppError, type Role } from "@anygriddb/core";
 import type { Database } from "@anygriddb/db";
 import type { FastifyReply, FastifyRequest } from "fastify";
 import { vi } from "vitest";
 import { hashPassword } from "../auth/argon2.js";
+import { keyRing } from "../auth/key-ring.js";
 import { mintInstallToken } from "../auth/installation-token.js";
 import { decodeBase32, totpCode } from "../auth/totp-code.js";
 import { setMemberRole } from "../data/members.js";
@@ -18,6 +20,23 @@ import type { Context } from "./context.js";
 import { appRouter } from "./router.js";
 
 export const TEST_IP = "203.0.113.7";
+
+/**
+ * What most tests make browsers with: an environment of a fresh key and a
+ * made-up address, and a hub of sockets that closes none.
+ */
+export function plainBrowsers(db: () => Database) {
+  const env = {
+    AUTH_ENCRYPTION_KEY: keyRing(randomBytes(32)),
+    PUBLIC_URL: "https://grid.example.org",
+  } as unknown as Env;
+  const hub = {
+    closeUser: () => 0,
+    closeAllBut: () => 0,
+    closeSession: () => 0,
+  };
+  return browserFactory({ db, env, hub });
+}
 
 export function browserFactory(deps: {
   db: () => Database;
