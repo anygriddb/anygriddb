@@ -87,6 +87,84 @@ async function carry(
 // The views that draw rows as cards: what a person does to a card with the
 // keyboard and with the pointer, and what stays after a reload. It makes
 // an account, so it takes a client address of its own.
+// A kanban stacked by the row's state (ADR 0133): its stacks are the
+// circuit's states, a card moves by a step, a step it cannot take is said,
+// and one that asks a signature asks it.
+test.describe("a kanban by the row's state", () => {
+  test.use({ extraHTTPHeaders: { "x-forwarded-for": "198.51.100.101" } });
+
+  test("moves a card by a step of its circuit", async ({ page }) => {
+    const blocked = watchPolicy(page);
+    await signUpWithTable(page, "State Mover");
+    await fourRows(page);
+    await send(page, "catalog.addColumn", {
+      tableId: tableIdOf(page),
+      name: "state",
+      label: "State",
+      fieldType: "row_state",
+    });
+    await page.reload();
+    await newView(page, "Kanban");
+    await page.getByLabel("Columns by").selectOption("state");
+    const stack = (name: string) =>
+      page.getByRole("region", { name, exact: true });
+    const handle = (name: string) =>
+      page.getByRole("button", { name: `Move ${name}`, exact: true });
+    const cardsOf = (name: string) =>
+      stack(name)
+        .getByRole("button", { name: /^Move / })
+        .evaluateAll((handles) =>
+          handles.map((item) =>
+            (item.getAttribute("aria-label") ?? "").replace("Move ", ""),
+          ),
+        );
+    await expect
+      .poll(() => cardsOf("Draft"))
+      .toEqual(["Alpha", "Bravo", "Charlie", "Delta"]);
+    // A new row starts in the first state: only its stack adds one.
+    await expect(
+      stack("Draft").getByRole("button", { name: "Add a card" }),
+    ).toHaveCount(1);
+    await expect(
+      stack("Submitted").getByRole("button", { name: "Add a card" }),
+    ).toHaveCount(0);
+    expect(await accessibilityViolations(page)).toEqual([]);
+
+    // From the keyboard, into the next state: the step is taken.
+    const carryTo = async (card: string, target: string) => {
+      await handle(card).focus();
+      await page.keyboard.press("Enter");
+      await expect(async () => {
+        await page.keyboard.press("Tab");
+        await expect(stack(target)).toBeFocused({ timeout: 500 });
+      }).toPass();
+      await page.keyboard.press("Enter");
+    };
+    await carryTo("Alpha", "Submitted");
+    await expect.poll(() => cardsOf("Submitted")).toEqual(["Alpha"]);
+
+    // Back to a draft, no step leads: it is said, and the card stays.
+    await carryTo("Alpha", "Draft");
+    await expect(
+      page.getByText("No step you may take leads from Submitted to Draft."),
+    ).toBeVisible();
+    await expect.poll(() => cardsOf("Submitted")).toEqual(["Alpha"]);
+
+    // Locked, then a signature: the step asks it, and nothing moves unsigned.
+    await carryTo("Alpha", "Locked");
+    await expect.poll(() => cardsOf("Locked")).toEqual(["Alpha"]);
+    await carryTo("Alpha", "Signed");
+    const sign = page.getByRole("dialog", { name: "Sign" });
+    await expect(sign).toBeVisible();
+    expect(await accessibilityViolations(page)).toEqual([]);
+    await page.keyboard.press("Escape");
+    await expect(sign).toBeHidden();
+    await page.reload();
+    await expect.poll(() => cardsOf("Locked")).toEqual(["Alpha"]);
+    expect(blocked).toEqual([]);
+  });
+});
+
 test.describe("a kanban, a gallery, and a calendar", () => {
   test.use({ extraHTTPHeaders: { "x-forwarded-for": "198.51.100.95" } });
 

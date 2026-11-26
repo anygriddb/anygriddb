@@ -3219,7 +3219,7 @@ msgstr "Appelle l’adresse push d’un moniteur Uptime Kuma, avec l’état up 
 #: components/grid/number-prompt.tsx
 #: components/oauth/consent-page.tsx
 #: components/record/record-panel.tsx
-#: components/record/row-status.tsx
+#: components/record/take-step.tsx
 #: components/settings/second-factor.tsx
 #: components/shell/dialogs.tsx
 #: components/shell/jobs-menu.tsx
@@ -3778,7 +3778,7 @@ msgstr "Configuré sur cette page"
 
 #: components/admin/step-up.tsx
 #: components/public/unsubscribe-page.tsx
-#: components/record/row-status.tsx
+#: components/record/take-step.tsx
 #: components/table/reason-dialog.tsx
 msgid "Confirm"
 msgstr "Valider"
@@ -5739,7 +5739,7 @@ msgstr "Pour chaque ligne de…"
 msgid "For ever"
 msgstr "Sans limite"
 
-#: components/record/row-status.tsx
+#: components/record/take-step.tsx
 msgid "For example: Approved, Verified, Reviewed"
 msgstr "Par exemple : Approuvé, Vérifié, Relu"
 
@@ -7597,7 +7597,7 @@ msgstr "Moyenne des valeurs distinctes"
 msgid "Mean: {mean}"
 msgstr "Moyenne : {mean}"
 
-#: components/record/row-status.tsx
+#: components/record/take-step.tsx
 msgid "Meaning"
 msgstr "Signification"
 
@@ -8494,6 +8494,10 @@ msgstr "Aucune opération de source enregistrée sur cette période."
 msgid "No source yet. Add one to show its tables in a base, read and written where they live."
 msgstr "Aucune source pour l’instant. Ajoutez-en une pour afficher ses tables dans une base, lues et écrites là où elles se trouvent."
 
+#: components/views/kanban-view.tsx
+msgid "No step you may take leads from {from} to {to}."
+msgstr "Aucune étape que vous pouvez franchir ne mène de {from} à {to}."
+
 #: components/admin/effective-rights.tsx
 msgid "No table in this base."
 msgstr "Aucune table dans cette base."
@@ -9030,7 +9034,7 @@ msgstr "Options"
 msgid "or"
 msgstr "ou"
 
-#: components/record/row-status.tsx
+#: components/record/take-step.tsx
 msgid "Or a code of your authenticator"
 msgstr "Ou un code de votre application d’authentification"
 
@@ -9149,7 +9153,7 @@ msgstr "Les clés d’accès exigent un nom d’hôte dans PUBLIC_URL (un nom DN
 #: components/admin/step-up.tsx
 #: components/auth/auth-page.tsx
 #: components/auth/confirm-signup-page.tsx
-#: components/record/row-status.tsx
+#: components/record/take-step.tsx
 #: components/settings/account-settings.tsx
 #: components/settings/base-links.tsx
 #: components/table/share-dialog.tsx
@@ -9727,7 +9731,7 @@ msgstr "Temps réel"
 #: components/admin/give-base-role.tsx
 #: components/admin/open-base.tsx
 #: components/admin/trails.tsx
-#: components/record/row-status.tsx
+#: components/record/take-step.tsx
 msgid "Reason"
 msgstr "Motif"
 
@@ -11426,7 +11430,7 @@ msgid "SIEM webhook saved"
 msgstr "Webhook SIEM enregistré"
 
 #: components/record/circuit-labels.ts
-#: components/record/row-status.tsx
+#: components/record/take-step.tsx
 msgid "Sign"
 msgstr "Signer"
 
@@ -12876,11 +12880,11 @@ msgstr "Le résultat du premier cas égal à la valeur."
 msgid "The row can still be restored from the deleted rows; the history keeps the automation's name."
 msgstr "La ligne reste restaurable depuis les lignes supprimées ; l’historique garde le nom de l’automatisation."
 
-#: components/record/row-status.tsx
+#: components/record/take-step.tsx
 msgid "The row goes back to a writable state and can be changed again."
 msgstr "La ligne revient à un état modifiable et peut de nouveau être changée."
 
-#: components/record/row-status.tsx
+#: components/record/take-step.tsx
 msgid "The row goes back to a writable state and can be changed again. Its signature stays in the history."
 msgstr "La ligne revient à un état modifiable et peut de nouveau être changée. Sa signature reste dans l’historique."
 
@@ -13812,7 +13816,7 @@ msgstr "Ce fuseau horaire n’existe pas"
 msgid "This token does not have the scope the request asks for"
 msgstr "Ce jeton n’a pas la portée que la requête demande"
 
-#: components/record/row-status.tsx
+#: components/record/take-step.tsx
 msgid "This transition needs a reason, kept in the audit trail."
 msgstr "Cette transition exige un motif, conservé dans le journal d’audit."
 
@@ -15183,11 +15187,11 @@ msgstr "Vos seconds facteurs ont été retirés"
 msgid "Your sign-in is the proof here: sign out, sign in again, and delete within ten minutes."
 msgstr "Votre connexion sert ici de preuve : déconnectez-vous, reconnectez-vous, puis supprimez dans les dix minutes."
 
-#: components/record/row-status.tsx
+#: components/record/take-step.tsx
 msgid "Your signature commits you: enter your password again, or a code of your authenticator."
 msgstr "Votre signature vous engage : saisissez à nouveau votre mot de passe, ou un code de votre application d’authentification."
 
-#: components/record/row-status.tsx
+#: components/record/take-step.tsx
 msgid "Your signature commits you: enter your password again."
 msgstr "Votre signature vous engage : saisissez de nouveau votre mot de passe."
 

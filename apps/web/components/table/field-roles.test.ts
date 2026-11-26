@@ -65,6 +65,7 @@ describe("what a field can do for a view", () => {
 
   it("stacks a kanban when it is a list of one option the rows can be grouped by", () => {
     expect(canStackBy(stage)).toBe(true);
+    expect(canStackBy(field("state", "row_state", "text"))).toBe(true);
     expect(canStackBy(tags)).toBe(false);
     expect(canStackBy(name)).toBe(false);
     expect(canStackBy(keptStage)).toBe(false);

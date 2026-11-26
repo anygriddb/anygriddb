@@ -8,13 +8,18 @@ import {
   Plus,
 } from "lucide-react";
 import { useEffect, useRef } from "react";
+import { toast } from "sonner";
 import { useRowDrag, useRowDrop, useRowPlaceDrop } from "../../lib/drag";
 import { placeBetween, type RowPlace } from "../../lib/row-place";
-import type { CatalogColumn, RowItem } from "../../lib/types";
+import { grants, type CatalogColumn, type RowItem } from "../../lib/types";
 import { optionsOf } from "../fields/cell-value";
 import { canStackBy, stackField } from "../table/field-roles";
 import { useTable } from "../table/table-context";
-import { kanbanStacks, stackPlaces } from "./kanban-stacks";
+import { kanbanStacks, stackPlaces, stateStacks } from "./kanban-stacks";
+import { allowedTransitions, statusSealed } from "../record/row-status-model";
+import { useTakeStep } from "../record/take-step";
+import { useTableCircuit } from "../record/use-table-circuit";
+import { rowStateWord } from "../fields/use-row-states";
 import {
   CardFields,
   CardFieldsPicker,
@@ -124,6 +129,7 @@ function Stack({
   ensure,
   fields,
   canEdit,
+  movable,
   collapsed,
   titleColumn,
   tintOf,
@@ -143,12 +149,15 @@ function Stack({
   ensure: (start: number, end: number) => void;
   fields: readonly CatalogColumn[];
   canEdit: boolean;
+  /** Whether a row's card can be carried elsewhere at all. */
+  movable: (row: RowItem) => boolean;
   /** Folded to a narrow strip; cards can still be dropped on it. */
   collapsed: boolean;
   titleColumn?: string;
   tintOf?: (row: RowItem) => string | undefined;
   onToggle: () => void;
-  onAdd: () => void;
+  /** Adds a card to this stack; unset where none can be added. */
+  onAdd?: () => void;
   /** A card was dropped here: put row `rowId` in stack `stackId`. */
   onMove: (rowId: string, stackId: string) => void;
   /**
@@ -300,11 +309,7 @@ function Stack({
                     fields={fields}
                     titleColumn={titleColumn}
                     tint={tintOf?.(row)}
-                    draggable={
-                      canEdit &&
-                      row.ag_status !== "locked" &&
-                      row.ag_status !== "signed"
-                    }
+                    draggable={canEdit && movable(row)}
                   />
                 ) : (
                   <div
@@ -320,7 +325,7 @@ function Stack({
           })}
         </div>
       </div>
-      {canEdit ? (
+      {onAdd ? (
         <button
           type="button"
           onClick={onAdd}
@@ -335,8 +340,10 @@ function Stack({
 }
 
 export function KanbanView(props: ViewProps) {
-  const { t } = useLingui();
+  const { t, i18n } = useLingui();
   const table = useTable();
+  const circuit = useTableCircuit(table.table.id).data;
+  const steps = useTakeStep();
   const stackable = props.allColumns.filter(canStackBy);
   const stack = stackField(props.config, props.allColumns);
   const exclude = stack ? [stack.name] : [];
@@ -380,9 +387,16 @@ export function KanbanView(props: ViewProps) {
       />
     );
   }
+  // Stacked by the row's state, a card moves by a step of its circuit,
+  // which whoever may take steps takes; a new row starts in the first state.
+  const byState = stack.fieldType === "row_state";
+  const mayStep = byState && grants(table.role, "rows.transition");
+  const firstState = circuit?.states.find((state) => state.isInitial)?.key;
   const options = optionsOf(stack);
   const placed = stackPlaces(props.groups);
-  const stacks = kanbanStacks(options, placed);
+  const stacks = byState
+    ? stateStacks(table.states)
+    : kanbanStacks(options, placed);
   const visible = stacks.filter(
     (item) => !hideEmpty || (placed.get(item.id)?.count ?? 0) > 0,
   );
@@ -393,9 +407,31 @@ export function KanbanView(props: ViewProps) {
       collapsedStacks: fold ? visible.map((item) => item.id) : null,
     });
   }
+  /** Takes the step from a row's state to `target`, or says there is none. */
+  function stepTo(row: RowItem, target: string) {
+    const from = typeof row.ag_status === "string" ? row.ag_status : "";
+    if (from === target) return;
+    const step =
+      circuit && mayStep
+        ? allowedTransitions(circuit, from, table.role).find(
+            (item) => item.toStateKey === target,
+          )
+        : undefined;
+    if (!circuit || !step) {
+      toast.error(
+        t`No step you may take leads from ${{ from: rowStateWord(table.states, from, i18n) }} to ${{ to: rowStateWord(table.states, target, i18n) }}.`,
+      );
+      return;
+    }
+    steps.take(row, circuit, step);
+  }
   function move(rowId: string, target: string) {
     if (!stack) return;
     const row = props.rows.find((item) => item.id === rowId);
+    if (row && byState) {
+      stepTo(row, target);
+      return;
+    }
     if (!row || (row[stack.name as keyof RowItem] ?? "") === target) return;
     void table.updateCells([
       { rowId, values: { [stack.name]: target || null } },
@@ -412,6 +448,12 @@ export function KanbanView(props: ViewProps) {
   ) {
     if (!stack || !onMoveRows) return;
     const row = props.rows.find((item) => item.id === rowId);
+    // Into another state's stack, the step is the move: its card takes the
+    // place the database gives it there.
+    if (row && byState && row.ag_status !== target) {
+      stepTo(row, target);
+      return;
+    }
     if (row && (row[stack.name as keyof RowItem] ?? "") !== target) {
       await table.updateCells([
         { rowId, values: { [stack.name]: target || null } },
@@ -483,16 +525,27 @@ export function KanbanView(props: ViewProps) {
             rowAt={props.rowAt}
             ensure={props.ensure}
             fields={fields}
-            canEdit={props.canEdit}
+            canEdit={byState ? mayStep : props.canEdit}
+            // A sealed row's values stay; its state still moves by a step.
+            movable={(row) =>
+              byState ||
+              typeof row.ag_status !== "string" ||
+              !statusSealed(circuit, row.ag_status)
+            }
             collapsed={folded.has(item.id)}
             titleColumn={titleName}
             tintOf={props.tintOf}
             onToggle={() => toggle(item.id)}
-            onAdd={() =>
-              void props
-                .onCreate(item.id ? { [stack.name]: item.id } : {})
-                .then((id) => id && table.openRecord(id))
-            }
+            {...(props.canEdit && (!byState || item.id === firstState)
+              ? {
+                  onAdd: () =>
+                    void props
+                      .onCreate(
+                        item.id && !byState ? { [stack.name]: item.id } : {},
+                      )
+                      .then((id) => id && table.openRecord(id)),
+                }
+              : {})}
             onMove={move}
             {...(onMoveRows
               ? {
@@ -507,6 +560,7 @@ export function KanbanView(props: ViewProps) {
           />
         ))}
       </div>
+      {steps.dialogs}
     </div>
   );
 }

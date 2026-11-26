@@ -31,9 +31,14 @@ waiting for review, nor sort a table by where its rows stand.
 - **A client's table has none:** its statuses live beside its rows (ADR
   0033), and the field is refused there as any field such a table cannot
   hold.
-- **Not yet:** a kanban stacked by the state, where a card dropped in
-  another stack takes the step between the two states, with what the step
-  asks.
+- **A kanban stacks by it**: its stacks are the circuit's states, in its
+  order, and none apart (a row is always in one). A card dropped in another
+  stack takes the step between the two states, with what the step asks (a
+  reason, a signature, a confirmation when it reopens a sealed row), by the
+  same flow as the row's panel; when no step the person may take leads
+  there, it is said and the card stays. Whoever may take steps carries
+  cards, a sealed row's included; a card is added only to the first
+  state's stack, where a new row starts.
 
 ## Rejected
 

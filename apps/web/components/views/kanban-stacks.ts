@@ -44,3 +44,13 @@ export function kanbanStacks(
       .map((key) => ({ id: key, label: key })),
   ];
 }
+
+/**
+ * The stacks of a kanban by the row's state: its circuit's states, in its
+ * order, each by its word. A row is always in one: no stack of none.
+ */
+export function stateStacks(
+  states: ReadonlyArray<{ key: string; label: string }>,
+): KanbanStack[] {
+  return states.map((state) => ({ id: state.key, label: state.label }));
+}
