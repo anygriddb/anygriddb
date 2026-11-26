@@ -241,7 +241,9 @@ export async function readerRulesPrint(
         rows: rules?.rows("rows.read") ?? null,
         fields:
           rules?.narrows === true
-            ? names.filter((name) => rules.access(name) !== "hide").sort()
+            ? names
+                .filter((name) => rules.access(name) !== "hide")
+                .sort((a, b) => (a < b ? -1 : a > b ? 1 : 0))
             : null,
       };
     })
