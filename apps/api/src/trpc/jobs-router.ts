@@ -25,6 +25,7 @@ export function queueDeps(ctx: Context): QueueDeps {
     db: ctx.db,
     bus: ctx.bus,
     log: (error, message) => ctx.req.log.error({ err: error }, message),
+    ...(ctx.tokenScope ? { tokenId: ctx.tokenScope.tokenId } : {}),
   };
 }
 

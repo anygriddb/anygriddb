@@ -65,6 +65,43 @@ export function namesApiToken(header: string | undefined): boolean {
   return header?.startsWith("Bearer ") === true;
 }
 
+/**
+ * The tokens that act now, joined with their owner: unexpired, younger
+ * than the policy's longest, the owner active, and kept to administrators
+ * when the instance says so (ADR 0044).
+ */
+async function liveTokens(db: Database) {
+  const { tokenMaxDays, apiTokens } = await readGateSettings(db);
+  const oldest = new Date(Date.now() - tokenMaxDays * 86_400_000);
+  return db
+    .selectFrom("apiTokens as k")
+    .innerJoin("users as u", "u.id", "k.userId")
+    .where("k.expiresAt", ">", new Date())
+    .where("k.createdAt", ">", oldest)
+    .$if(apiTokens === "admins", (query) => query.where(isAdminOf("u.id")))
+    .where("u.disabledAt", "is", null);
+}
+
+/**
+ * What a token still gives, for work it started that runs without it (a
+ * job, ADR 0131 §5): its scope while it acts, null once it is revoked,
+ * ended, or no longer its author's.
+ */
+export async function liveTokenScope(
+  db: Database,
+  tokenId: string,
+  userId: string,
+): Promise<TokenScope | null> {
+  const row = await (
+    await liveTokens(db)
+  )
+    .select(["k.id as tokenId", "k.baseIds", "k.readOnly", "k.allowDelete"])
+    .where("k.id", "=", tokenId)
+    .where("k.userId", "=", userId)
+    .executeTakeFirst();
+  return row ?? null;
+}
+
 /** Resolves a bearer token to its owner and scope. Refreshes `last_used_at` at most once a minute. */
 export async function findApiToken(
   db: Database,
@@ -79,11 +116,9 @@ export async function findApiToken(
   }
   // A shorter policy holds for tokens made before it, too; tokens kept
   // to administrators leave the others' stopped (ADR 0044).
-  const { tokenMaxDays, apiTokens } = await readGateSettings(db);
-  const oldest = new Date(Date.now() - tokenMaxDays * 86_400_000);
-  const row = await db
-    .selectFrom("apiTokens as k")
-    .innerJoin("users as u", "u.id", "k.userId")
+  const row = await (
+    await liveTokens(db)
+  )
     .select([
       "u.id",
       "u.email",
@@ -98,10 +133,6 @@ export async function findApiToken(
       "k.lastUsedAt",
     ])
     .where("k.tokenHash", "=", hashApiToken(token))
-    .where("k.expiresAt", ">", new Date())
-    .where("k.createdAt", ">", oldest)
-    .$if(apiTokens === "admins", (query) => query.where(isAdminOf("u.id")))
-    .where("u.disabledAt", "is", null)
     .executeTakeFirst();
   if (!row) {
     return null;

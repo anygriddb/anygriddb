@@ -39,7 +39,8 @@ import { sql } from "kysely";
 import type { Bus } from "./realtime/bus.js";
 import { cleanFilename } from "./attachments.js";
 import { findLiveTable } from "./services/rows.js";
-import { loadBindings } from "./auth/access.js";
+import { loadBindings, scopeBindings } from "./auth/access.js";
+import { liveTokenScope } from "./auth/tokens.js";
 import { openBaseIds, withOpenBases } from "./data/emergency-access.js";
 import { readerEngine, readerRulesPrint } from "./data/acl.js";
 import { announceRows } from "./data/announce.js";
@@ -133,11 +134,13 @@ async function attachmentCeiling(deps: RunnerDeps): Promise<number> {
 /**
  * The author's current rights on the job's table. A job queued by
  * someone who has since lost access, or whose account was disabled,
- * stops here.
+ * stops here. A job a token started acts by that token, at each run:
+ * within what the token was given, and not at all once it is revoked or
+ * ends (ADR 0131, §5).
  */
 async function activeAuthor(
   db: Database,
-  job: Pick<JobRow, "userId">,
+  job: Pick<JobRow, "userId" | "tokenId">,
 ): Promise<{ userId: string; bindings: Binding[] }> {
   if (!job.userId) throw new AppError("access_denied");
   const author = await db
@@ -146,6 +149,18 @@ async function activeAuthor(
     .where("id", "=", job.userId)
     .executeTakeFirst();
   if (!author || author.disabledAt) throw new AppError("access_denied");
+  if (job.tokenId) {
+    const scope = await liveTokenScope(db, job.tokenId, job.userId);
+    if (!scope) throw new AppError("access_denied");
+    return {
+      userId: job.userId,
+      bindings: await scopeBindings(
+        db,
+        await loadBindings(db, job.userId),
+        scope,
+      ),
+    };
+  }
   // A job is what its author asked for from their own session: it reads
   // the bases they have open as an administrator, as their pages do, and
   // only while the opening lasts (ADR 0074).
@@ -176,7 +191,7 @@ function canSnapshot(role: Grant | null): boolean {
 
 export async function authorTable(
   db: Database,
-  job: Pick<JobRow, "userId">,
+  job: Pick<JobRow, "userId" | "tokenId">,
   tableId: string,
   permission: Permission,
 ): Promise<{ userId: string; table: TableRow; bindings: Binding[] }> {
