@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parsedJson } from "./http.js";
+import { parsedJson } from "./store-http.js";
 
 describe("the JSON of a store's answer", () => {
   it("keeps an integer past 2^53 exact, as text", () => {
