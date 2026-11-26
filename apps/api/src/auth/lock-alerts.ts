@@ -6,7 +6,7 @@
  * anyone.
  */
 import { trimEndRun } from "@anygriddb/core";
-import { alertRecipients } from "../alerts.js";
+import { lockAlertRecipients } from "../alerts.js";
 import type { KeyRing } from "./key-ring.js";
 import type { Database } from "@anygriddb/db";
 import { sql } from "kysely";
@@ -65,10 +65,9 @@ export async function alertLock(
           failures: input.failures,
           until: input.until,
         };
-  // Every other active administrator, but those who asked not to be
-  // told of locks (ROADMAP #48 / alert_optouts). Person preferences then
-  // decide channels (ADR 0123).
-  const admins = await alertRecipients(deps.db, "account_locked", input.userId);
+  // Every other active administrator; their notification preferences
+  // decide whether, and by which channel (ADR 0123).
+  const admins = await lockAlertRecipients(deps.db, input.userId);
   if (admins.length === 0) return 0;
   const data: Record<string, string> = alert.many
     ? { many: "1" }

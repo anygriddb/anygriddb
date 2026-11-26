@@ -352,11 +352,8 @@ export type AlertDeps = AlertProbes & {
  * The active administrators who are told of this kind of alert: all of
  * them, but those who asked not to be (ROADMAP #48).
  */
-export async function alertRecipients(
-  db: Database,
-  kind: AlertChoice,
-  exceptUserId?: string,
-): Promise<Array<{ id: string; email: string }>> {
+/** Every active administrator, but one, as the alerts address them. */
+function administrators(db: Database, exceptUserId?: string) {
   return db
     .selectFrom("users as u")
     .select(["u.id", "u.email"])
@@ -365,7 +362,25 @@ export async function alertRecipients(
     .where("u.id", "<>", ERASED_USER_ID)
     .$if(exceptUserId !== undefined, (query) =>
       query.where("u.id", "<>", exceptUserId ?? ""),
-    )
+    );
+}
+
+/**
+ * The administrators told of an account that locks: every other active
+ * one, whose notification preferences then say how (ADR 0123).
+ */
+export async function lockAlertRecipients(
+  db: Database,
+  lockedUserId: string,
+): Promise<Array<{ id: string; email: string }>> {
+  return administrators(db, lockedUserId).orderBy("u.email", "asc").execute();
+}
+
+export async function alertRecipients(
+  db: Database,
+  kind: AlertChoice,
+): Promise<Array<{ id: string; email: string }>> {
+  return administrators(db)
     .where((eb) =>
       eb.not(
         eb.exists(

@@ -8,6 +8,7 @@ import {
 import { plural } from "@lingui/core/macro";
 import { useLingui } from "@lingui/react/macro";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Link } from "@tanstack/react-router";
 import { CheckCircle2, XCircle } from "lucide-react";
 import { useId } from "react";
 import { toast } from "sonner";
@@ -261,11 +262,15 @@ export function AlertsSection() {
                   checked={!spared.has(kind)}
                   onChange={(event) => void tell(kind, event.target.checked)}
                 />
-                {kind === "account_locked"
-                  ? t`An account that locks`
-                  : kinds[kind]}
+                {kinds[kind]}
               </label>
             ))}
+            <p className="text-xs text-muted-foreground">
+              {t`An account that locks: whether you hear of it, and how, is one of your notification preferences.`}{" "}
+              <Link to="/settings" className="text-primary underline">
+                {t`Open your preferences`}
+              </Link>
+            </p>
           </fieldset>
         ) : null}
       </RuledSection>

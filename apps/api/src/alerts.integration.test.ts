@@ -8,6 +8,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import {
   alertOptOuts,
   alertRecipients,
+  lockAlertRecipients,
   checkAlerts,
   listBackups,
   listOpenAlerts,
@@ -16,7 +17,11 @@ import {
   type AlertDeps,
 } from "./alerts.js";
 import type { FileStore } from "./files/index.js";
+import { alertLock } from "./auth/lock-alerts.js";
+import { keyRing } from "./auth/key-ring.js";
 import { clearSmtpCache } from "./integrations/smtp.js";
+import { savePreference } from "./notify/person-preferences.js";
+import { recordingBus } from "./realtime/recording-bus.test-helpers.js";
 import { fakeSmtp, mailText } from "./mail.test-helpers.js";
 import { writeSettings } from "./settings.js";
 import { createTestDatabase } from "./test-database.js";
@@ -220,19 +225,55 @@ describe("alerts for administrators", () => {
       expect(textOf(ada)).toContain("certificate expires");
       expect(textOf(grace)).toContain("certificate expires");
       expect(textOf(grace)).not.toContain("No backup has succeeded");
-      // The lock of an account goes by the same choices.
       expect(
         (await alertRecipients(db, "backup_late")).map((admin) => admin.email),
       ).toEqual([ada]);
+      // The lock of an account reaches every other administrator: their
+      // notification preferences say whether, and how.
       expect(
-        (await alertRecipients(db, "account_locked", adminId)).map(
-          (admin) => admin.email,
-        ),
+        (await lockAlertRecipients(db, adminId)).map((admin) => admin.email),
       ).toEqual([grace]);
     } finally {
       await setAlertChoice(db, graceId, "backup_late", true);
     }
     expect(await alertOptOuts(db, graceId)).toEqual([]);
+  });
+
+  it("tells every other administrator of an account that locks, as their preferences say", async () => {
+    const id = async (email: string) =>
+      (
+        await db
+          .selectFrom("users")
+          .select("id")
+          .where("email", "=", email)
+          .executeTakeFirstOrThrow()
+      ).id;
+    const graceId = await id(grace);
+    const memberId = await id(`member-${suffix}@example.org`);
+    // Grace wants none of it; Ada keeps the default, the bell and a mail.
+    await savePreference(db, graceId, "account_locked", []);
+    try {
+      const told = await alertLock(
+        {
+          db,
+          bus: recordingBus().bus,
+          env: { ...deps.env, AUTH_ENCRYPTION_KEY: keyRing(randomBytes(32)) },
+          log: { error: () => undefined },
+        },
+        { userId: memberId, failures: 5, until: null },
+      );
+      const mails = smtp.received.splice(0);
+      expect(told).toBeGreaterThan(0);
+      expect(mails.map((mail) => mail.to).flat()).toEqual([ada]);
+      expect(mailText(mails[0] ?? { from: "", to: [], data: "" })).toContain(
+        "Member",
+      );
+    } finally {
+      await db
+        .deleteFrom("notificationPreferences")
+        .where("userId", "=", graceId)
+        .execute();
+    }
   });
 
   it("opens each alert once when two processes check at the same time", async () => {

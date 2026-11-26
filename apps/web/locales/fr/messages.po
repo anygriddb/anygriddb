@@ -2718,8 +2718,8 @@ msgid "An account dedicated to AnyGridDB, never an administrator. The connection
 msgstr "Un compte dédié à AnyGridDB, jamais un administrateur. La connexion passe par TLS, certificat vérifié."
 
 #: components/admin/alerts-section.tsx
-msgid "An account that locks"
-msgstr "Un compte qui se verrouille"
+msgid "An account that locks: whether you hear of it, and how, is one of your notification preferences."
+msgstr "Un compte qui se verrouille : si vous en êtes averti, et comment, relève de vos préférences de notification."
 
 #: components/admin/notifications-tab.tsx
 msgid "An account was created"
@@ -9494,6 +9494,10 @@ msgstr "Ouvertes à tous"
 #: components/dashboards/view-widget.tsx
 msgid "Open view"
 msgstr "Ouvrir la vue"
+
+#: components/admin/alerts-section.tsx
+msgid "Open your preferences"
+msgstr "Ouvrir vos préférences"
 
 #: components/admin/settings-tab.tsx
 msgid "Open: anyone can create an account from the sign-in page. Closed: only administrators create accounts and send a reset link (Accounts). By invitation: a pending base invitation is required. SSO for new accounts follows the same rule. Existing accounts are not affected."

@@ -467,15 +467,19 @@ test("an administrator ends a session, reads the sign-ins, and exports access", 
     await expect(backupDelay).toHaveValue("36");
     // What this administrator is told about is theirs to choose (#48):
     // spared a kind, the page says so once read again.
-    const locks = page.getByLabel("An account that locks");
-    await expect(locks).toBeChecked();
+    const late = page.getByLabel("Backup late", { exact: true });
+    await expect(late).toBeChecked();
     // A click, then the state it leads to: the box follows a frame later.
-    await locks.click();
-    await expect(locks).not.toBeChecked();
+    await late.click();
+    await expect(late).not.toBeChecked();
     await page.reload();
-    await expect(locks).not.toBeChecked();
-    await locks.click();
-    await expect(locks).toBeChecked();
+    await expect(late).not.toBeChecked();
+    await late.click();
+    await expect(late).toBeChecked();
+    // An account that locks is chosen with the person's other notices.
+    await expect(
+      page.getByRole("link", { name: "Open your preferences" }),
+    ).toBeVisible();
     expect(await accessibilityViolations(page)).toEqual([]);
     expect(await accessibilityViolations(page)).toEqual([]);
 
