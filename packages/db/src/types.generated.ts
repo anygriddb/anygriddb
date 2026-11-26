@@ -755,6 +755,7 @@ export interface Jobs {
   startedAt: Timestamp | null;
   status: Generated<JobStatus>;
   tableId: string | null;
+  tokenId: string | null;
   userId: string | null;
 }
 

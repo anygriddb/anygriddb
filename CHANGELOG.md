@@ -55,6 +55,13 @@ rules, and runs a version before 0.11.2 upgrades through 0.11.2 first.
 - Notices about a base go to whoever runs it, a made role that manages it
   or a group's included, and no longer to the four's owners alone.
 
+### Fixed
+
+- A job a token started (an export, an import, a copy, a restore) acts by
+  that token each time it runs, within what the token was given and what
+  its author holds then (ADR 0131, migration 0153): a revoked or ended
+  token stops it, where it went on with all its author's roles.
+
 ## 0.11.2 - 2026-11-26
 
 Before upgrading: nothing to do. Migration 0149 runs by itself. Then read

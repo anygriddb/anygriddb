@@ -7,6 +7,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { storeAttachment } from "./attachments.js";
 import { loadBindings } from "./auth/access.js";
 import { setTableAcl } from "./data/acl.js";
+import { createApiToken, revokeApiToken } from "./auth/tokens.js";
 import { narrowOn } from "./data/rules.test-helpers.js";
 import { withAudit } from "./data/audit-context.js";
 import {
@@ -354,11 +355,15 @@ describe("the file of an export, against the rules of today", () => {
       columns: [],
     });
 
-  async function exported(userId = member): Promise<JobRow> {
+  async function exported(
+    userId = member,
+    tokenId: string | null = null,
+  ): Promise<JobRow> {
     const job = {
       id: randomUUID(),
       kind: "export",
       userId,
+      tokenId,
       baseId,
       tableId,
       status: "done",
@@ -519,6 +524,26 @@ describe("the file of an export, against the rules of today", () => {
           .execute(),
       );
     }
+  });
+
+  it("runs a job a token started by that token, and not once it is revoked", async () => {
+    const reaching = await createApiToken(db, member, "Exports", {
+      baseIds: [baseId],
+    });
+    expect((await exported(member, reaching.id)).result).toBeTruthy();
+    // A token kept to another base gives the job nothing here.
+    const elsewhere = await createApiToken(db, member, "Elsewhere", {
+      baseIds: [randomUUID()],
+    });
+    await expect(exported(member, elsewhere.id)).rejects.toThrow(
+      "Access denied",
+    );
+    await revokeApiToken(db, member, reaching.id);
+    await expect(exported(member, reaching.id)).rejects.toThrow(
+      "Access denied",
+    );
+    // Started in a session, it acts by its author's roles as before.
+    expect((await exported(member)).result).toBeTruthy();
   });
 
   it("never holds an owner of the table to a rule: none can be set on them", async () => {

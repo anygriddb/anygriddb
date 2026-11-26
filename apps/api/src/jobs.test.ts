@@ -18,6 +18,7 @@ const job: JobRow = {
   userId: "0b5c4f3e-8a5e-4c43-9f61-2d4b8d1c7a10",
   baseId: null,
   tableId: null,
+  tokenId: null,
   input: {},
   result: null,
   error: null,

@@ -99,6 +99,8 @@ export type QueueDeps = {
   bus: Bus;
   log: Log;
   key?: KeyRing;
+  /** The API token the request came by: the job acts by it when it runs. */
+  tokenId?: string;
 };
 
 /**
@@ -185,6 +187,7 @@ export async function enqueueJob(
         baseId: input.baseId ?? null,
         tableId: input.tableId ?? null,
         input: parsed.data,
+        tokenId: deps.tokenId ?? null,
       })
       .returningAll()
       .executeTakeFirst();
