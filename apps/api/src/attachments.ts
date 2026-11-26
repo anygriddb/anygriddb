@@ -1,3 +1,4 @@
+import { assertStorageRoom } from "./files/release.js";
 import { declaredRoute } from "./access/routes.js";
 import type { KeyRing } from "./auth/key-ring.js";
 import { randomBytes } from "node:crypto";
@@ -163,6 +164,11 @@ export async function storeAttachment(
     throw new AppError("attachment_type_refused");
   }
   const size = "bytes" in input ? input.bytes.length : input.size;
+  await assertStorageRoom(db, {
+    tableId: input.tableId,
+    userId: input.userId,
+    size,
+  });
   const key = newKey();
   let width: number | null = null;
   let height: number | null = null;

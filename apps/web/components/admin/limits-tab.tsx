@@ -47,6 +47,12 @@ async function sendLimits(
   }
 }
 
+/** The quotas of storage, whose 0 is none. */
+const QUOTAS: ReadonlySet<LimitId> = new Set<LimitId>([
+  "storage.base_bytes",
+  "storage.account_bytes",
+]);
+
 function useLimitNames(): Record<LimitId, string> {
   const { t } = useLingui();
   return {
@@ -258,6 +264,8 @@ function useLimitNames(): Record<LimitId, string> {
     "import.zip_entries": t`Parts of a spreadsheet's archive`,
     "import.zip_entry_bytes": t`A part of a spreadsheet's archive`,
     "import.zip_total_bytes": t`A spreadsheet's archive, unpacked`,
+    "storage.base_bytes": t`Files a base holds`,
+    "storage.account_bytes": t`Files an account sent`,
   };
 }
 
@@ -349,6 +357,7 @@ function useScopeNames(): Record<LimitScope, string> {
     link: t`A link`,
     file: t`A file`,
     cell: t`A cell`,
+    base: t`A base`,
   };
 }
 
@@ -407,9 +416,12 @@ export function LimitsTab() {
   const set = settings.data.limits;
   const number = new Intl.NumberFormat(intlLocale(i18n.locale));
   const amount = (row: LimitRow, value: number) =>
-    row.unit === "bytes"
-      ? formatBytes(value)
-      : `${number.format(value)} ${units[row.unit]}`;
+    // A quota of storage of 0 is none (ADR 0136).
+    QUOTAS.has(row.id) && value === 0
+      ? t`No quota`
+      : row.unit === "bytes"
+        ? formatBytes(value)
+        : `${number.format(value)} ${units[row.unit]}`;
   const changed = (family: LimitFamily) =>
     Object.keys(splitDraft(draft, family)[0]).length > 0;
   // Each part of the page saves its own fields; what was set elsewhere is

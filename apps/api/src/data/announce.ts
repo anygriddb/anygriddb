@@ -1,3 +1,4 @@
+import { queueFileRelease } from "../files/release.js";
 import type { Database } from "@anygriddb/db";
 import type { Bus } from "../realtime/bus.js";
 import {
@@ -46,6 +47,12 @@ export async function announceRows(
   extraTables: readonly string[] = [],
 ): Promise<void> {
   const log = (error: unknown) => deps.log(error, "realtime publish failed");
+  // A change may have let a file go: looked at a little later (ADR 0136).
+  if (op !== "insert") {
+    await queueFileRelease(deps.db, tableId).catch((error: unknown) => {
+      deps.log(error, "file release not queued");
+    });
+  }
   await publishRows(deps.bus, tableId, op, rowIds, log);
   await publishStale(
     deps.bus,

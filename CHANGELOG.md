@@ -27,6 +27,12 @@ first.
 
 ### Added
 
+- **Storage has quotas** (migration 0146, ADR 0136): what a base's files and
+  an account's may hold, set in Administration › Limits and usage, none by
+  default. A file past one is refused, and says which. A file no cell
+  names any more is released: it counts no more at once, and is deleted
+  once the trash would no longer bring its row back; the list of bases
+  gives each base's size of what it holds.
 - Administration › Limits and usage lists every limit the instance keeps,
   in three more parts (signing in, codes and links; what a cell, a formula
   and a view hold; channels, directories and calls out), each with who sets

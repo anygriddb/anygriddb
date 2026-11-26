@@ -3,6 +3,7 @@
  * catalogue as the instance keeps it now, and what is used of it where
  * the instance counts it. Counts, never who: no address, no account.
  */
+import { storageUse } from "./files/release.js";
 import {
   LIMITS,
   limitIn,
@@ -139,10 +140,14 @@ export async function limitsAndUsage(
   env: Env,
   settings: InstanceSettings,
 ): Promise<LimitRow[]> {
-  const [rates, jobs, sockets] = await Promise.all([
+  const [rates, jobs, sockets, storage] = await Promise.all([
     rateUse(db, settings),
     jobsUse(db, settings),
     socketsUse(db, settings),
+    storageUse(db, {
+      base: limitIn("storage.base_bytes", settings.limits),
+      account: limitIn("storage.account_bytes", settings.limits),
+    }),
   ]);
   const counted = new Set<LimitId>(Object.values(BUCKET_LIMITS));
   return (Object.keys(LIMITS) as LimitId[]).map((id) => {
@@ -152,9 +157,13 @@ export async function limitsAndUsage(
         ? jobs
         : id === "sockets.per_account"
           ? sockets
-          : counted.has(id)
-            ? (rates.get(id as SettableLimitId) ?? { most: 0, past: 0 })
-            : null;
+          : id === "storage.base_bytes"
+            ? storage.base
+            : id === "storage.account_bytes"
+              ? storage.account
+              : counted.has(id)
+                ? (rates.get(id as SettableLimitId) ?? { most: 0, past: 0 })
+                : null;
     // What the environment fixes is its operator's to change (ADR 0083).
     const setBy: LimitSetBy =
       fixedByEnv(entry, env) === undefined ? entry.setBy : "environment";

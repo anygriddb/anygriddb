@@ -545,6 +545,20 @@ test("an administrator ends a session, reads the sign-ins, and exports access", 
       await expect(exported).toHaveValue(kept);
       await expect(reports).toHaveValue("30");
     }
+    // A quota of storage (ADR 0136): none by default, set, then none again.
+    const quota = page.getByLabel("Files a base holds", { exact: true });
+    await expect(quota).toHaveValue("0");
+    for (const typed of ["1048576", "0"]) {
+      await quota.fill(typed);
+      const answered = page.waitForResponse(
+        (response) =>
+          response.url().includes("admin.updateSettings") && response.ok(),
+      );
+      await saveFiles.click();
+      await answered;
+      await page.reload();
+      await expect(quota).toHaveValue(typed);
+    }
 
     // Recent lines of this process (ADR 0087). Every kept line by default;
     // the setting just saved is an ordinary message of the process. The

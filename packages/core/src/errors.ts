@@ -193,6 +193,8 @@ export const ERRORS = {
   invalid_attachment: [BAD, "Invalid attachment"],
   /** An administrator refused this file's extension or sniffed type. */
   attachment_type_refused: [BAD, "That file type is not allowed"],
+  /** A file past its base's or its sender's quota (ADR 0136): `detail` says which. */
+  storage_full: [413, "This file would go past the quota of storage"],
   invalid_comment: [BAD, "Invalid comment"],
   invalid_status: [BAD, "Invalid status"],
   invalid_row_id: [BAD, "Invalid row id"],

@@ -1279,6 +1279,10 @@ msgid "A barcode draws up to 80 letters, digits, and signs, without accents"
 msgstr "Un code-barres dessine jusqu’à 80 lettres, chiffres et signes, sans accents"
 
 #: components/admin/limits-tab.tsx
+msgid "A base"
+msgstr "Une base"
+
+#: components/admin/limits-tab.tsx
 msgid "A base an administrator opens"
 msgstr "Base ouverte par un administrateur"
 
@@ -5994,6 +5998,14 @@ msgstr "Fichier trop volumineux : un classeur fait 64 Mo au plus."
 msgid "Files"
 msgstr "Fichiers"
 
+#: components/admin/limits-tab.tsx
+msgid "Files a base holds"
+msgstr "Fichiers qu’une base garde"
+
+#: components/admin/limits-tab.tsx
+msgid "Files an account sent"
+msgstr "Fichiers qu’un compte a envoyés"
+
 #: components/fields/field-meta.tsx
 msgid "Files and images"
 msgstr "Fichiers et images"
@@ -8901,6 +8913,10 @@ msgstr "sans clé primaire : lecture seule"
 #: components/admin/outbound-tab.tsx
 msgid "No public link or calendar feed on this instance."
 msgstr "Aucun lien public ni flux de calendrier sur cette instance."
+
+#: components/admin/limits-tab.tsx
+msgid "No quota"
+msgstr "Aucun quota"
 
 #: components/settings/restore-points.tsx
 msgid "No restore point yet."
@@ -14180,6 +14196,10 @@ msgstr "Ce fichier n’est pas en UTF-8 : il est lu en Windows-1252. Vérifiez 
 #: lib/errors.ts
 msgid "This file is too long: at most 200 people in one file"
 msgstr "Ce fichier est trop long : 200 personnes au plus par fichier"
+
+#: lib/errors.ts
+msgid "This file would take the base, or your files, past the storage an administrator allows. Remove files no longer needed, or ask an administrator."
+msgstr "Ce fichier ferait dépasser à la base, ou à vos fichiers, le stockage qu’un administrateur permet. Retirez les fichiers devenus inutiles, ou demandez à un administrateur."
 
 #: lib/errors.ts
 msgid "This filter on a field kept in AnyGridDB matches more than 1,000 rows: narrow it"
