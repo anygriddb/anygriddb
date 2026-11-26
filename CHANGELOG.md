@@ -8,6 +8,13 @@ first.
 
 ## Unreleased
 
+## 0.11.2 - 2026-11-26
+
+Before upgrading: nothing to do. Migration 0149 runs by itself. Then read
+Administration › People › Rights to review: the next minor version changes
+how roles combine, and lists there, with this version, whose access it
+will not keep exactly as it is.
+
 ### Added
 
 - Administration › People › Rights to review lists, ahead of the next minor
