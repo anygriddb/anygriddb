@@ -28,6 +28,12 @@ one to the rule.
   network. Its calls go through the service with private addresses allowed;
   a reserved one (the machine itself, a cloud's metadata) is refused, and
   each socket connects to the address that was checked.
+- **Where a private network is allowed, so are its own names** (`.internal`,
+  `.local`): they were refused before they were resolved, which would have
+  shut out a provider named in its organisation's zone (found by signing in
+  against a real provider). Their addresses are checked as any other; the
+  machine's names and a cloud's metadata stay refused. A notification
+  channel's administrator who allowed private networks gets the same.
 - **The release check and the import from another product reach the
   public internet only.**
 - **The two clients that keep a socket open live in the service:** the

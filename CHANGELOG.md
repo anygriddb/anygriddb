@@ -22,6 +22,8 @@ first.
   answer has a ceiling, and an address reserved for the machine or a
   cloud's metadata is refused. A provider on a private network is reached
   as before.
+- Where an administrator allowed private networks, a name of that network
+  (`.internal`, `.local`) is reached too, its address checked as any other.
 
 ### Added
 
