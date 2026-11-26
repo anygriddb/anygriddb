@@ -15,6 +15,10 @@ msgstr " La plus ancienne encore gardée est {time}."
 msgid "-1, 0, or 1, by its sign."
 msgstr "-1, 0 ou 1, selon le signe."
 
+#: components/admin/effective-rights.tsx
+msgid "; "
+msgstr " ; "
+
 #: components/record/row-status.tsx
 msgid ": sealed value {value}"
 msgstr " : valeur scellée {value}"
@@ -3093,6 +3097,10 @@ msgstr "comme auteur"
 #: components/admin/sign-in-trail.tsx
 msgid "As an administrator"
 msgstr "En tant qu’administrateur"
+
+#: components/admin/effective-rights.tsx
+msgid "As on the base"
+msgstr "Comme sur la base"
 
 #: components/dashboards/dashboard-board.tsx
 msgid "As the field orders them"
@@ -6501,8 +6509,8 @@ msgid "Group"
 msgstr "Grouper"
 
 #: components/admin/effective-rights.tsx
-msgid "Group {name}"
-msgstr "Groupe {name}"
+msgid "group {name}"
+msgstr "groupe {name}"
 
 #: components/dashboards/dashboard-board.tsx
 msgid "Group by"
@@ -7306,6 +7314,10 @@ msgstr "URL de l’émetteur"
 #: components/shell/about-dialog.tsx
 msgid "It comes with no warranty, to the extent the law allows."
 msgstr "Il est fourni sans garantie, dans la mesure permise par la loi."
+
+#: components/admin/rights-at.tsx
+msgid "It gave then: {permissions}"
+msgstr "Il donnait alors : {permissions}"
 
 #: components/admin/base-admin-page.tsx
 msgid "It goes to the trash for {days} days with its data, where its owners and administrators can restore it, then it is deleted permanently."
@@ -9098,7 +9110,6 @@ msgid "Node.js, up for"
 msgstr "Node.js, en service depuis"
 
 #: components/admin/account-page.tsx
-#: components/admin/effective-rights.tsx
 #: components/admin/health-tab.tsx
 #: components/admin/sources-tab.tsx
 #: components/dashboards/dashboard-board.tsx
@@ -9341,6 +9352,10 @@ msgstr "Sur la base"
 #: components/admin/identity-tab.tsx
 msgid "On the screens"
 msgstr "À l’écran"
+
+#: components/admin/effective-rights.tsx
+msgid "on the table"
+msgstr "sur la table"
 
 #: lib/errors.ts
 msgid "On this instance, a public link needs a password"
@@ -9644,8 +9659,8 @@ msgid "Overview"
 msgstr "Vue d’ensemble"
 
 #: components/admin/effective-rights.tsx
-msgid "Own role"
-msgstr "Rôle direct"
+msgid "own role"
+msgstr "rôle propre"
 
 #: components/admin/base-choices.tsx
 msgid "Owned by {owners}"
@@ -9886,6 +9901,14 @@ msgstr "Droits de"
 #: components/settings/table-rules-panel.tsx
 msgid "Permissions on {table}"
 msgstr "Droits sur {table}"
+
+#: components/admin/effective-rights.tsx
+msgid "Permissions on the base, and what gives each"
+msgstr "Permissions sur la base, et ce qui donne chacune"
+
+#: components/admin/effective-rights.tsx
+msgid "Permissions on this table, and what gives each"
+msgstr "Permissions sur cette table, et ce qui donne chacune"
 
 #: components/settings/table-rules-panel.tsx
 msgid "Permissions saved"
@@ -12376,6 +12399,18 @@ msgstr "Lentes"
 #: components/admin/health-tab.tsx
 msgid "Slow means one second or more. Figures come from every process writing to the database, not from Prometheus."
 msgstr "Lente : une seconde ou plus. Les chiffres viennent de chaque processus qui écrit en base, pas de Prometheus."
+
+#: components/admin/effective-rights.tsx
+msgid "Some fields only"
+msgstr "Certains champs seulement"
+
+#: components/admin/effective-rights.tsx
+msgid "Some rows and fields only"
+msgstr "Certaines lignes et certains champs seulement"
+
+#: components/admin/effective-rights.tsx
+msgid "Some rows only"
+msgstr "Certaines lignes seulement"
 
 #: components/admin/base-admin-members.tsx
 #: components/settings/base-settings.tsx
@@ -15191,6 +15226,10 @@ msgstr "Fichier de base illisible"
 msgid "Unreadable file: use a CSV, TSV, JSON, or Excel file with a header row"
 msgstr "Fichier illisible : utilisez un CSV, TSV, JSON ou Excel avec une ligne d’en-tête"
 
+#: components/admin/effective-rights.tsx
+msgid "until {date}"
+msgstr "jusqu’au {date}"
+
 #: components/admin/security-tab.tsx
 msgid "Until an administrator unlocks it"
 msgstr "Jusqu’à ce qu’un administrateur le déverrouille"
@@ -15533,6 +15572,10 @@ msgstr "Ce qui est utilisé est compté sur cette minute et la précédente."
 msgid "What is waiting for you, and what changed in your tables."
 msgstr "Ce qui vous attend, et ce qui a changé dans vos tables."
 
+#: components/admin/rights-at.tsx
+msgid "What it gave then is no longer on the trail."
+msgstr "Ce qu’il donnait alors n’est plus sur la piste des changements."
+
 #: components/table/automations-dialog.tsx
 msgid "What its scripts logged"
 msgstr "Ce que ses scripts ont écrit au journal"
@@ -15770,6 +15813,10 @@ msgstr "avec condition"
 #: components/admin/account-page.tsx
 msgid "With a password"
 msgstr "Avec un mot de passe"
+
+#: components/admin/effective-rights.tsx
+msgid "with a rule"
+msgstr "avec une règle"
 
 #: lib/limits.ts
 msgid "With an alternative (|) or a lazy repeat (*?), {engine} keeps the first match and PostgreSQL the longest: {fn} may find another text. This is a {engine} limit."

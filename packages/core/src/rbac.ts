@@ -576,6 +576,8 @@ export type TableRules = {
    * rows, or a field no attribution that reads rows shows whole.
    */
   narrows: boolean;
+  /** What they keep: rows (some are not read), fields (by a rule). */
+  narrowed: { rows: boolean; fields: boolean };
 };
 
 export function tableRules(
@@ -602,15 +604,18 @@ export function tableRules(
     if (filters.length === 1) return filters[0];
     return { conjunction: "or", conditions: filters };
   };
+  const narrowed = {
+    rows: rows("rows.read") !== undefined,
+    fields: !reach.some(
+      (binding) =>
+        !(narrowing(binding) && binding.fields) &&
+        roleGrants(binding.role, "rows.read"),
+    ),
+  };
   return {
     rows,
-    narrows:
-      rows("rows.read") !== undefined ||
-      !reach.some(
-        (binding) =>
-          !(narrowing(binding) && binding.fields) &&
-          roleGrants(binding.role, "rows.read"),
-      ),
+    narrows: narrowed.rows || narrowed.fields,
+    narrowed,
     access: (column) => {
       let best: ColumnAccess = "hide";
       for (const binding of reach) {

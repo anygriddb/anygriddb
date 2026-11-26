@@ -3,6 +3,7 @@
  * by walking backward from the roles they hold now (including roles a group
  * gives them). Incomplete when the change trail was purged before that date.
  */
+import { type Permission, PERMISSIONS, rolePermissions } from "@anygriddb/core";
 import type { Database, Role } from "@anygriddb/db";
 import { sql } from "kysely";
 
@@ -11,8 +12,16 @@ export type RightsAtLine = {
   scopeId: string;
   /** One of the four, or null for a made role (ADR 0128). */
   role: Role | null;
-  /** The made role, by its name now; a name of null: since deleted. */
-  madeRole: { id: string; name: string | null } | null;
+  /**
+   * The made role: its name and what it gave at that date, as the change
+   * trail kept them; its name now when the trail no longer says (null:
+   * since deleted), and its permissions then null.
+   */
+  madeRole: {
+    id: string;
+    name: string | null;
+    permissions: Permission[] | null;
+  } | null;
   /** Null when the role is the person's own; set when a group still gives it. */
   groupId: string | null;
   groupName: string | null;
@@ -382,6 +391,7 @@ export async function rightsAt(
             .execute()
         ).map((role) => [role.id, role.name] as const),
   );
+  const madeThen = await madeRolesAt(db, madeIds, input.at);
   const lines: RightsAtLine[] = [...state.values()]
     .map((row) => ({
       scope: row.scope,
@@ -390,7 +400,14 @@ export async function rightsAt(
       madeRole:
         row.madeRoleId === null
           ? null
-          : { id: row.madeRoleId, name: madeNames.get(row.madeRoleId) ?? null },
+          : {
+              id: row.madeRoleId,
+              name:
+                madeThen.get(row.madeRoleId)?.name ??
+                madeNames.get(row.madeRoleId) ??
+                null,
+              permissions: madeThen.get(row.madeRoleId)?.permissions ?? null,
+            },
       groupId: row.groupId,
       groupName: row.groupName,
       eventId: row.eventId,
@@ -403,6 +420,52 @@ export async function rightsAt(
     );
 
   return { incomplete: false, at: atIso, lines };
+}
+
+/**
+ * What each made role was at a date: its name and permissions in the last
+ * change the trail kept of it up to then, in one read of the trail.
+ */
+async function madeRolesAt(
+  db: Database,
+  ids: readonly string[],
+  at: Date,
+): Promise<Map<string, { name: string; permissions: Permission[] }>> {
+  if (ids.length === 0) return new Map();
+  const kept = sql<string>`coalesce(new_value, old_value) ->> 'id'`;
+  const events = await db
+    .selectFrom("auditEvents")
+    .select([kept.as("roleId"), "newValue"])
+    .distinctOn(kept)
+    .where("action", "=", "catalog")
+    .where("catalogTable", "=", "made_roles")
+    .where("occurredAt", "<=", at)
+    .where(kept, "in", ids)
+    .orderBy(kept)
+    .orderBy("occurredAt", "desc")
+    .orderBy("id", "desc")
+    .execute();
+  const out = new Map<string, { name: string; permissions: Permission[] }>();
+  for (const event of events) {
+    const then = payloadOf(event.newValue);
+    if (!then) continue;
+    const name = typeof then.name === "string" ? then.name : null;
+    const listed = Array.isArray(then.permissions) ? then.permissions : [];
+    if (name === null) continue;
+    out.set(event.roleId, {
+      name,
+      permissions: PERMISSIONS.filter((permission) =>
+        listed.includes(permission),
+      ),
+    });
+  }
+  return out;
+}
+
+/** What a line's role gave at its date, by the permissions' keys. */
+function permissionsOf(line: RightsAtLine): string {
+  if (line.role) return rolePermissions(line.role).join(" ");
+  return line.madeRole?.permissions?.join(" ") ?? "";
 }
 
 /**
@@ -420,7 +483,7 @@ export function rightsAtCsv(
   labels: Map<string, { base?: string; table?: string }>,
 ): string {
   const header =
-    "scope,scope_id,base,table,role,group_id,group_name,event_id,occurred_at";
+    "scope,scope_id,base,table,role,group_id,group_name,event_id,occurred_at,permissions";
   const rows = result.lines.map((line) => {
     const names = labels.get(line.scopeId) ?? {};
     return [
@@ -433,6 +496,7 @@ export function rightsAtCsv(
       line.groupName ?? "",
       line.eventId ?? "",
       line.occurredAt ?? "",
+      permissionsOf(line),
     ]
       .map(rightsAtCsvCell)
       .join(",");

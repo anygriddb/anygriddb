@@ -1,58 +1,47 @@
 import { describe, expect, it } from "vitest";
-import { roleRank, type Role } from "@anygriddb/core";
+import type { Given } from "@anygriddb/core";
+import { rightsOn, type SourcedOrigin } from "./admin-access.js";
 
-/**
- * Mirrors the origin pick in admin-access: highest role wins; a person's
- * own binding beats a group at the same rank.
- */
-function pickOrigin(
-  rows: Array<{
-    role: Role;
-    groupId: string | null;
-    groupName: string | null;
-  }>,
-): { role: Role | null; origin: string } {
-  let best: Role | null = null;
-  let origin = "none";
-  for (const row of rows) {
-    const rank = roleRank(row.role);
-    const bestRank = best ? roleRank(best) : 0;
-    const direct = row.groupId === null;
-    const better =
-      rank > bestRank || (rank === bestRank && direct && origin !== "direct");
-    if (!better) continue;
-    best = row.role;
-    origin = direct ? "direct" : (row.groupName ?? "");
-  }
-  return { role: best, origin };
+function origin(
+  role: Given,
+  group: SourcedOrigin["group"] = null,
+): SourcedOrigin {
+  return {
+    scope: "base",
+    role: typeof role === "string" ? role : role.id,
+    madeName: typeof role === "string" ? null : role.name,
+    group,
+    endsAt: null,
+    narrows: false,
+    binding: { role, scope: "base", scopeId: "b" },
+  };
 }
 
-describe("effective rights origin", () => {
-  it("keeps the highest role", () => {
-    expect(
-      pickOrigin([
-        { role: "viewer", groupId: "g1", groupName: "Team" },
-        { role: "editor", groupId: null, groupName: null },
-      ]),
-    ).toEqual({ role: "editor", origin: "direct" });
+describe("rightsOn", () => {
+  it("names each permission held with every attribution that gives it", () => {
+    const rights = rightsOn([
+      origin("viewer", { id: "g", name: "Finance" }),
+      origin({
+        id: "m",
+        name: "Reviewer",
+        permissions: ["rows.read", "rows.comment"],
+      }),
+    ]);
+    expect(rights.origins.map((one) => one.madeName ?? one.role)).toEqual([
+      "viewer",
+      "Reviewer",
+    ]);
+    expect(rights.permissions).toEqual([
+      { permission: "rows.read", from: [0, 1] },
+      { permission: "rows.comment", from: [1] },
+      { permission: "data.export", from: [0] },
+      { permission: "api.access", from: [0] },
+    ]);
+    // What the decision reads stays on the server.
+    expect(rights.origins[0]).not.toHaveProperty("binding");
   });
 
-  it("prefers a direct binding when ranks match", () => {
-    expect(
-      pickOrigin([
-        { role: "editor", groupId: "g1", groupName: "Team" },
-        { role: "editor", groupId: null, groupName: null },
-      ]),
-    ).toEqual({ role: "editor", origin: "direct" });
-  });
-
-  it("names the group when only a group gives the role", () => {
-    expect(
-      pickOrigin([{ role: "viewer", groupId: "g1", groupName: "Finance" }]),
-    ).toEqual({ role: "viewer", origin: "Finance" });
-  });
-
-  it("says none when there is no binding", () => {
-    expect(pickOrigin([])).toEqual({ role: null, origin: "none" });
+  it("holds nothing where no attribution reaches", () => {
+    expect(rightsOn([])).toEqual({ origins: [], permissions: [] });
   });
 });

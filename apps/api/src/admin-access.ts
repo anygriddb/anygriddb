@@ -1,20 +1,33 @@
 /**
- * An account's effective rights on a base and its tables (ROADMAP #29):
- * the resolved role the engine would use, and whether it comes from the
- * person's own binding or from a group.
+ * An account's effective rights on a base and its tables (ROADMAP #29, ADR
+ * 0131): every permission it holds there and the attributions it comes
+ * from, its own or a group's, on the base or the table, until when, and
+ * what a rule narrows.
  */
 import {
   AppError,
+  type Binding,
   effectiveTableRole,
   type Given,
+  type Permission,
+  PERMISSIONS,
   roleFor,
-  roleRank,
+  roleGrants,
+  tableRules,
 } from "@anygriddb/core";
 import type { Database } from "@anygriddb/db";
 import { z } from "zod";
+import { liveAttribution } from "./data/attributions.js";
 import { ERASED_USER_ID } from "./data/erasure.js";
 import { liveBase, liveTable } from "./data/live.js";
-import { givenOf, MADE_COLUMNS } from "./data/made-roles.js";
+import {
+  fieldsOf,
+  givenKey,
+  givenName,
+  givenOf,
+  MADE_COLUMNS,
+  rowsOf,
+} from "./data/made-roles.js";
 
 export const effectiveAccessInputSchema = z
   .object({
@@ -23,63 +36,46 @@ export const effectiveAccessInputSchema = z
   })
   .strict();
 
-type AccessOrigin =
-  | { kind: "direct" }
-  | { kind: "group"; groupId: string; groupName: string }
-  | { kind: "none" };
-
-type SourcedBinding = {
-  role: Given;
+/** One attribution that reaches a person, as Administration shows it. */
+export type AccessOrigin = {
   scope: "base" | "table";
-  scopeId: string;
-  groupId: string | null;
-  groupName: string | null;
+  /** One of the shipped roles by its key, or a made role by its id. */
+  role: string;
+  /** A made role's name; null for a shipped role. */
+  madeName: string | null;
+  /** The group it is given to; null when it is the person's own. */
+  group: { id: string; name: string } | null;
+  endsAt: string | null;
+  /** Whether a rule comes with it (to some rows or fields). */
+  narrows: boolean;
 };
 
-/** Where a binding stands among the four; a made role below them all. */
-function rankOf(role: Given): number {
-  return typeof role === "string" ? roleRank(role) : 0;
-}
+/** An origin with what the decision reads of it. */
+export type SourcedOrigin = AccessOrigin & { binding: Binding };
 
 /**
- * Among bindings on one exact scope, the highest role and where it comes
- * from. A person's own binding wins a tie with a group's. A made role is
- * held with the others, each giving what it gives (`roleFor`); the origin
- * named is the highest of the four's, or the first made role's.
+ * What the attributions that reach one scope give together: each
+ * permission with the attributions it comes from (by their place in
+ * `origins`).
  */
-function resolvedOn(
-  bindings: readonly SourcedBinding[],
-  scope: "base" | "table",
-  scopeId: string,
-): { role: Given | null; origin: AccessOrigin } {
-  let best: Given | null = null;
-  let origin: AccessOrigin = { kind: "none" };
-  for (const binding of bindings) {
-    if (binding.scope !== scope || binding.scopeId !== scopeId) continue;
-    const rank = rankOf(binding.role) + 1;
-    const bestRank = best ? rankOf(best) + 1 : 0;
-    const direct = binding.groupId === null;
-    const better =
-      rank > bestRank ||
-      (rank === bestRank && direct && origin.kind !== "direct");
-    if (!better) continue;
-    best = binding.role;
-    if (direct || binding.groupId === null) {
-      origin = { kind: "direct" };
-    } else {
-      origin = {
-        kind: "group",
-        groupId: binding.groupId,
-        groupName: binding.groupName ?? "",
-      };
-    }
-  }
-  return { role: best, origin };
+export function rightsOn(origins: ReadonlyArray<SourcedOrigin>): {
+  origins: AccessOrigin[];
+  permissions: Array<{ permission: Permission; from: number[] }>;
+} {
+  return {
+    origins: origins.map(({ binding: _binding, ...origin }) => origin),
+    permissions: PERMISSIONS.flatMap((permission) => {
+      const from = origins.flatMap((origin, index) =>
+        roleGrants(origin.binding.role, permission) ? [index] : [],
+      );
+      return from.length > 0 ? [{ permission, from }] : [];
+    }),
+  };
 }
 
 /**
- * The role the engine would grant this account on the base and on each of
- * its tables, with the origin of that role (own binding or group name).
+ * Every permission this account holds on the base and on each of its
+ * tables, and the attributions that give it, as the decision reads them.
  */
 export async function effectiveAccess(
   db: Database,
@@ -103,24 +99,27 @@ export async function effectiveAccess(
   if (!account) throw new AppError("unknown_account");
   if (!base) throw new AppError("unknown_base");
 
-  const [bindings, tables] = await Promise.all([
+  const [rows, tables] = await Promise.all([
     db
-      .selectFrom("attributions as b")
-      .leftJoin("groups as g", "g.id", "b.groupId")
-      .leftJoin("madeRoles as m", "m.id", "b.madeRoleId")
+      .selectFrom("attributions as a")
+      .leftJoin("groups as g", "g.id", "a.groupId")
+      .leftJoin("madeRoles as m", "m.id", "a.madeRoleId")
       .select([
-        "b.role",
-        "b.scope",
-        "b.scopeId",
-        "b.groupId",
+        "a.role",
+        "a.scope",
+        "a.scopeId",
+        "a.groupId",
+        "a.endsAt",
+        "a.rowFilter",
+        "a.fieldAccess",
         "g.displayName as groupName",
         ...MADE_COLUMNS,
       ])
       .where((eb) =>
         eb.or([
-          eb("b.userId", "=", userId),
+          eb("a.userId", "=", userId),
           eb(
-            "b.groupId",
+            "a.groupId",
             "in",
             eb
               .selectFrom("groupMembers")
@@ -129,10 +128,8 @@ export async function effectiveAccess(
           ),
         ]),
       )
-      .where("b.scope", "in", ["base", "table"])
-      .where((eb) =>
-        eb.or([eb("b.endsAt", "is", null), eb("b.endsAt", ">", new Date())]),
-      )
+      .where("a.scope", "in", ["base", "table"])
+      .where(liveAttribution)
       .execute(),
     db
       .selectFrom("dataTables")
@@ -143,31 +140,46 @@ export async function effectiveAccess(
       .execute(),
   ]);
 
-  const sourced: SourcedBinding[] = bindings.flatMap((row) => {
-    const role = givenOf(row);
-    return role === null || row.scopeId === null
-      ? []
-      : [
-          {
-            role,
-            scope: row.scope as "base" | "table",
-            scopeId: row.scopeId,
-            groupId: row.groupId,
-            groupName: row.groupName,
-          },
-        ];
+  const sourced: SourcedOrigin[] = rows.flatMap((row) => {
+    const role: Given | null = givenOf(row);
+    if (role === null || row.scopeId === null) return [];
+    if (row.scope !== "base" && row.scope !== "table") return [];
+    const rule = rowsOf(row.rowFilter);
+    const fields = fieldsOf(row.fieldAccess);
+    return [
+      {
+        scope: row.scope,
+        role: givenKey(role) ?? "",
+        madeName: typeof role === "string" ? null : givenName(role),
+        group:
+          row.groupId === null
+            ? null
+            : { id: row.groupId, name: row.groupName ?? "" },
+        endsAt: row.endsAt ? new Date(row.endsAt).toISOString() : null,
+        narrows: rule !== null || fields !== null,
+        binding: {
+          role,
+          scope: row.scope,
+          scopeId: row.scopeId,
+          ...(rule ? { rows: rule } : {}),
+          ...(fields ? { fields } : {}),
+        },
+      },
+    ];
   });
-
-  // Same plain bindings the engine loads for can() / effectiveTableRole.
-  const plain = sourced.map(({ role, scope, scopeId }) => ({
-    role,
-    scope,
-    scopeId,
-  }));
-
-  const onBase = resolvedOn(sourced, "base", baseId);
-  // roleFor is what the engine uses; keep it as the source of truth.
-  const baseRole = roleFor(plain, "base", baseId);
+  // The base's before a table's, a person's own before a group's: the
+  // permissions name their origins by place.
+  sourced.sort(
+    (one, other) =>
+      Number(one.scope === "table") - Number(other.scope === "table") ||
+      Number(one.group !== null) - Number(other.group !== null) ||
+      (one.group?.name ?? "").localeCompare(other.group?.name ?? "") ||
+      (one.madeName ?? one.role).localeCompare(other.madeName ?? other.role),
+  );
+  const onBase = sourced.filter(
+    (origin) => origin.scope === "base" && origin.binding.scopeId === baseId,
+  );
+  const bindings = sourced.map((origin) => origin.binding);
 
   return {
     userId: account.id,
@@ -175,23 +187,22 @@ export async function effectiveAccess(
     email: account.email,
     baseId: base.id,
     baseName: base.name,
-    role: baseRole,
-    origin: baseRole === null ? ({ kind: "none" } as const) : onBase.origin,
+    role: roleFor(bindings, "base", baseId),
+    ...rightsOn(onBase),
     tables: tables.map((table) => {
-      const onTable = resolvedOn(sourced, "table", table.id);
-      const engineRole = effectiveTableRole(plain, table.id, baseId);
-      const overridden = onTable.role !== null;
-      const origin: AccessOrigin = overridden
-        ? onTable.origin
-        : baseRole === null
-          ? { kind: "none" }
-          : onBase.origin;
+      const onTable = sourced.filter(
+        (origin) =>
+          origin.scope === "table" && origin.binding.scopeId === table.id,
+      );
+      const rules = tableRules(bindings, table.id, baseId);
       return {
         tableId: table.id,
         tableName: table.name,
-        role: engineRole,
-        origin,
-        overridden,
+        role: effectiveTableRole(bindings, table.id, baseId),
+        /** Whether the table adds an attribution of its own to the base's. */
+        overridden: onTable.length > 0,
+        ...rightsOn([...onBase, ...onTable]),
+        narrowed: rules?.narrows ? rules.narrowed : null,
       };
     }),
   };

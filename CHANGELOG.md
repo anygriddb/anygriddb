@@ -55,6 +55,14 @@ rules, and runs a version before 0.11.2 upgrades through 0.11.2 first.
 
 ### Changed
 
+- Administration › People › a person's bases › **Effective rights** say
+  every permission held on the base and on each table, and each
+  attribution it comes from: their own or a group's, on the base or the
+  table, until when, with a rule or not; a table says when its rules keep
+  some rows or some fields from them (ADR 0131).
+- **Rights at a past date** say what a made role gave at that date, as
+  the change trail kept it, not what it gives now; their CSV ends with a
+  column `permissions`, the keys of what each line's role gave.
 - Administration's five roles (administrator, support, auditor, account
   manager, source manager) are attributions at the instance, as a base's
   roles are (ADR 0131, migrations 0151 and 0152): every role an account
@@ -70,6 +78,8 @@ rules, and runs a version before 0.11.2 upgrades through 0.11.2 first.
 
 ### Fixed
 
+- On a phone, a person's bases in Administration keep their name beside a
+  role a group gives them: the role goes to the next line.
 - A job a token started (an export, an import, a copy, a restore) acts by
   that token each time it runs, within what the token was given and what
   its author holds then (ADR 0131, migration 0153): a revoked or ended

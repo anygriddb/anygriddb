@@ -407,6 +407,32 @@ describe("tableRules", () => {
     // The base's viewer reads every field, the rule's hidden one too.
     expect(rules?.access("secret")).toBe("read");
     expect(rules?.access("notes")).toBe("read");
+    // So nothing is kept from reading: only writing is narrowed.
+    expect(rules?.narrows).toBe(false);
+    expect(rules?.narrowed).toEqual({ rows: false, fields: false });
+  });
+
+  it("says whether rows or fields are kept from the reader", () => {
+    const rowsOnly = tableRules(
+      [{ role: "viewer", scope: "table", scopeId: "t", rows: mine }],
+      "t",
+      "b",
+    );
+    expect(rowsOnly?.narrowed).toEqual({ rows: true, fields: false });
+    const fieldsOnly = tableRules(
+      [
+        {
+          role: "viewer",
+          scope: "table",
+          scopeId: "t",
+          fields: { secret: "hide" },
+        },
+      ],
+      "t",
+      "b",
+    );
+    expect(fieldsOnly?.narrowed).toEqual({ rows: false, fields: true });
+    expect(fieldsOnly?.narrows).toBe(true);
   });
 
   it("joins the rows of several by OR, and reaches none without a giver", () => {
