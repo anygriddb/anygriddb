@@ -8,6 +8,13 @@ first.
 
 ## Unreleased
 
+## 0.10.1 - 2026-11-26
+
+Nothing to do before upgrading: migrations 0143 and 0144 add two
+unlogged tables of counts, and every limit keeps its value of 0.10.0
+until an administrator sets it. An instance that sets `IMPORT_MAX_ROWS`
+or `EXPORT_MAX_ROWS` keeps them: the variables still win.
+
 ### Added
 
 - Administration › Instance › **Limits and usage**: every limit the instance
@@ -40,6 +47,13 @@ first.
   unlogged table). The probes (`/health`, `/ready`) are not counted, and a
   count the database does not give within two seconds lets the request
   through, said in the log once a minute.
+
+### Fixed
+
+- A base could lose its last owner through a group: a member taken out of a
+  group that owned it, the group's role changed or taken back, or the group
+  deleted. Each is now refused when it would leave a base that had an owner
+  with none, as a change to a person's own role already was.
 
 ### Security
 
