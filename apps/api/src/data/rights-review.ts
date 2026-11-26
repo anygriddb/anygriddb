@@ -9,7 +9,7 @@ import type { Database } from "@anygriddb/db";
 import { sql } from "kysely";
 import { ERASED_USER_ID } from "./erasure.js";
 
-export const REVIEW_KINDS = [
+const REVIEW_KINDS = [
   "manager",
   "group",
   "ruled",
@@ -17,9 +17,9 @@ export const REVIEW_KINDS = [
   "base_only",
   "idle_rule",
 ] as const;
-export type ReviewKind = (typeof REVIEW_KINDS)[number];
+type ReviewKind = (typeof REVIEW_KINDS)[number];
 
-export type ReviewLine = {
+type ReviewLine = {
   kind: ReviewKind;
   person: { id: string; name: string; email: string };
   base: { id: string; name: string; trashed: boolean };
