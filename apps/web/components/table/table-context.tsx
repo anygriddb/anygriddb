@@ -42,6 +42,11 @@ export type TableContextValue = {
   rowsById: ReadonlyMap<string, RowItem>;
   /** Whether a write is in flight, for the active cell hint. */
   saveStatus: "idle" | "saving" | "saved" | "error";
+  /**
+   * The table's states in its circuit's order, each by its word for this
+   * reader (ADR 0133): what a field of the row's state shows and chooses.
+   */
+  states: readonly { key: string; label: string }[];
 };
 
 export const TableContext = createContext<TableContextValue | null>(null);

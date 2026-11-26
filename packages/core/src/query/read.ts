@@ -177,7 +177,9 @@ function projectColumn(
   const options =
     column.fieldType === "single_select" || column.fieldType === "multi_select"
       ? selectOptionNames(column.config)
-      : undefined;
+      : column.fieldType === "row_state"
+        ? table.states
+        : undefined;
   if (isRelationType(column.fieldType)) {
     return {
       name: column.name,

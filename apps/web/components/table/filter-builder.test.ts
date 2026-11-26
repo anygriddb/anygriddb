@@ -52,4 +52,12 @@ describe("operatorsFor", () => {
     expect(ops).toContain("is_empty");
     expect(ops).not.toContain("is_any_of");
   });
+
+  it("chooses a row's state among its circuit's, never types it", () => {
+    expect(
+      operatorsFor(
+        column({ name: "state", kind: "text", fieldType: "row_state" }),
+      ),
+    ).toEqual(["is", "is_not", "is_any_of", "is_none_of"]);
+  });
 });

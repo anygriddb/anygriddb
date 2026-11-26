@@ -14,6 +14,7 @@ import { Button, Checkbox, Input, Select } from "@anygriddb/ui";
 import { Plus, Trash2 } from "lucide-react";
 import type { CatalogColumn, Collaborator } from "../../lib/types";
 import { optionsOf } from "../fields/cell-value";
+import { useRowStates } from "../fields/use-row-states";
 import { useLingui } from "@lingui/react/macro";
 import type { MessageDescriptor } from "@lingui/core";
 import { msg } from "@lingui/core/macro";
@@ -78,6 +79,13 @@ const SET_OPS = new Set<FilterOperator>([
   "is_exactly",
 ]);
 
+const STATE_OPERATORS: ReadonlySet<FilterOperator> = new Set([
+  "is",
+  "is_not",
+  "is_any_of",
+  "is_none_of",
+]);
+
 export function operatorsFor(column: CatalogColumn): FilterOperator[] {
   // Control-plane enrichment (ADR 0046): only equality and emptiness
   // resolve in PostgreSQL before the client read.
@@ -91,6 +99,10 @@ export function operatorsFor(column: CatalogColumn): FilterOperator[] {
   // Long text its database holds apart: a pattern reads it, "is" cannot.
   if (column.noCompare) {
     return ops.filter((op) => !COMPARING_OPERATORS.has(op));
+  }
+  // A row's state is one of its circuit's: chosen, never typed.
+  if (column.fieldType === "row_state") {
+    return ops.filter((op) => STATE_OPERATORS.has(op));
   }
   if (column.kind === "text" && column.fieldType !== "single_select") {
     return ops.filter((op) => op !== "is_any_of" && op !== "is_none_of");
@@ -128,6 +140,7 @@ function ValueInput({
   onChange: (value: FilterValue | undefined) => void;
 }) {
   const { t } = useLingui();
+  const states = useRowStates();
   const { op, value } = condition;
   if (op === "is_empty" || op === "is_not_empty") return null;
   if (column.kind === "boolean") {
@@ -237,10 +250,12 @@ function ValueInput({
               label: person.displayName,
             })),
           ]
-        : optionsOf(column).map((option) => ({
-            value: option.name,
-            label: option.name,
-          }));
+        : column.fieldType === "row_state"
+          ? states.map((state) => ({ value: state.key, label: state.label }))
+          : optionsOf(column).map((option) => ({
+              value: option.name,
+              label: option.name,
+            }));
     return (
       <div className="flex max-h-28 min-w-40 flex-col gap-0.5 overflow-y-auto rounded-md border border-border p-1">
         {choices.map((choice) => (
@@ -262,6 +277,23 @@ function ValueInput({
           </label>
         ))}
       </div>
+    );
+  }
+  if (column.fieldType === "row_state" && (op === "is" || op === "is_not")) {
+    return (
+      <Select
+        aria-label={t`Value`}
+        className="h-8 w-40"
+        value={typeof value === "string" ? value : ""}
+        onChange={(event) => onChange(event.target.value)}
+      >
+        <option value="">—</option>
+        {states.map((state) => (
+          <option key={state.key} value={state.key}>
+            {state.label}
+          </option>
+        ))}
+      </Select>
     );
   }
   if (

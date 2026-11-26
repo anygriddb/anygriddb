@@ -20,6 +20,7 @@ export type Drawing =
   | "place"
   | "document"
   | "id"
+  | "state"
   | "text";
 
 /**
@@ -56,6 +57,7 @@ const FIELD_DRAWING = {
   last_modified_by: "people",
   autonumber: "text",
   row_id: "id",
+  row_state: "state",
   button: "text",
 } as const satisfies Record<FieldType, Drawing>;
 
@@ -90,6 +92,7 @@ export function drawingOf(
     case "place":
     case "document":
     case "id":
+    case "state":
       return drawn;
     default:
       return "text";

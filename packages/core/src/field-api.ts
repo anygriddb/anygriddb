@@ -145,6 +145,8 @@ const API_VALUES = {
   autonumber: { schema: () => NUMBER },
   // AnyGridDB's uuid, or a client table's key as text.
   row_id: { schema: () => STRING },
+  // The key of the row's state in its table's circuit, read only.
+  row_state: { schema: () => STRING },
   button: { schema: byKind },
 } satisfies Record<FieldType, ApiValue>;
 

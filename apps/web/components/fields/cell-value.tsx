@@ -22,6 +22,7 @@ import {
 } from "./field-appearance";
 import { drawingOf } from "./field-drawing";
 import { RatingControl } from "./rating-control";
+import { RowStateBadge } from "./row-state-badge";
 
 type Option = { name: string; color: string };
 
@@ -209,6 +210,9 @@ export function CellValueView({
         )}
       </span>
     );
+  }
+  if (drawing === "state" && typeof value === "string") {
+    return <RowStateBadge stateKey={value} />;
   }
   if (drawing === "stars" && typeof value === "number") {
     return <RatingControl column={column} value={value} />;

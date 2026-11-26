@@ -20,6 +20,7 @@ describe("how a cell is drawn", () => {
     expect(drawn("place", "48.8566, 2.3522")).toBe("place");
     expect(drawn("json", '{"a":1}')).toBe("document");
     expect(drawn("row_id", "r1")).toBe("id");
+    expect(drawn("row_state", "submitted")).toBe("state");
     expect(drawn("number", "42")).toBe("text");
   });
 

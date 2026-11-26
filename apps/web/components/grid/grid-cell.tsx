@@ -3,6 +3,7 @@ import { cn } from "@anygriddb/ui";
 import { useLingui } from "@lingui/react/macro";
 import type { PointerEvent as ReactPointerEvent } from "react";
 import { cellDisplay } from "../../lib/format";
+import { rowStateWord } from "../fields/use-row-states";
 import type { Presence } from "../../lib/realtime";
 import type { CatalogColumn, RowItem } from "../../lib/types";
 import { ButtonCell } from "../fields/button-cell";
@@ -72,7 +73,7 @@ export function GridCell(props: {
   const editable = isEditableColumn(column) || isEditableLink(column);
   const value = row ? row[column.name as keyof RowItem] : undefined;
   const error = row ? rowError(row, column.name) : null;
-  const { t } = useLingui();
+  const { t, i18n } = useLingui();
   return (
     <div // NOSONAR: the grid holds the focus and names the active cell (aria-activedescendant)
       id={cellId(props.grid, position, columnIndex)}
@@ -88,7 +89,10 @@ export function GridCell(props: {
           : row
             ? `${column.label}: ${
                 error === null
-                  ? cellDisplay(value, column, table.locale, table.people)
+                  ? column.fieldType === "row_state" &&
+                    typeof value === "string"
+                    ? rowStateWord(table.states, value, i18n)
+                    : cellDisplay(value, column, table.locale, table.people)
                   : t`error, ${error}`
               }`
             : column.label

@@ -36,6 +36,7 @@ export const FIELD_TYPES = [
   "last_modified_by",
   "autonumber",
   "row_id",
+  "row_state",
   "button",
 ] as const;
 
@@ -247,6 +248,9 @@ export const FIELD_DEFINITIONS = {
   autonumber: system("ag_seq", "number"),
   // On a client's table, the row's key: `compileColumn` reads it from there.
   row_id: system("id", "text"),
+  // The row's state in its table's circuit (ADR 0133): its key, which the
+  // database guards; sorted in the circuit's order, shown by its label.
+  row_state: system("ag_status", "text"),
   button: {
     physical: { role: "virtual" },
     storedValueKind: "text",
@@ -263,7 +267,8 @@ type SystemType =
   | "created_by"
   | "last_modified_by"
   | "autonumber"
-  | "row_id";
+  | "row_id"
+  | "row_state";
 
 type ComputedType = "formula" | "lookup" | "rollup";
 
@@ -274,6 +279,7 @@ export const SYSTEM_COLUMN: Record<SystemType, string> = {
   last_modified_by: "ag_updated_by",
   autonumber: "ag_seq",
   row_id: "id",
+  row_state: "ag_status",
 };
 
 /** Names a user column can never take: row identity and system columns. */

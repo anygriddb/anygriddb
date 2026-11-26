@@ -100,6 +100,7 @@ describe("FIELD_DEFINITIONS", () => {
       last_modified_by: "user",
       autonumber: "number",
       row_id: "text",
+      row_state: "text",
       button: "text",
     };
     for (const [type, kind] of Object.entries(kinds) as Array<
