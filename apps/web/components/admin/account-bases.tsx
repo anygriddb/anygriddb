@@ -107,7 +107,7 @@ export function AccountBases({
                 <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-2">
                   <button
                     type="button"
-                    className="flex min-w-0 flex-1 items-center gap-1 text-left hover:underline"
+                    className="flex min-w-32 flex-1 items-center gap-1 text-left hover:underline"
                     aria-expanded={rightsOpen}
                     onClick={() => setOpenRights(rightsOpen ? null : rowKey)}
                   >

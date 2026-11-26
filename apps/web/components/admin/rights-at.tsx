@@ -9,6 +9,7 @@ import { trpc, useTRPC } from "../../lib/trpc";
 import { useRoleLabel } from "../settings/role-label";
 import { LoadFailed } from "../shell/load-failed";
 import { useWhen } from "../../lib/i18n";
+import { usePermissionFamilies } from "./permission-labels";
 
 /**
  * The end of a calendar day in this browser's zone, as UTC. A day that
@@ -42,6 +43,11 @@ export function RightsAt({ userId }: { userId: string }) {
   const errorText = useErrorText();
   const api = useTRPC();
   const roleLabel = useRoleLabel();
+  const permissionLabel = new Map<string, string>(
+    usePermissionFamilies().flatMap((family) =>
+      family.permissions.map(({ permission, label }) => [permission, label]),
+    ),
+  );
   const [at, setAt] = useState(() => {
     const now = new Date();
     const month = String(now.getMonth() + 1).padStart(2, "0");
@@ -158,6 +164,17 @@ export function RightsAt({ userId }: { userId: string }) {
                     : (line.madeRole?.name ?? t`A role since deleted`)}
                   {line.occurredAt ? ` · ${when.instant(line.occurredAt)}` : ""}
                 </span>
+                {line.madeRole ? (
+                  <span className="basis-full text-muted-foreground">
+                    {line.madeRole.permissions
+                      ? t`It gave then: ${{
+                          permissions: line.madeRole.permissions
+                            .map((key) => permissionLabel.get(key) ?? key)
+                            .join(", "),
+                        }}`
+                      : t`What it gave then is no longer on the trail.`}
+                  </span>
+                ) : null}
               </li>
             ))}
           </ul>

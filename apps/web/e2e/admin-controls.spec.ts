@@ -1733,6 +1733,20 @@ test("an administrator makes a role, and whoever holds it does what it gives", a
   ).toHaveCount(0);
   expect(await accessibilityViolations(holder)).toEqual([]);
 
+  // Their rights on the base say each permission and what gives it.
+  await openAdmin(page, "People", "Accounts");
+  await findAccount(page, holderEmail);
+  await page.getByRole("link", { name: `Holder ${stamp}` }).click();
+  await page.getByRole("button", { name: "Lab", exact: true }).click();
+  await page.getByText("Permissions on the base, and what gives each").click();
+  const exported = page.locator("dt", { hasText: /^Export$/ });
+  await expect(exported).toBeVisible();
+  await expect(exported.locator("xpath=following-sibling::dd[1]")).toHaveText(
+    `${name} · own role`,
+  );
+  await expect(page.locator("dt", { hasText: /^Import$/ })).toHaveCount(0);
+  expect(await accessibilityViolations(page)).toEqual([]);
+
   // A shipped role is never changed: duplicated, it becomes one to change.
   await page.goto("/admin/people/roles");
   await page.getByRole("button", { name: "Duplicate the role Editor" }).click();

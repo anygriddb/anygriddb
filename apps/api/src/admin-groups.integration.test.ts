@@ -10,7 +10,9 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { keyRing } from "./auth/key-ring.js";
 import { loadBindings } from "./auth/access.js";
 import { withAudit } from "./data/audit-context.js";
+import { setTableAcl } from "./data/acl.js";
 import { grantMember } from "./data/members.js";
+import { setTableRole } from "./data/sharing.js";
 import { insertBase, insertTable } from "./data/schema-ops.js";
 import type { Env } from "./env.js";
 import { setGroupRole } from "./scim/groups.js";
@@ -172,7 +174,15 @@ describe("local groups and effective rights", () => {
     expect(rights).toMatchObject({
       baseId: base.id,
       role: "owner",
-      origin: { kind: "direct" },
+      // Their own role, then the group's they hold too.
+      origins: [
+        { scope: "base", role: "owner", group: null, endsAt: null },
+        {
+          scope: "base",
+          role: "editor",
+          group: { id: created.id, name: `Controllers ${suffix}` },
+        },
+      ],
     });
     expect(rights.tables).toContainEqual(
       expect.objectContaining({
@@ -180,7 +190,7 @@ describe("local groups and effective rights", () => {
         tableName: "Invoices",
         role: "owner",
         overridden: false,
-        origin: { kind: "direct" },
+        narrowed: null,
       }),
     );
 
@@ -194,12 +204,16 @@ describe("local groups and effective rights", () => {
     });
     expect(viaGroup).toMatchObject({
       role: "editor",
-      origin: {
-        kind: "group",
-        groupId: created.id,
-        groupName: `Controllers ${suffix}`,
-      },
+      origins: [
+        {
+          role: "editor",
+          group: { id: created.id, name: `Controllers ${suffix}` },
+        },
+      ],
     });
+    expect(
+      viaGroup.permissions.find((one) => one.permission === "rows.write"),
+    ).toEqual({ permission: "rows.write", from: [0] });
 
     await setGroupRole(db, adminId, {
       baseId: base.id,
@@ -219,6 +233,87 @@ describe("local groups and effective rights", () => {
     expect(
       await code(admin.call().admin.groups.get({ groupId: created.id })),
     ).toBe("unknown_group");
+  });
+
+  it("says each permission's origins, a table's own and its rule, and leaves an ended one out", async () => {
+    const person = await member("Reader");
+    const base = await insertBase(db, adminId, { name: `Sales ${suffix}` });
+    const table = await insertTable(db, adminId, {
+      baseId: base.id,
+      name: "Orders",
+      columns: [{ name: "title", fieldType: "text", label: "Title" }],
+    });
+    const group = await admin.call().admin.groups.create({
+      displayName: `Auditors ${suffix}`,
+    });
+    await admin.call().admin.groups.addMember({
+      groupId: group.id,
+      userId: person.id,
+    });
+    // A rule is set on their own role on the table; the group is given
+    // the base after, and reads it whole.
+    await setTableRole(
+      db,
+      adminId,
+      { id: table.id, baseId: base.id },
+      person.id,
+      "editor",
+    );
+    await setTableAcl(db, adminId, {
+      tableId: table.id,
+      userId: person.id,
+      rowFilter: {
+        conjunction: "and",
+        conditions: [{ column: "title", op: "is", value: "mine" }],
+      },
+      columns: [],
+    });
+    await admin.call().admin.groups.setBaseRole({
+      groupId: group.id,
+      baseId: base.id,
+      role: "viewer",
+    });
+    const rights = await admin.call().admin.access.effective({
+      userId: person.id,
+      baseId: base.id,
+    });
+    expect(rights.role).toBe("viewer");
+    const orders = rights.tables.find((one) => one.tableId === table.id);
+    expect(orders).toMatchObject({
+      role: "editor",
+      overridden: true,
+      origins: [
+        { scope: "base", role: "viewer", narrows: false },
+        { scope: "table", role: "editor", group: null, narrows: true },
+      ],
+      // The group's viewer reads every row: only writing is narrowed.
+      narrowed: null,
+    });
+    const from = (permission: string) =>
+      orders?.permissions.find((one) => one.permission === permission)?.from;
+    expect(from("rows.read")).toEqual([0, 1]);
+    expect(from("rows.write")).toEqual([1]);
+    expect(from("schema.manage")).toBeUndefined();
+
+    // An attribution past its end gives nothing, and is not shown.
+    await withAudit(db, { userId: adminId, source: "web" }, (tx) =>
+      tx
+        .updateTable("attributions")
+        .set({ endsAt: new Date(Date.now() - 60_000) })
+        .where("groupId", "=", group.id)
+        .execute(),
+    );
+    const after = await admin.call().admin.access.effective({
+      userId: person.id,
+      baseId: base.id,
+    });
+    expect(after.role).toBeNull();
+    expect(after.origins).toEqual([]);
+    expect(after.tables.find((one) => one.tableId === table.id)).toMatchObject({
+      role: "editor",
+      origins: [{ scope: "table", role: "editor" }],
+      narrowed: { rows: true, fields: false },
+    });
   });
 
   it("refuses a person who is not an administrator, and a member whose account is disabled", async () => {

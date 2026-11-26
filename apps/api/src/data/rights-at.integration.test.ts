@@ -9,6 +9,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { keyRing } from "../auth/key-ring.js";
 import { insertBase } from "./schema-ops.js";
 import { grantMember, setMemberRole } from "./members.js";
+import { createMadeRole, updateMadeRole } from "./made-roles.js";
 import { rightsAt } from "./rights-at.js";
 import {
   addLocalGroupMember,
@@ -149,6 +150,44 @@ describe("rights at a date", () => {
         groupName: `Finance ${suffix}`,
       }),
     );
+  });
+
+  it("says what a made role gave at that date, not what it gives now", async () => {
+    const checker = await createMadeRole(db, adminId, {
+      name: `Checker ${suffix}`,
+      permissions: ["rows.read", "rows.comment"],
+    });
+    const other = (await insertBase(db, adminId, { name: `Audit ${suffix}` }))
+      .id;
+    await grantMember(db, adminId, {
+      baseId: other,
+      email: `bea-${suffix}@example.org`,
+      role: checker,
+    });
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    const given = new Date();
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    await updateMadeRole(db, adminId, {
+      id: checker.id,
+      name: `Writer ${suffix}`,
+      permissions: ["rows.read", "rows.comment", "rows.write"],
+    });
+
+    const lineOn = async (at: Date) => {
+      const report = await rightsAt(db, { userId: personId, at });
+      if (report.incomplete) throw new Error("the trail reaches the date");
+      return report.lines.find((line) => line.scopeId === other);
+    };
+    expect((await lineOn(given))?.madeRole).toEqual({
+      id: checker.id,
+      name: `Checker ${suffix}`,
+      permissions: ["rows.read", "rows.comment"],
+    });
+    expect((await lineOn(new Date(Date.now() + 60_000)))?.madeRole).toEqual({
+      id: checker.id,
+      name: `Writer ${suffix}`,
+      permissions: ["rows.read", "rows.comment", "rows.write"],
+    });
   });
 
   it("says the trail is gone when the person's roles remain and every event was purged", async () => {
