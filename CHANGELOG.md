@@ -8,6 +8,10 @@ first.
 
 ## Unreleased
 
+## 0.10.2 - 2026-11-26
+
+Nothing to do before upgrading: migration 0145 adds a field type.
+
 ### Added
 
 - A field of the **row's state** in its table's circuit: added like a created
