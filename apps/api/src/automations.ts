@@ -1,4 +1,4 @@
-import { createHash, randomBytes, randomUUID } from "node:crypto";
+import { randomBytes, randomUUID } from "node:crypto";
 import {
   AppError,
   type AutomationAction,
@@ -33,7 +33,9 @@ import {
   ceilingOf,
 } from "@anygriddb/core";
 import { granted } from "./access/declaration.js";
-import type { AutomationRow, Database } from "@anygriddb/db";
+import type { AutomationRow, Database, DB } from "@anygriddb/db";
+import type { UpdateQueryBuilder, UpdateResult } from "kysely";
+import { hashSecret, liveAccess } from "./auth/delegated.js";
 import type { Bus } from "./realtime/bus.js";
 import { z } from "zod";
 import { authorBindings } from "./auth/access.js";
@@ -341,12 +343,55 @@ function scheduleFor(
 /** A webhook trigger's token: what its secret address ends with. */
 const HOOK_TOKEN = /^aghook_[A-Za-z0-9_-]{43}$/;
 
-function hookHash(token: string): string {
-  return createHash("sha256").update(token).digest("hex");
-}
-
 function newHookToken(): string {
   return `aghook_${randomBytes(32).toString("base64url")}`;
+}
+
+/**
+ * An automation's inbound secret after a save, in its transaction (ADR
+ * 0131, §5): a webhook trigger keeps its live secret, now its saver's, or
+ * gets one, returned once; any other trigger revokes it.
+ */
+async function keepInboundHook(
+  tx: AuditTx,
+  automationId: string,
+  authorId: string,
+  wanted: boolean,
+): Promise<string | undefined> {
+  const live = (
+    query: UpdateQueryBuilder<
+      DB,
+      "delegatedAccesses",
+      "delegatedAccesses",
+      UpdateResult
+    >,
+  ) =>
+    query
+      .where("kind", "=", "inbound_hook")
+      .where("automationId", "=", automationId)
+      .where("revokedAt", "is", null);
+  if (!wanted) {
+    await live(
+      tx.updateTable("delegatedAccesses").set({ revokedAt: new Date() }),
+    ).execute();
+    return undefined;
+  }
+  const kept = await live(tx.updateTable("delegatedAccesses").set({ authorId }))
+    .returning("id")
+    .executeTakeFirst();
+  if (kept) return undefined;
+  const token = newHookToken();
+  await tx
+    .insertInto("delegatedAccesses")
+    .values({
+      kind: "inbound_hook",
+      name: "",
+      authorId,
+      automationId,
+      secretHash: hashSecret(token),
+    })
+    .execute();
+  return token;
 }
 
 /**
@@ -382,7 +427,7 @@ export async function renewAutomationWebhook(
 ): Promise<string> {
   const row = await db
     .selectFrom("automations")
-    .select(["trigger", "tableId"])
+    .select(["trigger", "tableId", "createdBy"])
     .where("id", "=", automationId)
     .executeTakeFirst();
   const trigger = automationTriggerSchema.safeParse(row?.trigger);
@@ -393,12 +438,35 @@ export async function renewAutomationWebhook(
   await withAudit(
     db,
     { userId: actorId, tableId: row.tableId, source: "web" },
-    (tx) =>
-      tx
+    async (tx) => {
+      // The live secret takes the new value; with none, one is made, the
+      // automation's author's, who it runs as.
+      const renewed = await tx
+        .updateTable("delegatedAccesses")
+        .set({ secretHash: hashSecret(token) })
+        .where("kind", "=", "inbound_hook")
+        .where("automationId", "=", automationId)
+        .where("revokedAt", "is", null)
+        .returning("id")
+        .executeTakeFirst();
+      if (!renewed) {
+        await tx
+          .insertInto("delegatedAccesses")
+          .values({
+            kind: "inbound_hook",
+            name: "",
+            authorId: row.createdBy ?? actorId,
+            automationId,
+            secretHash: hashSecret(token),
+          })
+          .execute();
+      }
+      await tx
         .updateTable("automations")
-        .set({ webhookTokenHash: hookHash(token), updatedAt: new Date() })
+        .set({ updatedAt: new Date() })
         .where("id", "=", automationId)
-        .execute(),
+        .execute();
+    },
   );
   return token;
 }
@@ -415,10 +483,13 @@ export async function queueWebhookRun(
 ): Promise<boolean> {
   if (!HOOK_TOKEN.test(token)) return false;
   const automation = await db
-    .selectFrom("automations")
-    .select(["id", "trigger"])
-    .where("webhookTokenHash", "=", hookHash(token))
-    .where("enabled", "=", true)
+    .selectFrom("delegatedAccesses as a")
+    .innerJoin("automations as m", "m.id", "a.automationId")
+    .select(["m.id", "m.trigger"])
+    .where("a.kind", "=", "inbound_hook")
+    .where("a.secretHash", "=", hashSecret(token))
+    .where(liveAccess)
+    .where("m.enabled", "=", true)
     .executeTakeFirst();
   const trigger = automationTriggerSchema.safeParse(automation?.trigger);
   if (!automation || !trigger.success || trigger.data.type !== "webhook") {
@@ -489,16 +560,10 @@ export async function saveAutomation(
   const current = input.id
     ? await db
         .selectFrom("automations")
-        .select([
-          "webhookTokenHash",
-          "secrets",
-          "secretsCiphertext",
-          "secretsNonce",
-        ])
+        .select(["secrets", "secretsCiphertext", "secretsNonce"])
         .where("id", "=", input.id)
         .executeTakeFirst()
     : undefined;
-  const token = hook && !current?.webhookTokenHash ? newHookToken() : undefined;
   const secrets = sealSecrets(input.secrets, current, key);
   const values = {
     ...secrets,
@@ -508,18 +573,13 @@ export async function saveAutomation(
     actions: input.actions,
     nextRunAt: scheduleFor(input.trigger, input.enabled),
     updatedAt: new Date(),
-    webhookTokenHash: hook
-      ? token
-        ? hookHash(token)
-        : (current?.webhookTokenHash ?? null)
-      : null,
   };
   if (input.id) {
     // Whoever saves an automation answers for it: it runs with their rights.
     const id = input.id;
     // A changed automation starts over: rows already inside its filter
     // will trigger it again when they enter anew.
-    await withAudit(
+    const token = await withAudit(
       db,
       {
         userId: input.createdBy,
@@ -538,6 +598,7 @@ export async function saveAutomation(
           .deleteFrom("automationMatches")
           .where("automationId", "=", id)
           .execute();
+        return keepInboundHook(tx, id, input.createdBy, hook);
       },
     );
     return { id, ...(token ? { webhookToken: token } : {}) };
@@ -545,8 +606,8 @@ export async function saveAutomation(
   const created = await withAudit(
     db,
     { userId: input.createdBy, tableId: input.tableId, source: "web" },
-    (tx) =>
-      tx
+    async (tx) => {
+      const row = await tx
         .insertInto("automations")
         .values({
           ...values,
@@ -554,10 +615,15 @@ export async function saveAutomation(
           createdBy: input.createdBy,
         })
         .returning("id")
-        .executeTakeFirst(),
+        .executeTakeFirstOrThrow();
+      const token = await keepInboundHook(tx, row.id, input.createdBy, hook);
+      return { id: row.id, token };
+    },
   );
-  if (!created) throw new AppError("no_row");
-  return { id: created.id, ...(token ? { webhookToken: token } : {}) };
+  return {
+    id: created.id,
+    ...(created.token ? { webhookToken: created.token } : {}),
+  };
 }
 
 /**
@@ -1661,8 +1727,9 @@ async function matchAutomations(
           break;
         }
         const share = await deps.db
-          .selectFrom("shares")
+          .selectFrom("delegatedAccesses")
           .select("viewId")
+          .where("kind", "=", "link")
           .where("id", "=", event.source.slice("form:".length))
           .executeTakeFirst();
         fire = share?.viewId === trigger.viewId;

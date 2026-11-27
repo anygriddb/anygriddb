@@ -6,7 +6,8 @@
  * rules, and stops when they lose access, the view goes, or they revoke
  * or renew the address.
  */
-import { createHash, randomBytes } from "node:crypto";
+import { randomBytes } from "node:crypto";
+import { hashSecret, liveAccess } from "../auth/delegated.js";
 import {
   AppError,
   andFilters,
@@ -33,10 +34,6 @@ const PAST_DAYS = ceilingOf("feed.past_days");
 const FUTURE_DAYS = ceilingOf("feed.future_days");
 const PAGE = 1_000;
 const PAGES = 3;
-
-function hashFeedToken(token: string): string {
-  return createHash("sha256").update(token).digest("hex");
-}
 
 /** A view a person may subscribe to: a calendar, shared or theirs. */
 async function feedView(db: Database, viewId: string, userId: string) {
@@ -79,10 +76,12 @@ export async function calendarFeedOf(
 ): Promise<{ createdAt: Date; lastUsedAt: Date | null } | null> {
   if (!(await feedView(db, viewId, userId))) throw new AppError("invalid_view");
   const row = await db
-    .selectFrom("calendarFeeds")
+    .selectFrom("delegatedAccesses")
     .select(["createdAt", "lastUsedAt"])
+    .where("kind", "=", "feed")
     .where("viewId", "=", viewId)
-    .where("userId", "=", userId)
+    .where("authorId", "=", userId)
+    .where("revokedAt", "is", null)
     .executeTakeFirst();
   return row ?? null;
 }
@@ -100,16 +99,31 @@ export async function renewCalendarFeed(
     db,
     { userId, tableId: view.tableId, source: "web" },
     async (tx) => {
+      // The person's live feed of the view takes the new secret; with none,
+      // one is made.
+      const renewed = await tx
+        .updateTable("delegatedAccesses")
+        .set({
+          secretHash: hashSecret(token),
+          createdAt: new Date(),
+          lastUsedAt: null,
+        })
+        .where("kind", "=", "feed")
+        .where("viewId", "=", viewId)
+        .where("authorId", "=", userId)
+        .where("revokedAt", "is", null)
+        .returning("id")
+        .executeTakeFirst();
+      if (renewed) return;
       await tx
-        .insertInto("calendarFeeds")
-        .values({ viewId, userId, tokenHash: hashFeedToken(token) })
-        .onConflict((conflict) =>
-          conflict.columns(["viewId", "userId"]).doUpdateSet({
-            tokenHash: hashFeedToken(token),
-            createdAt: new Date(),
-            lastUsedAt: null,
-          }),
-        )
+        .insertInto("delegatedAccesses")
+        .values({
+          kind: "feed",
+          name: "",
+          viewId,
+          authorId: userId,
+          secretHash: hashSecret(token),
+        })
         .execute();
     },
   );
@@ -127,9 +141,12 @@ export async function revokeCalendarFeed(
     { userId, tableId: view?.tableId, source: "web" },
     async (tx) => {
       await tx
-        .deleteFrom("calendarFeeds")
+        .updateTable("delegatedAccesses")
+        .set({ revokedAt: new Date() })
+        .where("kind", "=", "feed")
         .where("viewId", "=", viewId)
-        .where("userId", "=", userId)
+        .where("authorId", "=", userId)
+        .where("revokedAt", "is", null)
         .execute();
     },
   );
@@ -154,18 +171,20 @@ export async function calendarFeedDocument(
 ): Promise<string | null> {
   if (!TOKEN.test(token)) return null;
   const feed = await db
-    .selectFrom("calendarFeeds as f")
-    .innerJoin("users as u", "u.id", "f.userId")
-    .select(["f.id", "f.viewId", "f.userId", "f.lastUsedAt"])
-    .where("f.tokenHash", "=", hashFeedToken(token))
+    .selectFrom("delegatedAccesses as a")
+    .innerJoin("users as u", "u.id", "a.authorId")
+    .select(["a.id", "a.viewId", "a.authorId as userId", "a.lastUsedAt"])
+    .where("a.kind", "=", "feed")
+    .where("a.secretHash", "=", hashSecret(token))
+    .where(liveAccess)
     .where("u.disabledAt", "is", null)
     .executeTakeFirst();
-  if (!feed) return null;
+  if (!feed?.viewId) return null;
   const view = await feedView(db, feed.viewId, feed.userId);
   if (!view) return null;
   if (!feed.lastUsedAt || now.getTime() - feed.lastUsedAt.getTime() > 60_000) {
     await db
-      .updateTable("calendarFeeds")
+      .updateTable("delegatedAccesses")
       .set({ lastUsedAt: now })
       .where("id", "=", feed.id)
       .execute();

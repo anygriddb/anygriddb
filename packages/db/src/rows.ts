@@ -15,6 +15,5 @@ export type WebhookRow = Row<"webhooks">;
 export type DeliveryRow = Row<"deliveries">;
 export type AutomationRow = Row<"automations">;
 export type UserRow = Row<"users">;
-export type ShareRow = Row<"shares">;
 export type DashboardRow = Row<"dashboards">;
 export type WidgetRow = Row<"dashboardWidgets">;

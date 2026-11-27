@@ -205,8 +205,8 @@ describe("a base shared by one link", () => {
     // A link's expiry is on the change trail: the write names its author.
     await withAudit(db, { userId: owner }, (tx) =>
       tx
-        .updateTable("shares")
-        .set({ expiresAt: new Date(Date.now() - 1000) })
+        .updateTable("delegatedAccesses")
+        .set({ endsAt: new Date(Date.now() - 1000) })
         .where("id", "=", expired.id)
         .execute(),
     );

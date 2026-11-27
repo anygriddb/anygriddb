@@ -195,6 +195,15 @@ export async function handOver(
         .set({ createdBy: input.toUserId })
         .where("id", "in", theirAutomations.moving)
         .execute();
+      // Their inbound secrets start runs as the automation's author: they
+      // follow it.
+      await tx
+        .updateTable("delegatedAccesses")
+        .set({ authorId: input.toUserId })
+        .where("kind", "=", "inbound_hook")
+        .where("automationId", "in", theirAutomations.moving)
+        .where("revokedAt", "is", null)
+        .execute();
     }
     const theirWebhooks = split(
       await webhooksOf(tx, input.fromUserId),

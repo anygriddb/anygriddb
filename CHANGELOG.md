@@ -67,6 +67,13 @@ rules, and runs a version before 0.11.2 upgrades through 0.11.2 first.
   revoking a person's token or an application's grant is now on the
   change trail, never its secret. An application's renewal keeps its
   grant, with a new secret.
+- Calendar feeds, public links and an automation's inbound address join
+  them (migration 0156), moved row for row, ids, dates, hashes, a link's
+  password and settings kept, nothing issued again. A revoked feed stays
+  revoked beside a new one. An inbound address whose automation has no
+  author any more, which ran nothing, is not kept. A handed-over
+  automation's address follows it to its new author. Administration ›
+  Trails names each access by its kind.
 - Administration › People › a person's bases › **Effective rights** say
   every permission held on the base and on each table, and each
   attribution it comes from: their own or a group's, on the base or the

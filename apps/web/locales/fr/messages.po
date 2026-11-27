@@ -2524,6 +2524,7 @@ msgstr "Administration"
 
 #: components/admin/admin-sections.ts
 #: components/admin/api-tokens-tab.tsx
+#: components/admin/trails.tsx
 msgid "Administration API"
 msgstr "API d’administration"
 
@@ -3052,6 +3053,7 @@ msgstr "Durée de vie des jetons d’API"
 
 #: components/admin/access-tab.tsx
 #: components/admin/account-page.tsx
+#: components/admin/trails.tsx
 #: components/settings/account-settings.tsx
 msgid "API tokens"
 msgstr "Jetons d’API"
@@ -3066,6 +3068,7 @@ msgstr "Jetons d’API révoqués"
 
 #: components/admin/admin-sections.ts
 #: components/admin/oauth-clients-tab.tsx
+#: components/admin/trails.tsx
 msgid "Applications"
 msgstr "Applications"
 
@@ -14783,7 +14786,6 @@ msgstr "La date du jour, dans le fuseau de qui lit."
 
 #: components/admin/access-tab.tsx
 #: components/admin/notifications-tab.tsx
-#: components/admin/trails.tsx
 msgid "Token"
 msgstr "Jeton"
 
@@ -15477,6 +15479,7 @@ msgid "Webhook {name} on {table} was turned off after repeated failures"
 msgstr "Le webhook {name} de {table} a été désactivé après des échecs répétés"
 
 #: components/admin/notifications-tab.tsx
+#: components/admin/trails.tsx
 #: components/table/automations-dialog.tsx
 msgid "Webhook address"
 msgstr "Adresse du webhook"
