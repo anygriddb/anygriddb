@@ -6,6 +6,7 @@ import {
   MAX_SCRIPT_LENGTH,
   TEMPLATE_KEYS,
   WRITABLE_TYPES,
+  filterGap,
   hasScript,
   type AutomationAction,
   type AutomationStep,
@@ -29,7 +30,15 @@ import {
 } from "@anygriddb/ui";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Copy, History, Pencil, Play, Plus, Trash2, X } from "lucide-react";
-import { createContext, lazy, Suspense, use, useId, useState } from "react";
+import {
+  createContext,
+  lazy,
+  Suspense,
+  use,
+  useId,
+  useState,
+  type ReactNode,
+} from "react";
 import { toast } from "sonner";
 import { trpc, useTRPC, type RouterOutputs } from "../../lib/trpc";
 import type { CatalogColumn } from "../../lib/types";
@@ -121,11 +130,14 @@ function usePart(at: string, part: AutomationPart) {
 }
 
 /** What a part still needs, under its control. */
-function PartMissing(props: { at: string; part: AutomationPart }) {
+function PartMissing(props: {
+  at: string;
+  part: Exclude<AutomationPart, "condition">;
+}) {
   const { t } = useLingui();
   const { id, missing } = usePart(props.at, props.part);
   if (!missing) return null;
-  const text: Record<AutomationPart, string> = {
+  const text: Record<Exclude<AutomationPart, "condition">, string> = {
     name: t`Give the automation a name.`,
     values: t`Choose a field to fill.`,
     to: t`Give at least one recipient.`,
@@ -142,6 +154,48 @@ function PartMissing(props: { at: string; part: AutomationPart }) {
     <p id={`${id}-problem`} className="text-xs text-danger">
       {text[props.part]}
     </p>
+  );
+}
+
+/**
+ * A filter of the automation, which takes the keyboard and says what it
+ * misses once a save was refused: a group without a condition (`empty`
+ * says what to do instead), or the first condition without its value.
+ */
+function FilterPart(props: {
+  at: string;
+  label: string;
+  group: FilterGroup | undefined;
+  columns: readonly CatalogColumn[];
+  empty: string;
+  children: ReactNode;
+}) {
+  const { t } = useLingui();
+  const { id, missing } = usePart(props.at, "condition");
+  const gap = missing && props.group ? filterGap(props.group) : null;
+  const field =
+    gap?.kind === "blank"
+      ? (props.columns.find((column) => column.name === gap.column)?.label ??
+        gap.column)
+      : "";
+  return (
+    <div
+      id={id}
+      role="group"
+      aria-label={props.label}
+      tabIndex={-1}
+      className="flex flex-col gap-1 rounded-sm focus-visible:outline-2 focus-visible:outline-ring"
+      {...(gap ? { "aria-describedby": `${id}-problem` } : {})}
+    >
+      {props.children}
+      {gap ? (
+        <p id={`${id}-problem`} className="text-xs text-danger">
+          {gap.kind === "empty"
+            ? props.empty
+            : t`The condition on ${{ field }} has no value yet: give it one, or remove it.`}
+        </p>
+      ) : null}
+    </div>
   );
 }
 
@@ -485,14 +539,22 @@ function ActionEditor(props: {
       return (
         <div className="flex flex-col gap-2">
           <span className="text-xs text-muted-foreground">{t`If the row matches:`}</span>
-          <FilterBuilder
+          <FilterPart
+            at={at}
+            label={t`If the row matches`}
             group={action.when}
             columns={table.columns}
-            people={table.people}
-            onChange={(when: FilterGroup) =>
-              props.onChange({ ...action, when })
-            }
-          />
+            empty={t`Add a condition, or remove this action.`}
+          >
+            <FilterBuilder
+              group={action.when}
+              columns={table.columns}
+              people={table.people}
+              onChange={(when: FilterGroup) =>
+                props.onChange({ ...action, when })
+              }
+            />
+          </FilterPart>
           <span className="text-xs text-muted-foreground">{t`Then:`}</span>
           <StepsEditor
             at={`${at}.then`}
@@ -558,17 +620,25 @@ function ActionEditor(props: {
             </label>
           </div>
           <span className="text-xs text-muted-foreground">{t`That match (optional):`}</span>
-          <FilterBuilder
-            group={action.filter ?? EMPTY_FILTER}
+          <FilterPart
+            at={at}
+            label={t`That match`}
+            group={action.filter}
             columns={target?.columns ?? []}
-            people={table.people}
-            onChange={(filter: FilterGroup) =>
-              props.onChange({
-                ...action,
-                filter: filter.conditions.length > 0 ? filter : undefined,
-              })
-            }
-          />
+            empty={t`Add a condition.`}
+          >
+            <FilterBuilder
+              group={action.filter ?? EMPTY_FILTER}
+              columns={target?.columns ?? []}
+              people={table.people}
+              onChange={(filter: FilterGroup) =>
+                props.onChange({
+                  ...action,
+                  filter: filter.conditions.length > 0 ? filter : undefined,
+                })
+              }
+            />
+          </FilterPart>
           <span className="text-xs text-muted-foreground">{t`For each one:`}</span>
           <StepsEditor
             at={`${at}.each`}
@@ -1038,14 +1108,22 @@ function TriggerEditor(props: {
       );
     case "enters_filter":
       return (
-        <FilterBuilder
+        <FilterPart
+          at="t"
+          label={t`The condition a row meets`}
           group={trigger.filter}
           columns={table.columns}
-          people={table.people}
-          onChange={(filter: FilterGroup) =>
-            props.onChange({ ...trigger, filter })
-          }
-        />
+          empty={t`Add a condition, or choose another trigger.`}
+        >
+          <FilterBuilder
+            group={trigger.filter}
+            columns={table.columns}
+            people={table.people}
+            onChange={(filter: FilterGroup) =>
+              props.onChange({ ...trigger, filter })
+            }
+          />
+        </FilterPart>
       );
     case "step_taken":
       return (
@@ -1203,7 +1281,10 @@ function AutomationEditor(props: {
   const scripts = useScriptsOn();
   // Once a save was refused here, each part still missing says so.
   const [tried, setTried] = useState(false);
-  const found = automationProblems({ name, actions, secrets }, scripts);
+  const found = automationProblems(
+    { name, trigger, actions, secrets },
+    scripts,
+  );
   const problems = new Set(
     tried ? found.map((problem) => problemKey(problem.at, problem.part)) : [],
   );

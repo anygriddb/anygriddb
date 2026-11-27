@@ -208,6 +208,27 @@ export function awaitsValue(condition: FilterCondition): boolean {
 }
 
 /**
+ * What keeps a filter from being read as it was written, where a condition
+ * left out would let through rows it was set to hold back (a row rule, an
+ * automation's condition): a group without a condition, or the first
+ * condition still waiting for its value.
+ */
+export function filterGap(
+  group: FilterGroup,
+): { kind: "empty" } | { kind: "blank"; column: string } | null {
+  if (group.conditions.length === 0) return { kind: "empty" };
+  for (const node of group.conditions) {
+    if (isFilterGroup(node)) {
+      const gap = filterGap(node);
+      if (gap) return gap;
+    } else if (awaitsValue(node)) {
+      return { kind: "blank", column: node.column };
+    }
+  }
+  return null;
+}
+
+/**
  * A filter with only the conditions on fields `keep` accepts. A nested
  * group left with none goes; the group itself stays, even empty.
  */

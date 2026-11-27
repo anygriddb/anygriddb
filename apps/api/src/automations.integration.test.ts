@@ -1,12 +1,17 @@
 /**
  * Automations as the queue runs them, against a real database: branches,
- * loops, deleting a row, a deleted row's trigger, and an incoming webhook.
+ * loops, deleting a row, a deleted row's trigger, an incoming webhook, and
+ * conditions held to their values.
  */
 import { randomBytes } from "node:crypto";
 import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { AutomationAction, AutomationTrigger } from "@anygriddb/core";
+import type {
+  AutomationAction,
+  AutomationTrigger,
+  FilterGroup,
+} from "@anygriddb/core";
 import type { Database } from "@anygriddb/db";
 import type { TaskList } from "graphile-worker";
 import { runJobs } from "./queue/run-once.test-helpers.js";
@@ -14,6 +19,7 @@ import pg from "pg";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { loadBindings } from "./auth/access.js";
 import {
+  assertAutomation,
   queueWebhookRun,
   renewAutomationWebhook,
   saveAutomation,
@@ -68,6 +74,7 @@ describe("automations run by the queue", () => {
           { name: "name", label: "Name", fieldType: "text" },
           { name: "status", label: "Status", fieldType: "text" },
           { name: "note", label: "Note", fieldType: "text" },
+          { name: "points", label: "Points", fieldType: "number" },
         ],
       })
     ).id;
@@ -395,5 +402,81 @@ describe("automations run by the queue", () => {
     // A disabled automation answers as an unknown address does.
     await setAutomationEnabled(db, owner, saved.id, false);
     expect(await queueWebhookRun(db, renewed, {})).toBe(false);
+  });
+
+  it("refuses a condition without the value its field takes, and one kept before acts on no row", async () => {
+    const table = await findLiveTable(db, tasksId);
+    if (!table) throw new Error("no table");
+    const touch = [{ type: "update_record" as const, values: { note: "all" } }];
+    const loop = (filter: FilterGroup): AutomationAction => ({
+      type: "for_each",
+      tableId: tasksId,
+      filter,
+      limit: 10,
+      actions: touch,
+    });
+    const manyPoints = {
+      conjunction: "and" as const,
+      conditions: [{ column: "points", op: "gt" as const, value: "many" }],
+    };
+    const none = { conjunction: "and" as const, conditions: [] };
+    const asked = (
+      trigger: AutomationTrigger,
+      actions: AutomationAction[] = touch,
+    ) => assertAutomation(db, table, { trigger, actions });
+    await expect(
+      asked({ type: "row_created" }, [
+        { type: "branch", when: statusIs(""), then: touch }, // NOSONAR: a stored JSON key holding steps, never a function
+      ]),
+    ).rejects.toMatchObject({ code: "invalid_filter", detail: "status" });
+    await expect(
+      asked({ type: "webhook" }, [loop(manyPoints)]),
+    ).rejects.toMatchObject({ code: "invalid_filter", detail: "points" });
+    await expect(
+      asked({ type: "enters_filter", filter: none }),
+    ).rejects.toMatchObject({ code: "invalid_filter" });
+    await expect(
+      asked({ type: "enters_filter", filter: statusIs("done") }, [
+        { type: "branch", when: statusIs("done"), then: touch }, // NOSONAR: a stored JSON key holding steps, never a function
+        loop(statusIs("todo")),
+      ]),
+    ).resolves.toBeUndefined();
+
+    // Kept before the check: each would have reached every row.
+    const branch = await automation("Blank branch", { type: "row_created" }, [
+      { type: "branch", when: statusIs(""), then: touch }, // NOSONAR: a stored JSON key holding steps, never a function
+    ]);
+    const entering = await automation(
+      "Blank trigger",
+      { type: "enters_filter", filter: statusIs("") },
+      touch,
+    );
+    const looping = await automation("Blank loop", { type: "webhook" }, [
+      loop(statusIs("")),
+    ]);
+    await createRows(
+      { db, bus, log: () => undefined },
+      await scope(tasksId),
+      [{ values: { name: "E", status: "todo" } }],
+      meta,
+    );
+    await work();
+    expect(await queueWebhookRun(db, looping.webhookToken ?? "", {})).toBe(
+      true,
+    );
+    await work();
+    expect((await rowsOf(tasksId)).filter((row) => row.note === "all")).toEqual(
+      [],
+    );
+    const [failed] = await stepsOf(branch.id);
+    expect(failed?.status).toBe("failed");
+    expect(failed?.error).toBe("Invalid filter: status");
+    expect(await stepsOf(entering.id)).toEqual([]);
+    const [looped] = await stepsOf(looping.id);
+    expect(looped?.status).toBe("failed");
+    expect(looped?.steps?.[0]).toMatchObject({ type: "1.for_each", ok: false });
+    for (const saved of [branch, entering, looping]) {
+      await setAutomationEnabled(db, owner, saved.id, false);
+    }
   });
 });

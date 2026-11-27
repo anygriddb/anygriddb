@@ -57,12 +57,66 @@ describe("automationProblems", () => {
       { at: "a0", part: "values" },
       { at: "a1", part: "to" },
       { at: "a1", part: "subject" },
+      { at: "a2", part: "condition" },
       { at: "a2.then0", part: "url" },
       { at: "a2.otherwise0", part: "message" },
       { at: "a3.each0", part: "users" },
       { at: "a3.each0", part: "message" },
       { at: "a4", part: "code" },
     ]);
+  });
+});
+
+describe("an automation's conditions", () => {
+  const region = (value: string) => ({
+    conjunction: "and" as const,
+    conditions: [{ column: "region", op: "is" as const, value }],
+  });
+  const update: AutomationAction = {
+    type: "update_record",
+    values: { status: "Done" },
+  };
+
+  it("takes a condition with its value, and a loop over every row", () => {
+    const actions: AutomationAction[] = [
+      { type: "branch", when: region("North"), then: [update] }, // NOSONAR: a stored JSON key holding steps, never a function
+      { type: "for_each", tableId: TABLE, limit: 5, actions: [update] },
+      {
+        type: "for_each",
+        tableId: TABLE,
+        limit: 5,
+        filter: region("South"),
+        actions: [update],
+      },
+    ];
+    const trigger = { type: "enters_filter" as const, filter: region("East") };
+    expect(automationProblems({ name: "Due", trigger, actions }, true)).toEqual(
+      [],
+    );
+  });
+
+  it("names a condition left without its value, which would let every row through", () => {
+    const actions: AutomationAction[] = [
+      { type: "branch", when: region(""), then: [update] }, // NOSONAR: a stored JSON key holding steps, never a function
+      {
+        type: "for_each",
+        tableId: TABLE,
+        limit: 5,
+        filter: { conjunction: "or", conditions: [] },
+        actions: [update],
+      },
+    ];
+    const trigger = {
+      type: "enters_filter" as const,
+      filter: { conjunction: "and" as const, conditions: [] },
+    };
+    expect(automationProblems({ name: "Due", trigger, actions }, true)).toEqual(
+      [
+        { at: "t", part: "condition" },
+        { at: "a0", part: "condition" },
+        { at: "a1", part: "condition" },
+      ],
+    );
   });
 });
 

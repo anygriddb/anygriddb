@@ -1,7 +1,10 @@
 import {
   automationSecretInputSchema,
+  filterGap,
   type AutomationAction,
   type AutomationStep,
+  type AutomationTrigger,
+  type FilterGroup,
 } from "@anygriddb/core";
 
 /** A part of an automation that can still be missing. */
@@ -16,13 +19,14 @@ export type AutomationPart =
   | "code"
   | "secretName"
   | "secretHost"
-  | "secretValue";
+  | "secretValue"
+  | "condition";
 
 /**
  * What a part still needs, and where: `at` is the action's place, `a0`
  * for the first, `a1.then0` for the first step of the second's branch,
- * `a1.otherwise0`, `a2.each0` inside a loop, `s0` for the first secret;
- * the name has none.
+ * `a1.otherwise0`, `a2.each0` inside a loop, `s0` for the first secret,
+ * `t` for the trigger; the name has none.
  */
 export type AutomationProblem = { at: string; part: AutomationPart };
 
@@ -86,6 +90,18 @@ function stepProblems(
   }
 }
 
+/**
+ * A filter the server reads as written (`filterGap`): a group without a
+ * condition, or a condition still waiting for its value, would let every
+ * row through, so it is refused.
+ */
+function filterProblems(
+  group: FilterGroup | undefined,
+  at: string,
+): AutomationProblem[] {
+  return group && filterGap(group) ? [{ at, part: "condition" }] : [];
+}
+
 /** A secret as the editor holds it: a kept one may leave its value empty. */
 export type SecretDraft = {
   name: string;
@@ -119,11 +135,13 @@ function secretProblems(secrets: readonly SecretDraft[]): AutomationProblem[] {
  * What an automation still needs before the server can keep it, in the
  * order the editor shows it: what the server would otherwise refuse as
  * "invalid input" without saying which part, and an update that writes
- * nothing. `scripts` is whether the instance runs scripts.
+ * nothing, and a condition that would let every row through. `scripts`
+ * is whether the instance runs scripts.
  */
 export function automationProblems(
   draft: {
     name: string;
+    trigger?: AutomationTrigger;
     actions: readonly AutomationAction[];
     secrets?: readonly SecretDraft[];
   },
@@ -132,6 +150,9 @@ export function automationProblems(
   const found: AutomationProblem[] = draft.name.trim()
     ? []
     : [{ at: "", part: "name" }];
+  if (draft.trigger?.type === "enters_filter") {
+    found.push(...filterProblems(draft.trigger.filter, "t"));
+  }
   draft.actions.forEach((action, index) => {
     const at = `a${String(index)}`;
     const steps = (list: readonly AutomationStep[], where: string) =>
@@ -140,11 +161,15 @@ export function automationProblems(
       );
     if (action.type === "branch") {
       found.push(
+        ...filterProblems(action.when, at),
         ...steps(action.then, "then"), // NOSONAR: a stored JSON key holding steps, never a function
         ...steps(action.otherwise ?? [], "otherwise"),
       );
     } else if (action.type === "for_each") {
-      found.push(...steps(action.actions, "each"));
+      found.push(
+        ...filterProblems(action.filter, at),
+        ...steps(action.actions, "each"),
+      );
     } else {
       found.push(...stepProblems(action, at, scripts));
     }

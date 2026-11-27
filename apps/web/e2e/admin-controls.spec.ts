@@ -1531,6 +1531,26 @@ test("an administrator allows scripts, and an automation runs one", async ({
     refused.length = 0;
     await dialog.getByRole("button", { name: "Cancel" }).click();
 
+    // A condition left without its value would let every row through: it
+    // is said under the condition, which takes the keyboard.
+    await dialog.getByRole("button", { name: "New automation" }).click();
+    await dialog.getByLabel("Name").fill("Close the done");
+    await dialog
+      .getByLabel("Action", { exact: true })
+      .selectOption({ label: "If… then… otherwise…" });
+    await dialog.getByRole("button", { name: "Save" }).click();
+    const condition = dialog.getByRole("group", { name: "If the row matches" });
+    await expect(condition).toBeFocused();
+    await expect(condition).toHaveAccessibleDescription(
+      "Add a condition, or remove this action.",
+    );
+    await condition.getByRole("button", { name: "Add a condition" }).click();
+    await expect(condition).toHaveAccessibleDescription(
+      /^The condition on .+ has no value yet: give it one, or remove it\.$/,
+    );
+    expect(await accessibilityViolations(page)).toEqual([]);
+    await dialog.getByRole("button", { name: "Cancel" }).click();
+
     // Scripts are off by default: the dialog says so, and a save says
     // under the action that another must be chosen.
     await writeScript("Too early");

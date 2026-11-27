@@ -1,10 +1,4 @@
-import {
-  awaitsValue,
-  type FilterGroup,
-  type Grant,
-  isFilterGroup,
-  roleGrants,
-} from "@anygriddb/core";
+import { type FilterGroup, type Grant, roleGrants } from "@anygriddb/core";
 
 export type FieldAccess = "hide" | "read" | "write";
 
@@ -74,26 +68,6 @@ export function storedAccess(
   return Object.fromEntries(
     fields.map((field) => [field, named.get(field) ?? unnamed]),
   );
-}
-
-/**
- * What keeps a row rule from being saved, as the server would refuse it:
- * a group without a condition, or the first condition still waiting for
- * its value. Left out, either would show rows the rule was set to hide.
- */
-export function ruleGap(
-  group: FilterGroup,
-): { kind: "empty" } | { kind: "blank"; column: string } | null {
-  if (group.conditions.length === 0) return { kind: "empty" };
-  for (const node of group.conditions) {
-    if (isFilterGroup(node)) {
-      const gap = ruleGap(node);
-      if (gap) return gap;
-    } else if (awaitsValue(node)) {
-      return { kind: "blank", column: node.column };
-    }
-  }
-  return null;
 }
 
 /**

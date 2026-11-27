@@ -5,7 +5,6 @@ import {
   restricts,
   narrowable,
   ruledMembers,
-  ruleGap,
   ruleToSave,
   storedAccess,
 } from "./table-rules";
@@ -110,53 +109,6 @@ describe("ruleToSave", () => {
         { column: "price", access: "hide" },
       ],
     });
-  });
-});
-
-describe("ruleGap", () => {
-  it("lets a rule whose every condition has its value be saved", () => {
-    expect(ruleGap(own)).toBeNull();
-    expect(
-      ruleGap({
-        conjunction: "or",
-        conditions: [
-          own,
-          { column: "region", op: "is_empty" },
-          { column: "paid", op: "is", value: false },
-          { column: "amount", op: "is_between", value: ["10", ""] },
-        ],
-      }),
-    ).toBeNull();
-  });
-
-  it("refuses a rule or a group without a condition", () => {
-    expect(ruleGap({ conjunction: "and", conditions: [] })).toEqual({
-      kind: "empty",
-    });
-    expect(
-      ruleGap({
-        conjunction: "and",
-        conditions: [own, { conjunction: "or", conditions: [] }],
-      }),
-    ).toEqual({ kind: "empty" });
-  });
-
-  it("names the first condition still waiting for its value", () => {
-    for (const value of [
-      undefined,
-      null,
-      "",
-      [],
-      ["", ""],
-      { mode: "exact" as const },
-    ]) {
-      expect(
-        ruleGap({
-          conjunction: "and",
-          conditions: [own, { column: "region", op: "is", value }],
-        }),
-      ).toEqual({ kind: "blank", column: "region" });
-    }
   });
 });
 

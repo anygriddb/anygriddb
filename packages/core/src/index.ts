@@ -160,6 +160,7 @@ export {
   WITHIN_MODES,
   andFilters,
   awaitsValue,
+  filterGap,
   filterGroupSchema,
   filterOperatorsFor,
   isFilterGroup,

@@ -1,4 +1,4 @@
-import type { FilterGroup } from "@anygriddb/core";
+import { filterGap, type FilterGroup } from "@anygriddb/core";
 import { Button, Select, Spinner } from "@anygriddb/ui";
 import { plural } from "@lingui/core/macro";
 import { useLingui } from "@lingui/react/macro";
@@ -20,7 +20,6 @@ import {
   narrowable,
   restricts,
   ruledMembers,
-  ruleGap,
   ruleToSave,
   storedAccess,
   type FieldAccess,
@@ -119,7 +118,7 @@ export function TableRulesPanel(props: {
   }
 
   async function save() {
-    const gap = rowFilter ? ruleGap(rowFilter) : null;
+    const gap = rowFilter ? filterGap(rowFilter) : null;
     if (gap) {
       const field =
         gap.kind === "blank"
