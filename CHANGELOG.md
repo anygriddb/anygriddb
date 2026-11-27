@@ -8,12 +8,18 @@ first.
 
 ## Unreleased
 
+## 0.13.0 - 2026-11-27
+
+**Before upgrading:** check `ADMIN_EMAILS` in `.env`: addresses separated
+by commas or spaces. An entry that is not an address now stops the start,
+and the log names its place in the list.
+
 **After upgrading:** someone whose row rule holds a condition without a
 value its field takes now sees no row of that table, where they saw every
 row. Open the table's settings › Permissions for each member a manager
 hears from: the panel names the condition to fill in or remove.
 
-### Changed
+### Breaking
 
 - `ADMIN_EMAILS` holds addresses separated by commas or spaces: an entry
   that is not one stops the start, and names its place in the list. Two
@@ -25,10 +31,12 @@ hears from: the panel names the condition to fill in or remove.
   the field): a word to compare with a number, a text for a checkbox, a day
   that is not one. It was left out, and the answer held rows the filter
   was sent to keep out. A condition with no value at all is still left out.
+
+### Changed
+
 - A test of a traces or metrics collector is refused as what it is
   (`integration_untestable`): neither has an event to send. It answered
   "Network error", and counted a failure against the collector.
-
 - Giving a member their role on a base table by table, so that a rule may
   narrow one table, is asked first, and the question says that a table
   made later will not be theirs until someone gives it to them.
@@ -43,7 +51,6 @@ hears from: the panel names the condition to fill in or remove.
   while it copied the files: tar ends with 1 for a file that changes as it
   is read. That file is one the database, dumped first, does not name yet:
   the backup now goes on, and the next one keeps it.
-
 - Why a delivery failed (Network error, Timeout, Unknown host, …) showed
   in English in Administration › Support, Notifications and Health,
   whatever the language: it is now translated, as a table's webhooks
