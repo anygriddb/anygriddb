@@ -7,18 +7,16 @@
 import { randomBytes } from "node:crypto";
 import type { FilterGroup } from "@anygriddb/core";
 import type { Database } from "@anygriddb/db";
-import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { loadBindings } from "../auth/access.js";
-import { keyRing } from "../auth/key-ring.js";
 import { createApiToken } from "../auth/tokens.js";
 import { withAudit } from "../data/audit-context.js";
 import { insertBase, insertTable } from "../data/schema-ops.js";
-import type { Env } from "../env.js";
 import { listRecords } from "../public-api/operations.js";
 import type { Actor, PublicApiDeps } from "../public-api/types.js";
 import { writeSettings } from "../settings.js";
 import { createTestDatabase } from "../test-database.js";
-import { browserFactory, errorCode } from "./caller.test-helpers.js";
+import { errorCode, plainBrowsers } from "./caller.test-helpers.js";
 
 const suffix = randomBytes(6).toString("hex");
 
@@ -30,16 +28,7 @@ const NORTH: Condition = { column: "region", op: "is", value: "north" };
 describe("a row rule whose condition holds no value its field takes", () => {
   let db: Database;
   let close: (() => Promise<void>) | undefined;
-  const env = {
-    AUTH_ENCRYPTION_KEY: keyRing(randomBytes(32)),
-    PUBLIC_URL: "https://grid.example.org",
-  } as unknown as Env;
-  const hub = {
-    closeUser: vi.fn(() => 0),
-    closeAllBut: vi.fn(() => 0),
-    closeSession: vi.fn(() => 0),
-  };
-  const page = browserFactory({ db: () => db, env, hub })();
+  const page = plainBrowsers(() => db)();
   let owner = "";
   let member = "";
   let ownerToken = "";
@@ -71,28 +60,32 @@ describe("a row rule whose condition holds no value its field takes", () => {
     const created = await createTestDatabase("row_rule_values");
     db = created.db;
     close = created.close;
-    [owner, member] = (
-      await db
-        .insertInto("users")
-        .values([
-          { email: `owner-${suffix}@example.org`, displayName: "Owner" },
-          { email: `member-${suffix}@example.org`, displayName: "Member" },
-        ])
-        .returning("id")
-        .execute()
-    ).map((row) => row.id) as [string, string];
+    const account = async (name: string) =>
+      (
+        await db
+          .insertInto("users")
+          .values({ email: `${name}-${suffix}@example.org`, displayName: name })
+          .returning("id")
+          .executeTakeFirstOrThrow()
+      ).id;
+    owner = await account("owner");
+    member = await account("member");
     await writeSettings(db, owner, { mfaScope: "admins" });
-    const baseId = (await insertBase(db, owner, { name: "Sales" })).id;
+    const fields = {
+      region: "text",
+      amount: "number",
+      paid: "boolean",
+      day: "date",
+    } as const;
     tableId = (
       await insertTable(db, owner, {
-        baseId,
+        baseId: (await insertBase(db, owner, { name: "Sales" })).id,
         name: "Orders",
-        columns: [
-          { name: "region", label: "Region", fieldType: "text" },
-          { name: "amount", label: "Amount", fieldType: "number" },
-          { name: "paid", label: "Paid", fieldType: "boolean" },
-          { name: "day", label: "Day", fieldType: "date" },
-        ],
+        columns: Object.entries(fields).map(([name, fieldType]) => ({
+          name,
+          label: name,
+          fieldType,
+        })),
       })
     ).id;
     // A role on the table alone, which a rule narrows (ADR 0131).
