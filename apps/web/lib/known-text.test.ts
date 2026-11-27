@@ -1,4 +1,4 @@
-import { BASE_TEMPLATES } from "@anygriddb/core";
+import { BASE_TEMPLATES, OUTBOUND_FAILURES } from "@anygriddb/core";
 import { describe, expect, it } from "vitest";
 import { known, knownText } from "./known-text";
 
@@ -12,6 +12,13 @@ describe("knownText", () => {
         ...template.tables.map((table) => table.name),
       ];
       for (const word of words) expect(knownText(word), word).toBeDefined();
+    },
+  );
+
+  it.each(Object.values(OUTBOUND_FAILURES))(
+    "knows the failure of a call out, %s, that a delivery keeps",
+    (failure) => {
+      expect(knownText(failure), failure).toBeDefined();
     },
   );
 

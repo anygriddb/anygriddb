@@ -486,7 +486,9 @@ export function SupportTab() {
                     <td className="px-2 py-1.5 tabular-nums">
                       {delivery.attempts}
                     </td>
-                    <td className="px-2 py-1.5">{delivery.error ?? "—"}</td>
+                    <td className="px-2 py-1.5">
+                      {delivery.error ? errorText(delivery.error) : "—"}
+                    </td>
                     <td className="px-2 py-1.5 text-right">
                       {delivery.retryable ? (
                         <Button

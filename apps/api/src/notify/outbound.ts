@@ -1,4 +1,4 @@
-import { AppError } from "@anygriddb/core";
+import { AppError, OUTBOUND_FAILURES } from "@anygriddb/core";
 import { outboundFailureText, requestOutbound } from "../outbound/index.js";
 
 /** The most of a provider's answer kept: enough to say why it failed. */
@@ -43,10 +43,10 @@ export async function sendOutbound(
  */
 export function notifyFailureText(error: unknown): string {
   if (error instanceof AppError && error.code === "notify_needs_mail") {
-    return "Mail is not configured";
+    return OUTBOUND_FAILURES.noMail;
   }
   if (error instanceof AppError && error.code === "invalid_notify_target") {
-    return "Blocked target";
+    return OUTBOUND_FAILURES.blocked;
   }
   return outboundFailureText(error);
 }

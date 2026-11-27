@@ -4,13 +4,15 @@ name: Security
 # request. Code: CodeQL. Trivy scans the image we ship: its operating
 # system packages, which neither sees, and its Node.js packages as they
 # are once installed, so that an advisory published after a dependency
-# was merged shows before a release meets it.
+# was merged shows before a release meets it. Each day it also scans the
+# image last published, which only a new version changes: a fix that
+# came since says that version is to be made again.
 on:
   push:
     branches: [main]
   pull_request:
   schedule:
-    - cron: "30 4 * * 1"
+    - cron: "30 4 * * *"
 
 permissions:
   contents: read
@@ -86,6 +88,41 @@ jobs:
         with:
           sarif_file: trivy-results.sarif
           category: trivy
+
+  published:
+    name: published
+    if: github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      security-events: write # uploads Trivy's findings to the Security tab
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Scan the image last published
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          scan-type: image
+          image-ref: ghcr.io/anygriddb/anygriddb:latest
+          scanners: vuln
+          vuln-type: os,library
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
+          format: sarif
+          output: trivy-published.sarif
+          limit-severities-for-sarif: true
+
+      - name: Upload results
+        if: always() && hashFiles('trivy-published.sarif') != ''
+        uses: github/codeql-action/upload-sarif@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
+        with:
+          sarif_file: trivy-published.sarif
+          category: trivy-published
 
   dependency-review:
     name: dependency-review

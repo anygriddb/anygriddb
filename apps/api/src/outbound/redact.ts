@@ -1,4 +1,4 @@
-import { AppError } from "@anygriddb/core";
+import { AppError, OUTBOUND_FAILURES } from "@anygriddb/core";
 
 const BODY_SHOWN = 2_048;
 
@@ -30,24 +30,25 @@ export function redactSecrets(
  * is not used: it often quotes the address, and some addresses are secrets.
  */
 export function outboundFailureText(error: unknown): string {
+  const said = OUTBOUND_FAILURES;
   if (error instanceof AppError && error.code === "invalid_outbound_target") {
-    return "Blocked target";
+    return said.blocked;
   }
-  if (!(error instanceof Error)) return "Network error";
-  if (error.message === "Timeout") return "Timeout";
-  if (error.message === "Answer too large") return "Answer too large";
+  if (!(error instanceof Error)) return said.network;
+  if (error.message === "Timeout") return said.timeout;
+  if (error.message === "Answer too large") return said.tooLarge;
   if (/^HTTP \d{3}$/.test(error.message)) return error.message;
   const code = (error as { code?: unknown }).code;
-  if (code === "EBLOCKED") return "Blocked target";
-  if (code === "ENOTFOUND" || code === "EAI_AGAIN") return "Unknown host";
-  if (code === "ECONNREFUSED") return "Connection refused";
+  if (code === "EBLOCKED") return said.blocked;
+  if (code === "ENOTFOUND" || code === "EAI_AGAIN") return said.unknownHost;
+  if (code === "ECONNREFUSED") return said.refused;
   if (
     code === "CERT_HAS_EXPIRED" ||
     code === "DEPTH_ZERO_SELF_SIGNED_CERT" ||
     code === "UNABLE_TO_VERIFY_LEAF_SIGNATURE" ||
     (typeof code === "string" && code.startsWith("ERR_TLS"))
   ) {
-    return "TLS error";
+    return said.tls;
   }
-  return "Network error";
+  return said.network;
 }

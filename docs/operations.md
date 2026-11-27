@@ -81,7 +81,9 @@ docker compose -f compose.yml -f compose.release.yml \
 ```
 
 - Give Compose **both** `.env` and `image-pin.env` (pin alone hides `.env`).
-  Image is multi-arch; digest covers both. Verify before install:
+  Image is multi-arch; digest covers both. Verify before install, with the
+  GitHub CLI (2.49 or later) signed in (`gh auth login`, any account: the
+  attestations of a public repository are read with a token):
 
 ```sh
 . ./image-pin.env
@@ -254,6 +256,19 @@ HTTPS origin for mail links, cookies, API docs, cert CN, passkeys.
 LAN + passkeys: name in DNS/`/etc/hosts`, `PUBLIC_URL=https://grid.lan:3000`,
 IP in `TLS_NAMES`.
 
+The stack publishes port 3000, so `PUBLIC_URL` names it
+(`https://grid.example.org:3000`). To publish on 443 with no proxy in
+front, add a file of your own beside the others, give it to every command
+with its `-f`, and drop the port from `PUBLIC_URL`:
+
+```yaml
+# compose.port.yml
+services:
+  app:
+    ports: !override
+      - "443:4000"
+```
+
 ### Behind a reverse proxy
 
 Forward to HTTPS (`https://app:4000` on the stack network, or
@@ -276,7 +291,9 @@ docker save anygriddb:local postgres:18 | gzip > anygriddb-images.tar.gz
 # copy + docker load; compose up -d (no --build)
 ```
 
-Add `rustfs/rustfs` when using `compose.s3.yml`.
+Add `rustfs/rustfs` when using `compose.s3.yml`, and `postgres:17` for an
+instance that still runs PostgreSQL 17: `scripts/upgrade-postgres.sh` reads
+its data with it.
 
 ### Imports / exports / snapshots / restore points
 
