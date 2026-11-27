@@ -8,6 +8,28 @@ first.
 
 ## Unreleased
 
+**After upgrading:** someone whose row rule holds a condition without a
+value its field takes now sees no row of that table, where they saw every
+row. Open the table's settings › Permissions for each member a manager
+hears from: the panel names the condition to fill in or remove.
+
+### Changed
+
+- A filter sent to the API or through MCP (`filter` of a list of records)
+  with a value its field cannot hold is refused (`invalid_filter`, naming
+  the field): a word to compare with a number, a text for a checkbox, a day
+  that is not one. It was left out, and the answer held rows the filter
+  was sent to keep out. A condition with no value at all is still left out.
+
+### Security
+
+- A row rule with a condition left blank, or with a value its field cannot
+  hold, was kept and hid nothing: the condition was left out, a rule of
+  that one condition showed every row, and a rule of two kept only the
+  other. Such a rule is now refused when it is set (`invalid_filter`), the
+  table's settings say which condition misses its value before saving, and
+  a rule kept before shows no row.
+
 ## 0.12.0 - 2026-11-27
 
 **Before upgrading:** read Administration › People › Rights to review with

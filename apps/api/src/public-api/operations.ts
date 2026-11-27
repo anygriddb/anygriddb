@@ -4,6 +4,7 @@ import {
   andFilters,
   AppError,
   type CellValue,
+  checkFilter,
   cellValueSchema,
   readCellValue,
   effectiveTableRole,
@@ -498,14 +499,15 @@ export async function listRecords(
       if (!name) throw new AppError("unknown_column", key);
       return name;
     });
+  // A value the field cannot hold is refused, not left out: the read
+  // would answer rows the filter was sent to keep out.
+  const asked = parseFilter(query.data.filter);
+  if (asked) checkFilter(engine, asked, "values", rulesOwner(actor.user.id));
   const page = await readPage(
     deps.db,
     engine,
     {
-      filter: andFilters(
-        viewFilter(viewConfig),
-        parseFilter(query.data.filter),
-      ),
+      filter: andFilters(viewFilter(viewConfig), asked),
       sort: parseSort(query.data.sort, fromKey) ?? viewConfig.sort,
       search: query.data.search,
       fields,

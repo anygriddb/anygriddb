@@ -30,6 +30,7 @@ import {
   emptySql,
   refSql,
   type ColumnRef,
+  type FilterCheck,
   type FilterContext,
 } from "./filter-sql";
 import {
@@ -87,6 +88,8 @@ const SYSTEM_FIELDS = [
 
 export type ReadSpec = {
   filter?: FilterGroup;
+  /** What `filter` may hold that its fields cannot use (`FilterCheck`). */
+  filterCheck?: FilterCheck;
   search?: string;
   sort?: readonly RowSort[];
   groupBy?: readonly GroupSpec[];
@@ -317,8 +320,10 @@ function filterColumns(
 /**
  * Predicate on `alias` keeping the rows of `table` the reader may see. The
  * rule is the owner's, so it reads the real values (no field is hidden from
- * it) and only the columns it names. A rule that no longer compiles, say
- * over a deleted field, keeps no row.
+ * it) and only the columns it names. A rule that no longer compiles keeps
+ * no row: one over a deleted field, and one with a condition that holds no
+ * value its field takes, kept before such a rule was refused. Dropping the
+ * condition would show the rows it was set to hide.
  */
 function rowScope(
   ctx: ExprContext,
@@ -356,6 +361,7 @@ function rowScope(
     const where = compileFilter(
       {
         params,
+        check: "rule",
         d: ctx.d,
         me: access.me,
         columns,
@@ -366,7 +372,7 @@ function rowScope(
       rule,
     );
     if (!where) {
-      return null;
+      return "false";
     }
     const select = [
       aliased(idSql(table, "r"), "id"),
@@ -474,6 +480,7 @@ function prepare(catalog: EngineCatalog, spec: ReadSpec): Prepared {
   const derived = `(select ${select.join(", ")} from ${readTableSql(table)} r${own ? ` where ${own}` : ""}) q`;
   const filterContext: FilterContext = {
     params,
+    check: spec.filterCheck,
     d,
     me: spec.me,
     columns,
@@ -926,6 +933,20 @@ export function buildReadRows(
  */
 function pageFirst(rows: string, order: string): string {
   return `(select q.* from ${rows}) q${order}`;
+}
+
+/**
+ * Throws what a read would refuse in `filter`, read alone under `check`,
+ * and runs nothing: a row rule before it is kept, a request's own filter
+ * before a view's joins it.
+ */
+export function checkFilter(
+  catalog: EngineCatalog,
+  filter: FilterGroup,
+  check: FilterCheck,
+  me?: string,
+): void {
+  prepare(catalog, { filter, filterCheck: check, me, limit: 1 });
 }
 
 export function buildCountRows(

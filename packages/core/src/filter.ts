@@ -191,6 +191,23 @@ export function filterColumnNames(group: FilterGroup): string[] {
 }
 
 /**
+ * Whether a condition still waits for its value, as one just added does:
+ * none, an empty text or list, a range with neither end, an exact day not
+ * chosen. An operator that takes no value (is empty) waits for none.
+ */
+export function awaitsValue(condition: FilterCondition): boolean {
+  if (condition.op === "is_empty" || condition.op === "is_not_empty") {
+    return false;
+  }
+  const { value } = condition;
+  if (value === undefined || value === null) return true;
+  if (typeof value === "string") return value === "";
+  if (Array.isArray(value)) return value.every((item) => item === "");
+  if (typeof value === "object") return value.mode === "exact" && !value.date;
+  return false;
+}
+
+/**
  * A filter with only the conditions on fields `keep` accepts. A nested
  * group left with none goes; the group itself stays, even empty.
  */

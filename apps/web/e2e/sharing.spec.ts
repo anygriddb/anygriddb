@@ -188,6 +188,13 @@ test("an owner invites an address, its account accepts, and reads what its permi
   await rules
     .getByLabel("Field", { exact: true })
     .selectOption({ label: "Seller" });
+  // A condition without its value is not saved: left out, it would hide nothing.
+  await rules.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(
+    page.getByText(
+      "The condition on Seller has no value yet: give it one, or remove it.",
+    ),
+  ).toBeVisible();
   await rules.getByLabel("Value").fill("ada");
   await rules
     .getByLabel("What this member may do with Unit price")
