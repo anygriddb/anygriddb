@@ -16,6 +16,12 @@ rules, and runs a version before 0.11.2 upgrades through 0.11.2 first.
 
 ### Breaking
 
+- A new public link or calendar feed ends: at the instance's longest life
+  of a token (Security, "A token, a link or a feed lives at most") when
+  none is chosen,
+  and a link may not be made to last longer. Links and feeds made before
+  keep no end until they are made again (ADR 0131). An automation's
+  address does not end: it lives with its automation.
 - Roles add up (ADR 0131). What someone may do on a table is what its base
   and the table give them together, by their own roles and their groups':
   a role given on a table only adds, and no longer takes away what the base
@@ -46,6 +52,14 @@ rules, and runs a version before 0.11.2 upgrades through 0.11.2 first.
 
 ### Added
 
+- Administration › Sharing › **Access** lists everything that reaches
+  the instance without a session, whatever its kind: API tokens and
+  applications, the tokens of the administration API and of provisioning,
+  calendar feeds, public links and automations' addresses, each by its
+  author, reach, end, last use and state (live, ended, revoked, or
+  suspended while its author is disabled or no longer may), revoked from
+  there (ADR 0131). Webhooks and automations, which act as their authors,
+  have the page beside it. A base's page lists its addresses too.
 - Three more shipped roles of a base (ADR 0131, migration 0154):
   **Reader** reads and comments and takes nothing out of the base;
   **Contributor** reads, comments, writes, deletes, takes a circuit's

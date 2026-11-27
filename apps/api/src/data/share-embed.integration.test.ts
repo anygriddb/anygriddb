@@ -5,6 +5,7 @@
 import { randomBytes } from "node:crypto";
 import type { Database } from "@anygriddb/db";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { withAudit } from "./audit-context.js";
 import { createTestDatabase } from "../test-database.js";
 import { insertBase, insertTable } from "./schema-ops.js";
 import {
@@ -22,13 +23,12 @@ describe("a public link embedded in a site", () => {
   let owner = "";
   let viewId = "";
 
-  const share = (embedOrigins?: string[], expiresAt?: Date) =>
+  const share = (embedOrigins?: string[]) =>
     createShare(db, {
       viewId,
       createdBy: owner,
       allowCopy: false,
       embedOrigins,
-      expiresAt,
     });
 
   beforeAll(async () => {
@@ -88,9 +88,14 @@ describe("a public link embedded in a site", () => {
     await revokeShare(db, owner, revoked.id);
     expect(await shareEmbedOriginsForToken(db, revoked.token)).toBeNull();
 
-    const expired = await share(
-      ["https://portal.example.org"],
-      new Date(Date.now() - 1_000),
+    const expired = await share(["https://portal.example.org"]);
+    // Its end is on the change trail: the write names its author.
+    await withAudit(db, { userId: owner }, (tx) =>
+      tx
+        .updateTable("delegatedAccesses")
+        .set({ endsAt: new Date(Date.now() - 1_000) })
+        .where("id", "=", expired.id)
+        .execute(),
     );
     expect(await shareEmbedOriginsForToken(db, expired.token)).toBeNull();
 

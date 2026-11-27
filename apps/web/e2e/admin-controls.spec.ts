@@ -99,10 +99,10 @@ test("an administrator ends a session, reads the sign-ins, and exports access", 
     await member.reload();
     await member.waitForURL(/\/login/);
 
-    // Every public link and calendar feed of the instance, in one list.
-    await openAdmin(page, "Sharing", "Links and feeds");
+    // Everything that reaches the instance without a session, in one list.
+    await openAdmin(page, "Sharing", "Access");
     await expect(
-      page.getByText(/Public links let anyone with the address/),
+      page.getByText(/Everything that reaches the instance without someone/),
     ).toBeVisible();
     expect(await accessibilityViolations(page)).toEqual([]);
     // The list of sources says which setting holds the allowed hosts.
@@ -181,11 +181,9 @@ test("an administrator ends a session, reads the sign-ins, and exports access", 
     await expect(page.getByText("Restored from the trash")).toBeVisible();
     await expect(deleted).toHaveCount(0);
 
-    // And every API token, webhook, and automation.
-    await openAdmin(page, "Sharing", "Tokens and automations");
-    await expect(
-      page.getByRole("heading", { name: "API tokens" }),
-    ).toBeVisible();
+    // And every webhook and automation, which act as their authors.
+    await openAdmin(page, "Sharing", "Webhooks and automations");
+    await expect(page.getByRole("heading", { name: "Webhooks" })).toBeVisible();
     expect(await accessibilityViolations(page)).toEqual([]);
 
     // The trail names who signed up, and who ended the session.

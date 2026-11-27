@@ -14,6 +14,7 @@ import {
 import type { Database, TableRow, ViewRow } from "@anygriddb/db";
 import { sql } from "kysely";
 import { hashPassword, verifyPassword } from "../auth/argon2.js";
+import { accessEnd } from "../auth/delegated.js";
 import { liveAttribution } from "./attributions.js";
 import { withAudit } from "./audit-context.js";
 import { liveBase, liveTable, liveView } from "./live.js";
@@ -584,16 +585,19 @@ export async function createShare(
     viewId: string;
     createdBy: string;
     password?: string;
-    expiresAt?: Date;
+    /** Its life in days, within the instance's longest; that longest by default. */
+    days?: number;
     allowCopy: boolean;
     embedOrigins?: string[] | null;
   },
 ): Promise<{ id: string; token: string }> {
-  const { publicLinks } = await readGateSettings(db);
+  const policy = await readGateSettings(db);
+  const { publicLinks } = policy;
   if (publicLinks === "off") throw new AppError("public_links_disabled");
   if (publicLinks === "password" && !input.password) {
     throw new AppError("share_password_required");
   }
+  const endsAt = accessEnd(input.days, policy);
   const embedOrigins = normalizeEmbedOrigins(input.embedOrigins);
   const token = newToken();
   const passwordHash = input.password
@@ -620,7 +624,7 @@ export async function createShare(
           passwordFailures: 0,
           allowCopy: input.allowCopy,
           authorId: input.createdBy,
-          endsAt: input.expiresAt ?? null,
+          endsAt,
           embedOrigins,
         })
         .returning("id")
@@ -739,14 +743,17 @@ export async function createBaseShare(
     baseId: string;
     createdBy: string;
     password?: string;
-    expiresAt?: Date;
+    /** Its life in days, within the instance's longest; that longest by default. */
+    days?: number;
   },
 ): Promise<{ id: string; token: string }> {
-  const { publicLinks } = await readGateSettings(db);
+  const policy = await readGateSettings(db);
+  const { publicLinks } = policy;
   if (publicLinks === "off") throw new AppError("public_links_disabled");
   if (publicLinks === "password" && !input.password) {
     throw new AppError("share_password_required");
   }
+  const endsAt = accessEnd(input.days, policy);
   const token = newToken();
   const passwordHash = input.password
     ? await hashPassword(input.password)
@@ -766,7 +773,7 @@ export async function createBaseShare(
           passwordFailures: 0,
           allowCopy: false,
           authorId: input.createdBy,
-          endsAt: input.expiresAt ?? null,
+          endsAt,
           embedOrigins: null,
         })
         .returning("id")

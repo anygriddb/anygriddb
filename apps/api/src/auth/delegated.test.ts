@@ -1,6 +1,7 @@
 import { PERMISSIONS, rolePermissions } from "@anygriddb/core";
 import { describe, expect, it } from "vitest";
 import {
+  accessEnd,
   entrustedOf,
   hashSecret,
   permissionsOf,
@@ -57,5 +58,23 @@ describe("a secret and its end", () => {
     const end = new Date("2026-12-01T00:00:00Z");
     expect(tokenEnd(end)).toBe(end);
     expect(() => tokenEnd(null)).toThrow();
+  });
+});
+
+describe("when a new feed or link ends", () => {
+  const now = Date.parse("2026-11-27T00:00:00Z");
+  const day = 86_400_000;
+
+  it("lives the days asked, or the instance's longest", () => {
+    const policy = { tokenMaxDays: 30 };
+    expect(accessEnd(7, policy, now).getTime()).toBe(now + 7 * day);
+    expect(accessEnd(undefined, policy, now).getTime()).toBe(now + 30 * day);
+    expect(accessEnd(30, policy, now).getTime()).toBe(now + 30 * day);
+  });
+
+  it("refuses to outlive the instance's longest", () => {
+    expect(() => accessEnd(31, { tokenMaxDays: 30 }, now)).toThrow(
+      expect.objectContaining({ code: "token_lifetime_too_long" }),
+    );
   });
 });

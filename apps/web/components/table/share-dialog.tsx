@@ -126,7 +126,7 @@ export function ShareDialog({
                 value={days}
                 onChange={(event) => setDays(event.target.value)}
               >
-                <option value="">{t`Never`}</option>
+                <option value="">{t`The longest the instance allows`}</option>
                 <option value="1">{t`1 day`}</option>
                 <option value="7">{t`7 days`}</option>
                 <option value="30">{t`30 days`}</option>

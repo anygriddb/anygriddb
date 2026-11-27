@@ -211,7 +211,13 @@ said. Each case is counted by the migration's check:
   and inbound secrets (migration 0156) keep in typed columns what the code
   filters, updates and follows by reference: `view_id`, `base_id` and
   `automation_id`, each with its foreign key, and a link's settings and
-  password, each column held to its kinds by a check.
+  password, each column held to its kinds by a check. A suspension is a
+  state Administration › Sharing › Access computes (an author disabled or
+  no longer an administrator, a policy that stops it, what it shows in the
+  trash), not a column nor a line of the change trail per access: the
+  decision reads the author at each use, and the trails already say why
+  (an account disabled, a role taken away). An automation's address does
+  not end: it lives with its automation.
 - **What it may do is what it was entrusted ∩ what its author holds when
   it acts**, a job a token started included, at each run. While the author
   no longer holds it, or is disabled, it is **suspended** (it stays, does

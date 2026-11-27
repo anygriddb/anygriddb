@@ -154,8 +154,8 @@ export function useAdminSections(): AdminSection[] {
       label: t`Sharing`,
       icon: Share2,
       pages: [
-        { to: "/admin/sharing", label: t`Links and feeds` },
-        { to: "/admin/sharing/access", label: t`Tokens and automations` },
+        { to: "/admin/sharing", label: t`Access` },
+        { to: "/admin/sharing/access", label: t`Webhooks and automations` },
       ],
     },
     trails,

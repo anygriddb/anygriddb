@@ -4,20 +4,20 @@ import type { Database } from "@anygriddb/db";
 import { sql } from "kysely";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { keyRing } from "../auth/key-ring.js";
+import { createAdminToken } from "../auth/admin-tokens.js";
 import { createApiToken } from "../auth/tokens.js";
+import { createScimToken } from "../scim/tokens.js";
 import { setAutomationEnabled } from "../automations.js";
 import { createTestDatabase } from "../test-database.js";
 import { updateWebhook } from "../webhooks.js";
 import { withAudit } from "./audit-context.js";
 import { renewCalendarFeed } from "./calendar-feeds.js";
 import { loadEngine } from "./engine.js";
+import { listAccesses, revokeAccess } from "./accesses.js";
 import {
   listBaseOverview,
   listBaseTables,
   listInstanceHooks,
-  listInstanceTokens,
-  listOutbound,
-  revokeOutbound,
 } from "./outbound.js";
 import { insertBase, insertTable } from "./schema-ops.js";
 import { createShare } from "./sharing.js";
@@ -26,7 +26,7 @@ import { createView, trashView } from "./views.js";
 
 const suffix = randomBytes(6).toString("hex");
 
-describe("every public link and calendar feed, for an administrator", () => {
+describe("everything that reaches the instance without a session, for an administrator", () => {
   let db: Database;
   let ownerDb: Database;
   let close: (() => Promise<void>) | undefined;
@@ -89,38 +89,42 @@ describe("every public link and calendar feed, for an administrator", () => {
       allowCopy: false,
     });
     const token = await renewCalendarFeed(db, owner, shared.id);
-    const listed = await listOutbound(db, { limit: 100 });
+    const listed = await listAccesses(db, { limit: 100 });
     expect(
-      listed.links.map((item) => [item.kind, item.view, item.author]),
+      listed.accesses.map((item) => [item.kind, item.view, item.author]),
     ).toEqual(
       expect.arrayContaining([
         ["link", "Partagée", "Owner"],
         ["feed", "Partagée", "Owner"],
       ]),
     );
-    expect(listed.links.find((item) => item.kind === "link")).toMatchObject({
+    expect(listed.accesses.find((item) => item.kind === "link")).toMatchObject({
       id: share.id,
       base: "Ventes",
       table: "Clients",
       protected: true,
-      expiresAt: null,
-      expired: false,
+      state: "live",
     });
     const text = JSON.stringify(listed);
     expect(text).not.toContain(share.token);
     expect(text).not.toContain(token);
-    expect(text).not.toMatch(/argon2|passwordHash|tokenHash/i);
+    expect(text).not.toMatch(/argon2|passwordHash|secretHash|tokenHash/i);
   });
 
-  it("revokes a link and removes a feed, both on the trail", async () => {
-    const before = (await listOutbound(db, { limit: 100 })).links;
+  it("revokes a link and a feed, both on the trail, and keeps them revoked", async () => {
+    const before = (await listAccesses(db, { limit: 100 })).accesses;
     for (const item of before) {
-      await revokeOutbound(db, admin, { kind: item.kind, id: item.id });
+      await revokeAccess(db, admin, item.id);
     }
-    expect(await listOutbound(db, { limit: 100 })).toEqual({
-      links: [],
+    expect(await listAccesses(db, { limit: 100 })).toEqual({
+      accesses: [],
       total: 0,
     });
+    expect(
+      (await listAccesses(db, { limit: 100, revoked: true })).accesses.map(
+        (item) => item.state,
+      ),
+    ).toEqual(["revoked", "revoked"]);
     const trail = await db
       .selectFrom("auditEvents")
       .select(["userId", "action"])
@@ -132,12 +136,12 @@ describe("every public link and calendar feed, for an administrator", () => {
     expect(trail.length).toBeGreaterThanOrEqual(2);
     // Revoked already: nothing left to revoke.
     const link = before.find((item) => item.kind === "link");
-    await expect(
-      revokeOutbound(db, admin, { kind: "link", id: link?.id ?? "" }),
-    ).rejects.toMatchObject({ code: "no_row" });
+    await expect(revokeAccess(db, admin, link?.id ?? "")).rejects.toMatchObject(
+      { code: "no_row" },
+    );
   });
 
-  it("leaves out the links of a view in the trash", async () => {
+  it("says a link of a view in the trash acts on nothing", async () => {
     const gone = await view("Jetée");
     await createShare(db, {
       viewId: gone.id,
@@ -145,8 +149,11 @@ describe("every public link and calendar feed, for an administrator", () => {
       allowCopy: false,
     });
     expect(
-      (await listOutbound(db, { limit: 100 })).links.map((item) => item.view),
-    ).toEqual(["Jetée"]);
+      (await listAccesses(db, { limit: 100 })).accesses.map((item) => [
+        item.view,
+        item.state,
+      ]),
+    ).toEqual([["Jetée", "live"]]);
     await trashView(
       db,
       owner,
@@ -156,10 +163,12 @@ describe("every public link and calendar feed, for an administrator", () => {
         .where("id", "=", gone.id)
         .executeTakeFirstOrThrow(),
     );
-    expect(await listOutbound(db, { limit: 100 })).toEqual({
-      links: [],
-      total: 0,
-    });
+    expect(
+      (await listAccesses(db, { limit: 100 })).accesses.map((item) => [
+        item.view,
+        item.state,
+      ]),
+    ).toEqual([["Jetée", "suspended"]]);
   });
 
   it("lists every token, webhook, and automation, a webhook by its host only", async () => {
@@ -210,9 +219,17 @@ describe("every public link and calendar feed, for an administrator", () => {
       })
       .execute();
 
-    const tokens = await listInstanceTokens(db, { limit: 100 });
-    expect(tokens.tokens).toMatchObject([
-      { name: "Reporting", owner: "Owner", readOnly: true, bases: null },
+    const tokens = (await listAccesses(db, { limit: 100 })).accesses.filter(
+      (item) => item.kind === "api_token",
+    );
+    expect(tokens).toMatchObject([
+      {
+        name: "Reporting",
+        author: "Owner",
+        readOnly: true,
+        bases: null,
+        state: "live",
+      },
     ]);
     const hooks = await listInstanceHooks(db, {
       webhooks: { limit: 100 },
@@ -295,11 +312,15 @@ describe("every public link and calendar feed, for an administrator", () => {
     ]);
     // Its one table's newest event is the base's own.
     expect(base?.lastActivityAt).toEqual(expect.any(String));
+    // A base's accesses: its live link, and the one of a view in the trash.
     expect(
-      (await listOutbound(db, { limit: 10, baseId: base?.id ?? "" })).links.map(
-        (item) => item.view,
-      ),
-    ).toEqual(["Ouverte"]);
+      (
+        await listAccesses(db, { limit: 10, baseId: base?.id ?? "" })
+      ).accesses.map((item) => [item.view, item.state]),
+    ).toEqual([
+      ["Ouverte", "live"],
+      ["Jetée", "suspended"],
+    ]);
   });
 
   it("keeps each base's weights to itself, and names three owners at most", async () => {
@@ -554,5 +575,94 @@ describe("every public link and calendar feed, for an administrator", () => {
         Outils: hours(2).toISOString(),
       },
     });
+  });
+
+  it("says which accesses act on nothing while their author may not, and revokes any kind", async () => {
+    const author = (
+      await db
+        .insertInto("users")
+        .values({
+          email: `author-${suffix}@example.org`,
+          displayName: "Author",
+        })
+        .returning("id")
+        .executeTakeFirstOrThrow()
+    ).id;
+    const keeper = (
+      await db
+        .insertInto("users")
+        .values({
+          email: `keeper-${suffix}@example.org`,
+          displayName: "Keeper",
+        })
+        .returning("id")
+        .executeTakeFirstOrThrow()
+    ).id;
+    await giveInstanceRole(db, keeper);
+    const script = await createApiToken(db, author, "Nightly");
+    const ci = await createAdminToken(db, keeper, {
+      name: "CI",
+      scopes: ["settings"],
+    });
+    const scim = await createScimToken(db, keeper, "Directory");
+    const stateOf = async (id: string) =>
+      (await listAccesses(db, { limit: 100, revoked: true })).accesses.find(
+        (item) => item.id === id,
+      )?.state;
+    expect([
+      await stateOf(script.id),
+      await stateOf(ci.id),
+      await stateOf(scim.id),
+    ]).toEqual(["live", "live", "live"]);
+    // An administration token's scopes are no base's permissions.
+    expect(
+      (await listAccesses(db, { limit: 100 })).accesses.find(
+        (item) => item.id === ci.id,
+      )?.readOnly,
+    ).toBe(false);
+
+    // An author disabled: their token waits; an administrator no longer
+    // one: theirs wait. Each comes back with what it waited on.
+    await db
+      .updateTable("users")
+      .set({ disabledAt: new Date(), disabledReason: "admin" })
+      .where("id", "=", author)
+      .execute();
+    await giveInstanceRole(db, keeper, "administrator", false);
+    expect([
+      await stateOf(script.id),
+      await stateOf(ci.id),
+      await stateOf(scim.id),
+    ]).toEqual(["suspended", "suspended", "suspended"]);
+    await db
+      .updateTable("users")
+      .set({ disabledAt: null, disabledReason: null })
+      .where("id", "=", author)
+      .execute();
+    await giveInstanceRole(db, keeper);
+    expect([
+      await stateOf(script.id),
+      await stateOf(ci.id),
+      await stateOf(scim.id),
+    ]).toEqual(["live", "live", "live"]);
+
+    // Revoked from the one page, each as its own page revokes it.
+    for (const id of [script.id, ci.id, scim.id]) {
+      await revokeAccess(db, admin, id);
+    }
+    expect([
+      await stateOf(script.id),
+      await stateOf(ci.id),
+      await stateOf(scim.id),
+    ]).toEqual(["revoked", "revoked", "revoked"]);
+    const signIns = await db
+      .selectFrom("authEvents")
+      .select(["action", "actorId", "method"])
+      .where("userId", "=", author)
+      .where("action", "=", "tokens_revoked")
+      .execute();
+    expect(signIns).toEqual([
+      { action: "tokens_revoked", actorId: admin, method: "admin" },
+    ]);
   });
 });

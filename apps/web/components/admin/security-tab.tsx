@@ -432,13 +432,13 @@ function SecurityTab() {
       >
         <Choice
           id="policy-token-days"
-          label={t`An API token lives at most`}
+          label={t`A token, a link or a feed lives at most`}
           value={data.tokenMaxDays}
           options={[7, 30, 90, 180, 365].map(
             (value) => [value, days(value)] as const,
           )}
           onChange={(tokenMaxDays) => void save({ tokenMaxDays })}
-          hint={t`A shorter choice also ends the tokens already made that are older.`}
+          hint={t`A new link or feed lives this long unless a shorter time is chosen. A shorter choice also ends the tokens already made that are older.`}
         />
         <Choice
           id="policy-public-links"

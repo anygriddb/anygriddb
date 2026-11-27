@@ -7,7 +7,8 @@
  * or renew the address.
  */
 import { randomBytes } from "node:crypto";
-import { hashSecret, liveAccess } from "../auth/delegated.js";
+import { accessEnd, hashSecret, liveAccess } from "../auth/delegated.js";
+import { readGateSettings } from "../settings.js";
 import {
   AppError,
   andFilters,
@@ -95,6 +96,8 @@ export async function renewCalendarFeed(
   const view = await feedView(db, viewId, userId);
   if (!view) throw new AppError("invalid_view");
   const token = `agcal_${randomBytes(32).toString("base64url")}`;
+  // A feed lives as long as the instance lets an access live (ADR 0131).
+  const endsAt = accessEnd(undefined, await readGateSettings(db));
   await withAudit(
     db,
     { userId, tableId: view.tableId, source: "web" },
@@ -106,6 +109,7 @@ export async function renewCalendarFeed(
         .set({
           secretHash: hashSecret(token),
           createdAt: new Date(),
+          endsAt,
           lastUsedAt: null,
         })
         .where("kind", "=", "feed")
@@ -123,6 +127,7 @@ export async function renewCalendarFeed(
           viewId,
           authorId: userId,
           secretHash: hashSecret(token),
+          endsAt,
         })
         .execute();
     },
