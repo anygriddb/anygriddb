@@ -302,7 +302,7 @@ function adminOpenApi(publicUrl: string): Record<string, unknown> {
         post: {
           summary: "Make an account, which sets its own password",
           description:
-            "The account is no administrator and has no role on a base. Where mail is set up, a link that sets its first password is mailed to its address (`sent: true`); where it is not, the link comes back in the answer, once (`sent: false`).",
+            "The account is no administrator and has no role on a base. Where mail is set up, a link that sets its first password is mailed to its address (`sent: true`); where it is not, or where the mail does not go, the link comes back in the answer, once (`sent: false`, with `reason` when the mail failed).",
           ...asks("accounts"),
           requestBody: {
             required: true,
@@ -320,6 +320,15 @@ function adminOpenApi(publicUrl: string): Record<string, unknown> {
                   to: { type: "string" },
                   link: { type: "string" },
                   expiresAt: { type: "string", format: "date-time" },
+                  reason: {
+                    type: "string",
+                    enum: [
+                      "smtp_unreachable",
+                      "smtp_tls",
+                      "smtp_account",
+                      "invalid_smtp",
+                    ],
+                  },
                 },
               }),
             },

@@ -109,13 +109,19 @@ export function InvitationsPanel() {
                                 toast.success(
                                   t`Invitation sent again to ${{ email: invitation.email }}`,
                                 );
-                              } else if (result.link) {
+                              } else {
                                 await navigator.clipboard.writeText(
                                   result.link,
                                 );
-                                toast.success(
-                                  t`Link copied — email is not set up`,
-                                );
+                                if (result.reason) {
+                                  toast.warning(
+                                    t`Link copied: the mail did not go. ${errorText({ code: result.reason })}`,
+                                  );
+                                } else {
+                                  toast.success(
+                                    t`Link copied — email is not set up`,
+                                  );
+                                }
                               }
                             })
                           }

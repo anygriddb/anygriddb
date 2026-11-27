@@ -12,14 +12,14 @@ import { issueAuthority, issueServer } from "../tls/certificate.js";
 export const HOST = "hooks.example.org";
 const PUBLIC = "203.0.113.10";
 
-/** An authority and a leaf for the name the call uses. */
-function certificates() {
+/** An authority and a leaf for the names the call uses. */
+function certificates(names: readonly string[]) {
   const authority = issueAuthority({
     commonName: "AnyGridDB outbound test",
-    names: [HOST],
+    names,
   });
   const leaf = issueServer({
-    names: [HOST],
+    names,
     authority: {
       cert: authority.cert,
       key: createPrivateKey(authority.key),
@@ -46,8 +46,9 @@ export async function localHttps(
     request: import("node:http").IncomingMessage,
     response: import("node:http").ServerResponse,
   ) => void,
+  names: readonly string[] = [HOST],
 ): Promise<{ port: number; ca: string }> {
-  const { authority, leaf } = certificates();
+  const { authority, leaf } = certificates(names);
   const server = createServer(
     { key: leaf.key, cert: leaf.cert + authority.cert },
     handler,

@@ -8,6 +8,7 @@
 import { isIP } from "node:net";
 import type { InstanceSettings } from "@anygriddb/core";
 import type { AuthAction, Database } from "@anygriddb/db";
+import { loggedError } from "../logged-error.js";
 
 export type AuthMethod =
   | "password"
@@ -105,6 +106,11 @@ type AuthEvent = {
   ip?: string | null;
 };
 
+/** An account's event the channels will not hear of: said, never thrown. */
+function unqueued(error: unknown, message: string): void {
+  console.error(message, loggedError(error));
+}
+
 export async function recordAuthEvent(
   db: Database,
   event: AuthEvent,
@@ -126,7 +132,7 @@ export async function recordAuthEvent(
     event.userId
   ) {
     const { emitInstanceEvent } = await import("../notify/dispatch.js");
-    await emitInstanceEvent(db, () => undefined, {
+    await emitInstanceEvent(db, unqueued, {
       type:
         event.action === "account_created" ? "user.created" : "user.deleted",
       subject: event.userId,

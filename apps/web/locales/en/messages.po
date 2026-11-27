@@ -872,6 +872,11 @@ msgstr "{name} added a row to {table}"
 msgid "{name} added the field {field} to {table}"
 msgstr "{name} added the field {field} to {table}"
 
+#. placeholder {0}: errorText({ code: result.reason })
+#: components/admin/accounts-tab.tsx
+msgid "{name} added, but their link did not go by mail: {0}"
+msgstr "{name} added, but their link did not go by mail: {0}"
+
 #: components/admin/accounts-tab.tsx
 msgid "{name} added. Their link went to {to}"
 msgstr "{name} added. Their link went to {to}"
@@ -7790,6 +7795,11 @@ msgstr "Link copied"
 msgid "Link copied — email is not set up"
 msgstr "Link copied — email is not set up"
 
+#. placeholder {0}: errorText({ code: result.reason })
+#: components/admin/invitations-panel.tsx
+msgid "Link copied: the mail did not go. {0}"
+msgstr "Link copied: the mail did not go. {0}"
+
 #: components/admin/account-actions.tsx
 msgid "Link for {name}"
 msgstr "Link for {name}"
@@ -14405,6 +14415,10 @@ msgstr "This integration is not valid. Check the address, the secret, and the ev
 #: lib/errors.ts
 msgid "This integration no longer exists"
 msgstr "This integration no longer exists"
+
+#: lib/errors.ts
+msgid "This integration sends nothing as a test: what it receives shows that it works."
+msgstr "This integration sends nothing as a test: what it receives shows that it works."
 
 #: lib/errors.ts
 msgid "This invitation does not exist or has expired"

@@ -286,6 +286,11 @@ export const ERRORS = {
   invalid_webhook: [BAD, "Invalid webhook"],
   invalid_integration: [BAD, "Invalid integration"],
   unknown_integration: [404, "Unknown integration"],
+  /** Traces or metrics: nothing the instance sends would test them. */
+  integration_untestable: [
+    BAD,
+    "This integration has nothing to send as a test",
+  ],
   integration_limit: [BAD, "Too many integrations"],
   /** An https address the notification rules refuse (ADR 0092). */
   invalid_notify_target: [BAD, "Invalid notification target"],

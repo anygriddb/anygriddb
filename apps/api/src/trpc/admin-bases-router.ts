@@ -20,7 +20,7 @@ import { givenKey, givenName, resolveGiven } from "../data/made-roles.js";
 import { assertMemberDomain, renewInvitation } from "../data/sharing.js";
 import { listAllTrashedBases, restoreBase, trashBase } from "../data/trash.js";
 import { resolveSmtp } from "../integrations/smtp.js";
-import { sendMail, smtpReady } from "../mail.js";
+import { sendMail, smtpReady, smtpRefusal } from "../mail.js";
 import { invitationMailBody, invitationMailSubject } from "../mail-i18n.js";
 import { assertGrantable, listBaseChoices } from "../admin.js";
 import { readMailVoice } from "../settings.js";
@@ -491,23 +491,34 @@ export const adminBaseProcedures = {
           { actor: admin.id, invitation: input.invitationId },
           "invitation sent again",
         );
-        if (!smtpReady(smtp)) {
-          return {
-            mailed: false as const,
-            link,
-            expiresAt: renewed.expiresAt.toISOString(),
-          };
-        }
+        const handed: {
+          mailed: false;
+          link: string;
+          expiresAt: string;
+          reason?: ReturnType<typeof smtpRefusal>;
+        } = {
+          mailed: false,
+          link,
+          expiresAt: renewed.expiresAt.toISOString(),
+        };
+        if (!smtpReady(smtp)) return handed;
         const voice = await readMailVoice(ctx.db);
-        await sendMail(smtp, voice, {
-          to: renewed.email,
-          subject: invitationMailSubject(voice, renewed.baseName),
-          text: invitationMailBody(voice, {
-            inviterName: renewed.inviterName ?? admin.displayName,
-            link,
-            expiresDate: renewed.expiresAt.toISOString().slice(0, 10),
-          }),
-        });
+        try {
+          await sendMail(smtp, voice, {
+            to: renewed.email,
+            subject: invitationMailSubject(voice, renewed.baseName),
+            text: invitationMailBody(voice, {
+              inviterName: renewed.inviterName ?? admin.displayName,
+              link,
+              expiresDate: renewed.expiresAt.toISOString().slice(0, 10),
+            }),
+          });
+        } catch (error) {
+          // The invitation is renewed: its link is handed, and why it
+          // did not go is said.
+          ctx.req.log.error({ err: error }, "invitation mail failed");
+          return { ...handed, reason: smtpRefusal(error) };
+        }
         return { mailed: true as const, to: renewed.email };
       }),
     ),

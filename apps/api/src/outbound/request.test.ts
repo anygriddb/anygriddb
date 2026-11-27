@@ -1,3 +1,5 @@
+import { Agent } from "node:https";
+import { connect as tlsConnect, type ConnectionOptions } from "node:tls";
 import { afterEach, describe, expect, it } from "vitest";
 import { AppError } from "@anygriddb/core";
 import {
@@ -223,6 +225,30 @@ describe("requestOutbound security", () => {
       "Timeout",
     );
     expect(Date.now() - started).toBeLessThan(OUTBOUND_TIMEOUT_MS);
+  });
+
+  it("reaches an address by the address its certificate names", async () => {
+    const { port, ca } = await localHttps(
+      (_request, response) => {
+        response.writeHead(200);
+        response.end("ok");
+      },
+      ["127.0.0.1"],
+    );
+    // The socket is opened with the request's TLS options, as Node's own
+    // is: given an address as its name, it refuses before it connects.
+    const agent = new Agent({ ca, maxCachedSessions: 0 });
+    agent.createConnection = ({ path: _path, ...options }) =>
+      tlsConnect({ ...options, host: "127.0.0.1", port } as ConnectionOptions);
+    const answer = await requestOutbound({
+      url: `https://203.0.113.10:${String(port)}/ok`,
+      method: "POST",
+      body: "{}",
+      maxBytes: 1_024,
+      agent,
+      ca,
+    });
+    expect(answer).toMatchObject({ status: 200, body: "ok" });
   });
 
   it("returns a successful answer under the limit", async () => {
