@@ -82,6 +82,37 @@ test("an administrator shows a client's tables in a base, read where they live",
     await expect(dialog.getByLabel("Port", { exact: true })).toHaveValue(
       "5432",
     );
+    // A clear connection is asked first, and saying no leaves TLS on.
+    const plaintext = dialog.getByRole("checkbox", {
+      name: /Allow an unencrypted connection/,
+    });
+    // It stays unticked until the risk is confirmed.
+    await plaintext.click();
+    const risk = page.getByRole("dialog", {
+      name: "Connect without encryption?",
+    });
+    await expect(
+      risk.getByText(/can read the password and every row/),
+    ).toBeVisible();
+    expect(await accessibilityViolations(page)).toEqual([]);
+    await risk.getByRole("button", { name: "Cancel" }).click();
+    await expect(risk).toBeHidden();
+    await expect(plaintext).not.toBeChecked();
+    const certificate = dialog.getByLabel("Certificate (optional)", {
+      exact: true,
+    });
+    await expect(certificate).toBeVisible();
+    // Confirmed, a clear connection has no certificate to ask; unticked,
+    // TLS and its certificate come back.
+    await plaintext.click();
+    await risk
+      .getByRole("button", { name: "Connect without encryption" })
+      .click();
+    await expect(plaintext).toBeChecked();
+    await expect(certificate).toHaveCount(0);
+    await plaintext.click();
+    await expect(plaintext).not.toBeChecked();
+    await expect(certificate).toBeVisible();
     await dialog.getByLabel("Name", { exact: true }).fill(`ERP ${stamp}`);
     // Exact names: the read replica's fields are named after these.
     await dialog.getByLabel("Database", { exact: true }).fill(database);
