@@ -51,6 +51,11 @@ export type SheetRow = {
   emptyFormulas?: number;
   /** Columns whose value the file cannot state: refused on this line. */
   unreadable?: number[];
+  /**
+   * Columns whose value the file holds as a list (a JSON array), with its
+   * items: a list field takes them as they are, where `cells` joins them.
+   */
+  lists?: Record<number, string[]>;
 };
 
 /** How a text file's bytes are read. */
@@ -468,16 +473,42 @@ async function jsonRecords(
 /** The keys a REST record holds around its `fields`. */
 const REST_RECORD_KEYS = new Set(["id", "fields", "createdTime"]);
 
-/** A record's cells under `keys`, and those the file cannot state. */
+/** A JSON array of plain values, as its items. */
+function jsonList(value: unknown): string[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  const items: string[] = [];
+  for (const item of value as unknown[]) {
+    if (typeof item === "string") items.push(item);
+    else if (typeof item === "number" || typeof item === "boolean") {
+      items.push(String(item));
+    } else if (EXACT_JSON.isRawJSON(item)) items.push(item.rawJSON);
+    else return undefined;
+  }
+  return items;
+}
+
+/**
+ * A record's cells under `keys`, those the file cannot state, and those it
+ * holds as a list.
+ */
 function jsonCells(
   record: Record<string, unknown>,
   keys: readonly string[],
-): { cells: string[]; unreadable?: number[] } {
+): Pick<SheetRow, "cells" | "unreadable" | "lists"> {
   const cells = keys.map((key) => jsonText(record[key]));
   const unreadable = keys.flatMap((key, index) =>
     holdsOutOfRange(record[key]) ? [index] : [],
   );
-  return unreadable.length > 0 ? { cells, unreadable } : { cells };
+  const lists: Record<number, string[]> = {};
+  for (const [index, key] of keys.entries()) {
+    const items = jsonList(record[key]);
+    if (items) lists[index] = items;
+  }
+  return {
+    cells,
+    ...(unreadable.length > 0 ? { unreadable } : {}),
+    ...(Object.keys(lists).length > 0 ? { lists } : {}),
+  };
 }
 
 /** Every key the records use, in the order they first appear. */
@@ -924,7 +955,7 @@ export async function* readImportFile(
   const take = (
     line: number,
     cells: string[],
-    about: Pick<SheetRow, "emptyFormulas" | "unreadable"> = {},
+    about: Pick<SheetRow, "emptyFormulas" | "unreadable" | "lists"> = {},
   ): SheetRow[] | undefined => {
     if (isBlank(cells) && !about.emptyFormulas) return undefined;
     total += 1;
@@ -970,8 +1001,8 @@ export async function* readImportFile(
       const records = await jsonRecords(path, maxRows);
       const keys = jsonKeys(records);
       for (const [index, record] of records.entries()) {
-        const { cells, unreadable } = jsonCells(record, keys);
-        const full = take(index + 2, cells, unreadable ? { unreadable } : {});
+        const { cells, ...about } = jsonCells(record, keys);
+        const full = take(index + 2, cells, about);
         if (full) yield full;
       }
       break;

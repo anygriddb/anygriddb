@@ -351,11 +351,18 @@ type CellRule = {
   readsEmpty?: true;
   /** A JSON number or boolean, which is otherwise read as its text. */
   readScalar?: (raw: number | boolean) => CellValue | undefined;
+  /** A list sent as such, read as one document, not as its items written out. */
+  readList?: "document";
   /**
-   * A list sent as such: one document, or items picked one by one, which
-   * is otherwise read as its items written out.
+   * A list's items, each a whole value: a list sent as such is read so, a
+   * text after it is split at its commas, semicolons and lines. An item of
+   * a list sent as such is never split again: an option may hold a comma.
    */
-  readList?: "document" | "items";
+  readItems?: (
+    items: readonly string[],
+    column: CellColumn,
+    context: CoerceContext,
+  ) => CellValue | undefined;
   /** Why loose input was not taken, where the type says more than `invalid_cell`. */
   refusal?: (
     raw: unknown,
@@ -417,6 +424,33 @@ function optionNamed(names: string[], typed: string): string | undefined {
   return (
     names.find((name) => name === typed) ??
     names.find((name) => name.toLowerCase() === typed.toLowerCase())
+  );
+}
+
+/** Each item once, as `pick` reads it, or nothing when one does not read. */
+function pickEach(
+  items: readonly string[],
+  pick: (item: string) => string | undefined,
+): string[] | undefined {
+  const picked: string[] = [];
+  for (const item of items) {
+    const match = pick(item);
+    if (!match) return undefined;
+    if (!picked.includes(match)) picked.push(match);
+  }
+  return picked;
+}
+
+/** A rule's text read as the items it writes out. */
+function itemsOfText(
+  { trimmed }: TypedText,
+  column: CellColumn,
+  context: CoerceContext,
+): CellValue | undefined {
+  return cellRuleOf(column.fieldType)?.readItems?.(
+    splitList(trimmed),
+    column,
+    context,
   );
 }
 
@@ -560,50 +594,29 @@ const CELL_RULES = {
         value.every((item) => names.includes(item))
       );
     },
-    readList: "items",
-    read: ({ trimmed }, { config }) => {
+    readItems: (items, { config }) => {
       const names = selectOptionNames(config);
-      const picked: string[] = [];
-      for (const item of splitList(trimmed)) {
-        const match = optionNamed(names, item);
-        if (!match) {
-          return undefined;
-        }
-        if (!picked.includes(match)) {
-          picked.push(match);
-        }
-      }
-      return picked;
+      return pickEach(items, (item) => optionNamed(names, item));
     },
+    read: itemsOfText,
   },
   user: {
     keeps: (value, { config }) =>
       isUniqueStrings(value, config.multiple ? 50 : 1) &&
       value.every((id) => UUID.test(id)),
-    readList: "items",
-    read: ({ trimmed }, _column, context) => {
-      const ids: string[] = [];
-      for (const item of splitList(trimmed)) {
-        const id = UUID.test(item)
-          ? item.toLowerCase()
-          : context.resolveUser?.(item);
-        if (!id) {
-          return undefined;
-        }
-        if (!ids.includes(id)) {
-          ids.push(id);
-        }
-      }
-      return ids;
-    },
+    readItems: (items, _column, context) =>
+      pickEach(items, (item) =>
+        UUID.test(item) ? item.toLowerCase() : context.resolveUser?.(item),
+      ),
+    read: itemsOfText,
   },
   attachment: {
     keeps: (value) =>
       isUniqueStrings(value, MAX_CELL_FILES) &&
       value.every((key) => ATTACHMENT_KEY.test(key)),
     refusedAs: "invalid_attachment",
-    readList: "items",
-    read: ({ trimmed }) => splitList(trimmed),
+    readItems: (items) => [...items],
+    read: itemsOfText,
   },
 } satisfies Record<WritableType, CellRule>;
 
@@ -688,11 +701,19 @@ function coerceRaw(
     if (rule?.readList === "document") {
       return parseJsonDocument(JSON.stringify(raw));
     }
-    if (rule?.readList === "items") {
-      const items = raw.flatMap((item) =>
-        typeof item === "string" ? [item.trim()] : [],
-      );
-      return coerceRaw(column, items.join(","), context);
+    if (rule?.readItems) {
+      const items: string[] = [];
+      for (const item of raw as unknown[]) {
+        const text =
+          typeof item === "string"
+            ? item.trim()
+            : typeof item === "number"
+              ? String(item)
+              : undefined;
+        if (text === undefined || holdsUnwritableText(text)) return undefined;
+        if (text !== "") items.push(text);
+      }
+      return items.length === 0 ? null : rule.readItems(items, column, context);
     }
     return coerceRaw(column, raw.map(String).join(", "), context);
   }

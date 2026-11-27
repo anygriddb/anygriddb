@@ -430,6 +430,63 @@ describe("an import read as it is written", () => {
     );
   });
 
+  it("takes a JSON list as its items, an option holding a comma kept whole", async () => {
+    const { id } = await insertTable(db, owner, {
+      baseId,
+      name: "Marks",
+      columns: [
+        { label: "K", fieldType: "text" },
+        {
+          label: "M",
+          fieldType: "multi_select",
+          config: {
+            options: ["one", "a,b", "semi;colon"].map((name) => ({
+              name,
+              color: "gray",
+            })),
+          },
+        },
+      ],
+    });
+    const target = await db
+      .selectFrom("dataTables")
+      .selectAll()
+      .where("id", "=", id)
+      .executeTakeFirstOrThrow();
+    const file = JSON.stringify([
+      { K: "plain", M: ["one"] },
+      { K: "comma", M: ["one", "a,b"] },
+      { K: "semi", M: ["semi;colon"] },
+      { K: "new", M: ["fresh, two"] },
+    ]);
+    const result = await importFile(target, "json", file, {
+      mapping: [
+        { source: 0, column: "k" },
+        { source: 1, column: "m" },
+      ],
+    });
+    expect(result).toMatchObject({ inserted: 4, failed: 0 });
+    const rows = await stored(target, ["k", "m"]);
+    expect(Object.fromEntries(rows.map((row) => [row.k, row.m]))).toEqual({
+      plain: ["one"],
+      comma: ["one", "a,b"],
+      semi: ["semi;colon"],
+      new: ["fresh, two"],
+    });
+    const { config } = await db
+      .selectFrom("dataColumns")
+      .select("config")
+      .where("tableId", "=", id)
+      .where("name", "=", "m")
+      .executeTakeFirstOrThrow();
+    // One option added, as the file wrote it, and none made of its pieces.
+    expect(
+      (config as { options: Array<{ name: string }> }).options.map(
+        (option) => option.name,
+      ),
+    ).toEqual(["one", "a,b", "semi;colon", "fresh, two"]);
+  });
+
   it("says what was committed before a failure", async () => {
     const target = await table("Stopped");
     const written: Array<{ inserted: number; updated: number }> = [];

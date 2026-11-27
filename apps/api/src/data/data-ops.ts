@@ -17,6 +17,7 @@ import {
   CREATABLE_TYPES,
   deriveColumnName,
   type EngineCatalog,
+  type ErrorCode,
   type FieldType,
   type FormulaExpr,
   isWritableType,
@@ -273,11 +274,13 @@ export async function applyTemplate(
 type ReadAllSpec = Omit<ReadSpec, "limit" | "offset" | "fields" | "after">;
 
 /**
- * Reads every row in pages of 1000, up to `max` (`MAX_COPY_ROWS`), each
- * once though rows go meanwhile: pages counted by an offset alone would
- * skip a row for each one deleted before it. Rows kept in AnyGridDB's
- * database (its tables, a client's copy) are read in one snapshot; a
- * client's live rows, in their key's order, page after page by their key.
+ * Reads every row in pages of 1000, each once though rows go meanwhile:
+ * pages counted by an offset alone would skip a row for each one deleted
+ * before it. Rows kept in AnyGridDB's database (its tables, a client's
+ * copy) are read in one snapshot; a client's live rows, in their key's
+ * order, page after page by their key. A table past `max` rows
+ * (`MAX_COPY_ROWS`) is refused with `over`, never cut there: a file or a
+ * copy short of its last rows would read as whole.
  */
 export async function readAll(
   db: Database,
@@ -286,16 +289,18 @@ export async function readAll(
   onPage: (rows: RowRecord[]) => void | Promise<void>,
   base: ReadAllSpec = {},
   max: number = MAX_COPY_ROWS,
+  over: ErrorCode = "too_many_rows",
 ): Promise<void> {
   const live = engine.table.external && !engine.table.external.synced;
+  const limits = { max, over };
   if (live || db.isTransaction) {
-    return readPages(db, engine, fields, onPage, base, max);
+    return readPages(db, engine, fields, onPage, base, limits);
   }
   return db
     .transaction()
     .setIsolationLevel("repeatable read")
     .setAccessMode("read only")
-    .execute((tx) => readPages(tx, engine, fields, onPage, base, max));
+    .execute((tx) => readPages(tx, engine, fields, onPage, base, limits));
 }
 
 async function readPages(
@@ -304,7 +309,7 @@ async function readPages(
   fields: string[],
   onPage: (rows: RowRecord[]) => void | Promise<void>,
   base: ReadAllSpec,
-  max: number,
+  { max, over }: { max: number; over: ErrorCode },
 ): Promise<void> {
   const external = engine.table.external;
   const byKey =
@@ -323,6 +328,11 @@ async function readPages(
     if (page.rows.length < limit) return;
     after = String(page.rows[page.rows.length - 1]?.id);
   }
+  const next: ReadSpec = { ...base, limit: 1, fields: [], groupBy: undefined };
+  if (!byKey) next.offset = max;
+  else if (after !== undefined) next.after = after;
+  const beyond = await readPage(db, engine, next, { total: false });
+  if (beyond.rows.length > 0) throw new AppError(over);
 }
 
 /**
@@ -706,6 +716,19 @@ export async function duplicateColumn(
     (!isWritableType(column.fieldType) && column.fieldType !== "formula")
   ) {
     throw new AppError("invalid_column");
+  }
+  // Counted before the copy is made, which a table past the ceiling would
+  // leave half filled; the read refuses past it still.
+  if (isWritableType(column.fieldType)) {
+    const counted = await readPage(
+      db,
+      engine,
+      { limit: 1, fields: [] },
+      { total: true, exact: true },
+    );
+    if ((counted.total ?? 0) > MAX_COPY_ROWS) {
+      throw new AppError("too_many_rows");
+    }
   }
   const labels = new Set(own.map((item) => item.label));
   let label = names.copy(column.label).slice(0, 100);

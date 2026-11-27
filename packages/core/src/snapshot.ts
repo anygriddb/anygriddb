@@ -313,6 +313,17 @@ export const baseSnapshotSchema = z
     ) {
       context.addIssue({ code: "custom", message: "dashboards" });
     }
+    // A link joins two tables the snapshot lists, and a lookup or a rollup
+    // sits on one: the import would leave it out, and its values with it.
+    const keys = new Set(snapshot.tables.map((table) => table.key));
+    if (
+      snapshot.links.some(
+        (link) => !keys.has(link.from) || !keys.has(link.to),
+      ) ||
+      snapshot.computed.some((item) => !keys.has(item.table))
+    ) {
+      context.addIssue({ code: "custom", message: "links" });
+    }
     // A table sits in a folder the snapshot lists, and a base names each
     // folder once.
     const folders = new Set(snapshot.folders?.map((folder) => folder.name));

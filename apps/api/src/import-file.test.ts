@@ -351,7 +351,8 @@ describe("reading an import file", () => {
     );
     expect(plain.shape.headers).toEqual(["nom", "tags", "n", "ville"]);
     expect(plain.rows).toEqual([
-      { line: 2, cells: ["Acme", "a, b", "3", ""] },
+      // A list is joined in its cell, and kept as its items beside it.
+      { line: 2, cells: ["Acme", "a, b", "3", ""], lists: { 1: ["a", "b"] } },
       { line: 4, cells: ["", "", "", "Sète"] },
     ]);
     const wrapped = await readImport(

@@ -121,6 +121,36 @@ describe("coerceCellValue", () => {
   });
 });
 
+describe("a list sent as such", () => {
+  const marks = {
+    fieldType: "multi_select" as const,
+    config: {
+      options: [
+        { name: "one", color: "gray" as const },
+        { name: "a,b", color: "gray" as const },
+        { name: "semi;colon", color: "gray" as const },
+      ],
+    },
+  };
+
+  it("takes each item whole, an option holding a comma or a semicolon", () => {
+    expect(coerceCellValue(marks, ["one", "a,b"])).toEqual(["one", "a,b"]);
+    expect(coerceCellValue(marks, ["semi;colon", "ONE", "one"])).toEqual([
+      "semi;colon",
+      "one",
+    ]);
+    expect(coerceCellValue(marks, [" ", ""])).toBeNull();
+  });
+
+  it("refuses an item that is no option, or not a text, never splitting it", () => {
+    // Written out, the same text is split: "a" and "b" are no options.
+    expect(coerceCellValue(marks, "one, a,b")).toBeUndefined();
+    expect(coerceCellValue(marks, ["a", "b"])).toBeUndefined();
+    expect(coerceCellValue(marks, ["one", { name: "one" }])).toBeUndefined();
+    expect(coerceCellValue(marks, ["one", true])).toBeUndefined();
+  });
+});
+
 const number = { fieldType: "number" as const, config: {} };
 const text = { fieldType: "text" as const, config: {} };
 const longText = { fieldType: "long_text" as const, config: {} };

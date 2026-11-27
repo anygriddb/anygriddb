@@ -344,4 +344,85 @@ describe("a table's status circuit", () => {
     });
     expect(await statusOf(tableId, rowId)).toBe("checked");
   });
+  it("holds a state's writable fields, and lets a field's conversion through", async () => {
+    const { id: tableId } = await owner.call().catalog.createTable({
+      baseId,
+      name: "Reviewed",
+      columns: ["ref", "note", "amount"].map((name) => ({
+        name,
+        label: name,
+        fieldType: "text" as const,
+      })),
+    });
+    const state = (
+      key: string,
+      writableFields: string[] | null,
+      writable = true,
+    ) => ({
+      key,
+      label: key,
+      initial: key === "draft",
+      writable,
+      writableFields,
+      delete: key === "draft",
+      seal: false,
+    });
+    const step = (key: string, from: string, to: string) => ({
+      key,
+      label: key,
+      from,
+      to,
+      reason: false,
+      fields: [],
+      signature: "none" as const,
+      fourEyes: false,
+      roles: ["editor" as const, "owner" as const],
+      madeRoles: [],
+    });
+    await owner.call().catalog.saveCircuit({
+      tableId,
+      circuit: {
+        name: "Notes in review",
+        states: [
+          state("draft", null),
+          state("review", ["note"]),
+          state("done", null, false),
+        ],
+        steps: [
+          step("submit", "draft", "review"),
+          step("finish", "review", "done"),
+        ],
+      },
+    });
+    const { id: rowId } = await owner.call().rows.insert({
+      tableId,
+      values: { ref: "R-1", note: "", amount: "5" },
+    });
+    await editor
+      .call()
+      .rows.transition({ tableId, rowId, transitionKey: "submit" });
+    const write = (who: TestBrowser, values: Record<string, string>) =>
+      errorCode(
+        who.call().rows.updateMany({ tableId, updates: [{ rowId, values }] }),
+      );
+    // In review, only the note is written, by whoever writes the table.
+    for (const who of [editor, owner]) {
+      expect(await write(who, { ref: "R-1b" })).toBe("row_locked");
+      expect(await write(who, { note: "seen", ref: "R-1b" })).toBe(
+        "row_locked",
+      );
+    }
+    expect(await write(editor, { note: "seen" })).toBe("ok");
+    // A field's conversion is no write of its rows' values.
+    await owner
+      .call()
+      .catalog.updateColumn({ tableId, name: "amount", fieldType: "number" });
+    const { rows } = await owner.call().rows.read({ tableId, limit: 10 });
+    expect(rows[0]).toMatchObject({ ref: "R-1", note: "seen", amount: "5" });
+    expect(await statusOf(tableId, rowId)).toBe("review");
+    await owner
+      .call()
+      .rows.transition({ tableId, rowId, transitionKey: "finish" });
+    expect(await write(owner, { note: "late" })).toBe("row_locked");
+  });
 });
