@@ -179,7 +179,7 @@ What each package owns, and where a change usually goes, is the table of
 ## Sources
 
 - **A source** is a client database AnyGridDB reads (ADRs 0006, 0026); [`docs/sources.md`](docs/sources.md) is the DBA's guide. Only instance administrators declare one, on a host the operator allows (`ANYGRIDDB_SOURCES_ALLOWED_HOSTS`: names, `*.` domains, addresses, ranges; empty allows none).
-- **Connection.** It signs in with a dedicated account, over TLS with the certificate verified: the administrator may paste the server's certificate authority or its self-signed certificate, and nothing turns verification off. Only the operator's development flag `ANYGRIDDB_SOURCES_ALLOW_PLAINTEXT` connects without TLS, and the administration page then says so. A PostgreSQL superuser is refused. Every connection is named `AnyGridDB` for the DBA's monitoring.
+- **Connection.** It signs in with a dedicated account, over TLS with the certificate verified by default: the administrator may paste the server's certificate authority or its self-signed certificate. A source may opt into a clear connection after confirmation (ADR 0139); the page keeps a warning while any does. The operator's development flag `ANYGRIDDB_SOURCES_ALLOW_PLAINTEXT` still forces every source without TLS outside production. A PostgreSQL superuser is refused. Every connection is named `AnyGridDB` for the DBA's monitoring.
 - **Saving, and the engines.** A source is saved only once a connection succeeded. Its password is encrypted with `AUTH_ENCRYPTION_KEY`, never sent back, and never logged; the audit trail records a change of password by its date.
   - Engines:
     - PostgreSQL 13 or later.

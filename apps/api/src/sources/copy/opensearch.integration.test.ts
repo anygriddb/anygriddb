@@ -26,6 +26,7 @@ function connection(
     username,
     password,
     tlsCa: null,
+    allowPlaintext: false,
     queryTimeoutMs: 20_000,
   };
 }

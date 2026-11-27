@@ -126,6 +126,7 @@ type SourceRow = {
   username: string;
   password: string;
   tlsCa: string | null;
+  allowPlaintext: boolean;
   connectionLimit: number;
   queryTimeoutMs: number;
 };
@@ -784,12 +785,14 @@ export class SourcePools {
         "source",
       ),
       tlsCa: row.tlsCa,
+      allowPlaintext: row.allowPlaintext,
       connectionLimit: row.connectionLimit,
       queryTimeoutMs: row.queryTimeoutMs,
     };
     const log: Log = (error) =>
       this.deps.log(error, "source connection failed");
-    const plaintext = this.deps.settings.allowPlaintext;
+    const plaintext =
+      this.deps.settings.allowPlaintext || source.allowPlaintext;
     const open = (target: SourceRow): Backend => {
       switch (row.engine) {
         case "postgres":
@@ -906,9 +909,12 @@ export class SourcePools {
           "source",
         ),
         tlsCa: row.tlsCa,
+        allowPlaintext: row.allowPlaintext,
         queryTimeoutMs: row.queryTimeoutMs,
       },
-      { allowPlaintext: this.deps.settings.allowPlaintext },
+      {
+        allowPlaintext: this.deps.settings.allowPlaintext || row.allowPlaintext,
+      },
       request,
     );
     try {

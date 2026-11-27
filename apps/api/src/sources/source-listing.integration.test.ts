@@ -89,6 +89,7 @@ describe("a source of more than 2,000 tables", () => {
         username: reader,
         password: "readerpass",
         tlsCa: null,
+        allowPlaintext: true,
         connectionLimit: 2,
         queryTimeoutMs: 15_000,
         timeZone: "UTC",

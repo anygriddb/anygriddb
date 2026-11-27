@@ -515,6 +515,11 @@ msgstr "{0, plural, one {# row} other {# rows}}"
 msgid "{0, plural, one {# signed row came back locked, without its signature} other {# signed rows came back locked, without their signature}}"
 msgstr "{0, plural, one {# signed row came back locked, without its signature} other {# signed rows came back locked, without their signature}}"
 
+#. placeholder {0}: plaintextSources.length
+#: components/admin/sources-tab.tsx
+msgid "{0, plural, one {# source connects without encryption: the password and every row travel in clear on the network.} other {# sources connect without encryption: the password and every row travel in clear on the network.}}"
+msgstr "{0, plural, one {# source connects without encryption: the password and every row travel in clear on the network.} other {# sources connect without encryption: the password and every row travel in clear on the network.}}"
+
 #. placeholder {0}: impact.blockedSources
 #: components/admin/sources-tab.tsx
 msgid "{0, plural, one {# source refused by the allow list} other {# sources refused by the allow list}}"
@@ -2692,6 +2697,10 @@ msgstr "Allow"
 msgid "Allow access"
 msgstr "Allow access"
 
+#: components/admin/sources-tab.tsx
+msgid "Allow an unencrypted connection"
+msgstr "Allow an unencrypted connection"
+
 #: components/admin/health-tab.tsx
 msgid "Allow checking GitHub for a newer release (off by default)"
 msgstr "Allow checking GitHub for a newer release (off by default)"
@@ -2762,8 +2771,8 @@ msgid "An account"
 msgstr "An account"
 
 #: components/admin/sources-tab.tsx
-msgid "An account dedicated to AnyGridDB, never an administrator. The connection uses TLS, with a verified certificate."
-msgstr "An account dedicated to AnyGridDB, never an administrator. The connection uses TLS, with a verified certificate."
+msgid "An account dedicated to AnyGridDB, never an administrator. The connection uses verified TLS by default."
+msgstr "An account dedicated to AnyGridDB, never an administrator. The connection uses verified TLS by default."
 
 #: components/admin/alerts-section.tsx
 msgid "An account that locks: whether you hear of it, and how, is one of your notification preferences."
@@ -3686,6 +3695,7 @@ msgstr "Categories shown"
 msgid "Category"
 msgstr "Category"
 
+#: components/admin/integrations-tab.tsx
 #: components/admin/sources-tab.tsx
 msgid "Certificate (optional)"
 msgstr "Certificate (optional)"
@@ -4249,6 +4259,14 @@ msgstr "Connect a database"
 #: components/settings/api-docs.tsx
 msgid "Connect an AI (MCP)"
 msgstr "Connect an AI (MCP)"
+
+#: components/admin/sources-tab.tsx
+msgid "Connect without encryption"
+msgstr "Connect without encryption"
+
+#: components/admin/sources-tab.tsx
+msgid "Connect without encryption?"
+msgstr "Connect without encryption?"
 
 #: components/admin/sources-tab.tsx
 msgid "Connected (primary {version}, replica {replica})"
@@ -9170,6 +9188,10 @@ msgstr "Not checked yet"
 msgid "Not configured"
 msgstr "Not configured"
 
+#: components/admin/sources-tab.tsx
+msgid "Not encrypted"
+msgstr "Not encrypted"
+
 #: lib/errors.ts
 msgid "Not found"
 msgstr "Not found"
@@ -9495,6 +9517,10 @@ msgstr "Only the linked rows that match"
 #: components/settings/table-rules-panel.tsx
 msgid "Only the rows that match"
 msgstr "Only the rows that match"
+
+#: components/admin/sources-tab.tsx
+msgid "Only when the database offers no TLS. The password and every row then travel in clear on the network. Prefer pasting a certificate below."
+msgstr "Only when the database offers no TLS. The password and every row then travel in clear on the network. Prefer pasting a certificate below."
 
 #: components/admin/security-tab.tsx
 msgid "Only with a password"
@@ -13292,8 +13318,8 @@ msgid "The condition on {field} has no value yet: give it one, or remove it."
 msgstr "The condition on {field} has no value yet: give it one, or remove it."
 
 #: lib/errors.ts
-msgid "The connection to the mail relay cannot be encrypted and verified: 465 for TLS from the start, or 587 with STARTTLS, and a certificate this instance trusts"
-msgstr "The connection to the mail relay cannot be encrypted and verified: 465 for TLS from the start, or 587 with STARTTLS, and a certificate this instance trusts"
+msgid "The connection to the mail relay cannot be encrypted and verified: 465 for TLS from the start, or 587 with STARTTLS, and a certificate this instance trusts (paste its authority under Connections if it is private)"
+msgstr "The connection to the mail relay cannot be encrypted and verified: 465 for TLS from the start, or 587 with STARTTLS, and a certificate this instance trusts (paste its authority under Connections if it is private)"
 
 #: components/table/empty-table-hint.tsx
 #: components/table/source-reach.tsx
@@ -13696,6 +13722,10 @@ msgstr "The reason for acting as someone"
 #: components/admin/integrations-tab.tsx
 msgid "The redirect URL is derived from PUBLIC_URL after you save."
 msgstr "The redirect URL is derived from PUBLIC_URL after you save."
+
+#: components/admin/integrations-tab.tsx
+msgid "The relay's internal certificate authority, or its self-signed certificate. Without one, the system's authorities are trusted. Verification stays on."
+msgstr "The relay's internal certificate authority, or its self-signed certificate. Without one, the system's authorities are trusted. Verification stays on."
 
 #: components/fields/formula-docs.ts
 msgid "The remainder of the division."
@@ -14604,6 +14634,10 @@ msgstr "This source has no side schema: the field is kept in AnyGridDB. A view f
 #: lib/errors.ts
 msgid "This source is read from a copy only: it takes no write, no field of AnyGridDB's and no read replica"
 msgstr "This source is read from a copy only: it takes no write, no field of AnyGridDB's and no read replica"
+
+#: components/admin/sources-tab.tsx
+msgid "This source will not use TLS. Anyone who can listen on the path between AnyGridDB and the database can read the password and every row. Continue only if you accept that risk for this source."
+msgstr "This source will not use TLS. Anyone who can listen on the path between AnyGridDB and the database can read the password and every row. Continue only if you accept that risk for this source."
 
 #: components/table/source-reach.tsx
 msgid "This source's host is not allowed: its first copy cannot arrive until the operator allows the host."

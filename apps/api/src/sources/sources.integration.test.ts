@@ -138,6 +138,7 @@ describe("PostgreSQL sources", () => {
     username: "anygriddb",
     password: "readerpass",
     tlsCa: certificate,
+    allowPlaintext: false,
     queryTimeoutMs: 15_000,
     timeZone: "UTC",
     ...patch,

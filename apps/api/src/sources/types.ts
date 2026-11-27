@@ -9,6 +9,8 @@ export type SourceConnection = {
   username: string;
   password: string;
   tlsCa: string | null;
+  /** Connect without TLS for this source (ADR 0139). */
+  allowPlaintext: boolean;
   queryTimeoutMs: number;
 };
 
@@ -19,14 +21,25 @@ export type SourceCheck = {
   replicaServerVersion?: string | null;
 };
 
-/** The operator's rules for sources (ADR 0026). */
+/** The operator's rules for sources (ADR 0026, 0139). */
 export type SourceSettings = {
   allows: (host: string) => boolean;
   /** The operator's list, for administrators to read. */
   allowedHosts: readonly string[];
-  /** Development only: connect without TLS. */
+  /**
+   * Development only: force every source without TLS. Production refuses
+   * the env flag; a production source opts in per row instead.
+   */
   allowPlaintext: boolean;
 };
+
+/** True when this connection may skip TLS (env lab flag or per-source opt-in). */
+export function connectionAllowsPlaintext(
+  settings: Pick<SourceSettings, "allowPlaintext">,
+  source: Pick<SourceConnection, "allowPlaintext">,
+): boolean {
+  return settings.allowPlaintext || source.allowPlaintext;
+}
 
 /** A table of a source, by what names it there. */
 export type TableName = { schema: string; name: string };

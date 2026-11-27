@@ -8,7 +8,7 @@ import {
 } from "./embed-origins.js";
 
 describe("embed origins", () => {
-  it("accepts an HTTPS origin and refuses wildcards, HTTP, and paths", () => {
+  it("accepts an HTTPS origin and refuses wildcards, remote HTTP, and paths", () => {
     expect(isEmbedOrigin("https://portal.example.com")).toBe(true);
     expect(isEmbedOrigin("https://portal.example.com:8443")).toBe(true);
     expect(isEmbedOrigin("https://portal.example.com/")).toBe(true);
@@ -18,6 +18,17 @@ describe("embed origins", () => {
     expect(isEmbedOrigin("https://portal.example.com/path")).toBe(false);
     expect(isEmbedOrigin("https://user:pass@portal.example.com")).toBe(false);
     expect(isEmbedOrigin("https://portal.example.com?x=1")).toBe(false);
+  });
+
+  it("accepts HTTP only on this machine", () => {
+    expect(isEmbedOrigin("http://127.0.0.1")).toBe(true);
+    expect(isEmbedOrigin("http://127.0.0.1:3000")).toBe(true);
+    expect(isEmbedOrigin("http://localhost")).toBe(true);
+    expect(isEmbedOrigin("http://localhost:5173")).toBe(true);
+    expect(isEmbedOrigin("http://[::1]")).toBe(true);
+    expect(normalizeEmbedOrigin("http://127.0.0.1:8080/")).toBe(
+      "http://127.0.0.1:8080",
+    );
   });
 
   it("normalises a list, drops empties, and refuses bad entries", () => {

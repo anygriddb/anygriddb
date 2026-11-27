@@ -14,6 +14,7 @@ const primary: SourceInput = {
   queryTimeoutMs: 15_000,
   timeZone: "UTC",
   tlsCa: null,
+  allowPlaintext: false,
 };
 
 describe("replicaConnectionOf", () => {
@@ -34,6 +35,7 @@ describe("replicaConnectionOf", () => {
       username: "reader",
       password: "secret",
       tlsCa: null,
+      allowPlaintext: false,
       queryTimeoutMs: 15_000,
     });
   });

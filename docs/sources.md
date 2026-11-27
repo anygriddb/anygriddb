@@ -9,9 +9,12 @@ Stores without SQL: [from a copy](#stores-that-speak-no-sql).
    MariaDB global grants beyond rows; SQL Server sysadmin / CONTROL SERVER;
    Oracle DBA / SYSDBA. Catalog lists only what the account may read (cap
    2,000 tables, 1,000 for copy stores; search reaches the rest).
-2. **Verifiable TLS.** System-trusted CA, or paste server CA / self-signed
-   cert naming the host as AnyGridDB reaches it. Verification cannot be
-   turned off. `ANYGRIDDB_SOURCES_ALLOW_PLAINTEXT=true` = development only.
+2. **Verifiable TLS by default.** System-trusted CA, or paste server CA /
+   self-signed cert naming the host as AnyGridDB reaches it. A source may
+   opt into a clear connection after an administrator confirms the risk
+   (ADR 0139); the sources page keeps a warning while any such source
+   exists. `ANYGRIDDB_SOURCES_ALLOW_PLAINTEXT=true` still forces every
+   source without TLS in development only.
 3. **`ANYGRIDDB_SOURCES_ALLOWED_HOSTS`** (names, `*.` domains, IPs, ranges).
    Empty = no sources. Network kill switch; drivers ship in every image.
 

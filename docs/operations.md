@@ -141,7 +141,10 @@ runs with.
 SMTP / OIDC / SAML: Administration → Connections after the first account, or
 env vars (`SMTP_*`, `OIDC_*`, `SAML_*`, `SAML_TRUST_ADDRESSES`,
 `ATTACHMENT_MAX_BYTES`). Environment wins; Administration shows it without
-secrets and cannot change it (ADR 0083). Half a config is none.
+secrets and cannot change it (ADR 0083). Half a config is none. A relay
+whose certificate a private authority signs: paste that authority in
+Administration, or name its PEM file in `SMTP_CA_FILE` beside `SMTP_HOST`;
+the certificate is still verified.
 
 **SAML address trust.** A first SAML sign-in does not bind an existing
 account by address alone unless **This identity provider verifies

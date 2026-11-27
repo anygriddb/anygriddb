@@ -17,6 +17,19 @@ first.
   record by its `id`. The OpenAPI document says the same
   (`additionalProperties: false`, the fields required).
 
+### Added
+
+- A client database may connect without TLS when an administrator opts
+  that source in and confirms the risk (ADR 0139, migration 0158). Verified
+  TLS stays the default. The sources page keeps a warning while any such
+  source exists. `ANYGRIDDB_SOURCES_ALLOW_PLAINTEXT` remains development
+  only.
+- The mail relay accepts a pasted certificate authority (or `SMTP_CA_FILE`
+  when SMTP comes from the environment), so a private relay verifies
+  without going clear.
+- A public share may list `http://127.0.0.1` / `http://localhost` (with a
+  port) among its embed origins, as OAuth redirect URIs already may.
+
 ### Changed
 
 - A duration sent as a JSON number past 2^53 is refused (`invalid_cell`),

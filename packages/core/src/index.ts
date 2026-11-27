@@ -944,6 +944,7 @@ export {
   SOURCE_ENGINES,
   hostSchema,
   isCopySourceEngine,
+  pemCertificateSchema,
   sourceDatabaseField,
   sourceInputSchema,
   sourceUpdateSchema,
