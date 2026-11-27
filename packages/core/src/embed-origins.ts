@@ -31,13 +31,11 @@ export function isEmbedOrigin(value: string): boolean {
   if (value.length > 200 || value.includes("*")) return false;
   try {
     const url = new URL(value);
-    if (url.protocol === "https:") {
-      // ok
-    } else if (url.protocol === "http:" && isLoopbackHost(url.hostname)) {
-      // Local portals only (mirrors OAuth redirect URIs).
-    } else {
-      return false;
-    }
+    // HTTP only for a portal on this machine, as OAuth redirect URIs.
+    const secure =
+      url.protocol === "https:" ||
+      (url.protocol === "http:" && isLoopbackHost(url.hostname));
+    if (!secure) return false;
     if (url.username || url.password) return false;
     if (url.search || url.hash) return false;
     if (url.pathname !== "/" && url.pathname !== "") return false;

@@ -37,8 +37,9 @@ type PublicSmtp = {
   username: string | null;
   fromAddress: string | null;
   hasPassword: boolean;
-  /** That a CA was saved, never the certificate itself. */
+  /** That a CA was saved. */
   hasTlsCa: boolean;
+  /** The CA itself, a public certificate, for the screen to show it. */
   tlsCa: string | null;
   updatedAt: string | null;
 };
