@@ -8,6 +8,21 @@ first.
 
 ## Unreleased
 
+### Changed
+
+- `ADMIN_EMAILS` holds addresses separated by commas or spaces: an entry
+  that is not one stops the start, and names its place in the list. Two
+  addresses joined by a semicolon, or a word, were left out without a
+  word, and made no one an administrator. At start, the log says how many
+  addresses the list holds and how many accounts it made administrators.
+
+### Fixed
+
+- `scripts/backup.sh` failed whole, and kept nothing, when a file was sent
+  while it copied the files: tar ends with 1 for a file that changes as it
+  is read. That file is one the database, dumped first, does not name yet:
+  the backup now goes on, and the next one keeps it.
+
 **After upgrading:** someone whose row rule holds a condition without a
 value its field takes now sees no row of that table, where they saw every
 row. Open the table's settings › Permissions for each member a manager

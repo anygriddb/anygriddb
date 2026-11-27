@@ -129,13 +129,17 @@ export async function signupDecision(
   return { allowed: true, isAdmin, firstAccount };
 }
 
-/** Grants admin to existing accounts listed in ADMIN_EMAILS, at start-up. */
+/**
+ * Grants admin to existing accounts listed in ADMIN_EMAILS, at start-up.
+ * Answers how many addresses it lists, and how many accounts it made
+ * administrators now: the others are when they sign up.
+ */
 export async function promoteListedAdmins(
   db: Database,
   adminEmails: string | undefined,
-): Promise<void> {
+): Promise<{ listed: number; promoted: number }> {
   const listed = [...parseAdminEmails(adminEmails)];
-  if (listed.length === 0) return;
+  if (listed.length === 0) return { listed: 0, promoted: 0 };
   const accounts = await db
     .selectFrom("users")
     .select("id")
@@ -153,6 +157,7 @@ export async function promoteListedAdmins(
       }),
     );
   }
+  return { listed: listed.length, promoted: accounts.length };
 }
 
 /* ------------------------------------------------------------------ */

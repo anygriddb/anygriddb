@@ -229,6 +229,23 @@ describe("readEnv", () => {
     );
   });
 
+  it("takes ADMIN_EMAILS as addresses only, and names the entry it refuses", () => {
+    expect(
+      readEnv({ ...base, ADMIN_EMAILS: " a@example.org, b@example.org " })
+        .ADMIN_EMAILS,
+    ).toBe(" a@example.org, b@example.org ");
+    expect(readEnv({ ...base, ADMIN_EMAILS: "" }).ADMIN_EMAILS).toBe("");
+    for (const [refused, entry] of [
+      ["not an address,,", 1],
+      ["a@example.org;b@example.org", 1],
+      ["a@example.org nobody", 2],
+    ] as const) {
+      expect(() => readEnv({ ...base, ADMIN_EMAILS: refused })).toThrow(
+        `ADMIN_EMAILS entry ${String(entry)} is not an email address`,
+      );
+    }
+  });
+
   it("refuses plaintext sources in production", () => {
     expect(() =>
       readEnv({

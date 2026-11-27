@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { isIP } from "node:net";
 import { ATTACHMENT_MAX_BYTES_CEILING, LIMITS } from "@anygriddb/core";
+import { z } from "zod";
 import { parseKeyRing, type KeyRing } from "./auth/key-ring.js";
 import type { FileSettings } from "./files/index.js";
 
@@ -425,6 +426,25 @@ function assertEncryptedUrl(raw: string, name: string): void {
 }
 
 /** Names and addresses, separated by commas or spaces. */
+/**
+ * `ADMIN_EMAILS`, each of its entries an address: one that is not, two
+ * joined by a semicolon say, would make no one an administrator and say
+ * nothing. Its position is told, never its text.
+ */
+function adminEmails(source: NodeJS.ProcessEnv): string | undefined {
+  const raw = source.ADMIN_EMAILS;
+  if (raw === undefined) return undefined;
+  const entries = raw.split(/[,\s]+/).filter((entry) => entry !== "");
+  for (const [index, entry] of entries.entries()) {
+    if (!z.email().safeParse(entry).success) {
+      throw new Error(
+        `ADMIN_EMAILS entry ${String(index + 1)} is not an email address: separate addresses with commas or spaces`,
+      );
+    }
+  }
+  return raw;
+}
+
 function names(source: NodeJS.ProcessEnv, name: string): string[] {
   const list = (source[name] ?? "")
     .split(/[\s,]+/)
@@ -609,7 +629,7 @@ export function readEnv(source: NodeJS.ProcessEnv = process.env): Env {
     SMTP_USER: source.SMTP_USER,
     SMTP_PASSWORD: secretFromEnv(source, "SMTP_PASSWORD"),
     SMTP_FROM: source.SMTP_FROM,
-    ADMIN_EMAILS: source.ADMIN_EMAILS,
+    ADMIN_EMAILS: adminEmails(source),
     // A read holds one connection and asks for others meanwhile: fewer
     // than four and requests would wait on each other.
     DATABASE_POOL_MAX: count(source, "DATABASE_POOL_MAX", 10, 4),

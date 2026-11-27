@@ -182,8 +182,14 @@ archives=("database.dump$suffix")
 for volume in "${volumes[@]}"; do
   echo "== Volume ${project}_${volume}"
   # The archive comes out on stdout: the file is the operator's, not root's.
+  # GNU tar ends with 1 when a file changes as it is read: one sent while
+  # the files are copied, which the dump, made before, does not name yet.
+  # The next backup keeps it whole; any other failure stops the run.
+  # shellcheck disable=SC2016 # run in the container, where it expands
   docker run --rm --network none -v "${project}_${volume}:/volume:ro" \
-    postgres:18 tar -C /volume --exclude='./.ag-restore-*' -czf - . | keep "$out/${volume}.tar.gz"
+    postgres:18 sh -c 'tar "$@"; code=$?; [ "$code" -le 1 ] || exit "$code"' tar \
+    -C /volume --exclude='./.ag-restore-*' --warning=no-file-changed -czf - . |
+    keep "$out/${volume}.tar.gz"
   archives+=("${volume}.tar.gz$suffix")
 done
 

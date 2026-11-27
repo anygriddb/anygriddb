@@ -88,7 +88,12 @@ try {
   if (error instanceof UpgradeRefused) process.exit(1);
   throw error;
 }
-await promoteListedAdmins(db, env.ADMIN_EMAILS);
+const listedAdmins = await promoteListedAdmins(db, env.ADMIN_EMAILS);
+if (listedAdmins.listed > 0) {
+  console.info(
+    `ADMIN_EMAILS lists ${String(listedAdmins.listed)} addresses: ${String(listedAdmins.promoted)} accounts made administrators now, the others when they sign up.`,
+  );
+}
 // An earlier stack's role still works: told, and left to the operator.
 if (await databaseRoleIsSuperuser(db)) {
   console.warn(

@@ -448,7 +448,9 @@ Writes `data/backups/<dated>/`: `database.dump`, `files_data.tar.gz`,
 `tls_data.tar.gz`, optional `rustfs_data.tar.gz`, `SHA256SUMS`. External S3
 is not included (script says so). Failed/stopped runs leave no partial
 folder. Owner-only perms. `AUTH_ENCRYPTION_KEY` is **not** in the backup —
-keep it elsewhere.
+keep it elsewhere. The instance keeps serving: the database is dumped
+first, so a file sent while the files are copied is one it does not name
+yet, which the next backup keeps.
 
 Optional [age](https://age-encryption.org) encryption:
 
