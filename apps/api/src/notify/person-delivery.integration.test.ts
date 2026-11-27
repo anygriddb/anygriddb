@@ -3,7 +3,7 @@
  * a mail at once, or a digest; a digest's link stops it whole; a notice
  * the person cannot turn off offers no way out.
  */
-import { randomBytes } from "node:crypto";
+import { randomBytes, randomUUID } from "node:crypto";
 import type { Database } from "@anygriddb/db";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { keyRing } from "../auth/key-ring.js";
@@ -186,5 +186,36 @@ describe("a person's notices", () => {
       token: `${"a".repeat(30)}~${"b".repeat(43)}`,
     });
     expect(answer).toMatchObject({ ok: false, reason: "invalid" });
+  });
+
+  it("keeps a mute only on a base or a table its person reaches, and answers alike", async () => {
+    const other = (
+      await db
+        .insertInto("users")
+        .values({ email: `other-${suffix}@example.org`, displayName: "Other" })
+        .returning("id")
+        .executeTakeFirstOrThrow()
+    ).id;
+    const theirs = (await insertBase(db, other, { name: "Theirs" })).id;
+    const kept = () =>
+      db
+        .selectFrom("notificationMutes")
+        .select(["baseId", "tableId"])
+        .where("userId", "=", userId)
+        .execute();
+    const before = await kept();
+    for (const baseId of [theirs, randomUUID()]) {
+      expect(await reader.call().notifications.addMute({ baseId })).toEqual({
+        ok: true,
+      });
+    }
+    expect(await kept()).toEqual(before);
+    await grantMember(db, other, {
+      baseId: theirs,
+      email: address,
+      role: "viewer",
+    });
+    await reader.call().notifications.addMute({ baseId: theirs });
+    expect(await kept()).toContainEqual({ baseId: theirs, tableId: null });
   });
 });

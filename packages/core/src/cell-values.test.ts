@@ -121,6 +121,23 @@ describe("coerceCellValue", () => {
   });
 });
 
+describe("a duration sent as a JSON number", () => {
+  const duration = { fieldType: "duration" as const, config: {} };
+
+  it("keeps a whole number of seconds JSON holds exactly", () => {
+    expect(() =>
+      assertCellValue(duration, 9_007_199_254_740_991),
+    ).not.toThrow();
+    expect(() => assertCellValue(duration, 90.5)).not.toThrow();
+  });
+
+  it("refuses one past 2^53, which JSON has already rounded", () => {
+    for (const value of [JSON.parse("9007199254740993"), 2 ** 63, 1e300]) {
+      expect(() => assertCellValue(duration, value)).toThrow("Invalid cell");
+    }
+  });
+});
+
 describe("a list sent as such", () => {
   const marks = {
     fieldType: "multi_select" as const,

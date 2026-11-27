@@ -59,20 +59,46 @@ import {
   type PublicApiDeps,
 } from "./types.js";
 
-export const writeBodySchema = z.object({
-  records: z
-    .array(
-      z.object({
-        id: rowIdSchema.optional(),
-        fields: z.record(z.string().max(100), z.unknown()),
-        expected: z.record(z.string().max(100), z.unknown()).optional(),
-      }),
-    )
-    .min(1)
-    .max(MAX_RECORDS),
+const fieldsSchema = z.record(z.string().max(100), z.unknown());
+
+/** How a write reads its fields, as both bodies take it. */
+const writeOptions = {
   typecast: z.boolean().optional(),
   fieldKey: z.enum(["name", "label"]).optional(),
-});
+};
+
+/**
+ * A create's body. Strict, as every body: a key it does not know is
+ * refused, never dropped, and a record's id is the instance's to give.
+ */
+export const createBodySchema = z
+  .object({
+    records: z
+      .array(z.object({ fields: fieldsSchema }).strict())
+      .min(1)
+      .max(MAX_RECORDS),
+    ...writeOptions,
+  })
+  .strict();
+
+/** An update's body: each record by its id, and what was last read of it. */
+export const updateBodySchema = z
+  .object({
+    records: z
+      .array(
+        z
+          .object({
+            id: rowIdSchema,
+            fields: fieldsSchema,
+            expected: fieldsSchema.optional(),
+          })
+          .strict(),
+      )
+      .min(1)
+      .max(MAX_RECORDS),
+    ...writeOptions,
+  })
+  .strict();
 
 /**
  * Where a write comes from when a person did not send it to the API
@@ -83,6 +109,17 @@ export type WriteOrigin = {
   source: string;
   fixedReason?: string | null;
   depth?: number;
+};
+
+/** What a create and an update share, once their bodies are read. */
+type WriteBody = {
+  records: ReadonlyArray<{
+    id?: string;
+    fields: Record<string, unknown>;
+    expected?: Record<string, unknown> | undefined;
+  }>;
+  typecast?: boolean | undefined;
+  fieldKey?: "name" | "label" | undefined;
 };
 
 type PreparedWrite = {
@@ -243,7 +280,7 @@ async function prepareWrites(
   deps: PublicApiDeps,
   engine: EngineCatalog,
   table: TableRow,
-  body: z.infer<typeof writeBodySchema>,
+  body: WriteBody,
 ): Promise<PreparedWrite[]> {
   const { fromKey } = keyMap(engine, body.fieldKey ?? "name");
   const people = body.typecast
@@ -590,7 +627,7 @@ export async function createRecords(
   reason?: string,
   origin?: WriteOrigin,
 ) {
-  const body = writeBodySchema.safeParse(bodyInput);
+  const body = createBodySchema.safeParse(bodyInput);
   if (!body.success) throw new AppError("invalid_body");
   const table = await tableFor(deps, actor, tableId, "rows.write");
   const scope = await scopeFor(deps, actor, table);
@@ -615,7 +652,7 @@ export async function updateRecords(
   reason?: string,
   origin?: WriteOrigin,
 ) {
-  const body = writeBodySchema.safeParse(bodyInput);
+  const body = updateBodySchema.safeParse(bodyInput);
   if (!body.success) throw new AppError("invalid_body");
   const table = await tableFor(deps, actor, tableId, "rows.write");
   const scope = await scopeFor(deps, actor, table);
@@ -638,13 +675,15 @@ export async function updateRecords(
 }
 
 /** A step of a record's circuit, as the API and MCP take it. */
-export const transitionBodySchema = z.object({
-  transition: z
-    .string()
-    .trim()
-    .regex(/^[a-z][a-z0-9_]{0,63}$/),
-  reason: z.string().trim().min(1).max(500).optional(),
-});
+export const transitionBodySchema = z
+  .object({
+    transition: z
+      .string()
+      .trim()
+      .regex(/^[a-z][a-z0-9_]{0,63}$/),
+    reason: z.string().trim().min(1).max(500).optional(),
+  })
+  .strict();
 
 /**
  * Takes a step of the table's circuit for one record (ADR 0130), with the

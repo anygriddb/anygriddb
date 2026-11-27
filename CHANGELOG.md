@@ -8,6 +8,37 @@ first.
 
 ## Unreleased
 
+### Breaking
+
+- A write to the API or through MCP is read by a strict body: a key it
+  does not take, at its top or in a record, is refused (`invalid_body`)
+  where it was dropped, and a create that gives a record's `id` is
+  refused where the id was replaced by another. An update names each
+  record by its `id`. The OpenAPI document says the same
+  (`additionalProperties: false`, the fields required).
+
+### Changed
+
+- A duration sent as a JSON number past 2^53 is refused (`invalid_cell`),
+  as a number field's is: it was kept as the number a double rounds it to.
+- A JSON document that names a key twice in one object is refused
+  (`invalid_cell`): the database kept the last value, and the first was
+  lost without a word.
+- An OpenSearch account that signs in and is refused a permission is told
+  so, with the permission (`source_permission_missing`), where it read as
+  a failed query; the sources guide names the role a reader needs.
+
+### Fixed
+
+- On AnyGridDB's own tables, `POWER` of a decimal to a whole power of none
+  or more (`POWER(1.005, 7)`) is exact to its last digit, where it was
+  rounded to about sixteen significant digits.
+- `ARRAY_SORT` puts an empty text last, as it does a blank, on every
+  engine: it came first.
+- Muting the notices of a base or a table one does not reach wrote the
+  mute, and an id that names nothing answered with an internal error:
+  both answer alike, and nothing is written.
+
 ## 0.13.0 - 2026-11-27
 
 **Before upgrading:** check `ADMIN_EMAILS` in `.env`: addresses separated

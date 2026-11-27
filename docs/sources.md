@@ -111,7 +111,11 @@ fields past 300, collections past 1,000.
 
 Tested on OpenSearch 2. Port 9200. **Indices** pattern (`orders-*`); empty =
 all open (hidden `.` indices skipped). Read-only account; refuses
-`all_access` / `security_manager` when reported. No redirect following.
+`all_access` / `security_manager` when reported. Its role needs, on the
+cluster, `cluster_composite_ops_ro` and `cluster:monitor/main` (the check
+reads the cluster's version), and on the indices `indices:data/read/*`,
+`indices:admin/mappings/get` and `indices:admin/get`; a permission missing
+is refused as `source_permission_missing`, naming it. No redirect following.
 Index → table; mapping types; object/multi → JSON. Same name/field/index
 caps as above.
 

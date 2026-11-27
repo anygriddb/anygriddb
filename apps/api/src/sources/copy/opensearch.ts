@@ -86,13 +86,28 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 /** What went wrong, from the status of an answer that is not a success. */
-function refusal(answer: HttpAnswer): AppError {
+/**
+ * What an answer that is no success means. A 403 is an account that signs
+ * in and lacks the permission the call asked (`needs`): said with it,
+ * where it read as a failed query.
+ */
+function refusal(answer: HttpAnswer, needs: string): AppError {
   if (answer.status === 401) return new AppError("source_auth_failed");
+  if (answer.status === 403) {
+    return new AppError("source_permission_missing", needs);
+  }
   if (answer.status === 404) return new AppError("source_schema_changed");
   if (answer.status === 408 || answer.status === 504) {
     return new AppError("source_timeout");
   }
   return new AppError("source_query_failed", String(answer.status));
+}
+
+/** The permission of OpenSearch's security plugin each call asks. */
+function permissionFor(method: string, path: string): string {
+  if (path === "/") return "cluster:monitor/main";
+  if (path.endsWith("/_mapping")) return "indices:admin/mappings/get";
+  return method === "GET" ? "indices:admin/get" : "indices:data/read/*";
 }
 
 async function ask(
@@ -103,7 +118,7 @@ async function ask(
 ): Promise<Record<string, unknown>> {
   const answer = await store.request(method, path, body);
   if (answer.status < 200 || answer.status >= 300 || !isRecord(answer.body)) {
-    throw refusal(answer);
+    throw refusal(answer, permissionFor(method, path));
   }
   return answer.body;
 }

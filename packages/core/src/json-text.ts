@@ -70,7 +70,8 @@ function unstorable(text: string): boolean {
 /**
  * A typed text as the document a JSON field keeps, in its one spelling.
  * `undefined` when it is not JSON, is a bare value (`12`, `"a"`, `null`),
- * nests too deep or is too long.
+ * nests too deep, is too long, or names a key twice in one object: the
+ * database would keep the last, and the first would be lost unsaid.
  */
 export function parseJsonDocument(text: string): string | undefined {
   const trimmed = text.trim();
@@ -93,12 +94,29 @@ export function parseJsonDocument(text: string): string | undefined {
   }
   let kept = "";
   let depth = 0;
+  // Each open object's keys, `null` for a list; a key comes after `{` or
+  // a comma, inside an object.
+  const open: Array<Set<string> | null> = [];
+  let key = false;
   for (const part of parts(trimmed)) {
     if (part === "{" || part === "[") {
       depth += 1;
       if (depth > JSON_MAX_DEPTH) return undefined;
+      open.push(part === "{" ? new Set() : null);
+      key = part === "{";
     } else if (part === "}" || part === "]") {
       depth -= 1;
+      open.pop();
+      key = false;
+    } else if (part === ",") {
+      key = open.at(-1) instanceof Set;
+    } else if (key) {
+      // Two spellings of one key (`"a"`, `"\u0061"`) are one key.
+      const name = JSON.parse(part) as string;
+      const keys = open.at(-1);
+      if (keys?.has(name)) return undefined;
+      keys?.add(name);
+      key = false;
     }
     kept += part === "," || part === ":" ? `${part} ` : part;
     if (kept.length > JSON_MAX_CHARS) return undefined;

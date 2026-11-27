@@ -334,6 +334,8 @@ export const ERRORS = {
   source_auth_failed: [BAD, "Source sign-in failed"],
   source_unknown_database: [BAD, "Source database not found"],
   source_admin_account: [BAD, "Source account is an administrator"],
+  /** The account signs in, and is refused an act it needs: `detail` names it. */
+  source_permission_missing: [BAD, "Source account lacks a permission"],
   source_in_use: [409, "Source in use"],
   source_schema_changed: [BAD, "Source table changed"],
   source_query_failed: [BAD, "Source query failed"],

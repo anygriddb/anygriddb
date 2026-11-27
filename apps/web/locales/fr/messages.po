@@ -13862,6 +13862,10 @@ msgid "The source's account may not make this change: its administrator can gran
 msgstr "Le compte de la source n’a pas le droit de faire cette modification : son administrateur peut l’accorder"
 
 #: lib/errors.ts
+msgid "The source's account signs in, but lacks a permission this needs. Give its role the one named here (the sources guide lists them)"
+msgstr "Le compte de la source se connecte, mais il lui manque une permission nécessaire. Donnez à son rôle celle qui est nommée ici (le guide des sources les liste)"
+
+#: lib/errors.ts
 msgid "The source's certificate is not trusted, or does not name this host: paste its certificate authority or its certificate, and use a host it names"
 msgstr "Certificat de la source non reconnu, ou qui ne nomme pas cet hôte : collez son autorité de certification ou son certificat, et utilisez un hôte qu’il nomme"
 

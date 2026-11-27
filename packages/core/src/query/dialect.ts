@@ -328,7 +328,10 @@ export interface SqlDialect {
   truncate(sql: string, digits: string): string;
   /** The logarithm of `sql` in `base`. */
   log(base: string, sql: string): string;
-  /** `base` to the power `exponent`, in floating point but on PostgreSQL. */
+  /**
+   * `base` to the power `exponent`, in floating point but on PostgreSQL,
+   * where a whole exponent's power is exact.
+   */
   power(base: string, exponent: string): string;
   /**
    * A floating-point result (SQRT, EXP, LN, LOG, POWER) as the engine's
@@ -769,7 +772,15 @@ export const POSTGRES: SqlDialect = {
     `replace(${text}, ${search}, ${replacement})`,
   truncate: (sql, digits) => `trunc(${sql}, ${digits})`,
   log: (base, sql) => `log(${base}, ${sql})`,
-  power: (base, exponent) => `power(${base}, ${exponent})`,
+  // A whole exponent of none or more is multiplied out exactly: the base is
+  // taken at the scale its power has (its own times the exponent, up to a
+  // thousand digits), where PostgreSQL would round it to about sixteen
+  // significant digits. Any other power is the engine's.
+  power: (base, exponent) => {
+    const a = `${base}::numeric`;
+    const b = `${exponent}::numeric`;
+    return `(case when ${b} >= 0 and ${b} = trunc(${b}) and scale(${a}) * ${b} <= 1000 then trim_scale(power(round(${a}, (scale(${a}) * ${b})::int), ${b})) else power(${base}, ${exponent}) end)`;
+  },
   fromFloat: (sql) => sql,
   roundUp: (sql, digits) =>
     `(sign(${sql}) * ceil(abs(${sql}) * power(10::numeric, ${digits})) / power(10::numeric, ${digits}))`,
@@ -822,8 +833,9 @@ export const POSTGRES: SqlDialect = {
   },
   textSplit: (text, delimiter) =>
     `string_to_array(${text}, coalesce(${delimiter}, ''))`,
+  // An empty text is a blank, last as a null is, whichever way.
   listSort: (list, kind, descending) =>
-    `array(select u.v from unnest(${list}) with ordinality u(v, i) order by ${kind === "text" ? `u.v collate "C"` : "u.v"} ${descending ? "desc" : "asc"} nulls last, u.i)`,
+    `array(select u.v from unnest(${list}) with ordinality u(v, i) order by ${kind === "text" ? `nullif(u.v, '') collate "C"` : "u.v"} ${descending ? "desc" : "asc"} nulls last, u.i)`,
   listSlice: (list, _kind, from, to) =>
     `array(select u.v from unnest(${list}) with ordinality u(v, i) where u.i >= ${from} and u.i <= ${to} order by u.i)`,
   listConcat: (lists) => `(${lists.join(" || ")})`,
@@ -1532,7 +1544,12 @@ function mysqlDialect(name: "mysql" | "mariadb"): SqlDialect {
         kind === "text"
           ? "convert(u.v using utf8mb4) collate utf8mb4_bin"
           : mysqlListValue("u.v", kind);
-      return `(select concat('[', coalesce(group_concat(${mysqlItemJson("u.v", kind)} order by (u.v is null), ${key} ${descending ? "desc" : "asc"}, u.i separator ','), ''), ']') from ${mysqlItems(name, list, "u")})`;
+      // An empty text is a blank, last as a null is.
+      const blank =
+        kind === "text"
+          ? "(u.v is null or char_length(u.v) = 0)"
+          : "(u.v is null)";
+      return `(select concat('[', coalesce(group_concat(${mysqlItemJson("u.v", kind)} order by ${blank}, ${key} ${descending ? "desc" : "asc"}, u.i separator ','), ''), ']') from ${mysqlItems(name, list, "u")})`;
     },
     listSlice: (list, kind, from, to) =>
       `(select concat('[', coalesce(group_concat(${mysqlItemJson("u.v", kind)} order by u.i separator ','), ''), ']') from ${mysqlItems(name, list, "u")} where u.i >= ${from} and u.i <= ${to})`,

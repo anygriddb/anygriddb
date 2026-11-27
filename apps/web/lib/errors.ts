@@ -224,6 +224,7 @@ const ERROR_MESSAGES: Record<ErrorCode, MessageDescriptor> = {
 
   invalid_webhook: msg`Invalid webhook: a public HTTPS address or an email is required`,
   invalid_integration: msg`This integration is not valid. Check the address, the secret, and the events.`,
+  source_permission_missing: msg`The source's account signs in, but lacks a permission this needs. Give its role the one named here (the sources guide lists them)`,
   unknown_integration: msg`This integration no longer exists`,
   integration_untestable: msg`This integration sends nothing as a test: what it receives shows that it works.`,
   integration_limit: msg`This instance already has as many integrations as it can`,

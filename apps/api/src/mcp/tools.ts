@@ -17,7 +17,8 @@ import {
   transitionBodySchema,
   transitionRecord,
   updateRecords,
-  writeBodySchema,
+  createBodySchema,
+  updateBodySchema,
 } from "../public-api/index.js";
 
 function toolError(error: unknown): {
@@ -69,11 +70,15 @@ function ok(data: unknown) {
 }
 
 /** A write's body as REST takes it, with the table and a reason beside it. */
-const writeRecordsSchema = z.object({
-  tableId: z.uuid(),
-  ...writeBodySchema.shape,
-  reason: z.string().max(500).optional(),
-});
+function writeRecordsSchema<Body extends z.ZodRawShape>(body: Body) {
+  return z
+    .object({
+      tableId: z.uuid(),
+      ...body,
+      reason: z.string().max(500).optional(),
+    })
+    .strict();
+}
 
 /**
  * Registers the record tools on an MCP server, each run as `actor`: the
@@ -193,7 +198,7 @@ export function registerPublicApiTools(
     {
       title: "Create records",
       description: "Create up to 100 records. Honours token write rights.",
-      inputSchema: writeRecordsSchema,
+      inputSchema: writeRecordsSchema(createBodySchema.shape),
       annotations: {
         readOnlyHint: false,
         destructiveHint: false,
@@ -212,7 +217,7 @@ export function registerPublicApiTools(
       title: "Update records",
       description:
         "Update up to 100 records (each needs id). Honours token write rights.",
-      inputSchema: writeRecordsSchema,
+      inputSchema: writeRecordsSchema(updateBodySchema.shape),
       annotations: {
         readOnlyHint: false,
         destructiveHint: true,
