@@ -531,8 +531,13 @@ const CELL_RULES = {
     refusal: ambiguousNumber,
   },
   duration: {
+    // A number past 2^53 is one JSON could not hold exactly: refused, as a
+    // number field's is, never kept as the neighbour a double rounds it to.
     keeps: (value) =>
-      typeof value === "number" && Number.isFinite(value) && value >= 0,
+      typeof value === "number" &&
+      Number.isFinite(value) &&
+      value >= 0 &&
+      value <= Number.MAX_SAFE_INTEGER,
     readScalar: scalarAsCount,
     read: ({ trimmed }, _column, context) =>
       parseDuration(trimmed, context.decimalMark),

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { recordIds, writeBodySchema } from "./operations.js";
+import { createBodySchema, recordIds, updateBodySchema } from "./operations.js";
 import { listQuerySchema } from "./types.js";
 
 describe("recordIds", () => {
@@ -39,17 +39,44 @@ describe("listQuerySchema", () => {
   });
 });
 
-describe("writeBodySchema", () => {
+describe("the bodies of a write", () => {
   it("accepts one record and rejects more than 100", () => {
     expect(
-      writeBodySchema.safeParse({
+      createBodySchema.safeParse({
         records: [{ fields: { title: "x" } }],
       }).success,
     ).toBe(true);
     expect(
-      writeBodySchema.safeParse({
+      createBodySchema.safeParse({
         records: Array.from({ length: 101 }, () => ({ fields: {} })),
       }).success,
     ).toBe(false);
+  });
+
+  it("refuses a key they do not know, and an id given to a new record", () => {
+    for (const body of [
+      { records: [{ fields: { title: "x" } }], junk: 1 },
+      { records: [{ fields: { title: "x" }, colour: "red" }] },
+      { records: [{ id: "0b5c4f3e-8a5e-4c43-9f61-2d4b8d1c7a10", fields: {} }] },
+      { records: [{}] },
+    ]) {
+      expect(createBodySchema.safeParse(body).success).toBe(false);
+    }
+  });
+
+  it("takes an update by each record's id, and nothing else", () => {
+    const id = "0b5c4f3e-8a5e-4c43-9f61-2d4b8d1c7a10";
+    expect(
+      updateBodySchema.safeParse({
+        records: [{ id, fields: { title: "x" }, expected: { title: "w" } }],
+      }).success,
+    ).toBe(true);
+    for (const body of [
+      { records: [{ fields: { title: "x" } }] },
+      { records: [{ id, fields: {}, colour: "red" }] },
+      { records: [{ id, fields: {} }], junk: 1 },
+    ]) {
+      expect(updateBodySchema.safeParse(body).success).toBe(false);
+    }
   });
 });

@@ -367,6 +367,7 @@ describe("read engine on PostgreSQL", () => {
       ["again", "{Wide} * {Wide}"],
       ["split", "{Wide} / 0.0000000001"],
       ["plain", "{Price} * {Qty} / 4"],
+      ["exact", "POWER(2.345, 7) & '|' & POWER(1.005, 10)"],
     ];
     const refs = [
       ...orders.columns.map((column) => ({
@@ -416,6 +417,10 @@ describe("read engine on PostgreSQL", () => {
     expect(abc?.split).toBeNull();
     expect(Number(abc?.plain)).toBe(3);
     expect(Number(zz?.plain)).toBe(0);
+    // A whole power is multiplied out, to every digit it has.
+    expect(abc?.exact).toBe(
+      "389.941923248634327265625|1.051140132040790642597666015625",
+    );
   });
 
   it("compares and orders dates as dates, whatever writes them", async () => {

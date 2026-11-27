@@ -1,8 +1,12 @@
 import {
+  type Binding,
+  effectiveTableRole,
   PERSON_EVENT_CATALOG,
   personChannelsSchema,
   personEventSchema,
+  roleFor,
 } from "@anygriddb/core";
+import type { Database } from "@anygriddb/db";
 import { z } from "zod";
 import { listNotifications, markRead, unreadCount } from "../notifications.js";
 import {
@@ -16,8 +20,36 @@ import {
   savePreference,
 } from "../notify/person-preferences.js";
 import { readUnsubscribeToken } from "../notify/unsubscribe.js";
-import { handle, requireEnrolledUser } from "./guard.js";
+import { authorize, handle, requireEnrolledUser } from "./guard.js";
 import { asking, t } from "./init.js";
+
+/**
+ * Whether the caller reaches what a mute names: a table of the base by a
+ * role on it or on the base, or the base by a role on it or on one of its
+ * tables.
+ */
+async function reachedForMute(
+  db: Database,
+  bindings: readonly Binding[],
+  input: { baseId: string; tableId?: string | undefined },
+): Promise<boolean> {
+  const tables = await db
+    .selectFrom("dataTables")
+    .select("id")
+    .where("baseId", "=", input.baseId)
+    .execute();
+  if (input.tableId !== undefined) {
+    return tables.some(
+      (table) =>
+        table.id === input.tableId &&
+        effectiveTableRole(bindings, table.id, input.baseId) !== null,
+    );
+  }
+  return (
+    roleFor(bindings, "base", input.baseId) !== null ||
+    tables.some((table) => roleFor(bindings, "table", table.id) !== null)
+  );
+}
 
 export const notificationsRouter = t.router({
   list: asking({ exception: "ownAccount" })
@@ -109,16 +141,11 @@ export const notificationsRouter = t.router({
     )
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
-        const user = await requireEnrolledUser(ctx);
-        if (input.tableId) {
-          const table = await ctx.db
-            .selectFrom("dataTables")
-            .select(["id", "baseId"])
-            .where("id", "=", input.tableId)
-            .executeTakeFirst();
-          if (!table || table.baseId !== input.baseId) {
-            return { ok: true as const };
-          }
+        const { user, bindings } = await authorize(ctx);
+        // A base or a table the caller does not reach is answered alike
+        // and left unwritten: another answer would say what an id names.
+        if (!(await reachedForMute(ctx.db, bindings, input))) {
+          return { ok: true as const };
         }
         await addMute(ctx.db, user.id, {
           baseId: input.baseId,

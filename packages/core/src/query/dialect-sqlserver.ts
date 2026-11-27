@@ -718,7 +718,9 @@ export const SQLSERVER: SqlDialect = {
     `(case when ${text} is null then null when datalength(${text}) = 0 then '[]' when datalength(coalesce(${delimiter}, '')) = 0 then '[' + ${jsonString(text)} + ']' else '["' + replace(string_escape(replace(${exact(text)}, ${exact(delimiter)}, nchar(65535)), 'json') collate ${BIN}, nchar(65535), '","') + '"]' end)`,
   listSort: (list, kind, descending) => {
     const key = kind === "text" ? `u.v collate ${BIN}` : listValue("u.v", kind);
-    return `coalesce((select '[' + string_agg(cast(${itemJson("u")} as nvarchar(max)), ',') within group (order by (case when u.t = 0 then 1 else 0 end), ${key} ${descending ? "desc" : "asc"}, u.i) + ']' from ${openItems(list, "u")}), '[]')`;
+    // An empty text is a blank, last as a null is.
+    const blank = kind === "text" ? " or datalength(u.v) = 0" : "";
+    return `coalesce((select '[' + string_agg(cast(${itemJson("u")} as nvarchar(max)), ',') within group (order by (case when u.t = 0${blank} then 1 else 0 end), ${key} ${descending ? "desc" : "asc"}, u.i) + ']' from ${openItems(list, "u")}), '[]')`;
   },
   // OPENJSON counts places from 0.
   listSlice: (list, _kind, from, to) =>

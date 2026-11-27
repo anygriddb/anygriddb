@@ -13862,6 +13862,10 @@ msgid "The source's account may not make this change: its administrator can gran
 msgstr "The source's account may not make this change: its administrator can grant it"
 
 #: lib/errors.ts
+msgid "The source's account signs in, but lacks a permission this needs. Give its role the one named here (the sources guide lists them)"
+msgstr "The source's account signs in, but lacks a permission this needs. Give its role the one named here (the sources guide lists them)"
+
+#: lib/errors.ts
 msgid "The source's certificate is not trusted, or does not name this host: paste its certificate authority or its certificate, and use a host it names"
 msgstr "The source's certificate is not trusted, or does not name this host: paste its certificate authority or its certificate, and use a host it names"
 

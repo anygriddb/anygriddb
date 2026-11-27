@@ -384,6 +384,8 @@ const FORMULAS: string[] = [
   'ARRAY_JOIN(TEXT_SPLIT({s}, ""), "+")',
   'ARRAY_JOIN(TEXT_SPLIT("a\\\\b\\"c\\"d", "\\""), "+")',
   'ARRAY_JOIN(ARRAY_SORT(TEXT_SPLIT("b,a,C,é,A,,b", ",")), "") & "|" & ARRAY_JOIN(ARRAY_SORT(TEXT_SPLIT("b,a,C,é,A", ","), "desc"), "")',
+  // An empty text sorts last, either way: the first of the sort is no blank.
+  'ARRAY_JOIN(ARRAY_SLICE(ARRAY_SORT(TEXT_SPLIT("b,,a", ",")), 1, 1), "") & "|" & ARRAY_JOIN(ARRAY_SLICE(ARRAY_SORT(TEXT_SPLIT("b,,a", ","), "desc"), 1, 1), "")',
   'ARRAY_JOIN(ARRAY_SLICE(TEXT_SPLIT("a,b,c,d,e", ","), 2, -2), "") & "|" & ARRAY_JOIN(ARRAY_SLICE(TEXT_SPLIT("a,b,c,d,e", ","), -2), "") & "|" & ARRAY_JOIN(ARRAY_SLICE(TEXT_SPLIT("a,b,c,d,e", ","), 4, 10), "") & "|" & COUNTALL(ARRAY_SLICE(TEXT_SPLIT("a,b,c", ","), 3, 2))',
   'ARRAY_JOIN(ARRAY_SLICE(TEXT_SPLIT({s}, " "), -1), "")',
   'ARRAY_JOIN(ARRAY_FLATTEN(TEXT_SPLIT({s}, " "), {t}, TEXT_SPLIT("x y", " ")), "+")',
@@ -666,6 +668,8 @@ const PINNED: Record<string, unknown[]> = {
   ],
   'ARRAY_JOIN(ARRAY_SORT(TEXT_SPLIT("b,a,C,é,A,,b", ",")), "") & "|" & ARRAY_JOIN(ARRAY_SORT(TEXT_SPLIT("b,a,C,é,A", ","), "desc"), "")':
     ["ACabbé|ébaCA", "ACabbé|ébaCA", "ACabbé|ébaCA"],
+  'ARRAY_JOIN(ARRAY_SLICE(ARRAY_SORT(TEXT_SPLIT("b,,a", ",")), 1, 1), "") & "|" & ARRAY_JOIN(ARRAY_SLICE(ARRAY_SORT(TEXT_SPLIT("b,,a", ","), "desc"), 1, 1), "")':
+    ["a|b", "a|b", "a|b"],
   'ARRAY_JOIN(ARRAY_SLICE(TEXT_SPLIT("a,b,c,d,e", ","), 2, -2), "") & "|" & ARRAY_JOIN(ARRAY_SLICE(TEXT_SPLIT("a,b,c,d,e", ","), -2), "") & "|" & ARRAY_JOIN(ARRAY_SLICE(TEXT_SPLIT("a,b,c,d,e", ","), 4, 10), "") & "|" & COUNTALL(ARRAY_SLICE(TEXT_SPLIT("a,b,c", ","), 3, 2))':
     ["bcd|de|de|0", "bcd|de|de|0", "bcd|de|de|0"],
   'ARRAY_JOIN(ARRAY_SLICE(TEXT_SPLIT({s}, " "), -1), "")': [

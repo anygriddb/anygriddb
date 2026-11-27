@@ -106,6 +106,23 @@ describe("opensearch check", () => {
     }
   });
 
+  it("names the permission an account that signs in is refused", async () => {
+    // Signed in, and refused the cluster's own description.
+    const server = await listen((_request, response) => {
+      json(response, 403, { error: { type: "security_exception" } });
+    });
+    try {
+      await expect(
+        opensearch.check(connection(server.port), { allowPlaintext: true }),
+      ).rejects.toMatchObject({
+        code: "source_permission_missing",
+        detail: "cluster:monitor/main",
+      });
+    } finally {
+      await server.close();
+    }
+  });
+
   it("does not follow a redirect to another host", async () => {
     let followed = 0;
     const elsewhere = await listen((_request, response) => {

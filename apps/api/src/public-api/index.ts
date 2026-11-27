@@ -11,10 +11,11 @@ export {
   type Operation,
   presentRecord,
   recordIds,
+  createBodySchema,
   transitionBodySchema,
   transitionRecord,
+  updateBodySchema,
   updateRecords,
-  writeBodySchema,
   type WriteOrigin,
 } from "./operations.js";
 export {

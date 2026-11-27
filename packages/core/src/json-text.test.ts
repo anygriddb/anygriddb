@@ -55,6 +55,23 @@ describe("the document a JSON field keeps", () => {
     }
   });
 
+  it("names each key once in an object, however it is spelled", () => {
+    for (const text of [
+      '{"a":1,"a":2}',
+      '{"x":{"a":1,"a":"deux"}}',
+      '[{"a":1},{"b":2,"b":3}]',
+      '{"a":1,"\\u0061":2}',
+    ]) {
+      expect([text, parseJsonDocument(text)]).toEqual([text, undefined]);
+    }
+    // The same key in two objects, or as a string value, is no repeat.
+    expect(parseJsonDocument('[{"a":1},{"a":2}]')).toBe('[{"a": 1}, {"a": 2}]');
+    expect(parseJsonDocument('{"a":"a","b":{"a":1}}')).toBe(
+      '{"a": "a", "b": {"a": 1}}',
+    );
+    expect(coerceCellValue(column, '{"a":1,"a":2}')).toBeUndefined();
+  });
+
   it("holds no text the database refuses in a document", () => {
     // JSON takes a nul and half of a surrogate pair; PostgreSQL's jsonb
     // takes neither, and the write ended on its error.

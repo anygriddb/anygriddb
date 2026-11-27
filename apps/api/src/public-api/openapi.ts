@@ -242,25 +242,22 @@ export function buildOpenApi(
         fields: { $ref: `#/components/schemas/${schemaName}` },
       },
     };
-    const writeRequest = {
+    // As `createBodySchema` and `updateBodySchema` read them: a key either
+    // does not name is refused, and a new record's id is the instance's.
+    const fields = { $ref: `#/components/schemas/${schemaName}` };
+    const writeRequest = (items: {
+      required: string[];
+      properties: Record<string, unknown>;
+    }) => ({
       type: "object",
       required: ["records"],
+      additionalProperties: false,
       properties: {
         records: {
           type: "array",
           minItems: 1,
           maxItems: MAX_RECORDS,
-          items: {
-            type: "object",
-            properties: {
-              id: recordId,
-              fields: { $ref: `#/components/schemas/${schemaName}` },
-              expected: {
-                $ref: `#/components/schemas/${schemaName}`,
-                description: `What you last read in the fields you change: the update is refused (409, ${table.external ? "source_conflict" : "row_conflict"}) if they changed since. Left out, the update is not compared`,
-              },
-            },
-          },
+          items: { type: "object", additionalProperties: false, ...items },
         },
         typecast: {
           type: "boolean",
@@ -269,7 +266,22 @@ export function buildOpenApi(
         },
         fieldKey: { type: "string", enum: ["name", "label"] },
       },
-    };
+    });
+    const createRequest = writeRequest({
+      required: ["fields"],
+      properties: { fields },
+    });
+    const updateRequest = writeRequest({
+      required: ["id", "fields"],
+      properties: {
+        id: recordId,
+        fields,
+        expected: {
+          ...fields,
+          description: `What you last read in the fields you change: the update is refused (409, ${table.external ? "source_conflict" : "row_conflict"}) if they changed since. Left out, the update is not compared`,
+        },
+      },
+    });
     const errors = {
       "400": {
         description: "Invalid request",
@@ -319,7 +331,7 @@ export function buildOpenApi(
         parameters: [REASON_HEADER],
         requestBody: {
           required: true,
-          content: { "application/json": { schema: writeRequest } },
+          content: { "application/json": { schema: createRequest } },
         },
         responses: { "200": { description: "Created ids" }, ...errors },
       },
@@ -329,7 +341,7 @@ export function buildOpenApi(
         parameters: [REASON_HEADER],
         requestBody: {
           required: true,
-          content: { "application/json": { schema: writeRequest } },
+          content: { "application/json": { schema: updateRequest } },
         },
         responses: { "200": { description: "Updated ids" }, ...errors },
       },
@@ -398,8 +410,9 @@ export function buildOpenApi(
                       "unlock",
                     ],
                   },
-                  reason: { type: "string", maxLength: 500 },
+                  reason: { type: "string", minLength: 1, maxLength: 500 },
                 },
+                additionalProperties: false,
               },
             },
           },
