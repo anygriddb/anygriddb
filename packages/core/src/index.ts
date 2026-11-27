@@ -219,6 +219,14 @@ export {
 } from "./instance";
 
 export {
+  RELAXATIONS,
+  relaxationKeySchema,
+  relaxationSchema,
+  type RelaxationKey,
+  type RelaxationTarget,
+} from "./relaxations";
+
+export {
   INSTANCE_LOGO_MAX_BYTES,
   INSTANCE_LOGO_TYPES,
   instanceLogoInputSchema,

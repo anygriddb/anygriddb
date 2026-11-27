@@ -4,8 +4,8 @@ import type { Database } from "@anygriddb/db";
 import type { KeyRing } from "../auth/key-ring.js";
 import { decryptSecret } from "../auth/crypto.js";
 import { startTracing } from "../observability.js";
-import { readSettings } from "../settings.js";
 import { isOutboundBlocked, outboundLookup } from "../outbound/index.js";
+import { relaxationAllows } from "../relaxations.js";
 
 let stop = async () => {
   await Promise.resolve();
@@ -40,13 +40,9 @@ export async function applyTracing(settings: {
  */
 function collectorLookup(db: Database): LookupFunction {
   return (hostname, options, callback) => {
-    readSettings(db).then(
-      (settings) => {
-        outboundLookup(settings.notifyAllowPrivate)(
-          hostname,
-          options,
-          callback,
-        );
+    relaxationAllows(db, "notify.private_networks").then(
+      (allowPrivate) => {
+        outboundLookup(allowPrivate)(hostname, options, callback);
       },
       (error: unknown) => {
         callback(
@@ -79,8 +75,8 @@ export async function savedTracing(
   if (!row?.enabled) return {};
   const config = otlpConfigSchema.safeParse(row.config);
   if (!config.success) return {};
-  const { notifyAllowPrivate } = await readSettings(db);
-  if (blockedAddress(config.data.endpoint, notifyAllowPrivate)) return {};
+  const allowPrivate = await relaxationAllows(db, "notify.private_networks");
+  if (blockedAddress(config.data.endpoint, allowPrivate)) return {};
   let headers: string | undefined;
   if (row.secretsCiphertext && row.secretsNonce) {
     const secrets = otlpSecretsSchema.parse(

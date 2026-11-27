@@ -1475,6 +1475,10 @@ msgstr "A day and a time"
 msgid "a deleted account"
 msgstr "a deleted account"
 
+#: components/admin/relaxations-tab.tsx
+msgid "A deleted account"
+msgstr "A deleted account"
+
 #: components/admin/limits-tab.tsx
 msgid "A delivery of a webhook or a channel"
 msgstr "A delivery of a webhook or a channel"
@@ -1961,6 +1965,10 @@ msgstr "A source is reachable again"
 msgid "A source is unreachable"
 msgstr "A source is unreachable"
 
+#: components/admin/sign-in-trail.tsx
+msgid "A source without TLS"
+msgstr "A source without TLS"
+
 #: components/admin/limits-tab.tsx
 msgid "A source's load, measured"
 msgstr "A source's load, measured"
@@ -2240,6 +2248,7 @@ msgstr "actions"
 #: components/admin/api-tokens-tab.tsx
 #: components/admin/invitations-panel.tsx
 #: components/admin/notifications-tab.tsx
+#: components/admin/relaxations-tab.tsx
 #: components/admin/sessions-tab.tsx
 #: components/admin/sources-tab.tsx
 #: components/admin/support-tab.tsx
@@ -2728,6 +2737,10 @@ msgstr "Allow deleting rows"
 #: components/admin/notifications-tab.tsx
 msgid "Allow private networks"
 msgstr "Allow private networks"
+
+#: components/admin/notifications-tab.tsx
+msgid "Allow private networks?"
+msgstr "Allow private networks?"
 
 #: components/fields/field-link-settings.tsx
 msgid "Allow several linked rows"
@@ -3816,9 +3829,25 @@ msgstr "Channels and heartbeats"
 msgid "Channels hear failures as they happen. Heartbeats ping a monitor when a chosen schedule runs. A secret is stored encrypted and is not shown again."
 msgstr "Channels hear failures as they happen. Heartbeats ping a monitor when a chosen schedule runs. A secret is stored encrypted and is not shown again."
 
+#: components/admin/relaxations-tab.tsx
+msgid "Channels may call a private network"
+msgstr "Channels may call a private network"
+
+#: components/admin/sign-in-trail.tsx
+msgid "Channels on a private network"
+msgstr "Channels on a private network"
+
 #: components/admin/limits-tab.tsx
 msgid "Channels, directories and calls out"
 msgstr "Channels, directories and calls out"
+
+#: components/admin/notifications-tab.tsx
+msgid "Channels, heartbeats and collectors may then call an HTTPS address of the networks around this instance, which an address typed here can reach as the server does. Loopback and cloud metadata stay refused."
+msgstr "Channels, heartbeats and collectors may then call an HTTPS address of the networks around this instance, which an address typed here can reach as the server does. Loopback and cloud metadata stay refused."
+
+#: components/admin/relaxations-tab.tsx
+msgid "Channels, heartbeats and collectors on a private address are no longer called. Loopback and cloud metadata stay refused either way."
+msgstr "Channels, heartbeats and collectors on a private address are no longer called. Loopback and cloud metadata stay refused either way."
 
 #: components/admin/limits-tab.tsx
 msgid "characters"
@@ -4307,6 +4336,10 @@ msgstr "Connections"
 #: components/admin/sources-tab.tsx
 msgid "Connections at most"
 msgstr "Connections at most"
+
+#: components/admin/relaxations-tab.tsx
+msgid "Connects without TLS"
+msgstr "Connects without TLS"
 
 #: lib/known-text.ts
 msgid "Contacts"
@@ -9275,6 +9308,10 @@ msgstr "Nothing earlier yet."
 msgid "Nothing here yet."
 msgstr "Nothing here yet."
 
+#: components/admin/relaxations-tab.tsx
+msgid "Nothing is relaxed: every requirement is strict."
+msgstr "Nothing is relaxed: every requirement is strict."
+
 #: components/shell/home-page.tsx
 msgid "Nothing is waiting for you."
 msgstr "Nothing is waiting for you."
@@ -9513,6 +9550,10 @@ msgstr "Only administrators can sign in and work"
 #: components/admin/security-tab.tsx
 msgid "Only an administrator"
 msgstr "Only an administrator"
+
+#: components/admin/sources-tab.tsx
+msgid "Only an administrator of the instance can allow it."
+msgstr "Only an administrator of the instance can allow it."
 
 #: components/record/record-panel.tsx
 msgid "Only changes made in AnyGridDB show here: those of other applications stay in the client's database."
@@ -10583,6 +10624,27 @@ msgstr "Relations"
 msgid "Relative (in 3 days)"
 msgstr "Relative (in 3 days)"
 
+#: components/admin/relaxations-tab.tsx
+msgid "Relaxed by"
+msgstr "Relaxed by"
+
+#: components/admin/relaxations-tab.tsx
+msgid "Relaxed for"
+msgstr "Relaxed for"
+
+#: components/admin/trails.tsx
+msgid "Relaxed requirement"
+msgstr "Relaxed requirement"
+
+#: components/admin/admin-sections.ts
+#: components/admin/relaxations-tab.tsx
+msgid "Relaxed requirements"
+msgstr "Relaxed requirements"
+
+#: components/admin/notifications-tab.tsx
+msgid "Relaxed: listed with the instance's other relaxed requirements, under"
+msgstr "Relaxed: listed with the instance's other relaxed requirements, under"
+
 #: components/admin/health-tab.tsx
 msgid "Release check is off"
 msgstr "Release check is off"
@@ -10898,6 +10960,18 @@ msgstr "Required"
 msgid "Required on email"
 msgstr "Required on email"
 
+#: components/admin/relaxations-tab.tsx
+msgid "Requirement"
+msgstr "Requirement"
+
+#: components/admin/auth-labels.ts
+msgid "Requirement back to strict"
+msgstr "Requirement back to strict"
+
+#: components/admin/auth-labels.ts
+msgid "Requirement relaxed"
+msgstr "Requirement relaxed"
+
 #: components/admin/invitations-panel.tsx
 msgid "Resend"
 msgstr "Resend"
@@ -11000,6 +11074,14 @@ msgstr "Retry"
 #: components/settings/webhooks-panel.tsx
 msgid "Retry scheduled ({error})"
 msgstr "Retry scheduled ({error})"
+
+#: components/admin/relaxations-tab.tsx
+msgid "Return to strict"
+msgstr "Return to strict"
+
+#: components/admin/relaxations-tab.tsx
+msgid "Return to strict?"
+msgstr "Return to strict?"
 
 #: components/admin/notifications-banner.tsx
 msgid "Review integrations"
@@ -11731,6 +11813,10 @@ msgstr "Secrets of an automation"
 msgid "Security"
 msgstr "Security"
 
+#: components/admin/notifications-tab.tsx
+msgid "Security › Relaxed requirements"
+msgstr "Security › Relaxed requirements"
+
 #: components/admin/admin-overview.tsx
 msgid "See the alerts"
 msgstr "See the alerts"
@@ -12404,6 +12490,10 @@ msgstr "Signs in through its identity provider"
 #: components/record/circuit-labels.ts
 msgid "Simple review"
 msgstr "Simple review"
+
+#: components/admin/relaxations-tab.tsx
+msgid "Since"
+msgstr "Since"
 
 #: components/fields/field-meta.tsx
 msgid "Single select"
@@ -13505,6 +13595,7 @@ msgid "The installation token"
 msgstr "The installation token"
 
 #: components/admin/limits-tab.tsx
+#: components/admin/relaxations-tab.tsx
 msgid "The instance"
 msgstr "The instance"
 
@@ -13899,6 +13990,10 @@ msgstr "The smallest value, number or date."
 #: components/admin/alerts-section.tsx
 msgid "The source {name} does not answer: its watched tables could not be read."
 msgstr "The source {name} does not answer: its watched tables could not be read."
+
+#: components/admin/relaxations-tab.tsx
+msgid "The source connects over verified TLS again. If its database offers none, its tables stop answering until it does."
+msgstr "The source connects over verified TLS again. If its database offers none, its tables stop answering until it does."
 
 #: lib/errors.ts
 msgid "The source did not answer in time"
@@ -15665,6 +15760,10 @@ msgstr "What a script of yours asks of Administration: list and make accounts, l
 #: components/admin/alerts-section.tsx
 msgid "What administrators are told about: here, on the first page of Administration, and by email when it is set up, once a day at most while an alert stays open. An alert closes by itself once its cause is gone."
 msgstr "What administrators are told about: here, on the first page of Administration, and by email when it is set up, once a day at most while an alert stays open. An alert closes by itself once its cause is gone."
+
+#: components/admin/relaxations-tab.tsx
+msgid "What an administrator relaxed on this instance, each after confirming what it exposes. Everything not listed here is strict. Going back to strict holds from the next connection or call."
+msgstr "What an administrator relaxed on this instance, each after confirming what it exposes. Everything not listed here is strict. Going back to strict holds from the next connection or call."
 
 #: components/admin/security-tab.tsx
 msgid "What an automation may run on this instance besides its own actions."

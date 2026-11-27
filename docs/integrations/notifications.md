@@ -51,8 +51,10 @@ address is the default. Loopback, link-local, and cloud metadata are
 always refused, including after DNS and one redirect.
 
 Turn on **Allow private networks** when the channel is on your own
-network, for example `https://10.1.2.3/hook`. The connection is still
-HTTPS. A notifier that only speaks clear text has to present a
+network, for example `https://10.1.2.3/hook`, and confirm what it opens.
+The connection is still HTTPS. It is listed under Administration ›
+Security › Relaxed requirements, with whoever turned it on, and can be
+turned off there. A notifier that only speaks clear text has to present a
 certificate first. A private certificate can be trusted by the process
 the same way the stack's own services are (`NODE_EXTRA_CA_CERTS`).
 

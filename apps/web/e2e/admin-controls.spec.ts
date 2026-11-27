@@ -441,6 +441,35 @@ test("an administrator ends a session, reads the sign-ins, and exports access", 
       page.getByRole("button", { name: "Remove the saved collector" }),
     ).toHaveCount(0);
     expect(await accessibilityViolations(page)).toEqual([]);
+    // Private networks are relaxed once their consequence is confirmed,
+    // listed with whatever else the instance relaxed, and taken back there.
+    await openAdmin(page, "Connections", "Notifications");
+    const privateNetworks = page.getByRole("checkbox", {
+      name: "Allow private networks",
+    });
+    await privateNetworks.click();
+    const allow = page.getByRole("dialog", { name: "Allow private networks?" });
+    await expect(
+      allow.getByText(/Loopback and cloud metadata stay refused/),
+    ).toBeVisible();
+    await allow.getByRole("button", { name: "Allow private networks" }).click();
+    await expect(privateNetworks).toBeChecked();
+    await page
+      .getByRole("link", { name: "Security › Relaxed requirements" })
+      .click();
+    const relaxed = page.getByRole("region", { name: "Relaxed requirements" });
+    await expect(
+      relaxed.getByRole("row", { name: /Channels may call a private network/ }),
+    ).toContainText("The instance");
+    expect(await accessibilityViolations(page)).toEqual([]);
+    await relaxed.getByRole("button", { name: "Return to strict" }).click();
+    await page
+      .getByRole("dialog", { name: "Return to strict?" })
+      .getByRole("button", { name: "Return to strict" })
+      .click();
+    await expect(
+      page.getByText("Nothing is relaxed: every requirement is strict."),
+    ).toBeVisible();
     await openAdmin(page, "Instance", "Health");
     await expect(
       page

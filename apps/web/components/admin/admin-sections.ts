@@ -23,6 +23,7 @@ type AdminPath =
   | "/admin/people/sessions"
   | "/admin/people/provisioning"
   | "/admin/security"
+  | "/admin/security/relaxed"
   | "/admin/connections"
   | "/admin/connections/notifications"
   | "/admin/connections/api"
@@ -129,7 +130,10 @@ export function useAdminSections(): AdminSection[] {
       id: "security",
       label: t`Security`,
       icon: LockKeyhole,
-      pages: [{ to: "/admin/security", label: t`Security` }],
+      pages: [
+        { to: "/admin/security", label: t`Security` },
+        { to: "/admin/security/relaxed", label: t`Relaxed requirements` },
+      ],
     },
     {
       id: "connections",

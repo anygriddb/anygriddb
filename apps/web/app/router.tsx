@@ -107,6 +107,11 @@ const OauthClientsTab = page(() =>
     (module) => module.OauthClientsTab,
   ),
 );
+const RelaxationsPage = page(() =>
+  import("../components/admin/relaxations-tab").then(
+    (module) => module.RelaxationsPage,
+  ),
+);
 const SecurityPage = page(() =>
   import("../components/admin/security-tab").then(
     (module) => module.SecurityPage,
@@ -546,6 +551,7 @@ const adminRoutes = [
   adminPage("people/sessions", SessionsTab),
   adminPage("people/provisioning", ScimTab),
   adminPage("security", SecurityPage),
+  adminPage("security/relaxed", RelaxationsPage),
   adminPage("connections", IntegrationsTab),
   adminPage("connections/notifications", NotificationsTab),
   adminPage("connections/api", ApiTokensTab),

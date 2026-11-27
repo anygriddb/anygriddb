@@ -11,9 +11,10 @@ Stores without SQL: [from a copy](#stores-that-speak-no-sql).
    2,000 tables, 1,000 for copy stores; search reaches the rest).
 2. **Verifiable TLS by default.** System-trusted CA, or paste server CA /
    self-signed cert naming the host as AnyGridDB reaches it. A source may
-   opt into a clear connection after an administrator confirms the risk
-   (ADR 0139); the sources page keeps a warning while any such source
-   exists. `ANYGRIDDB_SOURCES_ALLOW_PLAINTEXT=true` still forces every
+   connect in clear once an administrator of the instance confirms the risk
+   (ADR 0139, 0140); the sources page keeps a warning while any such source
+   exists, and Administration › Security › Relaxed requirements lists it
+   with who allowed it, and takes it back. `ANYGRIDDB_SOURCES_ALLOW_PLAINTEXT=true` still forces every
    source without TLS in development only.
 3. **`ANYGRIDDB_SOURCES_ALLOWED_HOSTS`** (names, `*.` domains, IPs, ranges).
    Empty = no sources. Network kill switch; drivers ship in every image.

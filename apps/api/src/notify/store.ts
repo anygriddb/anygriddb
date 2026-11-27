@@ -10,13 +10,13 @@ import type { Database, Json } from "@anygriddb/db";
 import type { KeyRing } from "../auth/key-ring.js";
 import { decryptSecret, encryptSecret } from "../auth/crypto.js";
 import { recordAuthEvent } from "../auth/auth-events.js";
-import { readSettings } from "../settings.js";
 import { assertOutboundTarget } from "../outbound/index.js";
 import { appriseTargets } from "./providers/apprise.js";
 import { gotifyTargets } from "./providers/gotify.js";
 import { ntfyTargets } from "./providers/ntfy.js";
 import { alertmanagerTargets, matrixTargets } from "./providers/rooms.js";
 import { webhookTargets } from "./providers/webhook.js";
+import { relaxationAllows } from "../relaxations.js";
 
 const NAME = /^\P{Cc}{1,80}$/u;
 
@@ -452,7 +452,7 @@ export async function createIntegration(
     input.config,
     input.secrets,
   );
-  const allowPrivate = (await readSettings(db)).notifyAllowPrivate;
+  const allowPrivate = await relaxationAllows(db, "notify.private_networks");
   await targetsOf(input.provider, parsed.config, parsed.secrets, allowPrivate);
   const count = await db
     .selectFrom("instanceIntegrations")
@@ -524,7 +524,7 @@ export async function updateIntegration(
     input.secrets ?? {},
   );
   const parsed = parseProviderConfig(current.provider, config, secrets);
-  const allowPrivate = (await readSettings(db)).notifyAllowPrivate;
+  const allowPrivate = await relaxationAllows(db, "notify.private_networks");
   await targetsOf(
     current.provider,
     parsed.config,

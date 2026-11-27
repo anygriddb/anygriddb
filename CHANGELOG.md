@@ -25,11 +25,19 @@ condition its value or remove it, and save.
 
 ### Added
 
-- A client database may connect without TLS when an administrator opts
-  that source in and confirms the risk (ADR 0139, migration 0158). Verified
+- A client database may connect without TLS when an administrator of the
+  instance opts that source in and confirms the risk (ADR 0139). Verified
   TLS stays the default. The sources page keeps a warning while any such
-  source exists. `ANYGRIDDB_SOURCES_ALLOW_PLAINTEXT` remains development
-  only.
+  source exists. A source manager keeps a source in clear, or takes it
+  back, but does not put one in clear. `ANYGRIDDB_SOURCES_ALLOW_PLAINTEXT`
+  remains development only.
+- Administration › Security › Relaxed requirements lists every requirement
+  the instance relaxed, for what, by whom and since when, with the way back
+  to strict (ADR 0140, migration 0159): a source in clear, and private
+  networks for Administration's channels, heartbeats and collectors.
+  Relaxing and going back are written to the sign-in trail
+  (`relaxation_enabled`, `relaxation_disabled`) and sent to the
+  collectors.
 - The mail relay accepts a pasted certificate authority (or `SMTP_CA_FILE`
   when SMTP comes from the environment), so a private relay verifies
   without going clear.
@@ -38,6 +46,10 @@ condition its value or remove it, and save.
 
 ### Changed
 
+- Allowing private networks for Administration's channels asks to confirm
+  what it opens, and is no longer a setting: `admin.updateSettings` does
+  not take `notifyAllowPrivate`, and an instance that had it on keeps it,
+  listed under Relaxed requirements.
 - A duration sent as a JSON number past 2^53 is refused (`invalid_cell`),
   as a number field's is: it was kept as the number a double rounds it to.
 - A JSON document that names a key twice in one object is refused

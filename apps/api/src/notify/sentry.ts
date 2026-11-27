@@ -3,13 +3,13 @@ import { AppError, sentrySecretsSchema } from "@anygriddb/core";
 import type { Database } from "@anygriddb/db";
 import type { KeyRing } from "../auth/key-ring.js";
 import { decryptSecret } from "../auth/crypto.js";
-import { readSettings } from "../settings.js";
 import {
   sendOutbound,
   type Outbound,
   type OutboundResponse,
 } from "./outbound.js";
 import type { NotifyPayload } from "./providers/webhook.js";
+import { relaxationAllows } from "../relaxations.js";
 
 let cached: { at: number; dsn: string | undefined } | undefined;
 
@@ -97,7 +97,7 @@ export async function captureServerError(
     randomUUID().replace(/-/g, ""),
   );
   if (!envelope) return;
-  const allowPrivate = (await readSettings(db)).notifyAllowPrivate;
+  const allowPrivate = await relaxationAllows(db, "notify.private_networks");
   await sendOutbound(
     {
       url: envelope.url,

@@ -124,6 +124,7 @@ export function ChangesTrail({
           calendar_feeds: t`Calendar feed`,
           scim_tokens: t`Provisioning (SCIM)`,
           sources: t`Source`,
+          relaxations: t`Relaxed requirement`,
           external_watches: t`Watched table`,
           external_syncs: t`Synced table`,
           bases: t`Base`,

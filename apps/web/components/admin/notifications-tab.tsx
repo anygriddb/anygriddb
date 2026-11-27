@@ -18,6 +18,7 @@ import {
 } from "@anygriddb/ui";
 import { useLingui } from "@lingui/react/macro";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Link } from "@tanstack/react-router";
 import { useState, type SubmitEvent } from "react";
 import { toast } from "sonner";
 import { useErrorText } from "../../lib/errors";
@@ -394,7 +395,8 @@ export function NotificationsTab() {
   const statusLabel = useStatusLabel();
   const providers = useQuery(api.admin.notify.providers.queryOptions());
   const list = useQuery(api.admin.notify.list.queryOptions());
-  const settings = useQuery(api.admin.settings.queryOptions());
+  const relaxations = useQuery(api.admin.relaxations.list.queryOptions());
+  const [privateAsk, setPrivateAsk] = useState(false);
   const environment = useQuery(api.admin.notify.environment.queryOptions());
   const automations = useQuery(api.admin.notify.schedules.queryOptions());
   const providerLabel = useProviderLabel();
@@ -444,7 +446,9 @@ export function NotificationsTab() {
     const kind = providers.data.find((item) => item.id === row.provider);
     return kind?.family === "channel" || kind?.family === "heartbeat";
   });
-  const allowPrivate = settings.data?.notifyAllowPrivate === true;
+  const allowPrivate = (relaxations.data ?? []).some(
+    (relaxation) => relaxation.key === "notify.private_networks",
+  );
 
   function resetForm() {
     setEditing(null);
@@ -603,16 +607,15 @@ export function NotificationsTab() {
     }
   }
 
+  /** Private networks are a relaxation of the instance (ADR 0140). */
   async function allowPrivateChange(next: boolean) {
-    if (!(await stepUp.ensure())) return;
-    try {
-      await trpc.admin.updateSettings.mutate({ notifyAllowPrivate: next });
-      await queryClient.invalidateQueries({
-        queryKey: api.admin.settings.queryKey(),
-      });
-    } catch (error) {
-      toast.error(errorText(error));
-    }
+    const key = "notify.private_networks";
+    await (next
+      ? trpc.admin.relaxations.relax.mutate({ key })
+      : trpc.admin.relaxations.end.mutate({ key }));
+    await queryClient.invalidateQueries({
+      queryKey: api.admin.relaxations.pathKey(),
+    });
   }
 
   return (
@@ -826,10 +829,37 @@ export function NotificationsTab() {
         <label className="flex items-center gap-2 text-sm">
           <Checkbox
             checked={allowPrivate}
-            onChange={(event) => void allowPrivateChange(event.target.checked)}
+            disabled={!relaxations.data}
+            onChange={(event) => {
+              if (event.target.checked) {
+                setPrivateAsk(true);
+                return;
+              }
+              void allowPrivateChange(false).catch((error: unknown) =>
+                toast.error(errorText(error)),
+              );
+            }}
           />
           {t`Allow private networks`}
         </label>
+        {allowPrivate ? (
+          <p className="text-xs text-warning">
+            {t`Relaxed: listed with the instance's other relaxed requirements, under`}{" "}
+            <Link to="/admin/security/relaxed" className="underline">
+              {t`Security › Relaxed requirements`}
+            </Link>
+            .
+          </p>
+        ) : null}
+        <ConfirmDialog
+          open={privateAsk}
+          onOpenChange={setPrivateAsk}
+          title={t`Allow private networks?`}
+          description={t`Channels, heartbeats and collectors may then call an HTTPS address of the networks around this instance, which an address typed here can reach as the server does. Loopback and cloud metadata stay refused.`}
+          confirmLabel={t`Allow private networks`}
+          danger
+          onConfirm={() => allowPrivateChange(true)}
+        />
       </RuledSection>
       <RuledSection
         title={t`Channels and heartbeats`}

@@ -2,7 +2,6 @@
  * The instance itself: the proof, its settings and identity, its health,
  * its alerts and releases, its jobs and its mail.
  */
-import { refreshProbe } from "./admin-notify-router.js";
 import {
   ALERT_CHOICES,
   AppError,
@@ -222,10 +221,6 @@ export const adminInstanceProcedures = {
           { id: admin.id, ip: ctx.req.ip, method: "admin" },
           input,
         );
-        // A collector on a private address stops with the switch.
-        if (input.notifyAllowPrivate !== undefined) {
-          await refreshProbe(ctx.db, ctx.env, "otlp");
-        }
         ctx.req.log.info(
           { actor: admin.id, keys: Object.keys(input) },
           "instance settings changed",

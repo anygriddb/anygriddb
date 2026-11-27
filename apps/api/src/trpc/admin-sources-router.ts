@@ -29,6 +29,7 @@ import {
   type SourceDeps,
 } from "../sources/sources.js";
 import { publishCatalog } from "../realtime/channels.js";
+import { relaxationAllows } from "../relaxations.js";
 import { loadBindings } from "../auth/access.js";
 import type { Context } from "./context.js";
 import { handle } from "./guard.js";
@@ -41,6 +42,26 @@ function sourceDeps(ctx: Context): SourceDeps {
     key: ctx.env.AUTH_ENCRYPTION_KEY,
     settings: ctx.sources,
   };
+}
+
+/**
+ * Only an administrator of the instance relaxes a source's TLS (ADR
+ * 0140): whoever manages sources keeps one relaxed, or takes it back.
+ */
+async function assertMayRelax(
+  ctx: Context,
+  admin: Parameters<typeof holds>[0],
+  wanted: boolean | undefined,
+  sourceId?: string,
+): Promise<void> {
+  if (!wanted || holds(admin, "settings.manage")) return;
+  if (
+    sourceId &&
+    (await relaxationAllows(ctx.db, "source.plaintext", sourceId))
+  ) {
+    return;
+  }
+  throw new AppError("access_denied");
 }
 
 /** What a source's account may read, as the administration page shows it. */
@@ -105,12 +126,18 @@ export const sourcesRouter = t.router({
         return testSource(sourceDeps(ctx), input);
       }),
     ),
-  create: asking({ asks: ["sources.manage"] })
+  create: asking({ asks: ["sources.manage"], also: ["settings.manage"] })
     .input(sourceInputSchema)
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
         const admin = await requireInstance(ctx);
-        const created = await createSource(sourceDeps(ctx), admin.id, input);
+        await assertMayRelax(ctx, admin, input.allowPlaintext);
+        const created = await createSource(
+          sourceDeps(ctx),
+          admin.id,
+          input,
+          ctx.req.ip,
+        );
         ctx.req.log.info(
           { actor: admin.id, source: created.id },
           "source declared",
@@ -118,12 +145,13 @@ export const sourcesRouter = t.router({
         return created;
       }),
     ),
-  update: asking({ asks: ["sources.manage"] })
+  update: asking({ asks: ["sources.manage"], also: ["settings.manage"] })
     .input(sourceUpdateSchema)
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
         const admin = await requireInstance(ctx);
-        return updateSource(sourceDeps(ctx), admin.id, input);
+        await assertMayRelax(ctx, admin, input.allowPlaintext, input.id);
+        return updateSource(sourceDeps(ctx), admin.id, input, ctx.req.ip);
       }),
     ),
   check: asking({ asks: ["sources.manage"] })

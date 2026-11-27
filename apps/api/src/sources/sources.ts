@@ -36,6 +36,7 @@ import type {
   TableScope,
 } from "./types.js";
 import { connectionAllowsPlaintext } from "./types.js";
+import { plaintextColumn, setRelaxation } from "../relaxations.js";
 
 export type SourceDeps = {
   db: Database;
@@ -78,6 +79,7 @@ async function loadSource(db: Database, id: string) {
   const row = await db
     .selectFrom("sources")
     .selectAll()
+    .select(plaintextColumn)
     .where("id", "=", id)
     .executeTakeFirst();
   if (!row) throw new AppError("unknown_source");
@@ -88,6 +90,7 @@ export async function listSources(db: Database) {
   const rows = await db
     .selectFrom("sources")
     .selectAll()
+    .select(plaintextColumn)
     .orderBy("name")
     .execute();
   return rows.map(publicSource);
@@ -226,6 +229,8 @@ export async function createSource(
   deps: SourceDeps,
   actorId: string,
   input: SourceInput,
+  /** Where the administrator acts from, for the sign-in trail. */
+  ip?: string,
 ) {
   const checked = await testSource(deps, input);
   const sealed = encryptSecret(input.password, deps.key, "source");
@@ -235,8 +240,8 @@ export async function createSource(
     const row = await withAudit(
       deps.db,
       { userId: actorId, source: "web" },
-      (tx) =>
-        tx
+      async (tx) => {
+        const created = await tx
           .insertInto("sources")
           .values({
             name: input.name,
@@ -248,7 +253,6 @@ export async function createSource(
             passwordCiphertext: sealed.ciphertext,
             passwordNonce: sealed.nonce,
             tlsCa: input.allowPlaintext ? null : (input.tlsCa ?? null),
-            allowPlaintext: input.allowPlaintext,
             connectionLimit: input.connectionLimit,
             queryTimeoutMs: input.queryTimeoutMs,
             timeZone: input.timeZone,
@@ -265,7 +269,15 @@ export async function createSource(
             ...replicaSecret(deps, replica, input.replicaPassword),
           })
           .returningAll()
-          .executeTakeFirstOrThrow(),
+          .executeTakeFirstOrThrow();
+        await setRelaxation(
+          tx,
+          { id: actorId, ip },
+          { key: "source.plaintext", sourceId: created.id },
+          input.allowPlaintext,
+        );
+        return { ...created, allowPlaintext: input.allowPlaintext };
+      },
     );
     return publicSource(row);
   } catch (error) {
@@ -282,6 +294,8 @@ export async function updateSource(
   deps: SourceDeps,
   actorId: string,
   patch: SourceUpdate,
+  /** Where the administrator acts from, for the sign-in trail. */
+  ip?: string,
 ) {
   const row = await loadSource(deps.db, patch.id);
   const password =
@@ -359,8 +373,8 @@ export async function updateSource(
     const updated = await withAudit(
       deps.db,
       { userId: actorId, source: "web" },
-      (tx) =>
-        tx
+      async (tx) => {
+        const changed = await tx
           .updateTable("sources")
           .set({
             name: next.name,
@@ -370,7 +384,6 @@ export async function updateSource(
             database: next.database,
             username: next.username,
             tlsCa: next.allowPlaintext ? null : (next.tlsCa ?? null),
-            allowPlaintext: next.allowPlaintext,
             connectionLimit: next.connectionLimit,
             queryTimeoutMs: next.queryTimeoutMs,
             timeZone: next.timeZone,
@@ -400,7 +413,15 @@ export async function updateSource(
           })
           .where("id", "=", patch.id)
           .returningAll()
-          .executeTakeFirstOrThrow(),
+          .executeTakeFirstOrThrow();
+        await setRelaxation(
+          tx,
+          { id: actorId, ip },
+          { key: "source.plaintext", sourceId: changed.id },
+          next.allowPlaintext,
+        );
+        return { ...changed, allowPlaintext: next.allowPlaintext };
+      },
     );
     return publicSource(updated);
   } catch (error) {

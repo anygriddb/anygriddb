@@ -50,6 +50,7 @@ import { RefreshFields } from "./refresh-fields";
 import { intlLocale, formatInstant } from "../../lib/format";
 import { useWhen } from "../../lib/i18n";
 import { grants } from "../../lib/types";
+import { useSession } from "../../lib/session";
 
 type Source = RouterOutputs["admin"]["sources"]["list"][number];
 type SourceTableItem =
@@ -459,6 +460,10 @@ function SourceForm(props: {
     existing?.allowPlaintext ?? false,
   );
   const [plaintextAsk, setPlaintextAsk] = useState(false);
+  // Only an administrator of the instance relaxes TLS (ADR 0140); whoever
+  // manages sources keeps a source relaxed, or takes it back.
+  const mayRelax =
+    useSession().data?.isAdmin === true || existing?.allowPlaintext === true;
   const [timeout, setTimeoutSeconds] = useState(
     String((existing?.queryTimeoutMs ?? 15_000) / 1000),
   );
@@ -691,6 +696,7 @@ function SourceForm(props: {
         <label className="flex items-start gap-2 text-sm">
           <Checkbox
             checked={allowPlaintext}
+            disabled={!mayRelax && !allowPlaintext}
             onChange={(event) => {
               if (event.target.checked) {
                 setPlaintextAsk(true);
@@ -707,6 +713,9 @@ function SourceForm(props: {
               className="mt-0.5 block text-xs text-muted-foreground"
             >
               {t`Only when the database offers no TLS. The password and every row then travel in clear on the network. Prefer pasting a certificate below.`}
+              {mayRelax
+                ? null
+                : ` ${t`Only an administrator of the instance can allow it.`}`}
             </span>
           </span>
         </label>

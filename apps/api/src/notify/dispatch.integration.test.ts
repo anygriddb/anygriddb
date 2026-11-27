@@ -110,7 +110,9 @@ describe("notification channels", () => {
         }),
       ),
     ).toBe("invalid_notify_target");
-    await admin.call().admin.updateSettings({ notifyAllowPrivate: true });
+    await admin
+      .call()
+      .admin.relaxations.relax({ key: "notify.private_networks" });
     const saved = await admin.call().admin.notify.create({
       provider: "webhook",
       name: "Lan",
@@ -122,11 +124,15 @@ describe("notification channels", () => {
     expect(saved.secretsSet).toEqual(["secret"]);
     expect(JSON.stringify(saved)).not.toContain(SECRET);
     await admin.call().admin.notify.delete({ id: saved.id });
-    await admin.call().admin.updateSettings({ notifyAllowPrivate: false });
+    await admin
+      .call()
+      .admin.relaxations.end({ key: "notify.private_networks" });
   });
 
   it("asks for a saved secret again when a channel moves to another host", async () => {
-    await admin.call().admin.updateSettings({ notifyAllowPrivate: true });
+    await admin
+      .call()
+      .admin.relaxations.relax({ key: "notify.private_networks" });
     const notify = () => admin.call().admin.notify;
     const saved = await notify().create({
       provider: "webhook",
@@ -154,11 +160,15 @@ describe("notification channels", () => {
     });
     expect(moved.config).toEqual({ url: "https://10.1.2.4/hook" });
     await notify().delete({ id: saved.id });
-    await admin.call().admin.updateSettings({ notifyAllowPrivate: false });
+    await admin
+      .call()
+      .admin.relaxations.end({ key: "notify.private_networks" });
   });
 
   it("starts no saved collector on an address no longer allowed", async () => {
-    await admin.call().admin.updateSettings({ notifyAllowPrivate: true });
+    await admin
+      .call()
+      .admin.relaxations.relax({ key: "notify.private_networks" });
     const endpoint = "https://10.1.2.9:4318";
     const saved = await admin.call().admin.notify.create({
       provider: "otlp",
@@ -180,7 +190,9 @@ describe("notification channels", () => {
     const started = await savedTracing(db, env.AUTH_ENCRYPTION_KEY);
     expect(started.endpoint).toBe(endpoint);
     expect(started.lookup).toEqual(expect.any(Function));
-    await admin.call().admin.updateSettings({ notifyAllowPrivate: false });
+    await admin
+      .call()
+      .admin.relaxations.end({ key: "notify.private_networks" });
     expect(await savedTracing(db, env.AUTH_ENCRYPTION_KEY)).toEqual({});
     await admin.call().admin.notify.delete({ id: saved.id });
   });
