@@ -152,6 +152,7 @@ describe.each(FLAVORS)("$engine sources", (flavor) => {
     username: "reader",
     password: "readerpass",
     tlsCa: certificate,
+    allowPlaintext: false,
     queryTimeoutMs: 15_000,
     ...patch,
   });

@@ -28,6 +28,7 @@ describe("publicSmtp", () => {
       fromAddress: "grid@example.org",
       passwordCiphertext: sealed.ciphertext,
       passwordNonce: sealed.nonce,
+      tlsCa: null,
       updatedAt: new Date("2026-11-11T00:00:00.000Z"),
       updatedBy: null,
     };
@@ -39,6 +40,8 @@ describe("publicSmtp", () => {
       username: "grid@example.org",
       fromAddress: "grid@example.org",
       hasPassword: true,
+      hasTlsCa: false,
+      tlsCa: null,
       updatedAt: "2026-11-11T00:00:00.000Z",
     });
     expect(JSON.stringify(shown)).not.toContain("secret");
@@ -47,6 +50,7 @@ describe("publicSmtp", () => {
   it("reports an empty instance", () => {
     expect(publicSmtp(null).configured).toBe(false);
     expect(publicSmtp(null).hasPassword).toBe(false);
+    expect(publicSmtp(null).hasTlsCa).toBe(false);
   });
 });
 

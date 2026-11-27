@@ -1,7 +1,8 @@
 /**
- * Client databases (ADR 0026). An administrator declares a source with a
- * dedicated account; it is saved only once a connection succeeds, over
- * verified TLS. The password is written, never shown again.
+ * Client databases (ADR 0026, 0139). An administrator declares a source
+ * with a dedicated account; it is saved only once a connection succeeds,
+ * over verified TLS by default, or without TLS when that source opts in.
+ * The password is written, never shown again.
  */
 import {
   DEFAULT_SOURCE_PORTS,
@@ -119,6 +120,7 @@ export function SourcesTab() {
   const allowed = settings.data?.allowedHosts ?? [];
   const impact = settings.data?.impact;
   const blockedListed = allSources.filter((source) => !source.hostAllowed);
+  const plaintextSources = allSources.filter((source) => source.allowPlaintext);
   return (
     <div className="flex flex-col gap-3">
       {settings.data?.allowPlaintext ? (
@@ -128,6 +130,23 @@ export function SourcesTab() {
         >
           <ShieldAlert className="h-4 w-4 text-danger" aria-hidden />
           {t`ANYGRIDDB_SOURCES_ALLOW_PLAINTEXT is on: sources connect without TLS. For development only.`}
+        </p>
+      ) : null}
+      {!settings.data?.allowPlaintext && plaintextSources.length > 0 ? (
+        <p
+          role="alert"
+          className="flex items-start gap-2 rounded-md border border-danger/40 bg-danger/10 p-2 text-sm"
+        >
+          <ShieldAlert
+            className="mt-0.5 h-4 w-4 shrink-0 text-danger"
+            aria-hidden
+          />
+          <span>
+            {plural(plaintextSources.length, {
+              one: `# source connects without encryption: the password and every row travel in clear on the network.`,
+              other: `# sources connect without encryption: the password and every row travel in clear on the network.`,
+            })}
+          </span>
         </p>
       ) : null}
       {allowed.length === 0 ? (
@@ -258,6 +277,11 @@ export function SourcesTab() {
                     <span className="flex items-center gap-1.5">
                       <EngineMark engine={source.engine} className="h-4 w-4" />
                       {source.name}
+                      {source.allowPlaintext ? (
+                        <span className="rounded border border-danger/40 bg-danger/10 px-1.5 py-0.5 text-[10px] font-normal text-foreground">
+                          {t`Not encrypted`}
+                        </span>
+                      ) : null}
                       {!source.hostAllowed ? (
                         <span className="rounded border border-warning/40 bg-warning/10 px-1.5 py-0.5 text-[10px] font-normal text-foreground">
                           {source.replicaBlocked
@@ -395,7 +419,7 @@ function SourceDialog(props: {
     >
       <DialogContent
         title={props.target === "new" ? t`Add a source` : t`Edit the source`}
-        description={t`An account dedicated to AnyGridDB, never an administrator. The connection uses TLS, with a verified certificate.`}
+        description={t`An account dedicated to AnyGridDB, never an administrator. The connection uses verified TLS by default.`}
         wide
       >
         {/* Mounted while open only: each opening starts from the source. */}
@@ -431,6 +455,10 @@ function SourceForm(props: {
   const [username, setUsername] = useState(existing?.username ?? "");
   const [password, setPassword] = useState("");
   const [certificate, setCertificate] = useState(existing?.tlsCa ?? "");
+  const [allowPlaintext, setAllowPlaintext] = useState(
+    existing?.allowPlaintext ?? false,
+  );
+  const [plaintextAsk, setPlaintextAsk] = useState(false);
   const [timeout, setTimeoutSeconds] = useState(
     String((existing?.queryTimeoutMs ?? 15_000) / 1000),
   );
@@ -465,7 +493,8 @@ function SourceForm(props: {
       database: database.trim(),
       username: username.trim(),
       password,
-      tlsCa: certificate.trim() || null,
+      tlsCa: allowPlaintext ? null : certificate.trim() || null,
+      allowPlaintext,
       connectionLimit: Number(limit),
       queryTimeoutMs: Math.round(Number(timeout) * 1000),
       timeZone: copyOnly ? "UTC" : timeZone.trim() || "UTC",
@@ -530,6 +559,7 @@ function SourceForm(props: {
           database: next.database,
           username: next.username,
           tlsCa: next.tlsCa,
+          allowPlaintext: next.allowPlaintext,
           connectionLimit: next.connectionLimit,
           queryTimeoutMs: next.queryTimeoutMs,
           timeZone: next.timeZone,
@@ -657,23 +687,61 @@ function SourceForm(props: {
           onChange={(event) => setPassword(event.target.value)}
         />
       </div>
-      <div className="col-span-2 flex flex-col gap-1">
-        <Label htmlFor="source-certificate">{t`Certificate (optional)`}</Label>
-        <Textarea
-          id="source-certificate"
-          aria-describedby="source-certificate-help"
-          className="min-h-24 font-mono text-xs"
-          placeholder="-----BEGIN CERTIFICATE-----"
-          value={certificate}
-          onChange={(event) => setCertificate(event.target.value)}
+      <div className="col-span-2 flex flex-col gap-2 rounded-md border border-border p-3">
+        <label className="flex items-start gap-2 text-sm">
+          <Checkbox
+            checked={allowPlaintext}
+            onChange={(event) => {
+              if (event.target.checked) {
+                setPlaintextAsk(true);
+                return;
+              }
+              setAllowPlaintext(false);
+            }}
+            aria-describedby="source-plaintext-help"
+          />
+          <span>
+            <span className="font-medium">{t`Allow an unencrypted connection`}</span>
+            <span
+              id="source-plaintext-help"
+              className="mt-0.5 block text-xs text-muted-foreground"
+            >
+              {t`Only when the database offers no TLS. The password and every row then travel in clear on the network. Prefer pasting a certificate below.`}
+            </span>
+          </span>
+        </label>
+        <ConfirmDialog
+          open={plaintextAsk}
+          onOpenChange={setPlaintextAsk}
+          title={t`Connect without encryption?`}
+          description={t`This source will not use TLS. Anyone who can listen on the path between AnyGridDB and the database can read the password and every row. Continue only if you accept that risk for this source.`}
+          confirmLabel={t`Connect without encryption`}
+          danger
+          onConfirm={() => {
+            setAllowPlaintext(true);
+            setCertificate("");
+          }}
         />
-        <p
-          id="source-certificate-help"
-          className="text-xs text-muted-foreground"
-        >
-          {t`The server's internal certificate authority, or its self-signed certificate. Without one, the system's authorities are trusted.`}
-        </p>
       </div>
+      {allowPlaintext ? null : (
+        <div className="col-span-2 flex flex-col gap-1">
+          <Label htmlFor="source-certificate">{t`Certificate (optional)`}</Label>
+          <Textarea
+            id="source-certificate"
+            aria-describedby="source-certificate-help"
+            className="min-h-24 font-mono text-xs"
+            placeholder="-----BEGIN CERTIFICATE-----"
+            value={certificate}
+            onChange={(event) => setCertificate(event.target.value)}
+          />
+          <p
+            id="source-certificate-help"
+            className="text-xs text-muted-foreground"
+          >
+            {t`The server's internal certificate authority, or its self-signed certificate. Without one, the system's authorities are trusted.`}
+          </p>
+        </div>
+      )}
       <div className="flex flex-col gap-1">
         <Label htmlFor="source-timeout">{t`Time limit per query (seconds)`}</Label>
         <Input

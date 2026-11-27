@@ -3,7 +3,7 @@
  * with AUTH_ENCRYPTION_KEY and never returned to the client.
  */
 import type { KeyRing } from "../auth/key-ring.js";
-import { hostSchema } from "@anygriddb/core";
+import { hostSchema, pemCertificateSchema } from "@anygriddb/core";
 import type { Database } from "@anygriddb/db";
 import { z } from "zod";
 import { decryptSecret, encryptSecret } from "../auth/crypto.js";
@@ -25,6 +25,7 @@ export type SmtpRow = {
   fromAddress: string;
   passwordCiphertext: Buffer | null;
   passwordNonce: Buffer | null;
+  tlsCa: string | null;
   updatedAt: Date;
   updatedBy: string | null;
 };
@@ -36,6 +37,9 @@ type PublicSmtp = {
   username: string | null;
   fromAddress: string | null;
   hasPassword: boolean;
+  /** That a CA was saved, never the certificate itself. */
+  hasTlsCa: boolean;
+  tlsCa: string | null;
   updatedAt: string | null;
 };
 
@@ -49,6 +53,11 @@ export const smtpUpdateSchema = z
     fromAddress: z.string().trim().min(3).max(320),
     /** Omitted keeps the stored password; null clears it. */
     password: z.string().min(1).max(512).nullable().optional(),
+    /**
+     * Pasted CA for a private relay. Omitted keeps the one saved; null
+     * forgets it. Verification stays on (ADR 0139).
+     */
+    tlsCa: pemCertificateSchema.nullable().optional(),
   })
   .strict();
 
@@ -84,6 +93,8 @@ export function publicSmtp(row: SmtpRow | null): PublicSmtp {
       username: null,
       fromAddress: null,
       hasPassword: false,
+      hasTlsCa: false,
+      tlsCa: null,
       updatedAt: null,
     };
   }
@@ -94,6 +105,8 @@ export function publicSmtp(row: SmtpRow | null): PublicSmtp {
     username: row.username,
     fromAddress: row.fromAddress,
     hasPassword: Boolean(row.passwordCiphertext && row.passwordNonce),
+    hasTlsCa: Boolean(row.tlsCa),
+    tlsCa: row.tlsCa ?? null,
     updatedAt: row.updatedAt.toISOString(),
   };
 }
@@ -105,6 +118,7 @@ function envSmtp(env: SmtpConfig): SmtpConfig {
     SMTP_USER: env.SMTP_USER,
     SMTP_PASSWORD: env.SMTP_PASSWORD,
     SMTP_FROM: env.SMTP_FROM,
+    SMTP_TLS_CA: env.SMTP_TLS_CA,
   };
 }
 
@@ -119,6 +133,7 @@ function rowToConfig(row: SmtpRow, key: KeyRing): SmtpConfig {
     SMTP_USER: row.username ?? undefined,
     SMTP_PASSWORD: password,
     SMTP_FROM: row.fromAddress,
+    SMTP_TLS_CA: row.tlsCa ?? undefined,
   };
 }
 
@@ -159,6 +174,8 @@ export function environmentSmtp(
     username: config.SMTP_USER ?? null,
     fromAddress: config.SMTP_FROM ?? null,
     hasPassword: Boolean(config.SMTP_PASSWORD),
+    hasTlsCa: Boolean(config.SMTP_TLS_CA),
+    tlsCa: config.SMTP_TLS_CA ?? null,
     updatedAt: null,
   };
 }
@@ -193,6 +210,9 @@ export async function saveSmtp(
     passwordNonce = sealed.nonce;
   }
 
+  const tlsCa =
+    input.tlsCa === undefined ? (existing?.tlsCa ?? null) : input.tlsCa;
+
   const config: SmtpConfig = {
     SMTP_HOST: input.host,
     SMTP_PORT: input.port,
@@ -202,6 +222,7 @@ export async function saveSmtp(
         ? decryptSecret(passwordCiphertext, passwordNonce, key, "smtp")
         : undefined,
     SMTP_FROM: input.fromAddress,
+    SMTP_TLS_CA: tlsCa ?? undefined,
   };
 
   // Nothing is saved that the relay refuses.
@@ -215,6 +236,7 @@ export async function saveSmtp(
     fromAddress: input.fromAddress,
     passwordCiphertext,
     passwordNonce,
+    tlsCa,
     updatedBy: userId,
     updatedAt: new Date(),
   };
@@ -230,6 +252,7 @@ export async function saveSmtp(
         fromAddress: row.fromAddress,
         passwordCiphertext: row.passwordCiphertext,
         passwordNonce: row.passwordNonce,
+        tlsCa: row.tlsCa,
         updatedBy: row.updatedBy,
         updatedAt: row.updatedAt,
       }),

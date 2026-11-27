@@ -1,6 +1,6 @@
 # 0026 — Source connections: a dedicated account and verified TLS on every engine
 
-- Status: Accepted
+- Status: Accepted; amended by [0139](0139-plaintext-source-opt-in.md)
 - Date: 2026-11-07
 - Supersedes: the SQL Server authentication part of
   [0024](0024-sql-server-authentication-and-oracle.md), and the sign-in and

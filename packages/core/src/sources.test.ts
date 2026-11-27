@@ -1,18 +1,27 @@
 import { describe, expect, it } from "vitest";
-import { sourceDatabaseField } from "./sources";
+import { sourceInputSchema } from "./sources.js";
 
-describe("sourceDatabaseField", () => {
-  it("calls Oracle's field a service name", () => {
-    expect(sourceDatabaseField("oracle")).toBe("service");
+describe("sourceInputSchema", () => {
+  const base = {
+    name: "ERP",
+    engine: "postgres" as const,
+    host: "db.example",
+    port: 5432,
+    database: "app",
+    username: "reader",
+    password: "secret-password",
+  };
+
+  it("defaults allowPlaintext to false and accepts an opt-in", () => {
+    expect(sourceInputSchema.parse(base).allowPlaintext).toBe(false);
+    expect(
+      sourceInputSchema.parse({ ...base, allowPlaintext: true }).allowPlaintext,
+    ).toBe(true);
   });
 
-  it("calls every other engine's field a database", () => {
-    expect(sourceDatabaseField("postgres")).toBe("database");
-    expect(sourceDatabaseField("mongodb")).toBe("database");
-    expect(sourceDatabaseField("sqlserver")).not.toBe("service");
-  });
-
-  it("calls a search cluster's field indices", () => {
-    expect(sourceDatabaseField("opensearch")).toBe("indices");
+  it("refuses a certificate that is not PEM", () => {
+    expect(() =>
+      sourceInputSchema.parse({ ...base, tlsCa: "not a certificate" }),
+    ).toThrow();
   });
 });

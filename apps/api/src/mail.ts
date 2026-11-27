@@ -8,6 +8,8 @@ export type SmtpConfig = {
   SMTP_USER?: string;
   SMTP_PASSWORD?: string;
   SMTP_FROM?: string;
+  /** Pasted or env CA so a private relay verifies (ADR 0139). */
+  SMTP_TLS_CA?: string;
 };
 
 export function smtpReady(config: SmtpConfig): boolean {
@@ -27,7 +29,11 @@ function transportFor(config: SmtpConfig & { SMTP_HOST: string }) {
     port: config.SMTP_PORT ?? 587,
     secure: implicit,
     requireTLS: !implicit && !isLoopback(config.SMTP_HOST),
-    tls: { minVersion: "TLSv1.2", rejectUnauthorized: true },
+    tls: {
+      minVersion: "TLSv1.2",
+      rejectUnauthorized: true,
+      ...(config.SMTP_TLS_CA ? { ca: config.SMTP_TLS_CA } : {}),
+    },
     connectionTimeout: 10_000,
     greetingTimeout: 10_000,
     socketTimeout: 30_000,

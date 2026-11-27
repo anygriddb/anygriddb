@@ -102,6 +102,7 @@ function SmtpSection() {
   const [username, setUsername] = useState<string | null>(null);
   const [fromAddress, setFromAddress] = useState<string | null>(null);
   const [password, setPassword] = useState("");
+  const [certificate, setCertificate] = useState<string | null>(null);
   const [clearAsk, setClearAsk] = useState(false);
   const [busy, setBusy] = useState(false);
 
@@ -124,6 +125,7 @@ function SmtpSection() {
   const portValue = port ?? String(smtp.data.port ?? 587);
   const usernameValue = username ?? smtp.data.username ?? "";
   const fromValue = fromAddress ?? smtp.data.fromAddress ?? "";
+  const certificateValue = certificate ?? smtp.data.tlsCa ?? "";
 
   async function save(event: SubmitEvent) {
     event.preventDefault();
@@ -136,8 +138,10 @@ function SmtpSection() {
         username: usernameValue.trim() || null,
         fromAddress: fromValue.trim(),
         ...(password ? { password } : {}),
+        tlsCa: certificateValue.trim() || null,
       });
       setPassword("");
+      setCertificate(null);
       setHost(null);
       setPort(null);
       setUsername(null);
@@ -267,6 +271,23 @@ function SmtpSection() {
               value={fromValue}
               onChange={(event) => setFromAddress(event.target.value)}
             />
+          </div>
+          <div className="flex flex-col gap-1">
+            <Label htmlFor="smtp-certificate">{t`Certificate (optional)`}</Label>
+            <Textarea
+              id="smtp-certificate"
+              aria-describedby="smtp-certificate-help"
+              className="min-h-24 font-mono text-xs"
+              placeholder="-----BEGIN CERTIFICATE-----"
+              value={certificateValue}
+              onChange={(event) => setCertificate(event.target.value)}
+            />
+            <p
+              id="smtp-certificate-help"
+              className="text-xs text-muted-foreground"
+            >
+              {t`The relay's internal certificate authority, or its self-signed certificate. Without one, the system's authorities are trusted. Verification stays on.`}
+            </p>
           </div>
           <div className="flex flex-wrap gap-2">
             <Button type="submit" size="sm" disabled={busy}>

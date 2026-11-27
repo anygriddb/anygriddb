@@ -1,7 +1,8 @@
 /**
- * Declaring sources (ADR 0026): instance administrators only, on an
- * allowed host, signed in with a dedicated account over verified TLS. A
- * source is saved only once a connection to it succeeded.
+ * Declaring sources (ADR 0026, 0139): instance administrators only, on an
+ * allowed host, signed in with a dedicated account over verified TLS by
+ * default, or without TLS when that source opts in. A source is saved
+ * only once a connection to it succeeded.
  */
 import type { KeyRing } from "../auth/key-ring.js";
 import {
@@ -34,6 +35,7 @@ import type {
   TableName,
   TableScope,
 } from "./types.js";
+import { connectionAllowsPlaintext } from "./types.js";
 
 export type SourceDeps = {
   db: Database;
@@ -54,6 +56,7 @@ function publicSource(row: SourceRow) {
     database: row.database,
     username: row.username,
     tlsCa: row.tlsCa,
+    allowPlaintext: row.allowPlaintext,
     connectionLimit: row.connectionLimit,
     queryTimeoutMs: row.queryTimeoutMs,
     timeZone: row.timeZone,
@@ -98,7 +101,9 @@ export async function checkConnection(
   if (!settings.allows(source.host)) {
     throw new AppError("source_host_not_allowed", source.host);
   }
-  const options = { allowPlaintext: settings.allowPlaintext };
+  const options = {
+    allowPlaintext: connectionAllowsPlaintext(settings, source),
+  };
   switch (source.engine) {
     case "postgres":
       return checkPostgres(source, options);
@@ -122,7 +127,8 @@ function connectionOf(input: SourceInput): SourceConnection {
     database: input.database,
     username: input.username,
     password: input.password,
-    tlsCa: input.tlsCa ?? null,
+    tlsCa: input.allowPlaintext ? null : (input.tlsCa ?? null),
+    allowPlaintext: input.allowPlaintext,
     queryTimeoutMs: input.queryTimeoutMs,
   };
 }
@@ -148,7 +154,8 @@ export function replicaConnectionOf(
     database: input.replicaDatabase?.trim() || input.database,
     username: input.replicaUsername?.trim() || input.username,
     password,
-    tlsCa: input.tlsCa ?? null,
+    tlsCa: input.allowPlaintext ? null : (input.tlsCa ?? null),
+    allowPlaintext: input.allowPlaintext,
     queryTimeoutMs: input.queryTimeoutMs,
   };
 }
@@ -240,7 +247,8 @@ export async function createSource(
             username: input.username,
             passwordCiphertext: sealed.ciphertext,
             passwordNonce: sealed.nonce,
-            tlsCa: input.tlsCa ?? null,
+            tlsCa: input.allowPlaintext ? null : (input.tlsCa ?? null),
+            allowPlaintext: input.allowPlaintext,
             connectionLimit: input.connectionLimit,
             queryTimeoutMs: input.queryTimeoutMs,
             timeZone: input.timeZone,
@@ -307,6 +315,7 @@ export async function updateSource(
     username: patch.username ?? row.username,
     password,
     tlsCa: patch.tlsCa === undefined ? row.tlsCa : patch.tlsCa,
+    allowPlaintext: patch.allowPlaintext ?? row.allowPlaintext,
     connectionLimit: patch.connectionLimit ?? row.connectionLimit,
     queryTimeoutMs: patch.queryTimeoutMs ?? row.queryTimeoutMs,
     timeZone: patch.timeZone ?? row.timeZone,
@@ -360,7 +369,8 @@ export async function updateSource(
             port: next.port,
             database: next.database,
             username: next.username,
-            tlsCa: next.tlsCa ?? null,
+            tlsCa: next.allowPlaintext ? null : (next.tlsCa ?? null),
+            allowPlaintext: next.allowPlaintext,
             connectionLimit: next.connectionLimit,
             queryTimeoutMs: next.queryTimeoutMs,
             timeZone: next.timeZone,
@@ -414,6 +424,7 @@ function storedConnection(deps: SourceDeps, row: SourceRow): SourceConnection {
       "source",
     ),
     tlsCa: row.tlsCa,
+    allowPlaintext: row.allowPlaintext,
     queryTimeoutMs: row.queryTimeoutMs,
   };
 }
@@ -444,7 +455,9 @@ export async function listSourceTables(
   if (!deps.settings.allows(connection.host)) {
     throw new AppError("source_host_not_allowed", connection.host);
   }
-  const connect = { allowPlaintext: deps.settings.allowPlaintext };
+  const connect = {
+    allowPlaintext: connectionAllowsPlaintext(deps.settings, connection),
+  };
   switch (connection.engine) {
     case "postgres":
       return introspectPostgres(connection, connect, scope);
@@ -648,6 +661,7 @@ export async function recheckSource(deps: SourceDeps, id: string) {
       username: row.replicaUsername ?? primary.username,
       password: replicaPassword,
       tlsCa: primary.tlsCa,
+      allowPlaintext: primary.allowPlaintext,
       queryTimeoutMs: primary.queryTimeoutMs,
     });
     replicaServerVersion = replicaChecked.serverVersion;

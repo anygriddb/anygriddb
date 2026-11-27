@@ -103,6 +103,7 @@ describe("a MongoDB-protocol source, read from a copy", () => {
     username: "erp",
     password: "erp-pass-1",
     tlsCa: certificate,
+    allowPlaintext: false,
     queryTimeoutMs: 15_000,
   });
 

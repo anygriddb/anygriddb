@@ -1,6 +1,6 @@
 # 0030 — Every connection AnyGridDB opens is encrypted and verified
 
-- Status: Accepted
+- Status: Accepted; amended by [0139](0139-plaintext-source-opt-in.md)
 - Date: 2026-11-08
 
 ## Context

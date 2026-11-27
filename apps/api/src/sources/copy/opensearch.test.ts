@@ -25,6 +25,7 @@ function connection(
     username: "reader",
     password,
     tlsCa: null,
+    allowPlaintext: false,
     queryTimeoutMs,
   };
 }

@@ -1,7 +1,8 @@
 /**
- * Client databases AnyGridDB reads (ADRs 0006, 0026). Each one signs in
- * with a dedicated account over verified TLS; administrators declare
- * them, and the password is written once and never read back.
+ * Client databases AnyGridDB reads (ADRs 0006, 0026, 0139). Each one signs
+ * in with a dedicated account over verified TLS by default; an
+ * administrator may opt one source into a clear connection after
+ * confirming the risk. The password is written once and never read back.
  */
 import { z } from "zod";
 import { isTimeZone } from "./field-config";
@@ -67,6 +68,9 @@ export const DEFAULT_COPY_INTERVAL_MINUTES = 60;
 
 const PEM = /^-----BEGIN CERTIFICATE-----[\s\S]+-----END CERTIFICATE-----\s*$/;
 
+/** A pasted PEM certificate authority or self-signed leaf. */
+export const pemCertificateSchema = z.string().trim().max(65_536).regex(PEM);
+
 /** A host name or an IP address, as typed: no scheme, no port, no path. */
 export const hostSchema = z
   .string()
@@ -89,7 +93,12 @@ export const sourceInputSchema = z
     username: z.string().trim().min(1).max(128),
     password: z.string().min(1).max(1_024),
     /** A certificate authority, or the server's self-signed certificate. */
-    tlsCa: z.string().trim().max(65_536).regex(PEM).nullable().optional(),
+    tlsCa: pemCertificateSchema.nullable().optional(),
+    /**
+     * Connect without TLS (ADR 0139). Off by default; the administration
+     * dialog confirms the risk before saving.
+     */
+    allowPlaintext: z.boolean().default(false),
     connectionLimit: z.number().int().min(1).max(50).default(5),
     queryTimeoutMs: z.number().int().min(1_000).max(300_000).default(15_000),
     /** The zone of its dates without one, such as `timestamp` (ADR 0005). */

@@ -1,6 +1,8 @@
 /**
- * Origins allowed to embed a public share (ADR 0067): HTTPS only, explicit
- * list, never `*`. Empty or null means the share is not embeddable.
+ * Origins allowed to embed a public share (ADR 0067): HTTPS by default,
+ * explicit list, never `*`. HTTP is accepted only on this machine
+ * (loopback), as OAuth redirect URIs already are. Empty or null means the
+ * share is not embeddable.
  */
 import { ceilingOf } from "./limits";
 import { z } from "zod";
@@ -9,15 +11,33 @@ import { AppError } from "./errors.js";
 /** Cap on origins stored per share (matches the migration check). */
 const MAX_EMBED_ORIGINS = ceilingOf("link.embed_origins");
 
+/** True for the machine itself: localhost, ::1, or 127.0.0.0/8. */
+function isLoopbackHost(hostname: string): boolean {
+  const host = hostname.replace(/^\[|\]$/g, "").toLowerCase();
+  return (
+    host === "localhost" ||
+    host.endsWith(".localhost") ||
+    host === "::1" ||
+    /^127\.\d+\.\d+\.\d+$/.test(host)
+  );
+}
+
 /**
- * One HTTPS origin: scheme, host, optional port; no path, query, hash, or
- * credentials. Trailing slashes and a lone `/` path are normalised away.
+ * One origin: HTTPS anywhere, or HTTP on loopback only; optional port; no
+ * path, query, hash, or credentials. Trailing slashes and a lone `/` path
+ * are normalised away.
  */
 export function isEmbedOrigin(value: string): boolean {
   if (value.length > 200 || value.includes("*")) return false;
   try {
     const url = new URL(value);
-    if (url.protocol !== "https:") return false;
+    if (url.protocol === "https:") {
+      // ok
+    } else if (url.protocol === "http:" && isLoopbackHost(url.hostname)) {
+      // Local portals only (mirrors OAuth redirect URIs).
+    } else {
+      return false;
+    }
     if (url.username || url.password) return false;
     if (url.search || url.hash) return false;
     if (url.pathname !== "/" && url.pathname !== "") return false;
@@ -38,7 +58,7 @@ export function normalizeEmbedOrigin(value: string): string {
 
 /**
  * Validates and deduplicates a list. Empty input becomes null (not
- * embeddable). `*` or any non-HTTPS origin is refused.
+ * embeddable). `*` or any non-HTTPS origin outside loopback is refused.
  */
 export function normalizeEmbedOrigins(
   values: readonly string[] | null | undefined,

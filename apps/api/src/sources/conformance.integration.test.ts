@@ -1293,6 +1293,7 @@ describe("conformance of formulas across engines", () => {
         username: source.username,
         password: "readerpass",
         tlsCa: null,
+        allowPlaintext: true,
         connectionLimit: 2,
         queryTimeoutMs: 15_000,
         timeZone: "UTC",

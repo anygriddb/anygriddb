@@ -120,6 +120,7 @@ export async function declareSource(
     username: endpoint.username,
     password: endpoint.password,
     tlsCa: labTls,
+    allowPlaintext: !labTls,
     connectionLimit: 4,
     queryTimeoutMs: 60_000,
     timeZone: "UTC",

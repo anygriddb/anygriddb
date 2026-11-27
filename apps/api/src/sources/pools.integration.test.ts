@@ -55,6 +55,7 @@ describe("source pools", () => {
         username: "pools_reader",
         password: "readerpass",
         tlsCa: null,
+        allowPlaintext: true,
         connectionLimit: 2,
         queryTimeoutMs: 15_000,
         timeZone: "UTC",

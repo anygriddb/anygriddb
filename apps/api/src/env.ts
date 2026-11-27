@@ -56,6 +56,8 @@ export type Env = {
   SMTP_USER?: string;
   SMTP_PASSWORD?: string;
   SMTP_FROM?: string;
+  /** PEM CA for the env SMTP relay (from `SMTP_CA_FILE`). */
+  SMTP_TLS_CA?: string;
   /** Accounts with these emails become instance administrators. */
   ADMIN_EMAILS?: string;
   /**
@@ -189,6 +191,25 @@ export function readSyslogCollector(
     throw new Error("SYSLOG_CA_FILE must hold a PEM certificate");
   }
   return { host, port, ca };
+}
+
+/**
+ * Optional CA for the environment SMTP relay (`SMTP_CA_FILE`). Without a
+ * host it is refused: the file alone would do nothing.
+ */
+function readSmtpCa(source: NodeJS.ProcessEnv): string | undefined {
+  if (!source.SMTP_CA_FILE) return undefined;
+  if (!source.SMTP_HOST?.trim()) {
+    throw new Error("SMTP_CA_FILE needs SMTP_HOST");
+  }
+  const file = settingFile(source.SMTP_CA_FILE);
+  if ("failure" in file) {
+    throw new Error(`SMTP_CA_FILE could not be read (${file.failure})`);
+  }
+  if (!CERTIFICATE_PEM.test(file.text)) {
+    throw new Error("SMTP_CA_FILE must hold a PEM certificate");
+  }
+  return file.text;
 }
 
 /**
@@ -629,6 +650,7 @@ export function readEnv(source: NodeJS.ProcessEnv = process.env): Env {
     SMTP_USER: source.SMTP_USER,
     SMTP_PASSWORD: secretFromEnv(source, "SMTP_PASSWORD"),
     SMTP_FROM: source.SMTP_FROM,
+    SMTP_TLS_CA: readSmtpCa(source),
     ADMIN_EMAILS: adminEmails(source),
     // A read holds one connection and asks for others meanwhile: fewer
     // than four and requests would wait on each other.

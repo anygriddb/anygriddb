@@ -704,6 +704,7 @@ export interface InstanceSmtp {
   passwordCiphertext: Buffer | null;
   passwordNonce: Buffer | null;
   port: Generated<number>;
+  tlsCa: string | null;
   updatedAt: Generated<Timestamp>;
   updatedBy: string | null;
   username: string | null;
@@ -1001,6 +1002,7 @@ export interface SourceLoadMinute {
 }
 
 export interface Sources {
+  allowPlaintext: Generated<boolean>;
   checkedAt: Timestamp | null;
   connectionLimit: Generated<number>;
   createdAt: Generated<Timestamp>;

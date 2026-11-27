@@ -150,6 +150,7 @@ describe("SQL Server sources", () => {
     username: "reader",
     password: READER_PASSWORD,
     tlsCa: certificate,
+    allowPlaintext: false,
     queryTimeoutMs: 15_000,
     ...patch,
   });

@@ -156,6 +156,7 @@ describe("Oracle sources", () => {
     username: "grid",
     password: "Grid_Reader_19",
     tlsCa: null,
+    allowPlaintext: false,
     queryTimeoutMs: 15_000,
     ...patch,
   });
