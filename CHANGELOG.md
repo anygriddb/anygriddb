@@ -8,6 +8,8 @@ first.
 
 ## Unreleased
 
+## 0.12.0 - 2026-11-27
+
 **Before upgrading:** read Administration › People › Rights to review with
 0.11.2. This upgrade (migration 0150) refuses until an operator accepts the
 cases it lists: set `ANYGRIDDB_ACCEPT_UPGRADE=0150` in `.env`, start again,
