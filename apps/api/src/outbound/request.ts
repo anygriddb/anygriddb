@@ -4,10 +4,11 @@ import {
   type Agent as HttpsAgent,
   type RequestOptions,
 } from "node:https";
-import type { LookupFunction } from "node:net";
+import { isIP, type LookupFunction } from "node:net";
 import { AppError, ceilingOf } from "@anygriddb/core";
 import {
   assertOutboundTarget,
+  hostName,
   isOutboundBlocked,
   redirectWithinOrigin,
   type OutboundResolve,
@@ -188,7 +189,10 @@ function requestOnce(
           : {}),
         ca: call.ca,
         timeout: timeoutMs,
-        servername: url.hostname,
+        // A name, never an address: TLS names no IP (RFC 6066), and Node
+        // refuses one before it connects. An address is checked against
+        // the certificate as it is.
+        ...(isIP(hostName(url)) === 0 ? { servername: url.hostname } : {}),
         headers: {
           ...headers,
           ...(body === undefined

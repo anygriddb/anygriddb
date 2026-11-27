@@ -20,6 +20,9 @@ hears from: the panel names the condition to fill in or remove.
   the field): a word to compare with a number, a text for a checkbox, a day
   that is not one. It was left out, and the answer held rows the filter
   was sent to keep out. A condition with no value at all is still left out.
+- A test of a traces or metrics collector is refused as what it is
+  (`integration_untestable`): neither has an event to send. It answered
+  "Network error", and counted a failure against the collector.
 
 ### Fixed
 
@@ -43,6 +46,20 @@ hears from: the panel names the condition to fill in or remove.
 - A base file with a link or a lookup on a table it does not hold was
   imported without it, and without its values. It is now refused when it is
   sent (`invalid_snapshot`).
+- Every call out of the instance in HTTPS to an address rather than a
+  name failed before it connected ("Network error"): webhooks, an
+  automation's calls and scripts, notification channels, an identity
+  provider. Such a call now goes, checked against the address its
+  certificate names.
+- The events of an account an administrator makes or erases
+  (`user.created`, `user.deleted`) never reached the channels subscribed
+  to them: they are now queued with the change, and a failure to queue
+  one is logged.
+- Making an account while the mail relay does not answer failed whole
+  (`internal_error`), with the account made and its link nowhere. The
+  account is made, its link handed to the administrator, and the answer
+  says why the mail did not go (`reason`, also in the administration
+  API). Sending an invitation again does the same.
 
 ### Security
 

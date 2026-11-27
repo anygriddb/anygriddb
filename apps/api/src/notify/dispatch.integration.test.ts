@@ -167,11 +167,50 @@ describe("notification channels", () => {
       config: { endpoint },
       secrets: {},
     });
+    // Traces send no event to test with: refused as such, no failure noted.
+    expect(
+      await errorCode(admin.call().admin.notify.test({ id: saved.id })),
+    ).toBe("integration_untestable");
+    const kept = await db
+      .selectFrom("instanceIntegrations")
+      .select(["consecutiveFailures", "lastError"])
+      .where("id", "=", saved.id)
+      .executeTakeFirstOrThrow();
+    expect(kept).toEqual({ consecutiveFailures: 0, lastError: null });
     const started = await savedTracing(db, env.AUTH_ENCRYPTION_KEY);
     expect(started.endpoint).toBe(endpoint);
     expect(started.lookup).toEqual(expect.any(Function));
     await admin.call().admin.updateSettings({ notifyAllowPrivate: false });
     expect(await savedTracing(db, env.AUTH_ENCRYPTION_KEY)).toEqual({});
+    await admin.call().admin.notify.delete({ id: saved.id });
+  });
+
+  it("queues the events of an account made and erased by an administrator", async () => {
+    const saved = await admin.call().admin.notify.create({
+      provider: "webhook",
+      name: "Accounts",
+      events: ["user.created", "user.deleted"],
+      config: { url: "https://203.0.113.10/accounts" },
+      secrets: { secret: SECRET },
+    });
+    const sent = () =>
+      db
+        .selectFrom("deliveries")
+        .select("event")
+        .where("integrationId", "=", saved.id)
+        .orderBy("createdAt")
+        .execute();
+    // Both are written in the transaction that makes or erases the account.
+    const email = `made-${suffix}@example.org`;
+    const { userId } = await admin
+      .call()
+      .admin.createAccount({ email, displayName: "Made Person" });
+    expect(await sent()).toEqual([{ event: "user.created" }]);
+    await admin.call().admin.erase({ userId, email });
+    expect(await sent()).toEqual([
+      { event: "user.created" },
+      { event: "user.deleted" },
+    ]);
     await admin.call().admin.notify.delete({ id: saved.id });
   });
 

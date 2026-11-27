@@ -24,7 +24,8 @@ export function isOutboundBlocked(
   return !allowPrivate && isPrivateAddress(address, family);
 }
 
-function hostName(url: URL): string {
+/** A URL's host, lower case, without the brackets of an IPv6 address. */
+export function hostName(url: URL): string {
   return url.hostname.replace(/^\[|\]$/g, "").toLowerCase();
 }
 

@@ -125,10 +125,29 @@ export async function emitInstanceEvent(
     fields: event.fields,
   };
   try {
-    await db.transaction().execute((tx) => queueEvent(tx, stored));
+    // In the caller's transaction (an account made, or erased), the event
+    // is queued there and goes if it rolls back: Kysely opens none inside.
+    if (db.isTransaction) await queueWithin(db, stored);
+    else await db.transaction().execute((tx) => queueEvent(tx, stored));
   } catch (error) {
     log(error, "notification was not queued");
   }
+}
+
+/**
+ * Queues an event in a transaction already open, under a savepoint: a
+ * failure to queue it leaves the caller's work whole, never an aborted
+ * transaction.
+ */
+async function queueWithin(tx: Database, event: StoredEvent): Promise<void> {
+  await sql`savepoint queue_event`.execute(tx);
+  try {
+    await queueEvent(tx, event);
+  } catch (error) {
+    await sql`rollback to savepoint queue_event`.execute(tx);
+    throw error;
+  }
+  await sql`release savepoint queue_event`.execute(tx);
 }
 
 async function queueEvent(tx: SqlExecutor, event: StoredEvent): Promise<void> {
@@ -372,6 +391,10 @@ export async function testIntegration(
   if (!row) throw new AppError("unknown_integration");
   const provider = notifyProvider(row.provider);
   if (!provider) throw new AppError("unknown_integration");
+  // Traces and metrics have no event to send: said, and no failure noted.
+  if (provider.family !== "heartbeat" && !senderFor(row.provider)) {
+    throw new AppError("integration_untestable");
+  }
   const outbound = deps.send ?? sendOutbound;
   const event: NotifyPayload = {
     id: randomUUID(),
@@ -397,7 +420,7 @@ export async function testIntegration(
       }
     } else {
       const send = senderFor(row.provider);
-      if (!send) throw new Error("Unknown provider");
+      if (!send) throw new AppError("integration_untestable");
       response = await send({
         config: row.config,
         secrets,

@@ -6,7 +6,7 @@
  */
 import type { Database } from "@anygriddb/db";
 import { resolveSmtp } from "../integrations/smtp.js";
-import { smtpReady } from "../mail.js";
+import { smtpReady, smtpRefusal } from "../mail.js";
 import { AppError } from "@anygriddb/core";
 import { ACCOUNT_LINK_TTL_MS, createResetLink } from "./password-reset.js";
 import {
@@ -16,7 +16,14 @@ import {
 } from "./security-mail.js";
 
 export type AccountWelcome =
-  { sent: true; to: string } | { sent: false; link: string; expiresAt: string };
+  | { sent: true; to: string }
+  | {
+      sent: false;
+      link: string;
+      expiresAt: string;
+      /** Why the mail did not go, where mail is set up. */
+      reason?: ReturnType<typeof smtpRefusal>;
+    };
 
 export async function welcomeAccount(
   deps: SecurityMailDeps & { db: Database },
@@ -28,17 +35,24 @@ export async function welcomeAccount(
     createdBy: creator.id,
     ttlMs: ACCOUNT_LINK_TTL_MS,
   });
-  if (smtpReady((await resolveSmtp(deps.db, deps.env)).config)) {
-    const to = await sendWelcome(deps, userId, {
-      ...link,
-      creatorName: creator.displayName,
-    });
-    if (!to) throw new AppError("smtp_not_configured");
-    return { sent: true, to };
-  }
-  return {
-    sent: false,
+  const handed = {
+    sent: false as const,
     link: resetLinkUrl(deps.env.PUBLIC_URL, link.token),
     expiresAt: link.expiresAt.toISOString(),
   };
+  if (!smtpReady((await resolveSmtp(deps.db, deps.env)).config)) return handed;
+  // The account is made: a relay that does not answer leaves its link to
+  // be handed, as an invitation's is, never an error with no link.
+  let to: string | null;
+  try {
+    to = await sendWelcome(deps, userId, {
+      ...link,
+      creatorName: creator.displayName,
+    });
+  } catch (error) {
+    deps.log.error({ err: error }, "welcome mail failed");
+    return { ...handed, reason: smtpRefusal(error) };
+  }
+  if (!to) throw new AppError("smtp_not_configured");
+  return { sent: true, to };
 }

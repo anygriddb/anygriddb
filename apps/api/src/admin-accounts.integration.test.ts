@@ -170,6 +170,28 @@ describe("accounts in Administration", () => {
       }
     });
 
+    it("hands the link over when the relay does not answer, and says why", async () => {
+      const port = env.SMTP_PORT;
+      // Nothing listens on the first port: the relay is set up, and gone.
+      env.SMTP_PORT = 1;
+      clearSmtpCache(db);
+      try {
+        const email = `relay-gone-${suffix}@example.org`;
+        const handed = await admin
+          .call()
+          .admin.createAccount({ email, displayName: "Relay Gone" });
+        expect(handed).toMatchObject({
+          sent: false,
+          link: expect.stringMatching(RESET),
+          reason: "smtp_unreachable",
+        });
+        expect(await idOf(email)).toEqual(expect.any(String));
+      } finally {
+        env.SMTP_PORT = port;
+        clearSmtpCache(db);
+      }
+    });
+
     it("hands the link over without email, and refuses an address taken", async () => {
       const restore = mailOff();
       try {

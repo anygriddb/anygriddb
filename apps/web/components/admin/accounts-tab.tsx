@@ -661,7 +661,13 @@ function AddPersonDialog({
           t`${{ name: displayName }} added. Their link went to ${{ to: result.to }}`,
         );
       } else {
-        toast.success(t`${{ name: displayName }} added`);
+        if (result.reason) {
+          toast.warning(
+            t`${{ name: displayName }} added, but their link did not go by mail: ${errorText({ code: result.reason })}`,
+          );
+        } else {
+          toast.success(t`${{ name: displayName }} added`);
+        }
         onHanded(displayName, result.link);
       }
     } catch (cause) {
