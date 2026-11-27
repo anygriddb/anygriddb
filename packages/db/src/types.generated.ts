@@ -183,33 +183,8 @@ export type WebauthnCeremony = "authenticate" | "register";
 
 export type WebhookKind = "http" | "smtp";
 
-export interface AdminTokens {
-  createdAt: Generated<Timestamp>;
-  createdBy: string;
-  expiresAt: Timestamp;
-  id: Generated<string>;
-  lastUsedAt: Timestamp | null;
-  name: string;
-  scopes: Json;
-  tokenHash: string;
-}
-
 export interface AlertOptouts {
   kind: string;
-  userId: string;
-}
-
-export interface ApiTokens {
-  allowDelete: Generated<boolean>;
-  baseIds: string[] | null;
-  createdAt: Generated<Timestamp>;
-  expiresAt: Timestamp;
-  id: Generated<string>;
-  lastUsedAt: Timestamp | null;
-  name: string;
-  oauthClientId: string | null;
-  readOnly: Generated<boolean>;
-  tokenHash: string;
   userId: string;
 }
 
@@ -452,6 +427,29 @@ export interface DataTables {
   sourceId: string | null;
   storage: Generated<TableStorage>;
   trailReads: Generated<boolean>;
+}
+
+export interface DelegatedAccesses {
+  authorId: string;
+  baseIds: string[] | null;
+  clientId: string | null;
+  createdAt: Generated<Timestamp>;
+  details: Generated<Record<string, unknown>>;
+  endsAt: Timestamp | null;
+  id: Generated<string>;
+  kind:
+    | "admin_token"
+    | "api_token"
+    | "application"
+    | "feed"
+    | "inbound_hook"
+    | "link"
+    | "scim_token";
+  lastUsedAt: Timestamp | null;
+  name: string;
+  permissions: string[] | null;
+  revokedAt: Timestamp | null;
+  secretHash: string;
 }
 
 export interface Deliveries {
@@ -870,7 +868,7 @@ export interface OauthClients {
 }
 
 export interface OauthRefreshTokens {
-  apiTokenId: string;
+  accessId: string;
   clientId: string;
   createdAt: Generated<Timestamp>;
   expiresAt: Timestamp;
@@ -967,16 +965,6 @@ export interface RowSignatures {
   signedAt: Generated<Timestamp>;
   tableId: string;
   userId: string;
-}
-
-export interface ScimTokens {
-  createdAt: Generated<Timestamp>;
-  createdBy: string;
-  expiresAt: Timestamp;
-  id: Generated<string>;
-  lastUsedAt: Timestamp | null;
-  name: string;
-  tokenHash: string;
 }
 
 export interface Sessions {
@@ -1240,9 +1228,7 @@ export interface Webhooks {
 }
 
 export interface DB {
-  adminTokens: AdminTokens;
   alertOptouts: AlertOptouts;
-  apiTokens: ApiTokens;
   attachments: Attachments;
   attributions: Attributions;
   auditEvents: AuditEvents;
@@ -1261,6 +1247,7 @@ export interface DB {
   dashboardWidgets: DashboardWidgets;
   dataColumns: DataColumns;
   dataTables: DataTables;
+  delegatedAccesses: DelegatedAccesses;
   deliveries: Deliveries;
   emailFactors: EmailFactors;
   emailOtpCodes: EmailOtpCodes;
@@ -1309,7 +1296,6 @@ export interface DB {
   releaseStatus: ReleaseStatus;
   restorePoints: RestorePoints;
   rowSignatures: RowSignatures;
-  scimTokens: ScimTokens;
   sessions: Sessions;
   shares: Shares;
   signupRequests: SignupRequests;

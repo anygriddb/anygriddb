@@ -5,7 +5,6 @@ import {
   can,
   effectiveTableRole,
   enrollmentGate,
-  readOnlyGiven,
   tableRules,
   tokenGiven,
   roleFor,
@@ -438,12 +437,11 @@ export async function scopeBindings(
   // A token reaches only what a role lets a token reach (`api.access`);
   // one that does not gives it nothing, and takes nothing from another.
   list = list.filter((binding) => tokenGiven(binding.role));
-  if (scope.readOnly) {
-    // A viewer's reach, and never more than the role gave.
-    list = list.map((binding) => ({
-      ...binding,
-      role: readOnlyGiven(binding.role),
-    }));
+  // No more than it was entrusted (ADR 0131, §5): a read-only token a
+  // viewer's part of each role, one kept from deleting all but deleting.
+  const { entrusted } = scope;
+  if (entrusted !== null) {
+    list = list.map((binding) => ({ ...binding, entrusted }));
   }
   return list;
 }

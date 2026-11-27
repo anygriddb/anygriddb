@@ -7,13 +7,14 @@
  * Administration, and these open nothing else.
  */
 import { isAdminOf } from "./instance-roles.js";
-import { createHash, randomBytes } from "node:crypto";
+import { randomBytes } from "node:crypto";
 import { AppError, labelSchema } from "@anygriddb/core";
 import type { Database } from "@anygriddb/db";
 import { sql } from "kysely";
 import { z } from "zod";
 import { withAudit } from "../data/audit-context.js";
 import { readGateSettings } from "../settings.js";
+import { hashSecret, liveAccess, sqlArray, tokenEnd } from "./delegated.js";
 import { tokenDays } from "./tokens.js";
 
 const ADMIN_TOKEN = /^aga_[A-Za-z0-9_-]{43}$/;
@@ -43,10 +44,6 @@ export const createAdminTokenInputSchema = z
   .strict();
 export const revokeAdminTokenInputSchema = z.object({ tokenId: z.uuid() });
 
-function tokenHash(token: string): string {
-  return createHash("sha256").update(token).digest("hex");
-}
-
 /** The scopes a stored list names, in the order the product names them. */
 function scopesOf(value: unknown): AdminScope[] {
   const named: readonly unknown[] = Array.isArray(value) ? value : [];
@@ -63,13 +60,14 @@ export async function createAdminToken(
   const expiresAt = new Date(Date.now() + days * 86_400_000);
   const row = await withAudit(db, { userId: actorId, source: "web" }, (tx) =>
     tx
-      .insertInto("adminTokens")
+      .insertInto("delegatedAccesses")
       .values({
+        kind: "admin_token",
         name: input.name,
-        tokenHash: tokenHash(token),
-        scopes: scopesOf(input.scopes),
-        createdBy: actorId,
-        expiresAt,
+        secretHash: hashSecret(token),
+        permissions: sqlArray(scopesOf(input.scopes), "text"),
+        authorId: actorId,
+        endsAt: expiresAt,
       })
       .returning("id")
       .executeTakeFirstOrThrow(),
@@ -77,30 +75,32 @@ export async function createAdminToken(
   return { id: row.id, token, expiresAt: expiresAt.toISOString() };
 }
 
-/** Every token, whoever made it: any administrator may revoke one. */
+/** Every token not revoked, whoever made it: any administrator may revoke one. */
 export async function listAdminTokens(db: Database) {
   const { tokenMaxDays } = await readGateSettings(db);
   const rows = await db
-    .selectFrom("adminTokens as t")
-    .innerJoin("users as u", "u.id", "t.createdBy")
+    .selectFrom("delegatedAccesses as a")
+    .innerJoin("users as u", "u.id", "a.authorId")
     .select([
-      "t.id",
-      "t.name",
-      "t.scopes",
-      "t.createdAt",
-      "t.expiresAt",
-      "t.lastUsedAt",
+      "a.id",
+      "a.name",
+      "a.permissions",
+      "a.createdAt",
+      "a.endsAt",
+      "a.lastUsedAt",
       "u.displayName as createdBy",
       sql<boolean>`(${isAdminOf("u.id")} and u.disabled_at is null)`.as(
         "active",
       ),
     ])
-    .orderBy("t.createdAt", "desc")
+    .where("a.kind", "=", "admin_token")
+    .where("a.revokedAt", "is", null)
+    .orderBy("a.createdAt", "desc")
     .execute();
   return rows.map((row) => ({
     id: row.id,
     name: row.name,
-    scopes: scopesOf(row.scopes),
+    scopes: scopesOf(row.permissions),
     createdBy: row.createdBy,
     /** False once its maker is no longer an active administrator. */
     active: row.active,
@@ -108,7 +108,7 @@ export async function listAdminTokens(db: Database) {
     // A policy made shorter since holds for the tokens made before it.
     expiresAt: new Date(
       Math.min(
-        row.expiresAt.getTime(),
+        tokenEnd(row.endsAt).getTime(),
         row.createdAt.getTime() + tokenMaxDays * 86_400_000,
       ),
     ).toISOString(),
@@ -121,17 +121,20 @@ export async function revokeAdminToken(
   actorId: string,
   tokenId: string,
 ): Promise<void> {
-  const deleted = await withAudit(
+  const revoked = await withAudit(
     db,
     { userId: actorId, source: "web" },
     (tx) =>
       tx
-        .deleteFrom("adminTokens")
+        .updateTable("delegatedAccesses")
+        .set({ revokedAt: new Date() })
         .where("id", "=", tokenId)
+        .where("kind", "=", "admin_token")
+        .where("revokedAt", "is", null)
         .returning("id")
         .execute(),
   );
-  if (deleted.length === 0) throw new AppError("not_found");
+  if (revoked.length === 0) throw new AppError("not_found");
 }
 
 export type AdminTokenActor = {
@@ -155,19 +158,20 @@ export async function adminTokenActor(
   if (!token || !ADMIN_TOKEN.test(token)) return null;
   const { tokenMaxDays } = await readGateSettings(db);
   const row = await db
-    .selectFrom("adminTokens as t")
-    .innerJoin("users as u", "u.id", "t.createdBy")
-    .select(["t.id", "t.scopes", "t.createdBy", "u.displayName"])
-    .where("t.tokenHash", "=", tokenHash(token))
-    .where("t.expiresAt", ">", new Date())
-    .where("t.createdAt", ">", new Date(Date.now() - tokenMaxDays * 86_400_000))
+    .selectFrom("delegatedAccesses as a")
+    .innerJoin("users as u", "u.id", "a.authorId")
+    .select(["a.id", "a.permissions", "a.authorId", "u.displayName"])
+    .where("a.kind", "=", "admin_token")
+    .where("a.secretHash", "=", hashSecret(token))
+    .where(liveAccess)
+    .where("a.createdAt", ">", new Date(Date.now() - tokenMaxDays * 86_400_000))
     .where(isAdminOf("u.id"))
     .where("u.disabledAt", "is", null)
     .executeTakeFirst();
   if (!row) return null;
   // Its last use, at most once a minute.
   await db
-    .updateTable("adminTokens")
+    .updateTable("delegatedAccesses")
     .set({ lastUsedAt: new Date() })
     .where("id", "=", row.id)
     .where((eb) =>
@@ -179,7 +183,7 @@ export async function adminTokenActor(
     .execute();
   return {
     tokenId: row.id,
-    scopes: scopesOf(row.scopes),
-    maker: { id: row.createdBy, displayName: row.displayName },
+    scopes: scopesOf(row.permissions),
+    maker: { id: row.authorId, displayName: row.displayName },
   };
 }

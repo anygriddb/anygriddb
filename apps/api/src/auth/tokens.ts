@@ -1,10 +1,27 @@
 import { isAdminOf, isAuditorOf, isSupportOf } from "./instance-roles.js";
-import { createHash, randomBytes } from "node:crypto";
-import type { Database, Executor, Tx } from "@anygriddb/db";
+import { randomBytes } from "node:crypto";
+import type { Database, DB, Executor, Tx } from "@anygriddb/db";
+import type { UpdateQueryBuilder, UpdateResult } from "kysely";
+import { withAudit } from "../data/audit-context.js";
 import type { SessionUser } from "./session.js";
-import { AppError, type InstanceSettings, ceilingOf } from "@anygriddb/core";
+import {
+  AppError,
+  type InstanceSettings,
+  type Permission,
+  ceilingOf,
+} from "@anygriddb/core";
 import { recordAuthEvent } from "./auth-events.js";
 import { readGateSettings } from "../settings.js";
+import {
+  entrustedOf,
+  hashSecret,
+  liveAccess,
+  permissionsOf,
+  sqlArray,
+  switchesOf,
+  tokenEnd,
+  type TokenSwitches,
+} from "./delegated.js";
 
 const API_TOKEN = /^ag_[A-Za-z0-9_-]{43,128}$/;
 /** A token's lifetime when its owner names none, within the policy's. */
@@ -24,18 +41,38 @@ export function tokenDays(
   return requested ?? Math.min(DEFAULT_TOKEN_DAYS, policy.tokenMaxDays);
 }
 
-export function hashApiToken(token: string): string {
-  return createHash("sha256").update(token).digest("hex");
-}
-
 export type TokenScope = {
   tokenId: string;
   /** Bases the token may reach; null means all of its owner's bases. */
   baseIds: string[] | null;
+  /**
+   * What it was entrusted of its owner's permissions (ADR 0131, §5): the
+   * roles it acts through give no more. Null, all they give.
+   */
+  entrusted: Permission[] | null;
+  /** It writes nothing: what a viewer may, read back from `entrusted`. */
   readOnly: boolean;
   /** When false, create/update stay; delete is refused (ADR 0079). */
   allowDelete: boolean;
 };
+
+/** A token's scope from its row. */
+function scopeOf(row: {
+  tokenId: string;
+  baseIds: string[] | null;
+  permissions: string[] | null;
+}): TokenScope {
+  const entrusted = permissionsOf(row.permissions);
+  return {
+    tokenId: row.tokenId,
+    baseIds: Array.isArray(row.baseIds) ? row.baseIds : null,
+    entrusted,
+    ...switchesOf(entrusted),
+  };
+}
+
+/** A person's tokens and the applications they let in. */
+const PERSON_KINDS = ["api_token", "application"] as const;
 
 /**
  * Whether a request names an API token. It then answers for that token: one
@@ -43,8 +80,10 @@ export type TokenScope = {
  * Another scheme is not ours: a proxy's Basic sign-in travels in this header.
  */
 /**
- * Takes every API token of an account, and the codes it consented to that
- * were not exchanged yet: such a code would make a new token afterwards.
+ * Revokes every API token of an account and the applications it let in,
+ * and takes the codes it consented to that were not exchanged yet: such a
+ * code would make a new token afterwards. In the caller's audited
+ * transaction.
  */
 export async function dropAccountTokens(
   tx: Tx,
@@ -54,11 +93,7 @@ export async function dropAccountTokens(
     .deleteFrom("oauthAuthorizationCodes")
     .where("userId", "=", userId)
     .execute();
-  return tx
-    .deleteFrom("apiTokens")
-    .where("userId", "=", userId)
-    .returning("id")
-    .execute();
+  return revokeAccesses(tx, (query) => query.where("authorId", "=", userId));
 }
 
 export function namesApiToken(header: string | undefined): boolean {
@@ -74,10 +109,11 @@ async function liveTokens(db: Database) {
   const { tokenMaxDays, apiTokens } = await readGateSettings(db);
   const oldest = new Date(Date.now() - tokenMaxDays * 86_400_000);
   return db
-    .selectFrom("apiTokens as k")
-    .innerJoin("users as u", "u.id", "k.userId")
-    .where("k.expiresAt", ">", new Date())
-    .where("k.createdAt", ">", oldest)
+    .selectFrom("delegatedAccesses as a")
+    .innerJoin("users as u", "u.id", "a.authorId")
+    .where("a.kind", "in", PERSON_KINDS)
+    .where(liveAccess)
+    .where("a.createdAt", ">", oldest)
     .$if(apiTokens === "admins", (query) => query.where(isAdminOf("u.id")))
     .where("u.disabledAt", "is", null);
 }
@@ -95,11 +131,11 @@ export async function liveTokenScope(
   const row = await (
     await liveTokens(db)
   )
-    .select(["k.id as tokenId", "k.baseIds", "k.readOnly", "k.allowDelete"])
-    .where("k.id", "=", tokenId)
-    .where("k.userId", "=", userId)
+    .select(["a.id as tokenId", "a.baseIds", "a.permissions"])
+    .where("a.id", "=", tokenId)
+    .where("a.authorId", "=", userId)
     .executeTakeFirst();
-  return row ?? null;
+  return row ? scopeOf(row) : null;
 }
 
 /** Resolves a bearer token to its owner and scope. Refreshes `last_used_at` at most once a minute. */
@@ -126,20 +162,19 @@ export async function findApiToken(
       isAdminOf("u.id").as("isAdmin"),
       isSupportOf("u.id").as("isSupport"),
       isAuditorOf("u.id").as("isAuditor"),
-      "k.id as tokenId",
-      "k.baseIds",
-      "k.readOnly",
-      "k.allowDelete",
-      "k.lastUsedAt",
+      "a.id as tokenId",
+      "a.baseIds",
+      "a.permissions",
+      "a.lastUsedAt",
     ])
-    .where("k.tokenHash", "=", hashApiToken(token))
+    .where("a.secretHash", "=", hashSecret(token))
     .executeTakeFirst();
   if (!row) {
     return null;
   }
   if (!row.lastUsedAt || Date.now() - row.lastUsedAt.getTime() > 60_000) {
     await db
-      .updateTable("apiTokens")
+      .updateTable("delegatedAccesses")
       .set({ lastUsedAt: new Date() })
       .where("id", "=", row.tokenId)
       .execute();
@@ -161,19 +196,12 @@ export async function findApiToken(
       // A token never opens Administration: its parts stay with the session.
       instanceRoles: [],
     },
-    scope: {
-      tokenId: row.tokenId,
-      baseIds: Array.isArray(row.baseIds) ? row.baseIds : null,
-      readOnly: row.readOnly,
-      allowDelete: row.allowDelete,
-    },
+    scope: scopeOf(row),
   };
 }
 
-type NewTokenScope = {
+type NewTokenScope = TokenSwitches & {
   baseIds?: string[];
-  readOnly?: boolean;
-  allowDelete?: boolean;
   days?: number;
   /** When set, the token came from an OAuth grant (ADR 0094). */
   oauthClientId?: string;
@@ -189,14 +217,14 @@ export async function createApiToken(
   name: string,
   scope: NewTokenScope = {},
 ): Promise<NewToken> {
-  return db
-    .transaction()
-    .execute((tx) => insertApiToken(tx, userId, name, scope));
+  return withAudit(db, { userId, source: "web" }, (tx) =>
+    insertApiToken(tx, userId, name, scope),
+  );
 }
 
 /**
- * The token and its line on the sign-in trail, in the transaction of the
- * caller: an application's grant makes its token with what it replaces.
+ * The token and its line on the sign-in trail, in the caller's audited
+ * transaction: an application's grant makes its token with its code.
  */
 export async function insertApiToken(
   tx: Executor,
@@ -208,20 +236,22 @@ export async function insertApiToken(
   const expiresAt = new Date(
     Date.now() + (scope.days ?? DEFAULT_TOKEN_DAYS) * 86_400_000,
   );
-  const readOnly = scope.readOnly === true;
+  const entrusted = entrustedOf(scope);
   const inserted = await tx
-    .insertInto("apiTokens")
+    .insertInto("delegatedAccesses")
     .values({
-      userId,
+      kind: scope.oauthClientId ? "application" : "api_token",
+      authorId: userId,
       name,
-      tokenHash: hashApiToken(token),
-      expiresAt,
-      baseIds: scope.baseIds && scope.baseIds.length > 0 ? scope.baseIds : null,
-      readOnly,
-      // Omitted means true (scripts keep deleting). A read-only token never
-      // deletes; store true so the column stays meaningful only for writers.
-      allowDelete: readOnly ? true : scope.allowDelete !== false,
-      oauthClientId: scope.oauthClientId ?? null,
+      secretHash: hashSecret(token),
+      endsAt: expiresAt,
+      baseIds:
+        scope.baseIds && scope.baseIds.length > 0
+          ? sqlArray(scope.baseIds, "uuid")
+          : null,
+      // Omitted, deleting is allowed (scripts keep deleting).
+      permissions: entrusted === null ? null : sqlArray(entrusted, "text"),
+      clientId: scope.oauthClientId ?? null,
     })
     .returning("id")
     .executeTakeFirst();
@@ -239,31 +269,31 @@ export async function insertApiToken(
 export async function listApiTokens(db: Database, userId: string) {
   const { tokenMaxDays } = await readGateSettings(db);
   const rows = await db
-    .selectFrom("apiTokens")
+    .selectFrom("delegatedAccesses")
     .select([
       "id",
       "name",
       "createdAt",
-      "expiresAt",
+      "endsAt",
       "baseIds",
-      "readOnly",
-      "allowDelete",
+      "permissions",
       "lastUsedAt",
     ])
-    .where("userId", "=", userId)
+    .where("authorId", "=", userId)
+    .where("kind", "in", PERSON_KINDS)
+    .where("revokedAt", "is", null)
     .execute();
   return rows.map((row) => ({
     id: row.id,
     name: row.name,
     expiresAt: new Date(
       Math.min(
-        row.expiresAt.getTime(),
+        tokenEnd(row.endsAt).getTime(),
         row.createdAt.getTime() + tokenMaxDays * 86_400_000,
       ),
     ).toISOString(),
     baseIds: Array.isArray(row.baseIds) ? row.baseIds : null,
-    readOnly: row.readOnly,
-    allowDelete: row.allowDelete,
+    ...switchesOf(permissionsOf(row.permissions)),
     lastUsedAt: row.lastUsedAt?.toISOString() ?? null,
   }));
 }
@@ -278,22 +308,68 @@ export async function revokeApiToken(
   tokenId: string,
   actor?: { actorId: string; admin: boolean },
 ): Promise<void> {
-  await db.transaction().execute(async (tx) => {
-    const deleted = await tx
-      .deleteFrom("apiTokens")
-      .where("id", "=", tokenId)
-      .where("userId", "=", userId)
-      .returning("id")
+  await withAudit(
+    db,
+    { userId: actor?.actorId ?? userId, source: "web" },
+    async (tx) => {
+      const revoked = await revokeAccesses(tx, (query) =>
+        query.where("id", "=", tokenId).where("authorId", "=", userId),
+      );
+      if (revoked.length === 0) {
+        throw new AppError("no_row");
+      }
+      await recordAuthEvent(tx, {
+        action: "tokens_revoked",
+        userId,
+        actorId: actor?.actorId ?? userId,
+        method: actor?.admin ? "admin" : undefined,
+        detail: actor?.admin ? "admin_revoke_user" : "self_service_token",
+      });
+    },
+  );
+}
+
+/**
+ * Revokes the live tokens of a person a query picks, and the refresh
+ * tokens an application renews them with, in the caller's audited
+ * transaction. A revoked token stays, and acts on nothing.
+ */
+export async function revokeAccesses(
+  tx: Executor,
+  pick: (
+    query: UpdateQueryBuilder<
+      DB,
+      "delegatedAccesses",
+      "delegatedAccesses",
+      UpdateResult
+    >,
+  ) => UpdateQueryBuilder<
+    DB,
+    "delegatedAccesses",
+    "delegatedAccesses",
+    UpdateResult
+  >,
+): Promise<Array<{ id: string; authorId: string }>> {
+  const revoked = await pick(
+    tx
+      .updateTable("delegatedAccesses")
+      .set({ revokedAt: new Date() })
+      .where("kind", "in", PERSON_KINDS)
+      .where("revokedAt", "is", null),
+  )
+    .returning(["id", "authorId"])
+    .execute();
+  if (revoked.length > 0) {
+    await tx
+      .updateTable("oauthRefreshTokens")
+      .set({ revokedAt: new Date() })
+      .where(
+        "accessId",
+        "in",
+        revoked.map((row) => row.id),
+      )
+      .where("revokedAt", "is", null)
       .execute();
-    if (deleted.length === 0) {
-      throw new AppError("no_row");
-    }
-    await recordAuthEvent(tx, {
-      action: "tokens_revoked",
-      userId,
-      actorId: actor?.actorId ?? userId,
-      method: actor?.admin ? "admin" : undefined,
-      detail: actor?.admin ? "admin_revoke_user" : "self_service_token",
-    });
-  });
+  }
+  return revoked;
 }

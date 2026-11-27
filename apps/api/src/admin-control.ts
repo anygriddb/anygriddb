@@ -5,7 +5,7 @@
  * deliveries, export audits and access, and gather a support bundle.
  * Every action on an account names its actor in the sign-in trail.
  */
-import { dropAccountTokens } from "./auth/tokens.js";
+import { dropAccountTokens, revokeAccesses } from "./auth/tokens.js";
 import type { AuditAction, AuthAction, Database } from "@anygriddb/db";
 import { AppError } from "@anygriddb/core";
 import { sql as sqlTag } from "kysely";
@@ -557,7 +557,7 @@ export async function revokeUserTokens(
   userId: string,
 ): Promise<number> {
   await otherAccount(db, actorId, userId);
-  return db.transaction().execute(async (tx) => {
+  return withAudit(db, { userId: actorId, source: "web" }, async (tx) => {
     const revoked = await dropAccountTokens(tx, userId);
     if (revoked.length > 0) {
       await recordAuthEvent(tx, {
@@ -581,7 +581,7 @@ export async function endPasswordAccess(
   db: Database,
   actorId: string,
 ): Promise<{ sessions: number; tokens: number; users: string[] }> {
-  return db.transaction().execute(async (tx) => {
+  return withAudit(db, { userId: actorId, source: "web" }, async (tx) => {
     if (!(await readSettings(tx)).ssoOnly) {
       throw new AppError("sso_required");
     }
@@ -605,10 +605,12 @@ export async function endPasswordAccess(
       });
     }
     const holders = await tx
-      .selectFrom("apiTokens as k")
-      .innerJoin("users as u", "u.id", "k.userId")
-      .select("k.userId")
+      .selectFrom("delegatedAccesses as a")
+      .innerJoin("users as u", "u.id", "a.authorId")
+      .select("a.authorId as userId")
       .distinct()
+      .where("a.kind", "in", ["api_token", "application"])
+      .where("a.revokedAt", "is", null)
       .where((eb) => eb.not(isAdminOf("u.id")))
       .execute();
     let tokens = 0;
@@ -644,13 +646,10 @@ export async function revokeAllTokens(
   db: Database,
   actorId: string,
 ): Promise<number> {
-  return db.transaction().execute(async (tx) => {
+  return withAudit(db, { userId: actorId, source: "web" }, async (tx) => {
     await tx.deleteFrom("oauthAuthorizationCodes").execute();
-    const revoked = await tx
-      .deleteFrom("apiTokens")
-      .returning("userId")
-      .execute();
-    for (const userId of new Set(revoked.map((row) => row.userId))) {
+    const revoked = await revokeAccesses(tx, (query) => query);
+    for (const userId of new Set(revoked.map((row) => row.authorId))) {
       await recordAuthEvent(tx, {
         action: "tokens_revoked",
         userId,

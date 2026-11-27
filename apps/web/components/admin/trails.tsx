@@ -111,6 +111,7 @@ export function ChangesTrail({
           group_roles: t`Role of a group`,
           calendar_feeds: t`Calendar feed`,
           scim_tokens: t`Provisioning (SCIM)`,
+          delegated_accesses: t`Token`,
           sources: t`Source`,
           external_watches: t`Watched table`,
           external_syncs: t`Synced table`,

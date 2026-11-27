@@ -4,11 +4,12 @@
  * works while its maker is an active administrator.
  */
 import { isAdminOf } from "../auth/instance-roles.js";
-import { createHash, randomBytes } from "node:crypto";
+import { randomBytes } from "node:crypto";
 import { AppError, labelSchema } from "@anygriddb/core";
 import type { Database } from "@anygriddb/db";
 import { sql } from "kysely";
 import { z } from "zod";
+import { hashSecret, liveAccess, tokenEnd } from "../auth/delegated.js";
 import { withAudit } from "../data/audit-context.js";
 import { readGateSettings } from "../settings.js";
 
@@ -16,10 +17,6 @@ const SCIM_TOKEN = /^agscim_[A-Za-z0-9_-]{43}$/;
 
 export const createScimTokenInputSchema = z.object({ name: labelSchema });
 export const revokeScimTokenInputSchema = z.object({ tokenId: z.uuid() });
-
-function tokenHash(token: string): string {
-  return createHash("sha256").update(token).digest("hex");
-}
 
 export async function createScimToken(
   db: Database,
@@ -31,12 +28,13 @@ export async function createScimToken(
   const expiresAt = new Date(Date.now() + tokenMaxDays * 86_400_000);
   const row = await withAudit(db, { userId: actorId, source: "web" }, (tx) =>
     tx
-      .insertInto("scimTokens")
+      .insertInto("delegatedAccesses")
       .values({
+        kind: "scim_token",
         name,
-        tokenHash: tokenHash(token),
-        createdBy: actorId,
-        expiresAt,
+        secretHash: hashSecret(token),
+        authorId: actorId,
+        endsAt: expiresAt,
       })
       .returning("id")
       .executeTakeFirstOrThrow(),
@@ -44,27 +42,30 @@ export async function createScimToken(
   return { id: row.id, token };
 }
 
+/** Every token not revoked, whoever made it. */
 export async function listScimTokens(db: Database) {
   const rows = await db
-    .selectFrom("scimTokens as t")
-    .innerJoin("users as u", "u.id", "t.createdBy")
+    .selectFrom("delegatedAccesses as a")
+    .innerJoin("users as u", "u.id", "a.authorId")
     .select([
-      "t.id",
-      "t.name",
-      "t.createdAt",
-      "t.expiresAt",
-      "t.lastUsedAt",
+      "a.id",
+      "a.name",
+      "a.createdAt",
+      "a.endsAt",
+      "a.lastUsedAt",
       "u.displayName as createdBy",
       sql<boolean>`(${isAdminOf("u.id")} and u.disabled_at is null)`.as(
         "active",
       ),
     ])
-    .orderBy("t.createdAt", "desc")
+    .where("a.kind", "=", "scim_token")
+    .where("a.revokedAt", "is", null)
+    .orderBy("a.createdAt", "desc")
     .execute();
-  return rows.map((row) => ({
+  return rows.map(({ endsAt, ...row }) => ({
     ...row,
     createdAt: row.createdAt.toISOString(),
-    expiresAt: row.expiresAt.toISOString(),
+    expiresAt: tokenEnd(endsAt).toISOString(),
     lastUsedAt: row.lastUsedAt?.toISOString() ?? null,
   }));
 }
@@ -74,17 +75,20 @@ export async function revokeScimToken(
   actorId: string,
   tokenId: string,
 ): Promise<void> {
-  const deleted = await withAudit(
+  const revoked = await withAudit(
     db,
     { userId: actorId, source: "web" },
     (tx) =>
       tx
-        .deleteFrom("scimTokens")
+        .updateTable("delegatedAccesses")
+        .set({ revokedAt: new Date() })
         .where("id", "=", tokenId)
+        .where("kind", "=", "scim_token")
+        .where("revokedAt", "is", null)
         .returning("id")
         .execute(),
   );
-  if (deleted.length === 0) throw new AppError("not_found");
+  if (revoked.length === 0) throw new AppError("not_found");
 }
 
 /**
@@ -98,18 +102,19 @@ export async function scimActor(
   const token = /^Bearer\s+(\S+)$/i.exec(authorization ?? "")?.[1];
   if (!token || !SCIM_TOKEN.test(token)) return null;
   const row = await db
-    .selectFrom("scimTokens as t")
-    .innerJoin("users as u", "u.id", "t.createdBy")
-    .select(["t.id", "t.createdBy"])
-    .where("t.tokenHash", "=", tokenHash(token))
-    .where("t.expiresAt", ">", new Date())
+    .selectFrom("delegatedAccesses as a")
+    .innerJoin("users as u", "u.id", "a.authorId")
+    .select(["a.id", "a.authorId"])
+    .where("a.kind", "=", "scim_token")
+    .where("a.secretHash", "=", hashSecret(token))
+    .where(liveAccess)
     .where(isAdminOf("u.id"))
     .where("u.disabledAt", "is", null)
     .executeTakeFirst();
   if (!row) return null;
   // Its last use, at most once a minute.
   await db
-    .updateTable("scimTokens")
+    .updateTable("delegatedAccesses")
     .set({ lastUsedAt: new Date() })
     .where("id", "=", row.id)
     .where((eb) =>
@@ -119,5 +124,5 @@ export async function scimActor(
       ]),
     )
     .execute();
-  return row.createdBy;
+  return row.authorId;
 }

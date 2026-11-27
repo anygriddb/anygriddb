@@ -13,6 +13,7 @@ import cookie from "@fastify/cookie";
 import { API_SETTING_KEYS } from "@anygriddb/core";
 import type { Database } from "@anygriddb/db";
 import Fastify, { type FastifyInstance } from "fastify";
+import { sql } from "kysely";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { setUserAdmin, setUserDisabled } from "./admin.js";
 import { registerAdminApi } from "./admin-api.js";
@@ -205,7 +206,7 @@ describe("the administration API", () => {
       Date.now() + 31 * 86_400_000,
     );
     await db
-      .updateTable("adminTokens")
+      .updateTable("delegatedAccesses")
       .set({ createdAt: new Date(Date.now() - 31 * 86_400_000) })
       .where("id", "=", sixty.id)
       .execute();
@@ -229,26 +230,32 @@ describe("the administration API", () => {
     const events = await db
       .selectFrom("auditEvents")
       .select(["action", "userId", "oldValue", "newValue"])
-      .where("catalogTable", "=", "admin_tokens")
+      .where("catalogTable", "=", "delegated_accesses")
+      .where(
+        sql<boolean>`coalesce(new_value, old_value) ->> 'kind' = 'admin_token'`,
+      )
       .orderBy("occurredAt")
       .execute();
-    // Two tokens made and revoked: each a line of the administrator's.
+    // Two tokens made and revoked: each a line of the administrator's. A
+    // revoked one stays, its revocation written.
+    type Kept = { name?: string; revoked_at?: string | null } | null;
     expect(
       events.map((event) => [
         event.action,
         event.userId,
-        (event.newValue as { name?: string } | null)?.name ?? null,
-        (event.oldValue as { name?: string } | null)?.name ?? null,
+        (event.newValue as Kept)?.name ?? null,
+        (event.oldValue as Kept)?.name ?? null,
+        Boolean((event.newValue as Kept)?.revoked_at),
       ]),
     ).toEqual([
-      ["catalog", adminId, "CI", null],
-      ["catalog", adminId, "Sixty", null],
-      ["catalog", adminId, null, "Sixty"],
-      ["catalog", adminId, null, "CI"],
+      ["catalog", adminId, "CI", null, false],
+      ["catalog", adminId, "Sixty", null, false],
+      ["catalog", adminId, "Sixty", "Sixty", true],
+      ["catalog", adminId, "CI", "CI", true],
     ]);
-    expect(JSON.stringify(events)).not.toContain("token_hash");
+    expect(JSON.stringify(events)).not.toContain("secret_hash");
     expect(JSON.stringify(events)).not.toMatch(/[0-9a-f]{64}/);
-    expect(JSON.stringify(events)).toContain('"scopes"');
+    expect(JSON.stringify(events)).toContain('"permissions"');
   });
 
   it("takes a token of this API only, while its maker is an active administrator", async () => {
@@ -278,8 +285,9 @@ describe("the administration API", () => {
     expect(withSession.statusCode).toBe(401);
     // A token that outlived its time, by its own date or the policy's.
     await db
-      .updateTable("adminTokens")
-      .set({ expiresAt: new Date(Date.now() - 1_000) })
+      .updateTable("delegatedAccesses")
+      .set({ endsAt: new Date(Date.now() - 1_000) })
+      .where("kind", "=", "admin_token")
       .where("name", "=", "settings")
       .execute();
     expect((await call("GET", "/settings", good)).statusCode).toBe(401);

@@ -194,24 +194,10 @@ export function mayGive(giver: Grant | MadeRole | null, given: Given): boolean {
 }
 
 /**
- * What a read-only token leaves of a role: what a viewer may, and no more
- * than the role gave (ADR 0128).
- */
-export function readOnlyGiven(given: Given): Given {
-  if (typeof given === "string") return "viewer";
-  return {
-    ...given,
-    permissions: given.permissions.filter((permission) =>
-      PACKS.viewer.has(permission),
-    ),
-  };
-}
-
-/**
- * Whether a role acts through a token: each of the four does, a made role
- * when it gives a token's way in (`api.access`). One that does not gives
- * a token nothing, and takes nothing away from what another role gives
- * (ADR 0131).
+ * Whether a role acts through a token: when it gives a token's way in
+ * (`api.access`), as each of the four of a rank does. One that does not
+ * gives a token nothing, and takes nothing away from what another role
+ * gives (ADR 0131).
  */
 export function tokenGiven(given: Given): boolean {
   return roleGrants(given, "api.access");
@@ -387,7 +373,23 @@ export type Binding = {
   scopeId: string;
   rows?: FilterGroup | null;
   fields?: Readonly<Record<string, ColumnAccess>> | null;
+  /**
+   * What a delegated access acting through it was entrusted (ADR 0131,
+   * §5): the role gives no more than these. Absent, all the role gives.
+   */
+  entrusted?: readonly Permission[] | null;
 };
+
+/** Whether an attribution gives a permission, within what was entrusted. */
+function bindingGrants(
+  binding: Pick<Binding, "role" | "entrusted">,
+  permission: Permission,
+): boolean {
+  return (
+    roleGrants(binding.role, permission) &&
+    (binding.entrusted == null || binding.entrusted.includes(permission))
+  );
+}
 
 /** The four of a rank, by it; the other shipped roles are on no rank. */
 const ROLE_RANK: Partial<Record<Role, number>> = {
@@ -418,14 +420,28 @@ function emptyParts(): Parts {
   return { shipped: new Set(), made: new Map(), permissions: new Set() };
 }
 
-function addGiven(parts: Parts, given: Given): void {
-  if (typeof given === "string") {
-    parts.shipped.add(given);
-    for (const permission of PACKS[given]) parts.permissions.add(permission);
-    return;
+function addGiven(
+  parts: Parts,
+  given: Given,
+  entrusted?: readonly Permission[] | null,
+): void {
+  const kept = (permission: Permission) =>
+    entrusted == null || entrusted.includes(permission);
+  const permissions =
+    typeof given === "string" ? [...PACKS[given]] : given.permissions;
+  if (typeof given === "string") parts.shipped.add(given);
+  else parts.made.set(given.id, { id: given.id, name: given.name });
+  for (const permission of permissions) {
+    if (kept(permission)) parts.permissions.add(permission);
   }
-  parts.made.set(given.id, { id: given.id, name: given.name });
-  for (const permission of given.permissions) parts.permissions.add(permission);
+}
+
+/** Whether what is held is exactly what one shipped role gives. */
+function holdsExactly(parts: Parts, role: Role): boolean {
+  return (
+    parts.permissions.size === PACKS[role].size &&
+    [...PACKS[role]].every((permission) => parts.permissions.has(permission))
+  );
 }
 
 function addGrant(parts: Parts, grant: Grant): void {
@@ -457,7 +473,7 @@ function composed(parts: Parts): Grant | null {
       best = role;
     }
   }
-  if (best === "owner") return "owner";
+  if (best === "owner" && holdsExactly(parts, "owner")) return "owner";
   // Shipped roles beyond the highest of the four, the narrower ones left
   // out where another held covers them.
   const others = shipped.filter(
@@ -472,9 +488,21 @@ function composed(parts: Parts): Grant | null {
           !covers(role, other),
       ),
   );
+  // One word only where it says exactly what is held: what a delegated
+  // access was entrusted may leave less than the role gives.
   if (parts.made.size === 0) {
-    if (others.length === 0) return best;
-    if (best === null && others.length === 1) return others[0] ?? null;
+    if (others.length === 0 && best !== null && holdsExactly(parts, best)) {
+      return best;
+    }
+    const only = others[0];
+    if (
+      best === null &&
+      others.length === 1 &&
+      only !== undefined &&
+      holdsExactly(parts, only)
+    ) {
+      return only;
+    }
   }
   return {
     role: best,
@@ -499,7 +527,7 @@ export function roleFor(
   const parts = emptyParts();
   for (const binding of bindings) {
     if (binding.scope !== scope || binding.scopeId !== scopeId) continue;
-    addGiven(parts, binding.role);
+    addGiven(parts, binding.role, binding.entrusted);
   }
   return composed(parts);
 }
@@ -542,7 +570,7 @@ const ACCESS_RANK: Record<ColumnAccess, number> = {
 function narrowing(binding: Binding): boolean {
   return (
     (binding.rows != null || binding.fields != null) &&
-    !roleGrants(binding.role, "members.manage")
+    !bindingGrants(binding, "members.manage")
   );
 }
 
@@ -553,10 +581,10 @@ function rowsThrough(binding: Binding): FilterGroup | null {
 
 /** A field's access through one attribution, never above its role. */
 function fieldThrough(binding: Binding, column: string): ColumnAccess {
-  if (!roleGrants(binding.role, "rows.read")) return "hide";
+  if (!bindingGrants(binding, "rows.read")) return "hide";
   const fields = narrowing(binding) ? binding.fields : null;
   const said = fields ? (fields[column] ?? "hide") : "write";
-  if (said === "write" && !roleGrants(binding.role, "rows.write")) {
+  if (said === "write" && !bindingGrants(binding, "rows.write")) {
     return "read";
   }
   return said;
@@ -594,7 +622,7 @@ export function tableRules(
   );
   if (!reach.some(narrowing)) return undefined;
   const rows = (act: Permission): FilterGroup | undefined => {
-    const givers = reach.filter((binding) => roleGrants(binding.role, act));
+    const givers = reach.filter((binding) => bindingGrants(binding, act));
     if (givers.some((binding) => !rowsThrough(binding))) return undefined;
     const filters = givers.flatMap((binding) => {
       const through = rowsThrough(binding);
@@ -609,7 +637,7 @@ export function tableRules(
     fields: !reach.some(
       (binding) =>
         !(narrowing(binding) && binding.fields) &&
-        roleGrants(binding.role, "rows.read"),
+        bindingGrants(binding, "rows.read"),
     ),
   };
   return {
@@ -669,8 +697,8 @@ export function enrollmentGate(input: {
   // An owner, or whoever a made role lets give access or run the base.
   const owner = input.bindings.some(
     (binding) =>
-      roleGrants(binding.role, "members.manage") ||
-      roleGrants(binding.role, "base.manage"),
+      bindingGrants(binding, "members.manage") ||
+      bindingGrants(binding, "base.manage"),
   );
   return owner || input.creatingBase ? "enroll" : "ok";
 }

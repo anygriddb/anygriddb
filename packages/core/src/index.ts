@@ -367,7 +367,6 @@ export {
   isInstancePermission,
   madePermissions,
   mayGive,
-  readOnlyGiven,
   tokenGiven,
   roleFor,
   roleGrants,

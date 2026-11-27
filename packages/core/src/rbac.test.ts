@@ -12,7 +12,6 @@ import {
   mayGive,
   PERMISSIONS,
   type Permission,
-  readOnlyGiven,
   roleFor,
   roleGrants,
   rolePermissions,
@@ -284,12 +283,50 @@ describe("made roles", () => {
     ).toBe(true);
   });
 
-  it("leave a read-only token a viewer's part of them", () => {
-    expect(readOnlyGiven("owner")).toBe("viewer");
-    expect(readOnlyGiven(REVIEWER)).toEqual({
-      ...REVIEWER,
-      permissions: ["rows.read"],
+  it("give a delegated access no more than it was entrusted", () => {
+    const viewer = rolePermissions("viewer");
+    const asToken = (
+      role: Binding["role"],
+      entrusted: readonly Permission[] | null,
+    ): Binding[] => [{ role, scope: "base", scopeId: "b", entrusted }];
+    // A read-only token of an owner: a viewer's part, its role named.
+    const readOnly = roleFor(asToken("owner", viewer), "base", "b");
+    expect(readOnly).toEqual({
+      role: "owner",
+      shipped: [],
+      made: [],
+      permissions: viewer,
     });
+    expect(roleGrants(readOnly, "rows.write")).toBe(false);
+    // A made role keeps what it gives of what was entrusted.
+    expect(
+      rolePermissions(
+        roleFor(asToken(REVIEWER, viewer), "base", "b") ?? "viewer",
+      ),
+    ).toEqual(["rows.read"]);
+    // Kept from deleting, an editor writes and deletes nothing.
+    const noDelete = PERMISSIONS.filter((one) => one !== "rows.delete");
+    const editor = roleFor(asToken("editor", noDelete), "base", "b");
+    expect(roleGrants(editor, "rows.write")).toBe(true);
+    expect(roleGrants(editor, "rows.delete")).toBe(false);
+    // Entrusted all of it, the role is named alone.
+    expect(roleFor(asToken("editor", PERMISSIONS), "base", "b")).toBe("editor");
+    // What the table's rules read narrows likewise.
+    expect(
+      tableRules(
+        [
+          {
+            role: "editor",
+            scope: "table",
+            scopeId: "t",
+            fields: { amount: "write" },
+            entrusted: viewer,
+          },
+        ],
+        "t",
+        "b",
+      )?.access("amount"),
+    ).toBe("read");
   });
 
   it("act through a token only when they give it a way in", () => {

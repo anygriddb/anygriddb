@@ -611,9 +611,9 @@ describe("the security policy", () => {
       const token = (await createApiToken(db, person.id, "old", { days: 90 }))
         .token;
       await db
-        .updateTable("apiTokens")
+        .updateTable("delegatedAccesses")
         .set({ createdAt: sql<Date>`now() - interval '40 days'` })
-        .where("userId", "=", person.id)
+        .where("authorId", "=", person.id)
         .execute();
       const asToken = () =>
         requestActor(db, { authorization: `Bearer ${token}` }, undefined);

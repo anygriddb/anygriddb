@@ -265,9 +265,10 @@ describe("handing a leaving person's work over", () => {
     // Tokens are never moved, and stay until revoked.
     expect(
       await db
-        .selectFrom("apiTokens")
-        .select("userId")
-        .where("userId", "in", [leaId, samId])
+        .selectFrom("delegatedAccesses")
+        .select("authorId as userId")
+        .where("authorId", "in", [leaId, samId])
+        .where("revokedAt", "is", null)
         .execute(),
     ).toEqual([{ userId: leaId }, { userId: leaId }]);
     // On the sign-in trail, under the administrator's name.
@@ -302,9 +303,10 @@ describe("handing a leaving person's work over", () => {
     expect(await authorOf("automations", `Archive ${suffix}`)).toBe(samId);
     expect(
       await db
-        .selectFrom("apiTokens")
+        .selectFrom("delegatedAccesses")
         .select("id")
-        .where("userId", "=", leaId)
+        .where("authorId", "=", leaId)
+        .where("revokedAt", "is", null)
         .execute(),
     ).toEqual([]);
     expect(

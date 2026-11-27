@@ -1,6 +1,7 @@
 /**
- * Authorization code + PKCE + refresh for applications (ADR 0094).
- * Access tokens are normal api_tokens rows so REST and MCP stay one path.
+ * Authorization code + PKCE + refresh for applications (ADR 0094). A
+ * grant is one delegated access of the kind `application` (ADR 0131, §5),
+ * whose secret each renewal replaces: REST and MCP read it as any token.
  */
 import { randomBytes } from "node:crypto";
 import { AppError, roleFor, ceilingOf } from "@anygriddb/core";
@@ -9,7 +10,9 @@ import type { Database, Tx } from "@anygriddb/db";
 import { sql } from "kysely";
 import { loadBindings } from "../auth/access.js";
 import { verifyPassword } from "../auth/argon2.js";
-import { hashApiToken, insertApiToken, tokenDays } from "../auth/tokens.js";
+import { hashSecret, liveAccess } from "../auth/delegated.js";
+import { insertApiToken, revokeAccesses, tokenDays } from "../auth/tokens.js";
+import { withAudit } from "../data/audit-context.js";
 import { readGateSettings } from "../settings.js";
 import { findLiveOauthClient } from "./clients.js";
 import { sha256Hex } from "./hash.js";
@@ -141,7 +144,7 @@ async function issueTokens(
       tokenHash: sha256Hex(refresh),
       clientId: client.id,
       userId: grant.userId,
-      apiTokenId: access.id,
+      accessId: access.id,
       expiresAt: new Date(Date.now() + REFRESH_DAYS * 86_400_000),
     })
     .execute();
@@ -182,8 +185,9 @@ export async function exchangeAuthorizationCode(
   }
   const days = tokenDays(undefined, await readGateSettings(db));
   // The code is taken and its tokens made together: of two exchanges sent
-  // at once one takes it, and a failure leaves it to be tried again.
-  return db.transaction().execute(async (tx) => {
+  // at once one takes it, and a failure leaves it to be tried again. The
+  // grant is the person's, and is on the change trail as theirs.
+  return withAudit(db, { userId: row.userId, source: "oauth" }, async (tx) => {
     const taken = await tx
       .updateTable("oauthAuthorizationCodes")
       .set({ usedAt: new Date() })
@@ -197,9 +201,10 @@ export async function exchangeAuthorizationCode(
 }
 
 /**
- * Renews a grant: the refresh token and its access token are replaced by
- * new ones, in one transaction. Of two renewals sent at once with one
- * refresh token, one takes it and the other is refused.
+ * Renews a grant: its secret and its refresh token are replaced by new
+ * ones, in one transaction; the grant stays one access. Of two renewals
+ * sent at once with one refresh token, one takes it and the other is
+ * refused, as is a grant revoked since.
  */
 export async function refreshAccessToken(
   db: Database,
@@ -219,33 +224,46 @@ export async function refreshAccessToken(
       .where("clientId", "=", client.id)
       .where("revokedAt", "is", null)
       .where("expiresAt", ">", new Date())
-      .returning(["userId", "apiTokenId"])
+      .returning(["userId", "accessId"])
       .executeTakeFirst();
     if (!taken) throw new AppError("invalid_input");
-    // The access token goes, and takes the refresh token just used with it.
-    const replaced = await tx
-      .deleteFrom("apiTokens")
-      .where("id", "=", taken.apiTokenId)
-      .returning(["baseIds", "readOnly", "allowDelete"])
+    // Neither a new secret nor its end is a change of what was granted:
+    // the change trail does not follow a renewal.
+    const access = `ag_${randomBytes(32).toString("base64url")}`;
+    const endsAt = new Date(Date.now() + days * 86_400_000);
+    const renewed = await tx
+      .updateTable("delegatedAccesses as a")
+      .set({ secretHash: hashSecret(access), endsAt })
+      .where("a.id", "=", taken.accessId)
+      .where("a.clientId", "=", client.id)
+      .where("a.revokedAt", "is", null)
+      .returning("a.id")
       .executeTakeFirst();
-    if (!replaced) throw new AppError("invalid_input");
-    return issueTokens(
-      tx,
-      client,
-      {
+    if (!renewed) throw new AppError("invalid_input");
+    const refresh = `agr_${randomBytes(32).toString("base64url")}`;
+    await tx
+      .insertInto("oauthRefreshTokens")
+      .values({
+        tokenHash: sha256Hex(refresh),
+        clientId: client.id,
         userId: taken.userId,
-        baseIds: Array.isArray(replaced.baseIds) ? replaced.baseIds : null,
-        readOnly: replaced.readOnly,
-        allowDelete: replaced.allowDelete,
-      },
-      { days, detail: "oauth_refresh" },
-    );
+        accessId: renewed.id,
+        expiresAt: new Date(Date.now() + REFRESH_DAYS * 86_400_000),
+      })
+      .execute();
+    return {
+      access_token: access,
+      token_type: "Bearer",
+      expires_in: days * 86_400,
+      refresh_token: refresh,
+    };
   });
 }
 
 /**
  * Ends a grant of this client from either of its tokens (RFC 7009): a
- * client may hold only its access token when it signs someone out.
+ * client may hold only its access token when it signs someone out. The
+ * grant stays, revoked, with its refresh tokens.
  */
 export async function revokeGrantToken(
   db: Database,
@@ -256,29 +274,36 @@ export async function revokeGrantToken(
   },
 ): Promise<void> {
   const client = await authenticClient(db, input);
-  // Deleting the access token removes the refresh token with it.
-  await db
-    .deleteFrom("apiTokens")
-    .where("oauthClientId", "=", client.id)
+  const grant = await db
+    .selectFrom("delegatedAccesses as a")
+    .select(["a.id", "a.authorId"])
+    .where("a.clientId", "=", client.id)
+    .where(liveAccess)
     .where((eb) =>
       eb.or([
-        eb("tokenHash", "=", hashApiToken(input.token)),
-        eb("id", "in", (inner) =>
+        eb("a.secretHash", "=", hashSecret(input.token)),
+        eb("a.id", "in", (inner) =>
           inner
             .selectFrom("oauthRefreshTokens")
-            .select("apiTokenId")
+            .select("accessId")
             .where("tokenHash", "=", sha256Hex(input.token))
             .where("clientId", "=", client.id),
         ),
       ]),
     )
-    .execute();
+    .executeTakeFirst();
+  // RFC 7009: an unknown token is answered alike.
+  if (!grant) return;
+  await withAudit(db, { userId: grant.authorId, source: "oauth" }, (tx) =>
+    revokeAccesses(tx, (query) => query.where("id", "=", grant.id)),
+  );
 }
 
 /**
- * Codes that were used or ran out, and refresh tokens past their time:
- * each is refused wherever it is read, and the hourly purge deletes the
- * rows, so that a table of secrets' hashes does not grow with every grant.
+ * Codes that were used or ran out, and refresh tokens past their time or
+ * revoked: each is refused wherever it is read, and the hourly purge
+ * deletes the rows, so that a table of secrets' hashes does not grow with
+ * every grant.
  */
 export async function purgeOauthGrants(db: Database): Promise<void> {
   const now = new Date();
@@ -290,6 +315,8 @@ export async function purgeOauthGrants(db: Database): Promise<void> {
     .execute();
   await db
     .deleteFrom("oauthRefreshTokens")
-    .where("expiresAt", "<", now)
+    .where((eb) =>
+      eb.or([eb("expiresAt", "<", now), eb("revokedAt", "is not", null)]),
+    )
     .execute();
 }

@@ -1,7 +1,7 @@
 /**
  * OAuth clients an administrator registers (ADR 0094): name, redirect
  * URIs, a secret shown once. Revoking a client stops new codes; existing
- * api_tokens for that client are deleted with their refresh rows.
+ * grants of that client are revoked with their refresh tokens.
  */
 import { randomBytes } from "node:crypto";
 import { AppError } from "@anygriddb/core";
@@ -9,6 +9,8 @@ import type { Database } from "@anygriddb/db";
 import { sql } from "kysely";
 import { hashPassword } from "../auth/argon2.js";
 import { recordAuthEvent } from "../auth/auth-events.js";
+import { revokeAccesses } from "../auth/tokens.js";
+import { withAudit } from "../data/audit-context.js";
 
 const HTTPS_OR_LOOPBACK =
   /^(https:\/\/.+|http:\/\/(127\.0\.0\.1|localhost|\[::1\])(:\d+)?(\/.*)?)$/i;
@@ -99,7 +101,7 @@ export async function revokeOauthClient(
   adminId: string,
   clientRowId: string,
 ): Promise<void> {
-  await db.transaction().execute(async (tx) => {
+  await withAudit(db, { userId: adminId, source: "web" }, async (tx) => {
     const client = await tx
       .selectFrom("oauthClients")
       .select(["id", "revokedAt"])
@@ -113,10 +115,10 @@ export async function revokeOauthClient(
         .where("id", "=", client.id)
         .execute();
     }
-    await tx
-      .deleteFrom("apiTokens")
-      .where("oauthClientId", "=", client.id)
-      .execute();
+    // Every grant it held stops, and stays on the trail as revoked.
+    await revokeAccesses(tx, (query) =>
+      query.where("clientId", "=", client.id),
+    );
     await recordAuthEvent(tx, {
       action: "settings_changed",
       userId: adminId,

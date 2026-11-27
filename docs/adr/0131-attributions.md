@@ -201,6 +201,13 @@ said. Each case is counted by the migration's check:
 | `ends_at`, `last_used_at`, `revoked_at` | until when, last use, revocation                                                                  |
 | `details`                               | what its kind adds (a link's view and password, a feed's view, an application's client)           |
 
+- **As built** (migration 0155, the tokens first): a token may reach
+  several bases, which one `scope`/`scope_id` cannot say, so the table
+  keeps `base_ids` (null: every base its author reaches); an
+  application's client is a real foreign key, `client_id`, so that
+  deleting a client takes its grants. `permissions` null means all the
+  author holds. An application's renewal changes the secret of its one
+  access; neither a use nor a renewal is on the change trail.
 - **What it may do is what it was entrusted ∩ what its author holds when
   it acts**, a job a token started included, at each run. While the author
   no longer holds it, or is disabled, it is **suspended** (it stays, does

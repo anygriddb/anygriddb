@@ -113,9 +113,11 @@ export async function handoffInfo(
     automationsOf(db, userId),
     webhooksOf(db, userId),
     db
-      .selectFrom("apiTokens")
+      .selectFrom("delegatedAccesses")
       .select((eb) => eb.fn.countAll<string>().as("count"))
-      .where("userId", "=", userId)
+      .where("authorId", "=", userId)
+      .where("kind", "in", ["api_token", "application"])
+      .where("revokedAt", "is", null)
       .executeTakeFirst(),
   ]);
   return {
