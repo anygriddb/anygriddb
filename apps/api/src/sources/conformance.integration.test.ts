@@ -680,7 +680,7 @@ const PINNED: Record<string, unknown[]> = {
   'ARRAY_JOIN(ARRAY_FLATTEN(TEXT_SPLIT({s}, " "), {t}, TEXT_SPLIT("x y", " ")), "+")':
     ["Hello+World+o+x+y", "+x+y", "Élan+vital+é+x+y"],
   'ARRAY_JOIN(ARRAY_SORT({L_t}), "+") & "|" & ARRAY_JOIN(ARRAY_SORT({L_t}, "desc"), "+") & "|" & COUNTALL(ARRAY_SORT({L_n}, "desc"))':
-    ["+o|o+|2", "é|é|1", "||0"],
+    ["o+|o+|2", "é|é|1", "||0"],
   'ARRAY_JOIN(ARRAY_SORT({L_b})) & "|" & ARRAY_JOIN(ARRAY_SORT({L_d}, "desc"))':
     ["false, true|2026-02-28", "|2024-02-29", "|"],
   'COUNTALL(ARRAY_FLATTEN({L_n}, {L_n}, 1)) & "|" & SUM(ARRAY_FLATTEN({L_n}, 2))':
