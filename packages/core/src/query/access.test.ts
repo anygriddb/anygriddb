@@ -177,6 +177,29 @@ describe("row access", () => {
     expectBound(sql);
   });
 
+  it("keeps no row when a condition of the rule holds no value its field takes", () => {
+    for (const kept of [
+      rule("status", "is", ""),
+      rule("price", "gt", "ten"),
+      { conjunction: "and" as const, conditions: [] },
+      {
+        conjunction: "and" as const,
+        conditions: [
+          ...rule("status", "is", "Open").conditions,
+          ...rule("price", "is", "abc").conditions,
+        ],
+      },
+    ]) {
+      const catalog = withAccess({
+        rowFilter: (tableId) => (tableId === ORDERS_ID ? kept : undefined),
+      });
+      const sql = buildReadRows(catalog, { limit: 10 });
+      expect(sql.text).toContain(`from "t_orders" r where false) q`);
+      expect(sql.values).not.toContain("Open");
+      expectBound(sql);
+    }
+  });
+
   it("keeps no row when a rule field fails to project", () => {
     const base = withAccess({
       rowFilter: (tableId) =>

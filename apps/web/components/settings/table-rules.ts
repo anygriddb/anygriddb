@@ -1,4 +1,10 @@
-import { type FilterGroup, type Grant, roleGrants } from "@anygriddb/core";
+import {
+  awaitsValue,
+  type FilterGroup,
+  type Grant,
+  isFilterGroup,
+  roleGrants,
+} from "@anygriddb/core";
 
 export type FieldAccess = "hide" | "read" | "write";
 
@@ -71,10 +77,29 @@ export function storedAccess(
 }
 
 /**
+ * What keeps a row rule from being saved, as the server would refuse it:
+ * a group without a condition, or the first condition still waiting for
+ * its value. Left out, either would show rows the rule was set to hide.
+ */
+export function ruleGap(
+  group: FilterGroup,
+): { kind: "empty" } | { kind: "blank"; column: string } | null {
+  if (group.conditions.length === 0) return { kind: "empty" };
+  for (const node of group.conditions) {
+    if (isFilterGroup(node)) {
+      const gap = ruleGap(node);
+      if (gap) return gap;
+    } else if (awaitsValue(node)) {
+      return { kind: "blank", column: node.column };
+    }
+  }
+  return null;
+}
+
+/**
  * The rule to keep. No field rule at all while every field is read and
  * written: a rule that names every field would hide the next one added,
- * which nobody asked. No row rule while it has no condition: it would
- * keep no row.
+ * which nobody asked.
  */
 export function ruleToSave(
   access: Readonly<Record<string, FieldAccess>>,
@@ -82,7 +107,7 @@ export function ruleToSave(
 ): { rowFilter: FilterGroup | null; columns: StoredRule["columns"] } {
   const entries = Object.entries(access);
   return {
-    rowFilter: rowFilter && rowFilter.conditions.length > 0 ? rowFilter : null,
+    rowFilter,
     columns: entries.every(([, value]) => value === "write")
       ? []
       : entries.map(([column, value]) => ({ column, access: value })),

@@ -529,7 +529,10 @@ describe("what an open socket hears", () => {
         admin.call().catalog.setTableAcl({
           tableId,
           userId: member.id,
-          rowFilter: { conjunction: "and", conditions: [] },
+          rowFilter: {
+            conjunction: "and",
+            conditions: [{ column: "title", op: "is", value: "Other" }],
+          },
           columns: [],
         }),
       ),

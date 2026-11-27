@@ -4,7 +4,7 @@
  */
 import {
   AppError,
-  buildCountRows,
+  checkFilter,
   givenRoleSchema,
   clearTableAclInputSchema,
   effectiveTableRole,
@@ -392,9 +392,10 @@ export const catalogAccessProcedures = {
           if (!known.has(column.column)) throw new AppError("unknown_column");
         }
         if (input.rowFilter) {
-          // A rule that does not compile would hide every row: refuse it.
+          // A rule kept is one that compiles whole: a condition without a
+          // value its field takes would otherwise be left out of it.
           const { engine } = await loadEngine(ctx.db, table.id, () => true);
-          buildCountRows(engine, { filter: input.rowFilter, me: input.userId });
+          checkFilter(engine, input.rowFilter, "rule", input.userId);
         }
         await setTableAcl(ctx.db, user.id, input);
         return { ok: true as const };

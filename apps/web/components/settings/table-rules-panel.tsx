@@ -19,6 +19,7 @@ import {
   narrowable,
   restricts,
   ruledMembers,
+  ruleGap,
   ruleToSave,
   storedAccess,
   type FieldAccess,
@@ -115,6 +116,20 @@ export function TableRulesPanel(props: {
   }
 
   async function save() {
+    const gap = rowFilter ? ruleGap(rowFilter) : null;
+    if (gap) {
+      const field =
+        gap.kind === "blank"
+          ? (props.columns.find((column) => column.name === gap.column)
+              ?.label ?? gap.column)
+          : "";
+      toast.error(
+        gap.kind === "empty"
+          ? t`Add a condition on the rows this member sees, or choose Every row.`
+          : t`The condition on ${{ field }} has no value yet: give it one, or remove it.`,
+      );
+      return;
+    }
     const rule = ruleToSave(access, rowFilter);
     try {
       await trpc.catalog.setTableAcl.mutate({

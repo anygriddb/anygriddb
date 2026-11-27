@@ -1,6 +1,7 @@
 import { numberToDecimal, toDecimalString } from "../decimal";
 import {
   OPERATORS_BY_KIND,
+  awaitsValue,
   calendarPeriod,
   isFilterGroup,
   type DateFilterValue,
@@ -48,8 +49,20 @@ export type ColumnRef = {
   storedNumber?: string;
 };
 
+/**
+ * What becomes of a condition whose value its field cannot use. Left out,
+ * it is skipped: a view being edited holds a condition still blank, and a
+ * view saved before its field changed type a value the field no longer
+ * takes. `values`: a value the field cannot hold is refused, a blank one
+ * still skipped (a request's own filter). `rule`: both are refused, and a
+ * group without a condition too, since a row rule that lost a condition
+ * would show the rows it was set to hide.
+ */
+export type FilterCheck = "values" | "rule";
+
 export type FilterContext = {
   params: SqlParams;
+  check?: FilterCheck;
   /** The engine the query runs on (ADR 0005). */
   d: SqlDialect;
   /** Bound time-zone placeholder. */
@@ -162,6 +175,17 @@ function dateParam(ctx: FilterContext, date: string): string {
     : `cast(${bound} as date)`;
 }
 
+/** A condition whose value cannot be used: skipped, or refused as `ctx.check` says. */
+function unusable(ctx: FilterContext, condition: FilterCondition): null {
+  if (
+    ctx.check === "rule" ||
+    (ctx.check === "values" && !awaitsValue(condition))
+  ) {
+    throw new AppError("invalid_filter", condition.column);
+  }
+  return null;
+}
+
 /**
  * `is_between`: `[from, to]`, both ends included, a blank end open. Dates
  * compare by calendar day, a date and time in the reader's time zone.
@@ -169,10 +193,11 @@ function dateParam(ctx: FilterContext, date: string): string {
 function betweenSql(
   ctx: FilterContext,
   ref: ColumnRef,
-  value: FilterValue | undefined,
+  condition: FilterCondition,
 ): string | null {
+  const { value } = condition;
   if (value === undefined || value === null || value === "") {
-    return null;
+    return unusable(ctx, condition);
   }
   if (!Array.isArray(value) || value.length !== 2) {
     throw new AppError("invalid_filter");
@@ -199,13 +224,22 @@ function betweenSql(
   } else {
     throw new AppError("invalid_filter");
   }
-  const [from, to] = value.map(bound);
+  const [from, to] = value.map((end) => {
+    const sql = bound(end);
+    // A blank end is open; another that does not read is not one.
+    if (sql === undefined && end !== "" && ctx.check) {
+      throw new AppError("invalid_filter", condition.column);
+    }
+    return sql;
+  });
   // A stored value with a time of day stays on the last day until the next.
   const upTo = (on: string, end: string) =>
     ref.kind === "date" && ref.stored
       ? `${on} < ${d.addDays(end, "1")}`
       : `${on} <= ${end}`;
-  if (from === undefined && to === undefined) return null;
+  if (from === undefined && to === undefined) {
+    return unusable(ctx, condition);
+  }
   const within = (on: string) =>
     `(${[
       ...(from === undefined ? [] : [`${on} >= ${from}`]),
@@ -328,7 +362,10 @@ function dateRange(
   }
 }
 
-/** Compiles one condition, or returns null when its value is still blank. */
+/**
+ * Compiles one condition, or returns null when its value cannot be used and
+ * `ctx.check` lets it be skipped.
+ */
 export function compileCondition(
   ctx: FilterContext,
   condition: FilterCondition,
@@ -356,19 +393,19 @@ export function compileCondition(
     return `(not ${emptySql(ref, d)})`;
   }
   if (op === "is_between") {
-    return betweenSql(ctx, ref, value);
+    return betweenSql(ctx, ref, condition);
   }
   switch (ref.kind) {
     case "boolean": {
       if (typeof value !== "boolean") {
-        return null;
+        return unusable(ctx, condition);
       }
       return `(coalesce(${x}, ${d.boolLiteral(false)}) = ${d.boolLiteral(value)})`;
     }
     case "text": {
       if (op === "is_any_of" || op === "is_none_of") {
         const items = listValue(value, ctx.me);
-        if (!items) return null;
+        if (!items) return unusable(ctx, condition);
         const list = d.textList(items, (item) => ctx.params.bind(item));
         return op === "is_any_of"
           ? `(${d.inTexts(x, list)})`
@@ -376,7 +413,7 @@ export function compileCondition(
       }
       const text = textValue(value);
       if (text === undefined) {
-        return null;
+        return unusable(ctx, condition);
       }
       switch (op) {
         case "is":
@@ -400,7 +437,7 @@ export function compileCondition(
     case "number": {
       const number = numberValue(value);
       if (number === undefined) {
-        return null;
+        return unusable(ctx, condition);
       }
       const bound = d.numberParam(ctx.params.bind(number));
       const symbol = {
@@ -422,7 +459,7 @@ export function compileCondition(
     case "datetime": {
       const range = dateRange(ctx, value, op === "is_within");
       if (!range) {
-        return null;
+        return unusable(ctx, condition);
       }
       const day =
         ref.kind === "datetime" ? d.localDate(x, ctx.tz) : (ref.stored ?? x);
@@ -447,7 +484,7 @@ export function compileCondition(
     }
     case "user": {
       const items = listValue(value, ctx.me);
-      if (!items) return null;
+      if (!items) return unusable(ctx, condition);
       if (d.name !== "postgres") return d.unavailable("user");
       const list = ctx.params.bindTextArray(items);
       switch (op) {
@@ -464,13 +501,13 @@ export function compileCondition(
     case "links": {
       if (op === "contains" || op === "not_contains") {
         const text = textValue(value);
-        if (text === undefined) return null;
+        if (text === undefined) return unusable(ctx, condition);
         const pattern = ctx.params.bind(likePattern(text, "contains"));
         const exists = d.linksLabelLike(x, pattern);
         return op === "contains" ? exists : `(not ${exists})`;
       }
       const items = listValue(value, ctx.me);
-      if (!items) return null;
+      if (!items) return unusable(ctx, condition);
       const exists = d.linksIdIn(
         x,
         d.textList(items, (item) => ctx.params.bind(item)),
@@ -486,7 +523,7 @@ export function compileCondition(
         if (ref.kind !== "array") return d.unavailable(ref.kind);
         if (op === "contains" || op === "not_contains") {
           const text = textValue(value);
-          if (text === undefined) return null;
+          if (text === undefined) return unusable(ctx, condition);
           const like = d.listTextLike(
             x,
             ctx.params.bind(likePattern(text, "contains")),
@@ -494,7 +531,7 @@ export function compileCondition(
           return op === "contains" ? like : `(not ${like})`;
         }
         const items = listValue(value, ctx.me);
-        if (!items) return null;
+        if (!items) return unusable(ctx, condition);
         const test = {
           has_any_of: "any",
           has_all_of: "all",
@@ -512,13 +549,13 @@ export function compileCondition(
           : `${x}::text[]`;
       if (op === "contains" || op === "not_contains") {
         const text = textValue(value);
-        if (text === undefined) return null;
+        if (text === undefined) return unusable(ctx, condition);
         const pattern = ctx.params.bind(likePattern(text, "contains"));
         const exists = `exists (select 1 from unnest(${asText}) v where v ilike ${pattern} escape '\\')`;
         return op === "contains" ? exists : `(not ${exists})`;
       }
       const items = listValue(value, ctx.me);
-      if (!items) return null;
+      if (!items) return unusable(ctx, condition);
       const list = ctx.params.bindTextArray(items);
       switch (op) {
         case "has_any_of":
@@ -554,6 +591,7 @@ export function compileFilter(
     }
   }
   if (parts.length === 0) {
+    if (ctx.check === "rule") throw new AppError("invalid_filter");
     return null;
   }
   return `(${parts.join(group.conjunction === "and" ? " and " : " or ")})`;

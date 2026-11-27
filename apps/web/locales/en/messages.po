@@ -2290,6 +2290,10 @@ msgstr "Add a colour rule"
 msgid "Add a condition"
 msgstr "Add a condition"
 
+#: components/settings/table-rules-panel.tsx
+msgid "Add a condition on the rows this member sees, or choose Every row."
+msgstr "Add a condition on the rows this member sees, or choose Every row."
+
 #: components/views/calendar-view.tsx
 msgid "Add a date field to show the calendar."
 msgstr "Add a date field to show the calendar."
@@ -13256,6 +13260,10 @@ msgstr "The collectors of the sign-in trail (Connections) also get each change's
 #: components/record/record-panel.tsx
 msgid "The comment by {name} is replaced by “Comment deleted” for everyone, and cannot be put back."
 msgstr "The comment by {name} is replaced by “Comment deleted” for everyone, and cannot be put back."
+
+#: components/settings/table-rules-panel.tsx
+msgid "The condition on {field} has no value yet: give it one, or remove it."
+msgstr "The condition on {field} has no value yet: give it one, or remove it."
 
 #: lib/errors.ts
 msgid "The connection to the mail relay cannot be encrypted and verified: 465 for TLS from the start, or 587 with STARTTLS, and a certificate this instance trusts"
