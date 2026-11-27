@@ -172,6 +172,15 @@ test("an owner invites an address, its account accepts, and reads what its permi
   await rules
     .getByRole("button", { name: "Give the role table by table" })
     .click();
+  // Asked first, with what changes for the tables made later.
+  const asked = page.getByRole("dialog", {
+    name: `Give Guest ${stamp} their role table by table?`,
+  });
+  await expect(
+    asked.getByText("a table made later is not theirs", { exact: false }),
+  ).toBeVisible();
+  expect(await accessibilityViolations(page)).toEqual([]);
+  await asked.getByRole("button", { name: "Give it table by table" }).click();
   await expect(page.getByText("Role given table by table")).toBeVisible();
   await rules.getByRole("button", { name: "View as" }).click();
   const preview = rules.getByRole("region", {

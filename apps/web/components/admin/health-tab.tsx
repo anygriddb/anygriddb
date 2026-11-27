@@ -278,7 +278,7 @@ export function HealthTab() {
                 {data.integrationErrors.map((row) => (
                   <li key={row.id}>
                     {row.name} ({row.provider})
-                    {row.lastError ? `: ${row.lastError}` : ""}
+                    {row.lastError ? `: ${errorText(row.lastError)}` : ""}
                   </li>
                 ))}
               </ul>

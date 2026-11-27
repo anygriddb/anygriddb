@@ -2952,6 +2952,10 @@ msgstr "Une autre application modifie cette ligne : réessayez dans un instant"
 msgid "Another row already holds this value, in a field of unique values"
 msgstr "Une autre ligne contient déjà cette valeur, dans un champ à valeurs uniques"
 
+#: lib/known-text.ts
+msgid "Answer too large"
+msgstr "Réponse trop grande"
+
 #: components/admin/security-tab.tsx
 msgid "Any address"
 msgstr "Toute adresse"
@@ -6392,6 +6396,10 @@ msgstr "Donner le rôle de gestionnaire des sources à {name} ?"
 msgid "Give {name} the support role?"
 msgstr "Donner le rôle de support à {name} ?"
 
+#: components/settings/table-rules-panel.tsx
+msgid "Give {name} their role table by table?"
+msgstr "Donner à {name} son rôle table par table ?"
+
 #: components/settings/group-roles.tsx
 msgid "Give a group a role"
 msgstr "Donner un rôle à un groupe"
@@ -6416,6 +6424,10 @@ msgstr "Indiquez une adresse qui commence par https://."
 #: components/table/automations-dialog.tsx
 msgid "Give at least one recipient."
 msgstr "Indiquez au moins un destinataire."
+
+#: components/settings/table-rules-panel.tsx
+msgid "Give it table by table"
+msgstr "Le donner table par table"
 
 #: components/admin/give-base-role.tsx
 msgid "Give myself the role"
@@ -8042,6 +8054,10 @@ msgstr "Créé par"
 #: components/admin/accounts-tab.tsx
 msgid "Made here"
 msgstr "Créé ici"
+
+#: lib/known-text.ts
+msgid "Mail is not configured"
+msgstr "L’e-mail n’est pas configuré"
 
 #: components/admin/settings-tab.tsx
 #: components/admin/sign-in-trail.tsx
@@ -14081,6 +14097,10 @@ msgstr "La personne garde son compte et ses bases, et ne gère plus les bases de
 #: components/admin/account-actions.tsx
 msgid "They keep their account and their bases, and no longer open Administration."
 msgstr "La personne garde son compte et ses bases, et n’ouvre plus l’Administration."
+
+#: components/settings/table-rules-panel.tsx
+msgid "They keep their role on each table the base holds now, and no longer hold it on the base: a table made later is not theirs until someone gives it to them."
+msgstr "Cette personne garde son rôle sur chaque table que la base contient aujourd’hui, et ne l’a plus sur la base : une table créée plus tard ne sera la sienne que si quelqu’un la lui donne."
 
 #: components/admin/account-bases.tsx
 #: components/admin/base-admin-members.tsx

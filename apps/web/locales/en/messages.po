@@ -2952,6 +2952,10 @@ msgstr "Another application is changing this row: try again in a moment"
 msgid "Another row already holds this value, in a field of unique values"
 msgstr "Another row already holds this value, in a field of unique values"
 
+#: lib/known-text.ts
+msgid "Answer too large"
+msgstr "Answer too large"
+
 #: components/admin/security-tab.tsx
 msgid "Any address"
 msgstr "Any address"
@@ -6392,6 +6396,10 @@ msgstr "Give {name} the source manager role?"
 msgid "Give {name} the support role?"
 msgstr "Give {name} the support role?"
 
+#: components/settings/table-rules-panel.tsx
+msgid "Give {name} their role table by table?"
+msgstr "Give {name} their role table by table?"
+
 #: components/settings/group-roles.tsx
 msgid "Give a group a role"
 msgstr "Give a group a role"
@@ -6416,6 +6424,10 @@ msgstr "Give an address that starts with https://."
 #: components/table/automations-dialog.tsx
 msgid "Give at least one recipient."
 msgstr "Give at least one recipient."
+
+#: components/settings/table-rules-panel.tsx
+msgid "Give it table by table"
+msgstr "Give it table by table"
 
 #: components/admin/give-base-role.tsx
 msgid "Give myself the role"
@@ -8042,6 +8054,10 @@ msgstr "Made by"
 #: components/admin/accounts-tab.tsx
 msgid "Made here"
 msgstr "Made here"
+
+#: lib/known-text.ts
+msgid "Mail is not configured"
+msgstr "Mail is not configured"
 
 #: components/admin/settings-tab.tsx
 #: components/admin/sign-in-trail.tsx
@@ -14081,6 +14097,10 @@ msgstr "They keep their account and their bases, and no longer manage the client
 #: components/admin/account-actions.tsx
 msgid "They keep their account and their bases, and no longer open Administration."
 msgstr "They keep their account and their bases, and no longer open Administration."
+
+#: components/settings/table-rules-panel.tsx
+msgid "They keep their role on each table the base holds now, and no longer hold it on the base: a table made later is not theirs until someone gives it to them."
+msgstr "They keep their role on each table the base holds now, and no longer hold it on the base: a table made later is not theirs until someone gives it to them."
 
 #: components/admin/account-bases.tsx
 #: components/admin/base-admin-members.tsx

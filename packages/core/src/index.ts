@@ -17,6 +17,8 @@ export {
 
 export { cutAt, holdsUnwritableText, trimEndRun } from "./plain-text";
 
+export { OUTBOUND_FAILURES } from "./outbound-failures";
+
 export { COMPARING_OPERATORS } from "./query/filter-sql";
 
 export {

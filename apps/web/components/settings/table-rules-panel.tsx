@@ -12,6 +12,7 @@ import { useLocale } from "../../lib/i18n";
 import { trpc, useTRPC, type RouterOutputs } from "../../lib/trpc";
 import type { CatalogColumn, Collaborator, Grant } from "../../lib/types";
 import { CellValueView } from "../fields/cell-value";
+import { ConfirmDialog } from "../shell/dialogs";
 import { FilterBuilder } from "../table/filter-builder";
 import { useRoleLabel } from "./role-label";
 import {
@@ -71,6 +72,8 @@ export function TableRulesPanel(props: {
   const userId = memberShown(ruled, chosen);
   const [draft, setDraft] = useState<Draft | null>(null);
   const [viewing, setViewing] = useState(false);
+  // Giving a role table by table is asked first: nobody undoes it alone.
+  const [splitting, setSplitting] = useState(false);
   // The table as the member shown reads it, once it is asked for.
   const preview = useQuery({
     ...api.catalog.viewAs.queryOptions({
@@ -148,17 +151,16 @@ export function TableRulesPanel(props: {
     );
   }
 
-  /** Their own role on the base, given table by table so a rule may narrow it. */
+  /**
+   * Their own role on the base, given table by table so a rule may narrow
+   * it, once confirmed: a refusal is said in the dialog that asked.
+   */
   async function split() {
-    try {
-      await trpc.catalog.splitBaseRole.mutate({
-        baseId: props.baseId,
-        userId,
-      });
-    } catch (cause) {
-      toast.error(errorText(cause));
-      return;
-    }
+    await trpc.catalog.splitBaseRole.mutate({
+      baseId: props.baseId,
+      userId,
+    });
+    setSplitting(false);
     await Promise.all([
       queryClient.invalidateQueries({
         queryKey: api.catalog.tableAccess.pathKey(),
@@ -312,9 +314,21 @@ export function TableRulesPanel(props: {
               <p className="text-muted-foreground">
                 {t`${{ name: person.displayName }} reaches this table through their role on the base, which gives it whole. To narrow what they see here, give them that role on each table of the base instead.`}
               </p>
-              <Button size="sm" variant="outline" onClick={() => void split()}>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setSplitting(true)}
+              >
                 {t`Give the role table by table`}
               </Button>
+              <ConfirmDialog
+                open={splitting}
+                onOpenChange={setSplitting}
+                title={t`Give ${{ name: person.displayName }} their role table by table?`}
+                description={t`They keep their role on each table the base holds now, and no longer hold it on the base: a table made later is not theirs until someone gives it to them.`}
+                confirmLabel={t`Give it table by table`}
+                onConfirm={split}
+              />
             </>
           ) : (
             <p className="text-muted-foreground">

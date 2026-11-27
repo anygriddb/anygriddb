@@ -46,6 +46,8 @@ const KNOWN: Record<string, MessageDescriptor> = {
   "Connection refused": msg`Connection refused`,
   "TLS error": msg`TLS error`,
   "Network error": msg`Network error`,
+  "Answer too large": msg`Answer too large`,
+  "Mail is not configured": msg`Mail is not configured`,
   "Webhook disabled": msg`Webhook disabled after too many failures`,
   "Loop limit": msg`Stopped: automation loop`,
   "Rate limit": msg`Stopped: too many runs a minute`,

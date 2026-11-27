@@ -15,6 +15,11 @@ hears from: the panel names the condition to fill in or remove.
 
 ### Changed
 
+- `ADMIN_EMAILS` holds addresses separated by commas or spaces: an entry
+  that is not one stops the start, and names its place in the list. Two
+  addresses joined by a semicolon, or a word, were left out without a
+  word, and made no one an administrator. At start, the log says how many
+  addresses the list holds and how many accounts it made administrators.
 - A filter sent to the API or through MCP (`filter` of a list of records)
   with a value its field cannot hold is refused (`invalid_filter`, naming
   the field): a word to compare with a number, a text for a checkbox, a day
@@ -24,8 +29,29 @@ hears from: the panel names the condition to fill in or remove.
   (`integration_untestable`): neither has an event to send. It answered
   "Network error", and counted a failure against the collector.
 
+- Giving a member their role on a base table by table, so that a rule may
+  narrow one table, is asked first, and the question says that a table
+  made later will not be theirs until someone gives it to them.
+- The image takes Debian's updates when it is built: the base it is made
+  on carries them only from its next release, and an update of its PAM
+  libraries had been published since. Each day the image last published
+  is scanned again, to tell when a version is to be made again.
+
 ### Fixed
 
+- `scripts/backup.sh` failed whole, and kept nothing, when a file was sent
+  while it copied the files: tar ends with 1 for a file that changes as it
+  is read. That file is one the database, dumped first, does not name yet:
+  the backup now goes on, and the next one keeps it.
+
+- Why a delivery failed (Network error, Timeout, Unknown host, …) showed
+  in English in Administration › Support, Notifications and Health,
+  whatever the language: it is now translated, as a table's webhooks
+  already did.
+- The guides: verifying the image's attestation needs the GitHub CLI
+  signed in, the offline package needs `postgres:17` for an instance on
+  PostgreSQL 17, the port 3000 is named in `PUBLIC_URL` and how to publish
+  on 443 with no proxy is said, and the API's tab is "Try it".
 - A state of a status circuit that lets only some fields be written let
   every field be written on AnyGridDB's own tables, by the screens, the API,
   MCP and an import (migration 0157). A write to another field in that state

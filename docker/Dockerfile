@@ -49,6 +49,13 @@ RUN pnpm install --frozen-lockfile --prod --filter @anygriddb/api \
 
 FROM node:26-bookworm-slim@sha256:5df79989ed685e09f0a98019db4cebfb22fb9df1a53c0161664a011f7ff6b0f1
 ENV NODE_ENV=production
+# Debian's updates, which the pinned base carries only from its next
+# digest: what an operator runs has the fixes Debian had published when it
+# was built (its PAM, for one, had a fix the base had not). Nothing is
+# added, and the lists go.
+RUN apt-get update \
+    && apt-get upgrade -y --no-install-recommends \
+    && rm -rf /var/lib/apt/lists/*
 # The process needs node alone. The base image's package manager, which
 # nothing here runs, stays out: it would bring its own dependencies, and
 # their advisories, into what an operator runs.

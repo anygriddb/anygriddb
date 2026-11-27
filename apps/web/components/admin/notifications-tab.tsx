@@ -305,7 +305,7 @@ function ProbeCard({
             />
           ))}
           {row?.lastError ? (
-            <p className="text-sm text-danger">{row.lastError}</p>
+            <p className="text-sm text-danger">{errorText(row.lastError)}</p>
           ) : null}
           {notice ? <p className="text-sm">{notice}</p> : null}
           <div className="flex flex-wrap gap-2">
@@ -884,7 +884,9 @@ export function NotificationsTab() {
                           ? when.instant(row.lastDeliveryAt)
                           : t`Never`}
                       </td>
-                      <td className="px-3 py-2">{row.lastError ?? ""}</td>
+                      <td className="px-3 py-2">
+                        {row.lastError ? errorText(row.lastError) : ""}
+                      </td>
                       <td className="px-3 py-2 text-right">
                         <div className="flex justify-end gap-1">
                           <Button
@@ -1150,7 +1152,9 @@ function DeliveryHistory({
                   : ""}
               </td>
               <td className="px-3 py-2">{row.attempts}</td>
-              <td className="px-3 py-2">{row.error ?? ""}</td>
+              <td className="px-3 py-2">
+                {row.error ? errorText(row.error) : ""}
+              </td>
             </tr>
           ))}
         </tbody>

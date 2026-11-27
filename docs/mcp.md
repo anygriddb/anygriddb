@@ -86,5 +86,5 @@ Self-issued authority (ADR 0029): download
 
 ## Trying the REST API
 
-Base menu → **API and documentation**: OpenAPI + **Try** tab (session;
+Base menu → **API and documentation**: OpenAPI + **Try it** tab (session;
 writes are real and trailed).
