@@ -47,15 +47,15 @@ export async function listOutbound(
   const now = Date.now();
   const [viewLinks, baseLinks, feeds] = await Promise.all([
     db
-      .selectFrom("shares as s")
-      .innerJoin("users as u", "u.id", "s.createdBy")
+      .selectFrom("delegatedAccesses as s")
+      .innerJoin("users as u", "u.id", "s.authorId")
       .innerJoin("views as v", "v.id", "s.viewId")
       .innerJoin("dataTables as t", "t.id", "v.tableId")
       .innerJoin("bases as b", "b.id", "t.baseId")
       .select([
         "s.id",
         "s.createdAt",
-        "s.expiresAt",
+        "s.endsAt as expiresAt",
         "s.passwordHash",
         "u.displayName as author",
         "v.name as view",
@@ -63,6 +63,7 @@ export async function listOutbound(
         "b.id as baseId",
         "b.name as base",
       ])
+      .where("s.kind", "=", "link")
       .where("s.revokedAt", "is", null)
       .where(liveView("v"))
       .where(liveTable("t"))
@@ -73,18 +74,19 @@ export async function listOutbound(
       .orderBy("s.createdAt", "desc")
       .execute(),
     db
-      .selectFrom("shares as s")
-      .innerJoin("users as u", "u.id", "s.createdBy")
+      .selectFrom("delegatedAccesses as s")
+      .innerJoin("users as u", "u.id", "s.authorId")
       .innerJoin("bases as b", "b.id", "s.baseId")
       .select([
         "s.id",
         "s.createdAt",
-        "s.expiresAt",
+        "s.endsAt as expiresAt",
         "s.passwordHash",
         "u.displayName as author",
         "b.id as baseId",
         "b.name as base",
       ])
+      .where("s.kind", "=", "link")
       .where("s.revokedAt", "is", null)
       .where("s.baseId", "is not", null)
       .where(liveBase("b"))
@@ -94,8 +96,8 @@ export async function listOutbound(
       .orderBy("s.createdAt", "desc")
       .execute(),
     db
-      .selectFrom("calendarFeeds as f")
-      .innerJoin("users as u", "u.id", "f.userId")
+      .selectFrom("delegatedAccesses as f")
+      .innerJoin("users as u", "u.id", "f.authorId")
       .innerJoin("views as v", "v.id", "f.viewId")
       .innerJoin("dataTables as t", "t.id", "v.tableId")
       .innerJoin("bases as b", "b.id", "t.baseId")
@@ -109,6 +111,8 @@ export async function listOutbound(
         "b.id as baseId",
         "b.name as base",
       ])
+      .where("f.kind", "=", "feed")
+      .where("f.revokedAt", "is", null)
       .where(liveView("v"))
       .where(liveTable("t"))
       .where(liveBase("b"))
@@ -170,7 +174,7 @@ export async function listOutbound(
 }
 
 /**
- * Revokes a public link, or removes a calendar feed, for an administrator
+ * Revokes a public link or a calendar feed, for an administrator
  * who need not be a member of its base. Both are on the change trail under
  * their name, as the owner's revoke would be.
  */
@@ -181,9 +185,10 @@ export async function revokeOutbound(
 ): Promise<void> {
   if (target.kind === "link") {
     const share = await db
-      .selectFrom("shares as s")
+      .selectFrom("delegatedAccesses as s")
       .leftJoin("views as v", "v.id", "s.viewId")
       .select(["s.id", "v.tableId"])
+      .where("s.kind", "=", "link")
       .where("s.id", "=", target.id)
       .where("s.revokedAt", "is", null)
       .executeTakeFirst();
@@ -197,7 +202,7 @@ export async function revokeOutbound(
       },
       (tx) =>
         tx
-          .updateTable("shares")
+          .updateTable("delegatedAccesses")
           .set({ revokedAt: new Date() })
           .where("id", "=", share.id)
           .where("revokedAt", "is", null)
@@ -206,16 +211,24 @@ export async function revokeOutbound(
     return;
   }
   const feed = await db
-    .selectFrom("calendarFeeds as f")
+    .selectFrom("delegatedAccesses as f")
     .innerJoin("views as v", "v.id", "f.viewId")
     .select(["f.id", "v.tableId"])
+    .where("f.kind", "=", "feed")
     .where("f.id", "=", target.id)
+    .where("f.revokedAt", "is", null)
     .executeTakeFirst();
   if (!feed) throw new AppError("no_row");
   await withAudit(
     db,
     { userId: adminId, tableId: feed.tableId, source: "web" },
-    (tx) => tx.deleteFrom("calendarFeeds").where("id", "=", feed.id).execute(),
+    (tx) =>
+      tx
+        .updateTable("delegatedAccesses")
+        .set({ revokedAt: new Date() })
+        .where("id", "=", feed.id)
+        .where("revokedAt", "is", null)
+        .execute(),
   );
 }
 
@@ -573,22 +586,25 @@ export async function listBaseOverview(
         .groupBy("t.baseId")
         .execute(),
       db
-        .selectFrom("shares as s")
+        .selectFrom("delegatedAccesses as s")
         .innerJoin("views as v", "v.id", "s.viewId")
         .innerJoin("dataTables as t", "t.id", "v.tableId")
         .select(["t.baseId", sql<string>`count(*)`.as("value")])
         .where("t.baseId", "in", ids)
+        .where("s.kind", "=", "link")
         .where("s.revokedAt", "is", null)
         .where(liveView("v"))
         .where(liveTable("t"))
         .groupBy("t.baseId")
         .execute(),
       db
-        .selectFrom("calendarFeeds as f")
+        .selectFrom("delegatedAccesses as f")
         .innerJoin("views as v", "v.id", "f.viewId")
         .innerJoin("dataTables as t", "t.id", "v.tableId")
         .select(["t.baseId", sql<string>`count(*)`.as("value")])
         .where("t.baseId", "in", ids)
+        .where("f.kind", "=", "feed")
+        .where("f.revokedAt", "is", null)
         .where(liveView("v"))
         .where(liveTable("t"))
         .groupBy("t.baseId")

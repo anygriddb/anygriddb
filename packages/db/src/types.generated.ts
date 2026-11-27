@@ -291,7 +291,6 @@ export interface Automations {
   tableId: string;
   trigger: unknown;
   updatedAt: Generated<Timestamp>;
-  webhookTokenHash: string | null;
 }
 
 export interface BackupCodes {
@@ -332,15 +331,6 @@ export interface BindingsBeforeUnion {
   scope: Scope | null;
   scopeId: string | null;
   userId: string | null;
-}
-
-export interface CalendarFeeds {
-  createdAt: Generated<Timestamp>;
-  id: Generated<string>;
-  lastUsedAt: Timestamp | null;
-  tokenHash: string;
-  userId: string;
-  viewId: string;
 }
 
 export interface Comments {
@@ -430,11 +420,15 @@ export interface DataTables {
 }
 
 export interface DelegatedAccesses {
+  allowCopy: boolean | null;
   authorId: string;
+  automationId: string | null;
+  baseId: string | null;
   baseIds: string[] | null;
   clientId: string | null;
   createdAt: Generated<Timestamp>;
   details: Generated<Record<string, unknown>>;
+  embedOrigins: string[] | null;
   endsAt: Timestamp | null;
   id: Generated<string>;
   kind:
@@ -447,9 +441,13 @@ export interface DelegatedAccesses {
     | "scim_token";
   lastUsedAt: Timestamp | null;
   name: string;
+  passwordFailures: number | null;
+  passwordHash: string | null;
+  passwordLockedUntil: Timestamp | null;
   permissions: string[] | null;
   revokedAt: Timestamp | null;
   secretHash: string;
+  viewId: string | null;
 }
 
 export interface Deliveries {
@@ -981,22 +979,6 @@ export interface Sessions {
   userId: string;
 }
 
-export interface Shares {
-  allowCopy: Generated<boolean>;
-  baseId: string | null;
-  createdAt: Generated<Timestamp>;
-  createdBy: string;
-  embedOrigins: string[] | null;
-  expiresAt: Timestamp | null;
-  id: Generated<string>;
-  passwordFailures: Generated<number>;
-  passwordHash: string | null;
-  passwordLockedUntil: Timestamp | null;
-  revokedAt: Timestamp | null;
-  tokenHash: string;
-  viewId: string | null;
-}
-
 export interface SignupRequests {
   createdAt: Generated<Timestamp>;
   displayName: string;
@@ -1241,7 +1223,6 @@ export interface DB {
   backupRuns: BackupRuns;
   bases: Bases;
   bindingsBeforeUnion: BindingsBeforeUnion;
-  calendarFeeds: CalendarFeeds;
   comments: Comments;
   dashboards: Dashboards;
   dashboardWidgets: DashboardWidgets;
@@ -1297,7 +1278,6 @@ export interface DB {
   restorePoints: RestorePoints;
   rowSignatures: RowSignatures;
   sessions: Sessions;
-  shares: Shares;
   signupRequests: SignupRequests;
   sourceLoadMinute: SourceLoadMinute;
   sources: Sources;

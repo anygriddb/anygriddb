@@ -2524,6 +2524,7 @@ msgstr "Administration"
 
 #: components/admin/admin-sections.ts
 #: components/admin/api-tokens-tab.tsx
+#: components/admin/trails.tsx
 msgid "Administration API"
 msgstr "Administration API"
 
@@ -3052,6 +3053,7 @@ msgstr "API token lifetime"
 
 #: components/admin/access-tab.tsx
 #: components/admin/account-page.tsx
+#: components/admin/trails.tsx
 #: components/settings/account-settings.tsx
 msgid "API tokens"
 msgstr "API tokens"
@@ -3066,6 +3068,7 @@ msgstr "API tokens revoked"
 
 #: components/admin/admin-sections.ts
 #: components/admin/oauth-clients-tab.tsx
+#: components/admin/trails.tsx
 msgid "Applications"
 msgstr "Applications"
 
@@ -14783,7 +14786,6 @@ msgstr "Today's date, in the reader's time zone."
 
 #: components/admin/access-tab.tsx
 #: components/admin/notifications-tab.tsx
-#: components/admin/trails.tsx
 msgid "Token"
 msgstr "Token"
 
@@ -15477,6 +15479,7 @@ msgid "Webhook {name} on {table} was turned off after repeated failures"
 msgstr "Webhook {name} on {table} was turned off after repeated failures"
 
 #: components/admin/notifications-tab.tsx
+#: components/admin/trails.tsx
 #: components/table/automations-dialog.tsx
 msgid "Webhook address"
 msgstr "Webhook address"

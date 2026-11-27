@@ -11,7 +11,7 @@ import {
   storedEmbedOrigins,
   ceilingOf,
 } from "@anygriddb/core";
-import type { Database, ShareRow, TableRow, ViewRow } from "@anygriddb/db";
+import type { Database, TableRow, ViewRow } from "@anygriddb/db";
 import { sql } from "kysely";
 import { hashPassword, verifyPassword } from "../auth/argon2.js";
 import { liveAttribution } from "./attributions.js";
@@ -499,6 +499,85 @@ export async function assertMemberDomain(
 /* Public shares                                                       */
 /* ------------------------------------------------------------------ */
 
+/**
+ * A public link as the code reads it: a delegated access of the kind
+ * `link` (ADR 0131, §5), which shows a view or a whole base.
+ */
+export type ShareRow = {
+  id: string;
+  viewId: string | null;
+  baseId: string | null;
+  createdBy: string;
+  createdAt: Date;
+  expiresAt: Date | null;
+  revokedAt: Date | null;
+  allowCopy: boolean;
+  embedOrigins: string[] | null;
+  passwordHash: string | null;
+  passwordFailures: number;
+  passwordLockedUntil: Date | null;
+};
+
+const LINK_COLUMNS = [
+  "a.id",
+  "a.viewId",
+  "a.baseId",
+  "a.authorId",
+  "a.createdAt",
+  "a.endsAt",
+  "a.revokedAt",
+  "a.allowCopy",
+  "a.embedOrigins",
+  "a.passwordHash",
+  "a.passwordFailures",
+  "a.passwordLockedUntil",
+] as const;
+
+/** The link a row of `LINK_COLUMNS` is. */
+function linkOf(row: {
+  id: string;
+  viewId: string | null;
+  baseId: string | null;
+  authorId: string;
+  createdAt: Date;
+  endsAt: Date | null;
+  revokedAt: Date | null;
+  allowCopy: boolean | null;
+  embedOrigins: string[] | null;
+  passwordHash: string | null;
+  passwordFailures: number | null;
+  passwordLockedUntil: Date | null;
+}): ShareRow {
+  return {
+    id: row.id,
+    viewId: row.viewId,
+    baseId: row.baseId,
+    createdBy: row.authorId,
+    createdAt: row.createdAt,
+    expiresAt: row.endsAt,
+    revokedAt: row.revokedAt,
+    allowCopy: row.allowCopy ?? false,
+    embedOrigins: row.embedOrigins,
+    passwordHash: row.passwordHash,
+    passwordFailures: row.passwordFailures ?? 0,
+    passwordLockedUntil: row.passwordLockedUntil,
+  };
+}
+
+/** A link by its secret, revoked or not. */
+async function linkBySecret(
+  db: Database,
+  token: string,
+): Promise<ShareRow | undefined> {
+  const row = await db
+    .selectFrom("delegatedAccesses as a")
+    .select(LINK_COLUMNS)
+    .where("a.kind", "=", "link")
+    .where("a.secretHash", "=", hashToken(token))
+    .executeTakeFirst();
+  return row ? linkOf(row) : undefined;
+}
+
 export async function createShare(
   db: Database,
   input: {
@@ -531,14 +610,17 @@ export async function createShare(
     { userId: input.createdBy, tableId: view.tableId, source: "web" },
     (tx) =>
       tx
-        .insertInto("shares")
+        .insertInto("delegatedAccesses")
         .values({
+          kind: "link",
+          name: "",
           viewId: input.viewId,
-          tokenHash: hashToken(token),
+          secretHash: hashToken(token),
           passwordHash,
+          passwordFailures: 0,
           allowCopy: input.allowCopy,
-          createdBy: input.createdBy,
-          expiresAt: input.expiresAt ?? null,
+          authorId: input.createdBy,
+          endsAt: input.expiresAt ?? null,
           embedOrigins,
         })
         .returning("id")
@@ -552,28 +634,29 @@ export async function createShare(
 
 export async function listShares(db: Database, viewId: string) {
   const rows = await db
-    .selectFrom("shares as s")
-    .innerJoin("users as u", "u.id", "s.createdBy")
+    .selectFrom("delegatedAccesses as a")
+    .innerJoin("users as u", "u.id", "a.authorId")
     .select([
-      "s.id",
-      "s.createdAt",
-      "s.expiresAt",
-      "s.revokedAt",
-      "s.passwordHash",
-      "s.allowCopy",
-      "s.embedOrigins",
+      "a.id",
+      "a.createdAt",
+      "a.endsAt",
+      "a.revokedAt",
+      "a.passwordHash",
+      "a.allowCopy",
+      "a.embedOrigins",
       "u.displayName as createdBy",
     ])
-    .where("s.viewId", "=", viewId)
-    .orderBy("s.createdAt", "desc")
+    .where("a.kind", "=", "link")
+    .where("a.viewId", "=", viewId)
+    .orderBy("a.createdAt", "desc")
     .execute();
   return rows.map((row) => ({
     id: row.id,
     createdAt: row.createdAt.toISOString(),
-    expiresAt: row.expiresAt?.toISOString() ?? null,
+    expiresAt: row.endsAt?.toISOString() ?? null,
     revoked: row.revokedAt !== null,
     protected: row.passwordHash !== null,
-    allowCopy: row.allowCopy,
+    allowCopy: row.allowCopy ?? false,
     embedOrigins: storedEmbedOrigins(row.embedOrigins) ?? [],
     createdBy: row.createdBy,
   }));
@@ -585,10 +668,11 @@ export async function revokeShare(
   shareId: string,
 ): Promise<void> {
   const share = await db
-    .selectFrom("shares as s")
-    .leftJoin("views as v", "v.id", "s.viewId")
-    .select(["s.viewId", "s.baseId", "v.tableId"])
-    .where("s.id", "=", shareId)
+    .selectFrom("delegatedAccesses as a")
+    .leftJoin("views as v", "v.id", "a.viewId")
+    .select(["a.viewId", "a.baseId", "v.tableId"])
+    .where("a.kind", "=", "link")
+    .where("a.id", "=", shareId)
     .executeTakeFirst();
   if (!share || (!share.viewId && !share.baseId)) {
     throw new AppError("no_row");
@@ -598,9 +682,10 @@ export async function revokeShare(
     { userId: actorId, tableId: share.tableId ?? undefined, source: "web" },
     (tx) =>
       tx
-        .updateTable("shares")
+        .updateTable("delegatedAccesses")
         .set({ revokedAt: new Date() })
         .where("id", "=", shareId)
+        .where("kind", "=", "link")
         .returning("id")
         .executeTakeFirst(),
   );
@@ -619,11 +704,7 @@ export async function shareEmbedOriginsForToken(
   token: string,
 ): Promise<string[] | null> {
   if (!isToken(token)) return null;
-  const row = await db
-    .selectFrom("shares")
-    .select(["embedOrigins", "revokedAt", "expiresAt"])
-    .where("tokenHash", "=", hashToken(token))
-    .executeTakeFirst();
+  const row = await linkBySecret(db, token);
   if (!row || row.revokedAt || (row.expiresAt && row.expiresAt < new Date())) {
     return null;
   }
@@ -636,8 +717,9 @@ export async function shareTarget(
   shareId: string,
 ): Promise<{ viewId: string } | { baseId: string }> {
   const row = await db
-    .selectFrom("shares")
+    .selectFrom("delegatedAccesses")
     .select(["viewId", "baseId"])
+    .where("kind", "=", "link")
     .where("id", "=", shareId)
     .executeTakeFirst();
   if (row?.viewId) return { viewId: row.viewId };
@@ -674,14 +756,17 @@ export async function createBaseShare(
     { userId: input.createdBy, source: "web" },
     (tx) =>
       tx
-        .insertInto("shares")
+        .insertInto("delegatedAccesses")
         .values({
+          kind: "link",
+          name: "",
           baseId: input.baseId,
-          tokenHash: hashToken(token),
+          secretHash: hashToken(token),
           passwordHash,
+          passwordFailures: 0,
           allowCopy: false,
-          createdBy: input.createdBy,
-          expiresAt: input.expiresAt ?? null,
+          authorId: input.createdBy,
+          endsAt: input.expiresAt ?? null,
           embedOrigins: null,
         })
         .returning("id")
@@ -696,23 +781,24 @@ export async function createBaseShare(
 /** A base's links, newest first, revoked ones too. */
 export async function listBaseShares(db: Database, baseId: string) {
   const rows = await db
-    .selectFrom("shares as s")
-    .innerJoin("users as u", "u.id", "s.createdBy")
+    .selectFrom("delegatedAccesses as a")
+    .innerJoin("users as u", "u.id", "a.authorId")
     .select([
-      "s.id",
-      "s.createdAt",
-      "s.expiresAt",
-      "s.revokedAt",
-      "s.passwordHash",
+      "a.id",
+      "a.createdAt",
+      "a.endsAt",
+      "a.revokedAt",
+      "a.passwordHash",
       "u.displayName as createdBy",
     ])
-    .where("s.baseId", "=", baseId)
-    .orderBy("s.createdAt", "desc")
+    .where("a.kind", "=", "link")
+    .where("a.baseId", "=", baseId)
+    .orderBy("a.createdAt", "desc")
     .execute();
   return rows.map((row) => ({
     id: row.id,
     createdAt: row.createdAt.toISOString(),
-    expiresAt: row.expiresAt?.toISOString() ?? null,
+    expiresAt: row.endsAt?.toISOString() ?? null,
     revoked: row.revokedAt !== null,
     protected: row.passwordHash !== null,
     createdBy: row.createdBy,
@@ -760,13 +846,9 @@ type ResolvedShare = {
  */
 async function findShare(
   db: Database,
-  tokenHash: string,
+  token: string,
 ): Promise<ResolvedShare | undefined> {
-  const share = await db
-    .selectFrom("shares")
-    .selectAll()
-    .where("tokenHash", "=", tokenHash)
-    .executeTakeFirst();
+  const share = await linkBySecret(db, token);
   if (!share?.viewId) return undefined;
   const view = await db
     .selectFrom("views")
@@ -798,7 +880,7 @@ export async function resolveShare(
   if (!isToken(input.token)) {
     throw new AppError("unknown_share");
   }
-  const row = await findShare(db, hashToken(input.token));
+  const row = await findShare(db, input.token);
   // Public links off, or only with a password (ADR 0043): the others stop.
   const { publicLinks } = await readGateSettings(db);
   if (
@@ -838,7 +920,7 @@ async function unlockShare(
   if (await verifyPassword(share.passwordHash, input.password)) {
     if (share.passwordFailures > 0 || share.passwordLockedUntil) {
       await db
-        .updateTable("shares")
+        .updateTable("delegatedAccesses")
         .set({ passwordFailures: 0, passwordLockedUntil: null })
         .where("id", "=", share.id)
         .execute();
@@ -866,11 +948,7 @@ export async function resolveBaseShare(
   locked: boolean;
 }> {
   if (!isToken(input.token)) throw new AppError("unknown_share");
-  const share = await db
-    .selectFrom("shares")
-    .selectAll()
-    .where("tokenHash", "=", hashToken(input.token))
-    .executeTakeFirst();
+  const share = await linkBySecret(db, input.token);
   const base = share?.baseId
     ? await db
         .selectFrom("bases")
@@ -907,7 +985,7 @@ async function countSharePasswordFailure(
 ): Promise<boolean> {
   const last = sql<boolean>`password_failures + 1 >= ${SHARE_PASSWORD_ATTEMPTS}`;
   const counted = await db
-    .updateTable("shares")
+    .updateTable("delegatedAccesses")
     .set({
       passwordFailures: sql<number>`case when ${last} then 0 else password_failures + 1 end`,
       passwordLockedUntil: sql<Date | null>`case when ${last} then now() + make_interval(mins => ${SHARE_LOCK_MINUTES}) else null end`,

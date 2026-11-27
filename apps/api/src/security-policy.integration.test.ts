@@ -731,7 +731,7 @@ describe("the security policy", () => {
       });
       expect(reading.locked).toBe(false);
       await db
-        .updateTable("shares")
+        .updateTable("delegatedAccesses")
         .set({ passwordLockedUntil: new Date(Date.now() - 1000) })
         .where("id", "=", share.id)
         .execute();
@@ -769,7 +769,7 @@ describe("the security policy", () => {
         ),
       );
       const counted = await db
-        .selectFrom("shares")
+        .selectFrom("delegatedAccesses")
         .select("passwordFailures")
         .where("id", "=", share.id)
         .executeTakeFirstOrThrow();

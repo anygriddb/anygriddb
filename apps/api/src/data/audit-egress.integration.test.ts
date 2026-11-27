@@ -28,7 +28,7 @@ const suffix = randomBytes(6).toString("hex");
 
 function secretsIn(value: unknown): boolean {
   const text = JSON.stringify(value);
-  return /token_hash|password_hash|secret_ciphertext|secret_nonce|headers_ciphertext|headers_nonce|webhook_token_hash|ag_[A-Za-z0-9_-]{20,}/i.test(
+  return /token_hash|secret_hash|password_hash|secret_ciphertext|secret_nonce|headers_ciphertext|headers_nonce|webhook_token_hash|ag_[A-Za-z0-9_-]{20,}/i.test(
     text,
   );
 }
@@ -193,12 +193,16 @@ describe("access given and data sent out, on the change trail", () => {
       .where("userId", "=", owner)
       .execute();
     expect(tables.map((row) => row.catalogTable)).toEqual(
-      expect.arrayContaining(["shares", "invitations", "data_tables"]),
+      expect.arrayContaining([
+        "delegated_accesses",
+        "invitations",
+        "data_tables",
+      ]),
     );
     expect(tables.some((row) => row.catalogTable === null)).toBe(false);
     expect(
       tables
-        .filter((row) => row.catalogTable === "shares")
+        .filter((row) => row.catalogTable === "delegated_accesses")
         .map((row) => row.source),
     ).toEqual(["web"]);
   });

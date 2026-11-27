@@ -8,6 +8,7 @@
     "columns": {
       "delegated_accesses.kind": "\"admin_token\" | \"api_token\" | \"application\" | \"feed\" | \"inbound_hook\" | \"link\" | \"scim_token\"",
       "delegated_accesses.details": "Generated<Record<string, unknown>>",
+      "delegated_accesses.embed_origins": "string[] | null",
       "made_roles.permissions": "string[]",
       "audit_events.new_value": "unknown",
       "audit_events.old_value": "unknown",
@@ -31,7 +32,6 @@
       "jobs.input": "unknown",
       "jobs.result": "Record<string, unknown> | null",
       "notifications.data": "Record<string, string> | null",
-      "shares.embed_origins": "string[] | null",
       "staged_uploads.meta": "Record<string, unknown> | null",
       "attributions.row_filter": "Record<string, unknown> | null",
       "attributions.field_access": "Record<string, \"hide\" | \"read\" | \"write\"> | null",

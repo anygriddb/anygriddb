@@ -14,6 +14,7 @@ import { API_SETTING_KEYS } from "@anygriddb/core";
 import type { Database } from "@anygriddb/db";
 import Fastify, { type FastifyInstance } from "fastify";
 import { sql } from "kysely";
+import { withAudit } from "./data/audit-context.js";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { setUserAdmin, setUserDisabled } from "./admin.js";
 import { registerAdminApi } from "./admin-api.js";
@@ -283,13 +284,16 @@ describe("the administration API", () => {
       cookie: `${SESSION_COOKIE}=${admin.jar[SESSION_COOKIE] ?? ""}`,
     });
     expect(withSession.statusCode).toBe(401);
-    // A token that outlived its time, by its own date or the policy's.
-    await db
-      .updateTable("delegatedAccesses")
-      .set({ endsAt: new Date(Date.now() - 1_000) })
-      .where("kind", "=", "admin_token")
-      .where("name", "=", "settings")
-      .execute();
+    // A token that outlived its time, by its own date or the policy's. A
+    // change of its end is on the change trail.
+    await withAudit(db, { userId: adminId }, (tx) =>
+      tx
+        .updateTable("delegatedAccesses")
+        .set({ endsAt: new Date(Date.now() - 1_000) })
+        .where("kind", "=", "admin_token")
+        .where("name", "=", "settings")
+        .execute(),
+    );
     expect((await call("GET", "/settings", good)).statusCode).toBe(401);
 
     // A second administrator's token stops with their role, and with

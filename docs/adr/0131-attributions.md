@@ -207,7 +207,11 @@ said. Each case is counted by the migration's check:
   application's client is a real foreign key, `client_id`, so that
   deleting a client takes its grants. `permissions` null means all the
   author holds. An application's renewal changes the secret of its one
-  access; neither a use nor a renewal is on the change trail.
+  access; neither a use nor a renewal is on the change trail. Feeds, links
+  and inbound secrets (migration 0156) keep in typed columns what the code
+  filters, updates and follows by reference: `view_id`, `base_id` and
+  `automation_id`, each with its foreign key, and a link's settings and
+  password, each column held to its kinds by a check.
 - **What it may do is what it was entrusted ∩ what its author holds when
   it acts**, a job a token started included, at each run. While the author
   no longer holds it, or is disabled, it is **suspended** (it stays, does

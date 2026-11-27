@@ -1067,6 +1067,15 @@ export async function instanceHealth(deps: {
 /* ------------------------------------------------------------------ */
 
 /** The base an event of the catalog belongs to, read from the row it kept. */
+/** The kind of a delegated access an event of the trail names (ADR 0131). */
+function accessKindOf(table: string | null, value: unknown): string | null {
+  if (table !== "delegated_accesses" || !value || typeof value !== "object") {
+    return null;
+  }
+  const kind = (value as Record<string, unknown>).kind;
+  return typeof kind === "string" ? kind : null;
+}
+
 function catalogBaseOf(table: string | null, value: unknown): string | null {
   if (!value || typeof value !== "object") return null;
   const row = value as Record<string, unknown>;
@@ -1215,6 +1224,8 @@ export async function instanceAudit(
               rows: exported.rows ?? null,
             }
           : null,
+        // What acts without a session is one table: its kind names it.
+        accessKind: accessKindOf(row.catalogTable, newValue ?? oldValue),
       }),
     ),
     next:

@@ -347,12 +347,14 @@ describe("automations run by the queue", () => {
     expect(token).toMatch(/^aghook_[A-Za-z0-9_-]{43}$/);
     // The token is not kept: only its hash.
     const stored = await db
-      .selectFrom("automations")
-      .select("webhookTokenHash")
-      .where("id", "=", saved.id)
+      .selectFrom("delegatedAccesses")
+      .select("secretHash")
+      .where("kind", "=", "inbound_hook")
+      .where("automationId", "=", saved.id)
+      .where("revokedAt", "is", null)
       .executeTakeFirstOrThrow();
-    expect(stored.webhookTokenHash).toMatch(/^[0-9a-f]{64}$/);
-    expect(stored.webhookTokenHash).not.toContain(token);
+    expect(stored.secretHash).toMatch(/^[0-9a-f]{64}$/);
+    expect(stored.secretHash).not.toContain(token);
 
     expect(await queueWebhookRun(db, `aghook_${"x".repeat(43)}`, {})).toBe(
       false,

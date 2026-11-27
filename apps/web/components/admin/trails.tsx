@@ -92,6 +92,18 @@ export function ChangesTrail({
   const actionLabel = useChangeActionLabel();
   // What an event of the catalog changed, by the table it wrote. Events
   // from before the trail kept that say "Structure", as they did.
+  const accessLabel = (kind: string | null) =>
+    kind
+      ? {
+          api_token: t`API tokens`,
+          application: t`Applications`,
+          admin_token: t`Administration API`,
+          scim_token: t`Provisioning (SCIM)`,
+          feed: t`Calendar feed`,
+          link: t`Public link`,
+          inbound_hook: t`Webhook address`,
+        }[kind]
+      : undefined;
   const catalogLabel = (table: string | null) =>
     (table
       ? {
@@ -111,7 +123,6 @@ export function ChangesTrail({
           group_roles: t`Role of a group`,
           calendar_feeds: t`Calendar feed`,
           scim_tokens: t`Provisioning (SCIM)`,
-          delegated_accesses: t`Token`,
           sources: t`Source`,
           external_watches: t`Watched table`,
           external_syncs: t`Synced table`,
@@ -251,7 +262,8 @@ export function ChangesTrail({
                   </td>
                   <td className="px-2 py-1.5">
                     {event.action === "catalog"
-                      ? catalogLabel(event.catalogTable)
+                      ? (accessLabel(event.accessKind) ??
+                        catalogLabel(event.catalogTable))
                       : actionLabel(event.action)}
                   </td>
                   <td className="px-2 py-1.5">
