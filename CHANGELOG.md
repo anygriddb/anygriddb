@@ -70,7 +70,6 @@ hears from: the panel names the condition to fill in or remove.
   table's settings say which condition misses its value before saving, and
   a rule kept before shows no row.
 
-
 ## 0.12.0 - 2026-11-27
 
 **Before upgrading:** read Administration › People › Rights to review with
