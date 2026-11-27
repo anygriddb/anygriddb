@@ -2304,6 +2304,18 @@ msgstr "Ajouter une condition"
 msgid "Add a condition on the rows this member sees, or choose Every row."
 msgstr "Ajoutez une condition sur les lignes que ce membre voit, ou choisissez Toutes les lignes."
 
+#: components/table/automations-dialog.tsx
+msgid "Add a condition, or choose another trigger."
+msgstr "Ajoutez une condition, ou choisissez un autre déclencheur."
+
+#: components/table/automations-dialog.tsx
+msgid "Add a condition, or remove this action."
+msgstr "Ajoutez une condition, ou retirez cette action."
+
+#: components/table/automations-dialog.tsx
+msgid "Add a condition."
+msgstr "Ajoutez une condition."
+
 #: components/views/calendar-view.tsx
 msgid "Add a date field to show the calendar."
 msgstr "Ajoutez un champ date pour afficher le calendrier."
@@ -6850,6 +6862,10 @@ msgstr "Si un compte utilise cette adresse, un lien pour choisir un nouveau mot 
 #: components/settings/api-docs.tsx
 msgid "If the instance uses its own certificate authority, tell the client about it: download it, then start the client with NODE_EXTRA_CA_CERTS pointing at that file."
 msgstr "Si l’instance utilise sa propre autorité de certification, faites-la connaître au client : téléchargez-la, puis lancez-le avec NODE_EXTRA_CA_CERTS pointant vers ce fichier."
+
+#: components/table/automations-dialog.tsx
+msgid "If the row matches"
+msgstr "Si la ligne remplit"
 
 #: components/table/automations-dialog.tsx
 msgid "If the row matches:"
@@ -13126,6 +13142,10 @@ msgid "That is not the schema's name, so the base was not deleted."
 msgstr "Ce n’est pas le nom du schéma, donc la base n’a pas été supprimée."
 
 #: components/table/automations-dialog.tsx
+msgid "That match"
+msgstr "Qui remplissent"
+
+#: components/table/automations-dialog.tsx
 msgid "That match (optional):"
 msgstr "Qui remplissent (facultatif) :"
 
@@ -13313,7 +13333,12 @@ msgstr "Les collecteurs du journal des connexions (Connexions externes) reçoive
 msgid "The comment by {name} is replaced by “Comment deleted” for everyone, and cannot be put back."
 msgstr "Le commentaire écrit par {name} est remplacé par « Commentaire supprimé » pour tout le monde et ne peut pas être rétabli."
 
+#: components/table/automations-dialog.tsx
+msgid "The condition a row meets"
+msgstr "La condition que remplit une ligne"
+
 #: components/settings/table-rules-panel.tsx
+#: components/table/automations-dialog.tsx
 msgid "The condition on {field} has no value yet: give it one, or remove it."
 msgstr "La condition sur {field} n’a pas encore de valeur : donnez-lui une valeur, ou retirez-la."
 

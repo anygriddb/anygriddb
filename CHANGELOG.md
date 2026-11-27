@@ -8,6 +8,12 @@ first.
 
 ## Unreleased
 
+**After upgrading:** an automation whose condition (its trigger "A row
+meets a condition", a branch, or a loop's filter) holds no value, or one
+its field cannot take, now acts on no row, where it acted on every row.
+Its runs say "Invalid filter" and name the field: open it, give the
+condition its value or remove it, and save.
+
 ### Breaking
 
 - A write to the API or through MCP is read by a strict body: a key it
@@ -43,6 +49,14 @@ first.
 
 ### Fixed
 
+- An automation's condition with no value, or a value its field cannot
+  hold (a word for a number), was left out when it ran: a branch took
+  "then" for every row, a loop went through every row of its table, and
+  "A row meets a condition" fired for every row. Saving such an automation
+  is now refused, naming the field (`invalid_filter`), and the editor says
+  which condition misses its value before it sends anything. One saved
+  before acts on no row: a branch or a loop fails its run, and the trigger
+  fires for none.
 - On AnyGridDB's own tables, `POWER` of a decimal to a whole power of none
   or more (`POWER(1.005, 7)`) is exact to its last digit, where it was
   rounded to about sixteen significant digits.

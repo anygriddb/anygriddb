@@ -8,7 +8,7 @@ import {
   type AutomationStep,
   type AutomationTrigger,
   automationTriggerSchema,
-  buildReadRows,
+  checkFilter,
   cellText,
   type CellValue,
   readCellValue,
@@ -138,13 +138,22 @@ export async function assertAutomation(
   ) {
     throw new AppError("invalid_automation");
   }
-  if (trigger.type === "enters_filter") {
+  /**
+   * A filter its run will read as it is written: a condition without the
+   * value its field takes is refused by name, as a row rule's is, since a
+   * condition left out would let every row through.
+   */
+  const assertFilter = (on: EngineCatalog, filter: FilterGroup) => {
     try {
-      buildReadRows(engine, { filter: trigger.filter, limit: 1 });
+      checkFilter(on, filter, "rule");
     } catch (error) {
+      if (error instanceof AppError && error.code === "invalid_filter") {
+        throw error;
+      }
       throw new AppError("invalid_automation", { cause: error });
     }
-  }
+  };
+  if (trigger.type === "enters_filter") assertFilter(engine, trigger.filter);
   if (
     trigger.type === "button" &&
     own.get(trigger.column)?.fieldType !== "button"
@@ -167,14 +176,6 @@ export async function assertAutomation(
       throw new AppError("invalid_automation");
     }
     return other;
-  };
-  /** A filter that compiles on a table, as the run will read it. */
-  const assertFilter = (on: EngineCatalog, filter: FilterGroup) => {
-    try {
-      buildReadRows(on, { filter, limit: 1 });
-    } catch (error) {
-      throw new AppError("invalid_automation", { cause: error });
-    }
   };
   /** Actions about the rows of `writes`: its fields must be writable. */
   const assertSteps = async (
@@ -1347,6 +1348,7 @@ export async function runAutomation(
             {
               rowIds: [row.id],
               filter: action.when,
+              filterCheck: "rule",
               limit: 1,
               timeZone: "UTC",
               me: creatorId,
@@ -1380,7 +1382,9 @@ export async function runAutomation(
             deps.db,
             target.engine,
             {
-              ...(action.filter ? { filter: action.filter } : {}),
+              ...(action.filter
+                ? { filter: action.filter, filterCheck: "rule" as const }
+                : {}),
               limit: Math.min(action.limit, MAX_LOOP_ROWS),
               timeZone: "UTC",
               me: creatorId,
@@ -1462,7 +1466,12 @@ async function deletedValues(
   return values;
 }
 
-/** Whether a row is inside the automation's filter, read with the creator's rights. */
+/**
+ * Whether a row is inside the automation's filter, read with the creator's
+ * rights. A filter kept before its conditions were held to their values,
+ * or whose field has since changed type, holds no row: left out, its
+ * condition would let every row in.
+ */
 async function rowMatches(
   deps: AutomationDeps,
   automation: AutomationRow,
@@ -1476,19 +1485,31 @@ async function rowMatches(
     automation.tableId,
   );
   if (!own) return false;
-  const page = await readPage(
-    deps.db,
-    own.engine,
-    {
-      rowIds: [rowId],
-      filter: trigger.filter,
-      limit: 1,
-      timeZone: "UTC",
-      me: automation.createdBy,
-    },
-    { total: false },
-  );
-  return page.rows.length > 0;
+  try {
+    const page = await readPage(
+      deps.db,
+      own.engine,
+      {
+        rowIds: [rowId],
+        filter: trigger.filter,
+        filterCheck: "rule",
+        limit: 1,
+        timeZone: "UTC",
+        me: automation.createdBy,
+      },
+      { total: false },
+    );
+    return page.rows.length > 0;
+  } catch (error) {
+    if (!(error instanceof AppError && error.code === "invalid_filter")) {
+      throw error;
+    }
+    deps.log(
+      error,
+      "an automation's filter holds a condition without its value",
+    );
+    return false;
+  }
 }
 
 /**
