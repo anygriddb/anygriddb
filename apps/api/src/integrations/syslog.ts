@@ -24,12 +24,12 @@ import {
 } from "../outbound/index.js";
 import { sendTlsFrame } from "../outbound/tls-frame.js";
 import { addJob, TASKS } from "../queue/jobs.js";
-import { readSettings } from "../settings.js";
 import {
   type CollectorEvent,
   type CollectorPayload,
   collectorPayload,
 } from "./siem.js";
+import { relaxationAllows } from "../relaxations.js";
 
 /** Connecting, the handshake and the write, together. */
 const SEND_TIMEOUT_MS = ceilingOf("timeout.syslog_ms");
@@ -228,7 +228,7 @@ async function sendToCollector(
     await send(named.collector, line);
     return;
   }
-  const allowPrivate = (await readSettings(db)).notifyAllowPrivate;
+  const allowPrivate = await relaxationAllows(db, "notify.private_networks");
   await assertCollectorAllowed(named.collector, allowPrivate, reach.resolve);
   await send(
     named.collector,

@@ -32,6 +32,8 @@ export const SIGN_IN_ACTIONS = [
   "password_reset_requested",
   "password_reset",
   "settings_changed",
+  "relaxation_enabled",
+  "relaxation_disabled",
   "account_disabled",
   "account_erased",
   "account_updated",

@@ -68,6 +68,8 @@ const authActionSchema = z.enum([
   "password_reset_requested",
   "password_reset",
   "settings_changed",
+  "relaxation_enabled",
+  "relaxation_disabled",
   "account_created",
   "account_disabled",
   "account_erased",

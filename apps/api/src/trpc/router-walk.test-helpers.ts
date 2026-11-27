@@ -139,6 +139,7 @@ export const BY_HAND: Record<string, unknown> = {
     name: "Asked",
     redirectUris: ["https://client.example.org/back"],
   },
+  "admin.relaxations.end": { key: "notify.private_networks" },
   "catalog.createTable": {
     baseId: randomUUID(),
     name: "Asked",

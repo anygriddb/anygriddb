@@ -104,6 +104,9 @@ export function SignInTrail({
             sso_only: t`Password access ended for single sign-on`,
             admin_reset: t`Link from an administrator`,
             reset_link: t`By an administrator`,
+            // Requirements relaxed or back to strict (ADR 0140).
+            "source.plaintext": t`A source without TLS`,
+            "notify.private_networks": t`Channels on a private network`,
             // Settings that changed (settings_changed).
             signup: t`Sign-ups`,
             defaultLocale: t`Default language`,

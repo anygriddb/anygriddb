@@ -22,7 +22,7 @@ import {
 import type { Env } from "../env.js";
 import { resolveSmtp } from "../integrations/smtp.js";
 import { sendMail, smtpReady } from "../mail.js";
-import { readMailVoice, readSettings } from "../settings.js";
+import { readMailVoice } from "../settings.js";
 import { redactSecrets, secretStrings } from "../outbound/index.js";
 import {
   notifyFailureText,
@@ -45,6 +45,7 @@ import { sendWebhook, type NotifyPayload } from "./providers/webhook.js";
 import { heartbeatAccepted, heartbeatTarget } from "./pulse.js";
 import { captureServerError, sendSentry } from "./sentry.js";
 import { asFields } from "./store.js";
+import { relaxationAllows } from "../relaxations.js";
 
 type Log = (error: unknown, message: string) => void;
 
@@ -256,7 +257,10 @@ async function sendToChannel(
   let response: OutboundResponse | undefined;
   try {
     if (!send) throw new Error("Unknown provider");
-    const allowPrivate = (await readSettings(deps.db)).notifyAllowPrivate;
+    const allowPrivate = await relaxationAllows(
+      deps.db,
+      "notify.private_networks",
+    );
     response = await send({
       config: channel.config,
       secrets: openedSecrets(channel, deps.key),
@@ -408,7 +412,10 @@ export async function testIntegration(
   let failure: string | undefined;
   try {
     secrets = openedSecrets(row, deps.key);
-    const allowPrivate = (await readSettings(deps.db)).notifyAllowPrivate;
+    const allowPrivate = await relaxationAllows(
+      deps.db,
+      "notify.private_networks",
+    );
     if (provider.family === "heartbeat") {
       // A heartbeat has no event sender: the test is one success ping.
       const parsed = heartbeatSecretsSchema.parse(secrets);

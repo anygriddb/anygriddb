@@ -24,7 +24,8 @@ import { taskGroups } from "../queue/tasks.js";
 import { recordingBus } from "../realtime/recording-bus.test-helpers.js";
 import { createTestDatabase } from "../test-database.js";
 import { issueAuthority, issueServer } from "../tls/certificate.js";
-import { writeSettings } from "../settings.js";
+import { withAudit } from "../data/audit-context.js";
+import { setRelaxation } from "../relaxations.js";
 import { shipTrail } from "./trail-shipping.js";
 import { verifyTrail } from "./trail-verify.js";
 import {
@@ -219,6 +220,17 @@ describe("sign-in events to a syslog collector", () => {
       });
     });
 
+    /** Private networks, relaxed or not, as Administration does it. */
+    const allowPrivate = (on: boolean) =>
+      withAudit(db, { userId: admin, source: "test" }, (tx) =>
+        setRelaxation(
+          tx,
+          { id: admin },
+          { key: "notify.private_networks" },
+          on,
+        ),
+      );
+
     it("is refused on a private address until an administrator allows those", async () => {
       await expect(
         saveSyslog(db, undefined, admin, named, { reach: reach("10.1.2.3") }),
@@ -226,7 +238,7 @@ describe("sign-in events to a syslog collector", () => {
       expect(await publicSyslog(db, undefined)).toMatchObject({
         configured: false,
       });
-      await writeSettings(db, admin, { notifyAllowPrivate: true });
+      await allowPrivate(true);
       try {
         const saved = await saveSyslog(db, undefined, admin, named, {
           reach: reach("10.1.2.3"),
@@ -238,7 +250,7 @@ describe("sign-in events to a syslog collector", () => {
           port: 6514,
         });
       } finally {
-        await writeSettings(db, admin, { notifyAllowPrivate: false });
+        await allowPrivate(false);
         await clearSyslog(db, admin);
       }
     });

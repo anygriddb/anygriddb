@@ -40,6 +40,8 @@ export type AuthAction =
   | "password_changed"
   | "password_reset"
   | "password_reset_requested"
+  | "relaxation_disabled"
+  | "relaxation_enabled"
   | "session_revoked"
   | "settings_changed"
   | "sso_unlinked"
@@ -931,6 +933,15 @@ export interface Relations {
   toTableId: string;
 }
 
+export interface Relaxations {
+  consequence: number;
+  enabledAt: Generated<Timestamp>;
+  enabledBy: string | null;
+  id: Generated<string>;
+  key: string;
+  sourceId: string | null;
+}
+
 export interface ReleaseStatus {
   checkedAt: Timestamp;
   current: string;
@@ -1002,7 +1013,6 @@ export interface SourceLoadMinute {
 }
 
 export interface Sources {
-  allowPlaintext: Generated<boolean>;
   checkedAt: Timestamp | null;
   connectionLimit: Generated<number>;
   createdAt: Generated<Timestamp>;
@@ -1276,6 +1286,7 @@ export interface DB {
   rateWindows: RateWindows;
   recentTables: RecentTables;
   relations: Relations;
+  relaxations: Relaxations;
   releaseStatus: ReleaseStatus;
   restorePoints: RestorePoints;
   rowSignatures: RowSignatures;

@@ -14,6 +14,7 @@ import {
   trailShippingRouter,
 } from "./admin-integrations-router.js";
 import { notifyRouter } from "./admin-notify-router.js";
+import { relaxationsRouter } from "./admin-relaxations-router.js";
 import { sourcesRouter } from "./admin-sources-router.js";
 import { adminTrailProcedures } from "./admin-trails-router.js";
 import { oauthClientsRouter } from "./admin-oauth-router.js";
@@ -32,6 +33,7 @@ export const adminRouter = t.router({
   sources: sourcesRouter,
   smtp: smtpRouter,
   notify: notifyRouter,
+  relaxations: relaxationsRouter,
   oidc: oidcRouter,
   saml: samlRouter,
   siem: siemRouter,

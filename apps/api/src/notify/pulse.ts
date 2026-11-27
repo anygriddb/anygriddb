@@ -10,7 +10,7 @@ import {
   type OutboundResponse,
 } from "./outbound.js";
 import { noteDelivery } from "../outbound/deliveries.js";
-import { readSettings } from "../settings.js";
+import { relaxationAllows } from "../relaxations.js";
 
 export type PulsePhase = "start" | "success" | "fail";
 
@@ -87,7 +87,10 @@ export async function pulse(
     .where("i.status", "=", "active")
     .execute();
   if (rows.length === 0) return;
-  const allowPrivate = (await readSettings(deps.db)).notifyAllowPrivate;
+  const allowPrivate = await relaxationAllows(
+    deps.db,
+    "notify.private_networks",
+  );
   const send = deps.send ?? sendOutbound;
   for (const row of rows) {
     let failure: string | null = null;

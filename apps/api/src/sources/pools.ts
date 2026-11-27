@@ -41,6 +41,7 @@ import { copyConnector, type CopyRequest, type CopyRow } from "./copy/index.js";
 import { connectionQueue } from "./connection-queue.js";
 import { writeError } from "./write-errors.js";
 import { measureSource } from "../observability.js";
+import { plaintextColumn } from "../relaxations.js";
 
 export type Statement = { text: string; values: readonly unknown[] };
 export type Run = (statement: Statement) => Promise<Record<string, unknown>[]>;
@@ -758,13 +759,15 @@ export class SourcePools {
     const row = await this.deps.db
       .selectFrom("sources")
       .selectAll()
+      .select(plaintextColumn)
       .where("id", "=", sourceId)
       .executeTakeFirst();
     if (!row) throw new AppError("unknown_source");
     if (!this.deps.settings.allows(row.host)) {
       throw new AppError("source_host_not_allowed", row.host);
     }
-    const stamp = `${String(row.updatedAt.getTime())}:${String(row.passwordChangedAt.getTime())}`;
+    // A source's clear connection is its relaxation, which may change apart.
+    const stamp = `${String(row.updatedAt.getTime())}:${String(row.passwordChangedAt.getTime())}:${String(row.allowPlaintext)}`;
     const current = this.pools.get(sourceId);
     if (current?.stamp === stamp) return current;
     if (current) {
@@ -886,6 +889,7 @@ export class SourcePools {
     const row = await this.deps.db
       .selectFrom("sources")
       .selectAll()
+      .select(plaintextColumn)
       .where("id", "=", sourceId)
       .executeTakeFirst();
     if (!row) throw new AppError("unknown_source");

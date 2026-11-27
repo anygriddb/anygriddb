@@ -23,6 +23,8 @@ export function useAuthLabels() {
     password_reset_requested: t`Reset link sent`,
     password_reset: t`Password reset`,
     settings_changed: t`Setting changed`,
+    relaxation_enabled: t`Requirement relaxed`,
+    relaxation_disabled: t`Requirement back to strict`,
     account_disabled: t`Account disabled`,
     account_erased: t`Account deleted`,
     acting_as_started: t`Started acting as this person`,
