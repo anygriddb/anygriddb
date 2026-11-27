@@ -471,11 +471,13 @@ export async function exportTable(
   );
   if (columns.length === 0) throw new AppError("export_no_columns");
   // Counted as it is read: a search looks in the fields the file holds.
+  // Exactly, since the statistics of a table grown since its last analysis
+  // say fewer rows than it holds; the read refuses past the ceiling still.
   const counted = await readPage(
     deps.db,
     engine,
     { ...spec, limit: 1, fields: columns.map((column) => column.name) },
-    { total: true },
+    { total: true, exact: true },
   );
   const total = counted.total ?? 0;
   if (total > options.maxRows) throw new AppError("export_too_large");
@@ -510,6 +512,7 @@ export async function exportTable(
       },
       spec,
       options.maxRows,
+      "export_too_large",
     );
     return { rows, size: await writer.finish() };
   } catch (error) {

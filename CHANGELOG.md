@@ -21,6 +21,29 @@ hears from: the panel names the condition to fill in or remove.
   that is not one. It was left out, and the answer held rows the filter
   was sent to keep out. A condition with no value at all is still left out.
 
+### Fixed
+
+- A state of a status circuit that lets only some fields be written let
+  every field be written on AnyGridDB's own tables, by the screens, the API,
+  MCP and an import (migration 0157). A write to another field in that state
+  is now refused (`row_locked`), as it is on a client's table. Renaming an
+  option of a field the state does not list is refused while a row sits
+  there, as it is while a row sits in a state that writes nothing.
+- An export, a copy of a field and an import by key read a table whole up to
+  100,000 rows (`copy.max_rows`), checked against PostgreSQL's estimate of
+  its size. A table grown past it since its last analysis was cut there: the
+  file lacked its last rows, the copy left their cells empty, and the import
+  added again the rows it should have updated. Each now counts the table
+  exactly and is refused past the ceiling (`export_too_large`,
+  `too_many_rows`), never cut.
+- A list sent as such, in a JSON file to import or to the API, was taken
+  apart at its commas and semicolons: `["one", "a,b"]` became `one`, `a` and
+  `b`, and the import added the options it made up. Each item is now read
+  whole.
+- A base file with a link or a lookup on a table it does not hold was
+  imported without it, and without its values. It is now refused when it is
+  sent (`invalid_snapshot`).
+
 ### Security
 
 - A row rule with a condition left blank, or with a value its field cannot

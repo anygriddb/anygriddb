@@ -233,6 +233,39 @@ describe("baseSnapshotSchema", () => {
       baseSnapshotSchema.safeParse({ ...minimal, tables: [] }).success,
     ).toBe(false);
   });
+
+  it("refuses a link or a lookup that names a table it does not list", () => {
+    const link = (from: string, to: string) => ({
+      ...minimal,
+      links: [
+        {
+          from,
+          to,
+          name: "l",
+          label: "L",
+          inverseLabel: "R",
+          multiple: true,
+          links: [{ from: "r1", to: ["r1"] }],
+        },
+      ],
+    });
+    expect(
+      baseSnapshotSchema.safeParse(link("contacts", "contacts")).success,
+    ).toBe(true);
+    expect(
+      baseSnapshotSchema.safeParse(link("contacts", "missing")).success,
+    ).toBe(false);
+    expect(
+      baseSnapshotSchema.safeParse(link("missing", "contacts")).success,
+    ).toBe(false);
+    const lookup = {
+      ...link("contacts", "contacts"),
+      computed: [
+        { table: "missing", label: "N", relation: "l", target: "nom" },
+      ],
+    };
+    expect(baseSnapshotSchema.safeParse(lookup).success).toBe(false);
+  });
 });
 
 describe("version 3: rows as lines of their own entry", () => {

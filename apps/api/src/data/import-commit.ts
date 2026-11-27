@@ -251,9 +251,19 @@ class OptionFinder {
     this.known = new Set(existing.map((option) => option.name.toLowerCase()));
   }
 
-  add(value: string): void {
-    const text = unguardedChoice(value, this.existing);
-    for (const name of splitValues(text, this.multiple)) {
+  /** A cell's text, split when the field holds many; a list's items whole. */
+  add(value: string | readonly string[]): void {
+    const names =
+      typeof value !== "string" && this.multiple
+        ? value.map((item) => item.trim()).filter((item) => item !== "")
+        : splitValues(
+            unguardedChoice(
+              typeof value === "string" ? value : value.join(", "),
+              this.existing,
+            ),
+            this.multiple,
+          );
+    for (const name of names) {
       const clipped = name.slice(0, 80);
       // Its row is refused; an option holding it could not be saved.
       if (holdsUnwritableText(clipped)) continue;
@@ -322,7 +332,7 @@ async function findOptions(
   for await (const batch of source.batches()) {
     for (const row of batch) {
       for (const [index, finder] of finders) {
-        finder.add(row.cells[index] ?? "");
+        finder.add(row.lists?.[index] ?? row.cells[index] ?? "");
       }
     }
   }
@@ -602,7 +612,7 @@ export async function importIntoTable(
       db,
       engine,
       { limit: 1, fields: [] },
-      { total: true },
+      { total: true, exact: true },
     );
     if ((counted.total ?? 0) > MAX_COPY_ROWS) {
       throw new AppError("too_many_rows");
@@ -704,7 +714,10 @@ export async function importIntoTable(
           });
           continue;
         }
-        const cell = unguardedCell(column, raw, input.stripTextGuard === true);
+        // A list of the file is read as its items, never split again.
+        const cell =
+          row.lists?.[index] ??
+          unguardedCell(column, raw, input.stripTextGuard === true);
         const reading = readCellValue(column, cell, {
           ...(input.resolveUser ? { resolveUser: input.resolveUser } : {}),
           ...(input.decimalMark ? { decimalMark: input.decimalMark } : {}),

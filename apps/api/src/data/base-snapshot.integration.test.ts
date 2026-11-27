@@ -235,6 +235,49 @@ describe("snapshots with files and people", () => {
     }
   });
 
+  it("refuses at upload a link that names a table the file does not hold", async () => {
+    const folder = await mkdtemp(join(tmpdir(), "broken-links-"));
+    const path = join(folder, "broken.anygriddb.json");
+    for (const [from, to] of [
+      ["t", "missing"],
+      ["missing", "t"],
+    ]) {
+      const text = JSON.stringify({
+        kind: "anygriddb.base",
+        version: 1,
+        base: { name: "Broken links" },
+        tables: [
+          {
+            key: "t",
+            name: "T",
+            columns: [{ name: "a", label: "A", fieldType: "text" }],
+            rows: [{ __id: "1", a: "x" }],
+          },
+        ],
+        links: [
+          {
+            from,
+            to,
+            name: "l",
+            label: "L",
+            inverseLabel: "R",
+            multiple: true,
+            links: [{ from: "1", to: ["9"] }],
+          },
+        ],
+      });
+      await writeFile(path, text);
+      await expect(
+        stageSnapshotFile(db, files, {
+          userId: owner,
+          path,
+          size: Buffer.byteLength(text),
+          filename: "broken.anygriddb.json",
+        }),
+      ).rejects.toMatchObject({ name: "ZodError" });
+    }
+  });
+
   it("brings files, people, and members back through an upload", async () => {
     const { folder, packed } = await exported();
     try {
