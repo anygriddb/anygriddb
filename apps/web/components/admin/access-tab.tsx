@@ -13,14 +13,12 @@ import { ConfirmDialog } from "../shell/dialogs";
 import { AdminPager, AdminTable, AdminTableHead } from "./admin-list";
 import { useAdminPage, useAdminPageSize } from "./admin-page-size";
 
-type Access = RouterOutputs["admin"]["access"]["list"];
-type Token = Access["tokens"][number];
-type Hook = Access["webhooks"][number];
+type Hook = RouterOutputs["admin"]["access"]["hooks"]["webhooks"][number];
 
 /**
- * The API tokens, outgoing webhooks, and automations of the whole
- * instance (ROADMAP #23): who owns each, whether it is on, how it was last
- * used, and a way to stop it without being in its base.
+ * The outgoing webhooks and automations of the whole instance (ROADMAP
+ * #23), which act as their authors: who owns each, whether it is on, how
+ * it was last used, and a way to stop it without being in its base.
  */
 export function AccessTab() {
   const { t } = useLingui();
@@ -29,23 +27,17 @@ export function AccessTab() {
   const api = useTRPC();
   const queryClient = useQueryClient();
   const [pageSize, setPageSize] = useAdminPageSize();
-  const tokensPage = useAdminPage(pageSize);
   const webhooksPage = useAdminPage(pageSize);
   const automationsPage = useAdminPage(pageSize);
   const access = useQuery({
-    ...api.admin.access.list.queryOptions({
+    ...api.admin.access.hooks.queryOptions({
       limit: pageSize,
-      tokensOffset: tokensPage.offset,
       webhooksOffset: webhooksPage.offset,
       automationsOffset: automationsPage.offset,
     }),
     placeholderData: (previous) => previous,
   });
-  const [revoking, setRevoking] = useState<Token | null>(null);
   const [stopping, setStopping] = useState<Hook | null>(null);
-  const tokenSort = useColumnSort<
-    "name" | "owner" | "reaches" | "used" | "ends"
-  >();
   const webhookSort = useColumnSort<
     "name" | "table" | "owner" | "state" | "where"
   >();
@@ -62,18 +54,6 @@ export function AccessTab() {
     if (key === "state") return hook.on ? 1 : 0;
     return hook.kind === "webhook" ? hook.host : hook.lastRunAt;
   };
-  const tokens = sortRows(
-    access.data?.tokens ?? [],
-    tokenSort.sort,
-    (token, key) => {
-      if (key === "name") return token.name;
-      if (key === "owner") return token.owner;
-      if (key === "reaches") return token.bases;
-      if (key === "used") return token.lastUsedAt;
-      return token.expiresAt;
-    },
-    (token) => token.id,
-  );
   const webhooks = sortRows(
     access.data?.webhooks ?? [],
     webhookSort.sort,
@@ -90,7 +70,7 @@ export function AccessTab() {
     try {
       await action();
       await queryClient.invalidateQueries({
-        queryKey: api.admin.access.list.queryKey(),
+        queryKey: api.admin.access.hooks.queryKey(),
       });
       toast.success(t`Done`);
     } catch (cause) {
@@ -107,74 +87,6 @@ export function AccessTab() {
           {errorText(access.error)}
         </p>
       ) : null}
-      <section className="flex flex-col gap-2" aria-labelledby="access-tokens">
-        <h2 id="access-tokens" className="text-sm font-semibold">
-          {t`API tokens`}
-        </h2>
-        {access.data && tokens.length === 0 ? (
-          <p className="text-sm text-muted-foreground">{t`No API token.`}</p>
-        ) : null}
-        {tokens.length > 0 ? (
-          <>
-            <AdminTable>
-              <AdminTableHead>
-                <tr>
-                  {tokenSort.header("name", t`Token`, head)}
-                  {tokenSort.header("owner", t`Owner`, head)}
-                  {tokenSort.header("reaches", t`Reaches`, head)}
-                  {tokenSort.header("used", t`Last used`, head)}
-                  {tokenSort.header("ends", t`Ends`, head)}
-                  <th className={head}>
-                    <span className="sr-only">{t`Actions`}</span>
-                  </th>
-                </tr>
-              </AdminTableHead>
-              <tbody>
-                {tokens.map((token) => (
-                  <tr key={token.id} className="border-t border-border">
-                    <td className="px-3 py-2 font-medium">{token.name}</td>
-                    <td className={cell}>{token.owner}</td>
-                    <td className={cell}>
-                      {token.bases === null
-                        ? t`Every base of its owner`
-                        : plural(token.bases, {
-                            one: "# base",
-                            other: "# bases",
-                          })}
-                      {token.readOnly ? ` · ${t`Read only`}` : ""}
-                    </td>
-                    <td className={cell}>
-                      {token.lastUsedAt ? date(token.lastUsedAt) : t`Never`}
-                    </td>
-                    <td className={cell}>
-                      {token.expired
-                        ? t`Ended ${{ when: date(token.expiresAt) }}`
-                        : date(token.expiresAt)}
-                    </td>
-                    <td className="px-3 py-2 text-right">
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => setRevoking(token)}
-                      >
-                        {t`Revoke`}
-                      </Button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </AdminTable>
-            <AdminPager
-              total={access.data?.tokensTotal ?? 0}
-              offset={tokensPage.offset}
-              pageSize={pageSize}
-              onPageSize={setPageSize}
-              onPrev={() => tokensPage.setPage(tokensPage.page - 1)}
-              onNext={() => tokensPage.setPage(tokensPage.page + 1)}
-            />
-          </>
-        ) : null}
-      </section>
       {(
         [
           [
@@ -288,19 +200,6 @@ export function AccessTab() {
           ) : null}
         </section>
       ))}
-      {revoking ? (
-        <ConfirmDialog
-          open
-          danger
-          onOpenChange={(open) => !open && setRevoking(null)}
-          title={t`Revoke ${{ name: revoking.name }}?`}
-          description={t`Whatever uses this token is refused from now on. Its owner can make another.`}
-          confirmLabel={t`Revoke`}
-          onConfirm={() =>
-            run(() => trpc.admin.access.revokeToken.mutate({ id: revoking.id }))
-          }
-        />
-      ) : null}
       {stopping ? (
         <ConfirmDialog
           open

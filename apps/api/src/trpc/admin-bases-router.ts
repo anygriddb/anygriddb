@@ -38,11 +38,8 @@ import {
   listBaseOverview,
   listBaseTables,
   listInstanceHooks,
-  listInstanceTokens,
-  listOutbound,
-  revokeOutbound,
 } from "../data/outbound.js";
-import { revokeApiToken } from "../auth/tokens.js";
+import { listAccesses, revokeAccess } from "../data/accesses.js";
 import { setAutomationEnabled } from "../automations.js";
 import { updateWebhook } from "../webhooks.js";
 import { t } from "./init.js";
@@ -156,48 +153,32 @@ export const adminBaseProcedures = {
       }),
     ),
   /**
-   * Every public link and calendar feed of the instance (ROADMAP #16),
-   * metadata only, and revoking one without being in its base.
-   */
-  outbound: t.router({
-    list: asking({ asks: ["access.oversee"] })
-      .input(
-        z.object({
-          limit: z.int().min(1).max(100).default(50),
-          offset: z.int().min(0).max(1_000_000).default(0),
-        }),
-      )
-      .query(({ ctx, input }) =>
-        handle(ctx, async () => {
-          await requireInstance(ctx);
-          return listOutbound(ctx.db, input);
-        }),
-      ),
-    revoke: asking({ asks: ["access.oversee"] })
-      .input(z.object({ kind: z.enum(["link", "feed"]), id: z.uuid() }))
-      .mutation(({ ctx, input }) =>
-        handle(ctx, async () => {
-          const admin = await requireInstance(ctx);
-          await revokeOutbound(ctx.db, admin.id, input);
-          ctx.req.log.info(
-            { actor: admin.id, kind: input.kind, id: input.id },
-            "outbound link revoked by administrator",
-          );
-          return { ok: true as const };
-        }),
-      ),
-  }),
-  /**
-   * The API tokens, outgoing webhooks, and automations of the whole
-   * instance (ROADMAP #23): each with its owner, state, and last use, and
-   * one revoked or switched off without being in its base.
+   * Everything that reaches the instance without a session (ADR 0131,
+   * §5): every delegated access by its author, reach, end, last use and
+   * state, then the outgoing webhooks and the automations, which act as
+   * their authors (ROADMAP #16, #23). Metadata only; each stopped without
+   * being in its base.
    */
   access: t.router({
     list: asking({ asks: ["access.oversee"] })
       .input(
         z.object({
           limit: z.int().min(1).max(100).default(50),
-          tokensOffset: z.int().min(0).max(1_000_000).default(0),
+          offset: z.int().min(0).max(1_000_000).default(0),
+          /** Revoked ones too. */
+          revoked: z.boolean().default(false),
+        }),
+      )
+      .query(({ ctx, input }) =>
+        handle(ctx, async () => {
+          await requireInstance(ctx);
+          return listAccesses(ctx.db, input);
+        }),
+      ),
+    hooks: asking({ asks: ["access.oversee"] })
+      .input(
+        z.object({
+          limit: z.int().min(1).max(100).default(50),
           webhooksOffset: z.int().min(0).max(1_000_000).default(0),
           automationsOffset: z.int().min(0).max(1_000_000).default(0),
         }),
@@ -206,24 +187,10 @@ export const adminBaseProcedures = {
         handle(ctx, async () => {
           await requireInstance(ctx);
           const page = { limit: input.limit };
-          const [tokensPage, hooks] = await Promise.all([
-            listInstanceTokens(ctx.db, {
-              ...page,
-              offset: input.tokensOffset,
-            }),
-            listInstanceHooks(ctx.db, {
-              webhooks: { ...page, offset: input.webhooksOffset },
-              automations: { ...page, offset: input.automationsOffset },
-            }),
-          ]);
-          return {
-            tokens: tokensPage.tokens,
-            tokensTotal: tokensPage.total,
-            webhooks: hooks.webhooks,
-            webhooksTotal: hooks.webhooksTotal,
-            automations: hooks.automations,
-            automationsTotal: hooks.automationsTotal,
-          };
+          return listInstanceHooks(ctx.db, {
+            webhooks: { ...page, offset: input.webhooksOffset },
+            automations: { ...page, offset: input.automationsOffset },
+          });
         }),
       ),
     /**
@@ -293,25 +260,15 @@ export const adminBaseProcedures = {
           };
         }),
       ),
-    revokeToken: asking({ asks: ["access.oversee"] })
+    revoke: asking({ asks: ["access.oversee"] })
       .input(z.object({ id: z.uuid() }))
       .mutation(({ ctx, input }) =>
         handle(ctx, async () => {
           const admin = await requireInstance(ctx);
-          const token = await ctx.db
-            .selectFrom("delegatedAccesses")
-            .select("authorId as userId")
-            .where("id", "=", input.id)
-            .where("kind", "in", ["api_token", "application"])
-            .executeTakeFirst();
-          if (!token) throw new AppError("no_row");
-          await revokeApiToken(ctx.db, token.userId, input.id, {
-            actorId: admin.id,
-            admin: true,
-          });
+          const kind = await revokeAccess(ctx.db, admin.id, input.id);
           ctx.req.log.info(
-            { actor: admin.id, target: token.userId, token: input.id },
-            "api token revoked by administrator",
+            { actor: admin.id, kind, access: input.id },
+            "access revoked by administrator",
           );
           return { ok: true as const };
         }),
@@ -383,14 +340,14 @@ export const adminBaseProcedures = {
           const [members, tables, outbound, open] = await Promise.all([
             listMembers(ctx.db, input.baseId),
             listBaseTables(ctx.db, input.baseId),
-            listOutbound(ctx.db, { limit: 200, baseId: input.baseId }),
+            listAccesses(ctx.db, { limit: 100, baseId: input.baseId }),
             listOpenAccess(ctx.db, input.baseId),
           ]);
           return {
             base,
             members,
             tables,
-            links: outbound.links,
+            accesses: outbound.accesses,
             open,
           };
         }),

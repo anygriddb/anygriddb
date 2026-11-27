@@ -269,10 +269,10 @@ msgstr "{0, plural, one {# base held in a source cannot be read} other {# bases 
 msgid "{0, plural, one {# base held in a source} other {# bases held in a source}}"
 msgstr "{0, plural, one {# base held in a source} other {# bases held in a source}}"
 
+#. placeholder {0}: access.bases
 #. placeholder {0}: group.bases
 #. placeholder {0}: group.roles.length
-#. placeholder {0}: result.bases
-#: components/admin/access-tab.tsx
+#: components/admin/accesses-tab.tsx
 #: components/admin/account-handoff.tsx
 #: components/admin/group-page.tsx
 #: components/admin/groups-tab.tsx
@@ -1638,6 +1638,10 @@ msgstr "A message is on its way to {awaiting}. Open the link it holds to finish:
 msgid "A minute"
 msgstr "A minute"
 
+#: components/admin/security-tab.tsx
+msgid "A new link or feed lives this long unless a shorter time is chosen. A shorter choice also ends the tokens already made that are older."
+msgstr "A new link or feed lives this long unless a shorter time is chosen. A shorter choice also ends the tokens already made that are older."
+
 #: components/admin/limits-tab.tsx
 msgid "A notice waiting for a digest"
 msgstr "A notice waiting for a digest"
@@ -1880,10 +1884,6 @@ msgid "A session ends after a while without activity, and at its lifetime in any
 msgstr "A session ends after a while without activity, and at its lifetime in any case. A shorter choice applies to sessions already open."
 
 #: components/admin/security-tab.tsx
-msgid "A shorter choice also ends the tokens already made that are older."
-msgstr "A shorter choice also ends the tokens already made that are older."
-
-#: components/admin/security-tab.tsx
 msgid "A shorter choice also purges, at the next nightly purge, what was deleted before it."
 msgstr "A shorter choice also purges, at the next nightly purge, what was deleted before it."
 
@@ -1996,6 +1996,10 @@ msgstr "A token acts with the rights of the administrator who made it, and stops
 msgid "A token acts with your rights, on the REST API and on MCP. It is shown once and lives the days you choose, {max} at most on this instance. A read-only token is enough to explore; one that writes deletes rows only if you allow it."
 msgstr "A token acts with your rights, on the REST API and on MCP. It is shown once and lives the days you choose, {max} at most on this instance. A read-only token is enough to explore; one that writes deletes rows only if you allow it."
 
+#: components/admin/security-tab.tsx
+msgid "A token, a link or a feed lives at most"
+msgstr "A token, a link or a feed lives at most"
+
 #: components/fields/field-meta.tsx
 msgid "A total over the linked rows"
 msgstr "A total over the linked rows"
@@ -2049,6 +2053,10 @@ msgstr "Accept"
 #: components/public/invitation-page.tsx
 msgid "Accept the invitation"
 msgstr "Accept the invitation"
+
+#: components/admin/admin-sections.ts
+msgid "Access"
+msgstr "Access"
 
 #: lib/errors.ts
 msgid "Access denied"
@@ -2217,11 +2225,11 @@ msgid "actions"
 msgstr "actions"
 
 #: components/admin/access-tab.tsx
+#: components/admin/accesses-tab.tsx
 #: components/admin/accounts-tab.tsx
 #: components/admin/api-tokens-tab.tsx
 #: components/admin/invitations-panel.tsx
 #: components/admin/notifications-tab.tsx
-#: components/admin/outbound-tab.tsx
 #: components/admin/sessions-tab.tsx
 #: components/admin/sources-tab.tsx
 #: components/admin/support-tab.tsx
@@ -2515,6 +2523,7 @@ msgstr "Adds a role on the table"
 msgid "Adds up the numbers and lists of numbers."
 msgstr "Adds up the numbers and lists of numbers."
 
+#: components/admin/accesses-tab.tsx
 #: components/admin/admin-shell.tsx
 #: components/shell/command-palette.tsx
 #: components/shell/sidebar.tsx
@@ -2522,6 +2531,7 @@ msgstr "Adds up the numbers and lists of numbers."
 msgid "Administration"
 msgstr "Administration"
 
+#: components/admin/accesses-tab.tsx
 #: components/admin/admin-sections.ts
 #: components/admin/api-tokens-tab.tsx
 #: components/admin/trails.tsx
@@ -2811,10 +2821,6 @@ msgstr "An answer of a store read through its API"
 msgid "An answer of an import from another product"
 msgstr "An answer of an import from another product"
 
-#: components/admin/security-tab.tsx
-msgid "An API token lives at most"
-msgstr "An API token lives at most"
-
 #: components/admin/limits-tab.tsx
 msgid "An API token, unless its maker says"
 msgstr "An API token, unless its maker says"
@@ -3043,6 +3049,10 @@ msgstr "API and documentation"
 msgid "API key"
 msgstr "API key"
 
+#: components/admin/accesses-tab.tsx
+msgid "API token"
+msgstr "API token"
+
 #: components/admin/auth-labels.ts
 msgid "API token created"
 msgstr "API token created"
@@ -3051,7 +3061,6 @@ msgstr "API token created"
 msgid "API token lifetime"
 msgstr "API token lifetime"
 
-#: components/admin/access-tab.tsx
 #: components/admin/account-page.tsx
 #: components/admin/trails.tsx
 #: components/settings/account-settings.tsx
@@ -3065,6 +3074,10 @@ msgstr "API tokens and public links"
 #: components/admin/auth-labels.ts
 msgid "API tokens revoked"
 msgstr "API tokens revoked"
+
+#: components/admin/accesses-tab.tsx
+msgid "Application"
+msgstr "Application"
 
 #: components/admin/admin-sections.ts
 #: components/admin/oauth-clients-tab.tsx
@@ -3558,8 +3571,8 @@ msgstr "Calendar"
 msgid "Calendar address"
 msgstr "Calendar address"
 
+#: components/admin/accesses-tab.tsx
 #: components/admin/base-admin-page.tsx
-#: components/admin/outbound-tab.tsx
 #: components/admin/trails.tsx
 msgid "Calendar feed"
 msgstr "Calendar feed"
@@ -4522,10 +4535,10 @@ msgstr "Create the link"
 msgid "created"
 msgstr "created"
 
+#: components/admin/accesses-tab.tsx
 #: components/admin/account-page.tsx
 #: components/admin/accounts-tab.tsx
 #: components/admin/oauth-clients-tab.tsx
-#: components/admin/outbound-tab.tsx
 #: components/admin/scim-tab.tsx
 msgid "Created"
 msgstr "Created"
@@ -5500,16 +5513,15 @@ msgstr "End password access now?"
 msgid "End sessions and revoke tokens"
 msgstr "End sessions and revoke tokens"
 
-#: components/admin/access-tab.tsx
-#: components/admin/outbound-tab.tsx
+#: components/admin/accesses-tab.tsx
+msgid "Ended"
+msgstr "Ended"
+
+#: components/admin/accesses-tab.tsx
 msgid "Ended {when}"
 msgstr "Ended {when}"
 
-#: components/admin/access-tab.tsx
-msgid "Ends"
-msgstr "Ends"
-
-#: components/admin/outbound-tab.tsx
+#: components/admin/accesses-tab.tsx
 msgid "Ends {when}"
 msgstr "Ends {when}"
 
@@ -5520,10 +5532,6 @@ msgstr "Ends at the latest"
 #: components/table/filter-builder.tsx
 msgid "ends with"
 msgstr "ends with"
-
-#: components/admin/outbound-tab.tsx
-msgid "Ends, or last read"
-msgstr "Ends, or last read"
 
 #: components/admin/sources-tab.tsx
 msgid "Engine"
@@ -5612,9 +5620,9 @@ msgstr "Every account, its bases and roles, and its last sign-in, as a CSV file.
 msgid "Every active account"
 msgstr "Every active account"
 
-#: components/admin/access-tab.tsx
-msgid "Every base of its owner"
-msgstr "Every base of its owner"
+#: components/admin/accesses-tab.tsx
+msgid "Every base of its author"
+msgstr "Every base of its author"
 
 #: components/table/automations-dialog.tsx
 msgid "Every day"
@@ -5710,6 +5718,10 @@ msgstr "Everyone who holds a role gets what it gives now: a change takes effect 
 #: components/admin/limits-tab.tsx
 msgid "Everything else in the app"
 msgstr "Everything else in the app"
+
+#: components/admin/accesses-tab.tsx
+msgid "Everything that reaches the instance without someone signed in: API tokens and the applications people let in, the tokens of the administration API and of provisioning, calendar feeds, public links, and automations' addresses. Each acts with its author's rights, never more; revoking one stops it at once."
+msgstr "Everything that reaches the instance without someone signed in: API tokens and the applications people let in, the tokens of the administration API and of provisioning, calendar feeds, public links, and automations' addresses. Each acts with its author's rights, never more; revoking one stops it at once."
 
 #: components/shell/shortcuts-dialog.tsx
 msgid "Everywhere"
@@ -7354,6 +7366,10 @@ msgstr "It stops receiving events. Past deliveries are kept until they expire."
 msgid "It stops running now and keeps its settings: someone who manages its base can switch it on again."
 msgstr "It stops running now and keeps its settings: someone who manages its base can switch it on again."
 
+#: components/admin/accesses-tab.tsx
+msgid "It stops working now, for whoever holds it. What it reaches stays as it is; its author can make a new one."
+msgstr "It stops working now, for whoever holds it. What it reaches stays as it is; its author can make a new one."
+
 #: components/admin/api-tokens-tab.tsx
 #: components/admin/scim-tab.tsx
 msgid "It's copied"
@@ -7366,14 +7382,6 @@ msgstr "items"
 #: components/admin/limits-tab.tsx
 msgid "Items of a list in a cell"
 msgstr "Items of a list in a cell"
-
-#: components/admin/outbound-tab.tsx
-msgid "Its address stops working now, for everyone who has it. The view stays as it is."
-msgstr "Its address stops working now, for everyone who has it. The view stays as it is."
-
-#: components/admin/outbound-tab.tsx
-msgid "Its address stops working now; its owner can make a new one. The view stays as it is."
-msgstr "Its address stops working now; its owner can make a new one. The view stays as it is."
 
 #: components/views/form-view.tsx
 msgid "Its condition reads a field placed after it: it is ignored."
@@ -7621,7 +7629,6 @@ msgstr "Last sign-in"
 msgid "Last sign-in events"
 msgstr "Last sign-in events"
 
-#: components/admin/access-tab.tsx
 #: components/admin/api-tokens-tab.tsx
 #: components/admin/scim-tab.tsx
 msgid "Last used"
@@ -7815,7 +7822,6 @@ msgstr "Links a lookup follows"
 msgid "Links a snapshot carries per field"
 msgstr "Links a snapshot carries per field"
 
-#: components/admin/admin-sections.ts
 #: components/admin/base-admin-page.tsx
 #: components/admin/bases-tab.tsx
 msgid "Links and feeds"
@@ -8014,7 +8020,7 @@ msgstr "Lower my role"
 msgid "Made an administrator"
 msgstr "Made an administrator"
 
-#: components/admin/outbound-tab.tsx
+#: components/admin/accesses-tab.tsx
 msgid "Made by"
 msgstr "Made by"
 
@@ -8508,18 +8514,14 @@ msgstr "Network failure"
 #: components/admin/notifications-tab.tsx
 #: components/admin/security-tab.tsx
 #: components/settings/base-links.tsx
-#: components/table/share-dialog.tsx
 msgid "Never"
 msgstr "Never"
-
-#: components/admin/outbound-tab.tsx
-msgid "Never read"
-msgstr "Never read"
 
 #: components/settings/account-settings.tsx
 msgid "never used"
 msgstr "never used"
 
+#: components/admin/accesses-tab.tsx
 #: components/admin/account-page.tsx
 msgid "Never used"
 msgstr "Never used"
@@ -8734,7 +8736,6 @@ msgstr "No alert is open."
 msgid "No API token to revoke"
 msgstr "No API token to revoke"
 
-#: components/admin/access-tab.tsx
 #: components/admin/account-page.tsx
 msgid "No API token."
 msgstr "No API token."
@@ -8842,7 +8843,7 @@ msgstr "No delivery has failed. A webhook's or a notification channel's delivery
 msgid "No delivery yet."
 msgstr "No delivery yet."
 
-#: components/admin/outbound-tab.tsx
+#: components/admin/accesses-tab.tsx
 msgid "No end"
 msgstr "No end"
 
@@ -8950,7 +8951,7 @@ msgstr "No one found"
 msgid "No options"
 msgstr "No options"
 
-#: components/admin/outbound-tab.tsx
+#: components/admin/accesses-tab.tsx
 msgid "No password"
 msgstr "No password"
 
@@ -8965,10 +8966,6 @@ msgstr "No preview for this file type: download it."
 #: components/admin/sources-tab.tsx
 msgid "no primary key: read-only"
 msgstr "no primary key: read-only"
-
-#: components/admin/outbound-tab.tsx
-msgid "No public link or calendar feed on this instance."
-msgstr "No public link or calendar feed on this instance."
 
 #: components/admin/limits-tab.tsx
 msgid "No quota"
@@ -9229,6 +9226,10 @@ msgstr "Nothing needs your attention."
 #: components/admin/base-admin-page.tsx
 msgid "Nothing of this base can be read from outside it."
 msgstr "Nothing of this base can be read from outside it."
+
+#: components/admin/accesses-tab.tsx
+msgid "Nothing reaches this instance without a session."
+msgstr "Nothing reaches this instance without a session."
 
 #: components/admin/account-handoff.tsx
 msgid "Nothing to hand over: no base owned alone, no automation, no webhook, no API token."
@@ -9766,7 +9767,7 @@ msgstr "Password (optional)"
 msgid "Password access ended for single sign-on"
 msgstr "Password access ended for single sign-on"
 
-#: components/admin/outbound-tab.tsx
+#: components/admin/accesses-tab.tsx
 msgid "Password asked"
 msgstr "Password asked"
 
@@ -10110,6 +10111,7 @@ msgstr "Provider verifies addresses"
 msgid "Provisioned by the identity provider (SCIM), then removed by it"
 msgstr "Provisioned by the identity provider (SCIM), then removed by it"
 
+#: components/admin/accesses-tab.tsx
 #: components/admin/admin-sections.ts
 #: components/admin/trails.tsx
 msgid "Provisioning (SCIM)"
@@ -10119,8 +10121,8 @@ msgstr "Provisioning (SCIM)"
 msgid "Public address"
 msgstr "Public address"
 
+#: components/admin/accesses-tab.tsx
 #: components/admin/base-admin-page.tsx
-#: components/admin/outbound-tab.tsx
 #: components/admin/trails.tsx
 msgid "Public link"
 msgstr "Public link"
@@ -10140,10 +10142,6 @@ msgstr "Public links are off: no link to a view or a form opens."
 #: lib/errors.ts
 msgid "Public links are turned off on this instance"
 msgstr "Public links are turned off on this instance"
-
-#: components/admin/outbound-tab.tsx
-msgid "Public links let anyone with the address read a view or fill a form; a calendar feed gives its owner's calendar program the view's dates. Revoking one stops it at once."
-msgstr "Public links let anyone with the address read a view or fill a form; a calendar feed gives its owner's calendar program the view's dates. Revoking one stops it at once."
 
 #: components/admin/permission-labels.ts
 msgid "Public links to a view, a form or a whole base."
@@ -10256,7 +10254,7 @@ msgstr "Reach by a token"
 msgid "Reachable bases:"
 msgstr "Reachable bases:"
 
-#: components/admin/access-tab.tsx
+#: components/admin/accesses-tab.tsx
 msgid "Reaches"
 msgstr "Reaches"
 
@@ -10267,10 +10265,6 @@ msgstr "Reaching the object store"
 #: components/admin/sources-tab.tsx
 msgid "read"
 msgstr "read"
-
-#: components/admin/outbound-tab.tsx
-msgid "Read {when}"
-msgstr "Read {when}"
 
 #: components/settings/api-console.tsx
 msgid "Read a row (GET)"
@@ -10284,7 +10278,7 @@ msgstr "Read and write"
 msgid "read only"
 msgstr "read only"
 
-#: components/admin/access-tab.tsx
+#: components/admin/accesses-tab.tsx
 #: components/oauth/consent-page.tsx
 #: components/settings/account-settings.tsx
 #: components/settings/table-rules-panel.tsx
@@ -10661,10 +10655,6 @@ msgstr "Remove the support role"
 msgid "Remove their second factors"
 msgstr "Remove their second factors"
 
-#: components/admin/outbound-tab.tsx
-msgid "Remove this calendar feed?"
-msgstr "Remove this calendar feed?"
-
 #: components/admin/notifications-tab.tsx
 msgid "Remove this integration?"
 msgstr "Remove this integration?"
@@ -10943,12 +10933,11 @@ msgstr "Retry scheduled ({error})"
 msgid "Review integrations"
 msgstr "Review integrations"
 
-#: components/admin/access-tab.tsx
+#: components/admin/accesses-tab.tsx
 #: components/admin/account-actions.tsx
 #: components/admin/api-tokens-tab.tsx
 #: components/admin/emergency-section.tsx
 #: components/admin/oauth-clients-tab.tsx
-#: components/admin/outbound-tab.tsx
 #: components/admin/scim-tab.tsx
 #: components/settings/account-settings.tsx
 #: components/settings/base-links.tsx
@@ -10969,7 +10958,6 @@ msgstr "Revoke “{name}”?"
 msgid "Revoke {name}"
 msgstr "Revoke {name}"
 
-#: components/admin/access-tab.tsx
 #: components/settings/account-settings.tsx
 msgid "Revoke {name}?"
 msgstr "Revoke {name}?"
@@ -11003,16 +10991,20 @@ msgstr "Revoke their API tokens"
 msgid "Revoke this link?"
 msgstr "Revoke this link?"
 
-#: components/admin/outbound-tab.tsx
-msgid "Revoke this public link?"
-msgstr "Revoke this public link?"
+#: components/admin/accesses-tab.tsx
+msgid "Revoke: {what}"
+msgstr "Revoke: {what}"
+
+#: components/admin/accesses-tab.tsx
+msgid "Revoke: {what}?"
+msgstr "Revoke: {what}?"
 
 #: components/table/share-dialog.tsx
 msgid "revoked"
 msgstr "revoked"
 
+#: components/admin/accesses-tab.tsx
 #: components/admin/oauth-clients-tab.tsx
-#: components/admin/outbound-tab.tsx
 msgid "Revoked"
 msgstr "Revoked"
 
@@ -12603,6 +12595,7 @@ msgid "starts with"
 msgstr "starts with"
 
 #: components/admin/access-tab.tsx
+#: components/admin/accesses-tab.tsx
 #: components/admin/notifications-tab.tsx
 msgid "State"
 msgstr "State"
@@ -12793,6 +12786,14 @@ msgstr "Support"
 #: components/admin/sign-in-trail.tsx
 msgid "Support role taken away"
 msgstr "Support role taken away"
+
+#: components/admin/base-admin-page.tsx
+msgid "Suspended"
+msgstr "Suspended"
+
+#: components/admin/accesses-tab.tsx
+msgid "Suspended: acts on nothing while its author or what it reaches may not"
+msgstr "Suspended: acts on nothing while its author or what it reaches may not"
 
 #: components/fields/field-settings.tsx
 msgid "Switch"
@@ -13542,6 +13543,10 @@ msgstr "The log shows who changed which fields. Values stay in each row's histor
 msgid "The logo in use"
 msgstr "The logo in use"
 
+#: components/table/share-dialog.tsx
+msgid "The longest the instance allows"
+msgstr "The longest the instance allows"
+
 #: lib/errors.ts
 msgid "The mail relay refused the username or the password"
 msgstr "The mail relay refused the username or the password"
@@ -13938,6 +13943,14 @@ msgstr "The volume the files are on is {percent}% full."
 #: components/admin/alerts-section.tsx
 msgid "The volume the files are on is full at"
 msgstr "The volume the files are on is full at"
+
+#: components/admin/base-admin-page.tsx
+msgid "The whole base"
+msgstr "The whole base"
+
+#: components/admin/accesses-tab.tsx
+msgid "The whole base {base}"
+msgstr "The whole base {base}"
 
 #: components/fields/formula-docs.ts
 msgid "The whole number just above."
@@ -14784,7 +14797,6 @@ msgstr "Today"
 msgid "Today's date, in the reader's time zone."
 msgstr "Today's date, in the reader's time zone."
 
-#: components/admin/access-tab.tsx
 #: components/admin/notifications-tab.tsx
 msgid "Token"
 msgstr "Token"
@@ -14804,10 +14816,6 @@ msgstr "Token name"
 #: components/admin/scim-tab.tsx
 msgid "Tokens"
 msgstr "Tokens"
-
-#: components/admin/admin-sections.ts
-msgid "Tokens and automations"
-msgstr "Tokens and automations"
 
 #: components/admin/settings-tab.tsx
 msgid "Told by the file's first bytes, so renaming it does not help. Nothing ticked: every kind is taken."
@@ -15299,6 +15307,10 @@ msgstr "Use the backup code"
 msgid "Use the pasted data"
 msgstr "Use the pasted data"
 
+#: components/admin/accesses-tab.tsx
+msgid "Used {when}"
+msgstr "Used {when}"
+
 #: components/admin/integrations-tab.tsx
 #: components/admin/notifications-tab.tsx
 #: components/admin/sources-tab.tsx
@@ -15366,7 +15378,6 @@ msgstr "Version"
 msgid "view"
 msgstr "view"
 
-#: components/admin/outbound-tab.tsx
 #: components/admin/trails.tsx
 #: components/dashboards/dashboard-board.tsx
 #: components/fields/link-selection.tsx
@@ -15478,6 +15489,8 @@ msgstr "Webhook"
 msgid "Webhook {name} on {table} was turned off after repeated failures"
 msgstr "Webhook {name} on {table} was turned off after repeated failures"
 
+#: components/admin/accesses-tab.tsx
+#: components/admin/base-admin-page.tsx
 #: components/admin/notifications-tab.tsx
 #: components/admin/trails.tsx
 #: components/table/automations-dialog.tsx
@@ -15504,6 +15517,10 @@ msgstr "Webhook, table {table}"
 msgid "Webhooks"
 msgstr "Webhooks"
 
+#: components/admin/admin-sections.ts
+msgid "Webhooks and automations"
+msgstr "Webhooks and automations"
+
 #: components/table/automations-dialog.tsx
 msgid "Wednesday"
 msgstr "Wednesday"
@@ -15516,7 +15533,7 @@ msgstr "Week"
 msgid "Weekly digest"
 msgstr "Weekly digest"
 
-#: components/admin/outbound-tab.tsx
+#: components/admin/accesses-tab.tsx
 msgid "What"
 msgstr "What"
 
@@ -15655,10 +15672,6 @@ msgstr "What you typed: {text}"
 #: components/settings/account-settings.tsx
 msgid "Whatever uses this token is refused from now on. A token is not made again: you can make another."
 msgstr "Whatever uses this token is refused from now on. A token is not made again: you can make another."
-
-#: components/admin/access-tab.tsx
-msgid "Whatever uses this token is refused from now on. Its owner can make another."
-msgstr "Whatever uses this token is refused from now on. Its owner can make another."
 
 #: components/admin/notifications-tab.tsx
 #: components/table/automations-dialog.tsx

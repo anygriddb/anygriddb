@@ -4,7 +4,13 @@
  * one stays, and acts on nothing; one past its end neither.
  */
 import { createHash } from "node:crypto";
-import { type Permission, PERMISSIONS, rolePermissions } from "@anygriddb/core";
+import {
+  AppError,
+  type InstanceSettings,
+  type Permission,
+  PERMISSIONS,
+  rolePermissions,
+} from "@anygriddb/core";
 import { sql, type ExpressionBuilder } from "kysely";
 
 /** The SHA-256 of a secret, as the table keeps it: never the secret. */
@@ -83,4 +89,19 @@ export function sqlArray(values: readonly string[], type: "uuid" | "text") {
     : sql<
         string[]
       >`array[${sql.join(values.map((value) => sql`${value}`))}]::text[]`;
+}
+
+/**
+ * When a new feed or link ends (ADR 0131, §5): in the days asked, within
+ * the instance's longest life; at that longest when none is asked.
+ */
+export function accessEnd(
+  days: number | undefined,
+  policy: Pick<InstanceSettings, "tokenMaxDays">,
+  now = Date.now(),
+): Date {
+  if (days !== undefined && days > policy.tokenMaxDays) {
+    throw new AppError("token_lifetime_too_long", String(policy.tokenMaxDays));
+  }
+  return new Date(now + (days ?? policy.tokenMaxDays) * 86_400_000);
 }

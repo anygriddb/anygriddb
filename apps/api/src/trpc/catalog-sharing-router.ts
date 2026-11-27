@@ -120,9 +120,7 @@ export const catalogSharingProcedures = {
           viewId: view.id,
           createdBy: user.id,
           password: input.password,
-          expiresAt: input.expiresInDays
-            ? new Date(Date.now() + input.expiresInDays * 86_400_000)
-            : undefined,
+          days: input.expiresInDays,
           allowCopy: input.allowCopy === true,
           embedOrigins: input.embedOrigins,
         });
@@ -230,9 +228,7 @@ export const catalogSharingProcedures = {
           baseId: input.baseId,
           createdBy: user.id,
           password: input.password,
-          expiresAt: input.expiresInDays
-            ? new Date(Date.now() + input.expiresInDays * 86_400_000)
-            : undefined,
+          days: input.expiresInDays,
         });
       }),
     ),

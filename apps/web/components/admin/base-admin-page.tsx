@@ -59,7 +59,7 @@ export function BaseAdminPage({ baseId }: { baseId: string }) {
     );
   }
   if (!detail.data) return <Spinner />;
-  const { base, members, tables, links, open } = detail.data;
+  const { base, members, tables, accesses, open } = detail.data;
   const orderedTables = sortRows(
     tables,
     tableSort.sort,
@@ -172,23 +172,31 @@ export function BaseAdminPage({ baseId }: { baseId: string }) {
         <h3 id="base-links" className="text-sm font-semibold">
           {t`Links and feeds`}
         </h3>
-        {links.length === 0 ? (
+        {accesses.length === 0 ? (
           <p className="text-sm text-muted-foreground">
             {t`Nothing of this base can be read from outside it.`}
           </p>
         ) : (
           <ul className="flex flex-col divide-y divide-border rounded-sm border border-border text-sm">
-            {links.map((link) => (
+            {accesses.map((access) => (
               <li
-                key={`${link.kind}:${link.id}`}
+                key={access.id}
                 className="flex flex-wrap items-baseline justify-between gap-2 px-3 py-2"
               >
                 <span>
-                  {link.kind === "link" ? t`Public link` : t`Calendar feed`} ·{" "}
-                  {link.table} · {link.view}
+                  {access.kind === "link"
+                    ? t`Public link`
+                    : access.kind === "feed"
+                      ? t`Calendar feed`
+                      : t`Webhook address`}{" "}
+                  ·{" "}
+                  {[access.table, access.view ?? access.automation]
+                    .filter(Boolean)
+                    .join(" · ") || t`The whole base`}
+                  {access.state === "suspended" ? ` · ${t`Suspended`}` : ""}
                 </span>
                 <span className="text-xs text-muted-foreground">
-                  {link.author}
+                  {access.author}
                 </span>
               </li>
             ))}

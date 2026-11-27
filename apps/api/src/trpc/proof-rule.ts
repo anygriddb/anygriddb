@@ -21,10 +21,9 @@ export const NO_PROOF: ReadonlySet<string> = new Set([
   "admin.stopActing",
   "admin.endUserSessions",
   "admin.endOtherSessions",
-  "admin.access.revokeToken",
+  "admin.access.revoke",
   "admin.access.switchOff",
   "admin.apiTokens.revoke",
-  "admin.outbound.revoke",
   "admin.withdrawInvitation",
   // Ends the administrator's own reading of a base before its hour is up.
   "admin.baseOverview.close",

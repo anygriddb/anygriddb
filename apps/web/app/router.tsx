@@ -136,9 +136,9 @@ const BaseAdminPage = page(() =>
 const AccessTab = page(() =>
   import("../components/admin/access-tab").then((module) => module.AccessTab),
 );
-const OutboundTab = page(() =>
-  import("../components/admin/outbound-tab").then(
-    (module) => module.OutboundTab,
+const AccessesTab = page(() =>
+  import("../components/admin/accesses-tab").then(
+    (module) => module.AccessesTab,
   ),
 );
 const ChangesTrail = page(() =>
@@ -553,7 +553,7 @@ const adminRoutes = [
   adminPage("sources", SourcesTab),
   adminPage("bases", BasesTab),
   adminBaseRoute,
-  adminPage("sharing", OutboundTab),
+  adminPage("sharing", AccessesTab),
   adminPage("sharing/access", AccessTab),
   adminChangesRoute,
   adminSignInsRoute,
