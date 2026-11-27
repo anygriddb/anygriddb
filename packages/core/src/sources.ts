@@ -82,51 +82,69 @@ export const hostSchema = z
 
 const nameSchema = z.string().trim().min(1).max(100);
 
+/**
+ * A source's fields as one names them, none with a default: a change says
+ * what it changes, and leaves the rest as stored.
+ */
+const sourceFields = {
+  name: nameSchema,
+  engine: z.enum(SOURCE_ENGINES),
+  host: hostSchema,
+  port: z.number().int().min(1).max(65_535),
+  /** A database's name, a service's, or a list of indices. */
+  database: z.string().trim().min(1).max(4_096),
+  username: z.string().trim().min(1).max(128),
+  password: z.string().min(1).max(1_024),
+  /** A certificate authority, or the server's self-signed certificate. */
+  tlsCa: pemCertificateSchema.nullable().optional(),
+  /**
+   * Connect without TLS (ADR 0139). Off unless asked; the administration
+   * dialog confirms the risk before saving.
+   */
+  allowPlaintext: z.boolean(),
+  connectionLimit: z.number().int().min(1).max(50),
+  queryTimeoutMs: z.number().int().min(1_000).max(300_000),
+  /** The zone of its dates without one, such as `timestamp` (ADR 0005). */
+  timeZone: z.string().max(64).refine(isTimeZone),
+  /**
+   * The schema (a database on MySQL and MariaDB) its DBA gives AnyGridDB
+   * for the fields it adds to the source's tables (ADR 0032).
+   */
+  sideSchema: z
+    .string()
+    .trim()
+    .regex(/^[A-Za-z_][A-Za-z0-9_]{0,62}$/)
+    .nullable()
+    .optional(),
+  /** Optional read replica: grid/API reads; writes stay on the primary. */
+  replicaHost: hostSchema.nullable().optional(),
+  replicaPort: z.number().int().min(1).max(65_535).nullable().optional(),
+  replicaDatabase: z.string().trim().min(1).max(4_096).nullable().optional(),
+  replicaUsername: z.string().trim().min(1).max(128).nullable().optional(),
+  /** Empty keeps the primary password when a replica host is set. */
+  replicaPassword: z.string().max(1_024).nullable().optional(),
+};
+
+/** A new source: what it leaves out takes its default. */
 export const sourceInputSchema = z
   .object({
-    name: nameSchema,
-    engine: z.enum(SOURCE_ENGINES),
-    host: hostSchema,
-    port: z.number().int().min(1).max(65_535),
-    /** A database's name, a service's, or a list of indices. */
-    database: z.string().trim().min(1).max(4_096),
-    username: z.string().trim().min(1).max(128),
-    password: z.string().min(1).max(1_024),
-    /** A certificate authority, or the server's self-signed certificate. */
-    tlsCa: pemCertificateSchema.nullable().optional(),
-    /**
-     * Connect without TLS (ADR 0139). Off by default; the administration
-     * dialog confirms the risk before saving.
-     */
-    allowPlaintext: z.boolean().default(false),
-    connectionLimit: z.number().int().min(1).max(50).default(5),
-    queryTimeoutMs: z.number().int().min(1_000).max(300_000).default(15_000),
-    /** The zone of its dates without one, such as `timestamp` (ADR 0005). */
-    timeZone: z.string().max(64).refine(isTimeZone).default("UTC"),
-    /**
-     * The schema (a database on MySQL and MariaDB) its DBA gives AnyGridDB
-     * for the fields it adds to the source's tables (ADR 0032).
-     */
-    sideSchema: z
-      .string()
-      .trim()
-      .regex(/^[A-Za-z_][A-Za-z0-9_]{0,62}$/)
-      .nullable()
-      .optional(),
-    /** Optional read replica: grid/API reads; writes stay on the primary. */
-    replicaHost: hostSchema.nullable().optional(),
-    replicaPort: z.number().int().min(1).max(65_535).nullable().optional(),
-    replicaDatabase: z.string().trim().min(1).max(4_096).nullable().optional(),
-    replicaUsername: z.string().trim().min(1).max(128).nullable().optional(),
-    /** Empty keeps the primary password when a replica host is set. */
-    replicaPassword: z.string().max(1_024).nullable().optional(),
+    ...sourceFields,
+    allowPlaintext: sourceFields.allowPlaintext.default(false),
+    connectionLimit: sourceFields.connectionLimit.default(5),
+    queryTimeoutMs: sourceFields.queryTimeoutMs.default(15_000),
+    timeZone: sourceFields.timeZone.default("UTC"),
   })
   .strict();
 
 export type SourceInput = z.infer<typeof sourceInputSchema>;
 
-/** A change to a source; a missing password keeps the stored one. */
-export const sourceUpdateSchema = sourceInputSchema
+/**
+ * A change to a source: only what it names changes, a missing password
+ * keeps the stored one. No default fills it in: one would put a setting
+ * back, plaintext off on a source that speaks no TLS among them.
+ */
+export const sourceUpdateSchema = z
+  .object(sourceFields)
   .partial()
   .extend({ id: z.uuid() })
   .strict();
