@@ -9,6 +9,8 @@ import {
   AppError,
   attributeKeySchema,
   ceilingOf,
+  filterAttributes,
+  type FilterGroup,
   labelSchema,
   NO_ENTERPRISE,
   SCIM_ENTERPRISE_FIELDS,
@@ -19,7 +21,9 @@ import type { Database } from "@anygriddb/db";
 import { sql } from "kysely";
 import { z } from "zod";
 import { sqlArray } from "../auth/delegated.js";
+import { liveAttribution } from "./attributions.js";
 import { withAudit, type AuditTx } from "./audit-context.js";
+import { liveBase, liveTable } from "./live.js";
 import { postgresCode } from "./pg-error.js";
 
 /** The most values an account holds of one attribute: two wards, three sites. */
@@ -44,6 +48,8 @@ export const accountAttributesInputSchema = z
     userId: z.uuid(),
     /** Each attribute's values; an empty list takes them away. */
     values: z.record(attributeKeySchema, valuesSchema),
+    /** Why, when the values are the administrator's own (ADR 0143). */
+    reason: z.string().trim().min(1).max(500).optional(),
   })
   .strict();
 
@@ -203,16 +209,22 @@ async function writeValues(
  * Sets an account's values, as whoever gives access sets them. An
  * attribute the identity provider keeps for an account it provisions is
  * its own to change (`attribute_provisioned`), and one the catalogue does
- * not hold is refused.
+ * not hold is refused. Returns the attributes whose values changed, with
+ * their labels: only those change what the account reaches.
  */
 export async function setAccountAttributes(
   db: Database,
   actorId: string,
   input: z.infer<typeof accountAttributesInputSchema>,
-): Promise<void> {
+): Promise<Array<{ key: string; label: string }>> {
   const keys = Object.keys(input.values);
-  if (keys.length === 0) return;
-  await withAudit(db, { userId: actorId, source: "web" }, async (tx) => {
+  if (keys.length === 0) return [];
+  const audit = {
+    userId: actorId,
+    source: "web" as const,
+    reason: input.reason,
+  };
+  return withAudit(db, audit, async (tx) => {
     const account = await tx
       .selectFrom("users")
       .select(["id", "scimUserName"])
@@ -221,7 +233,7 @@ export async function setAccountAttributes(
     if (!account) throw new AppError("unknown_account");
     const known = await tx
       .selectFrom("personAttributes")
-      .select(["key", "scimField"])
+      .select(["key", "label", "scimField"])
       .where("key", "in", keys)
       .execute();
     if (known.length !== keys.length) throw new AppError("unknown_attribute");
@@ -231,8 +243,79 @@ export async function setAccountAttributes(
     ) {
       throw new AppError("attribute_provisioned");
     }
-    await writeValues(tx, actorId, input.userId, input.values);
+    const held = await accountAttributes(tx, input.userId);
+    const changed = known.filter(
+      ({ key }) => !sameValues(held[key] ?? [], input.values[key] ?? []),
+    );
+    await writeValues(
+      tx,
+      actorId,
+      input.userId,
+      Object.fromEntries(
+        changed.map(({ key }) => [key, input.values[key] ?? []]),
+      ),
+    );
+    return changed.map(({ key, label }) => ({ key, label }));
   });
+}
+
+function sameValues(
+  before: readonly string[],
+  next: readonly string[],
+): boolean {
+  return (
+    before.length === next.length &&
+    before.every((value, index) => value === next[index])
+  );
+}
+
+/**
+ * The live bases where a row rule naming one of these attributes reaches
+ * the account, by a role on a table of its own or of one of its groups:
+ * those whose rows a change of its values opens or closes (ADR 0143).
+ */
+export async function basesRuledBy(
+  db: Pick<Database, "selectFrom">,
+  userId: string,
+  keys: readonly string[],
+): Promise<string[]> {
+  if (keys.length === 0) return [];
+  const rows = await db
+    .selectFrom("attributions as a")
+    .innerJoin("dataTables", "dataTables.id", "a.scopeId")
+    .innerJoin("bases", "bases.id", "dataTables.baseId")
+    .select(["dataTables.baseId", "a.rowFilter"])
+    .where("a.scope", "=", "table")
+    .where("a.rowFilter", "is not", null)
+    .where((eb) =>
+      eb.or([
+        eb("a.userId", "=", userId),
+        eb(
+          "a.groupId",
+          "in",
+          eb
+            .selectFrom("groupMembers")
+            .select("groupId")
+            .where("userId", "=", userId),
+        ),
+      ]),
+    )
+    .where(liveAttribution)
+    .where(liveTable())
+    .where(liveBase())
+    .execute();
+  const named = new Set(keys);
+  return [
+    ...new Set(
+      rows
+        .filter((row) =>
+          filterAttributes(row.rowFilter as FilterGroup).some((key) =>
+            named.has(key),
+          ),
+        )
+        .map((row) => row.baseId),
+    ),
+  ];
 }
 
 /** The attributes bound to a field of SCIM's enterprise extension. */
@@ -304,11 +387,7 @@ export async function provisionAttributes(
   const changed = bound.flatMap(({ key, field }) => {
     const sent = enterprise[field];
     const next = sent === null ? [] : [sent];
-    const before = held[key] ?? [];
-    return before.length === next.length &&
-      before.every((value, index) => value === next[index])
-      ? []
-      : [[key, next] as const];
+    return sameValues(held[key] ?? [], next) ? [] : [[key, next] as const];
   });
   if (changed.length > 0) {
     await writeValues(tx, actorId, userId, Object.fromEntries(changed));

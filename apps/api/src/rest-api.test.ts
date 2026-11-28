@@ -80,7 +80,7 @@ describe("buildOpenApi", () => {
     ] as { properties: Record<string, Record<string, unknown>> };
     expect(properties.code).toMatchObject({
       maxLength: 7,
-      pattern: "^[A-Za-z][A-Za-z]\\-[0-9][0-9][0-9][0-9]$",
+      pattern: "^[A-Za-z][A-Za-z]-[0-9][0-9][0-9][0-9]$",
     });
     expect(properties.age?.description).toMatch(/^Age\. .*Takes 0 – 130$/);
     expect(properties.note).not.toHaveProperty("pattern");
