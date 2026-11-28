@@ -18,8 +18,6 @@ import { ph, plural } from "@lingui/core/macro";
 import { useLingui } from "@lingui/react/macro";
 import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { toast } from "sonner";
-import { useErrorText } from "../../lib/errors";
 import { useTrackJob } from "../../lib/jobs";
 import { trpc, useTRPC, type RouterOutputs } from "../../lib/trpc";
 import type { CatalogTable, Collaborator } from "../../lib/types";
@@ -55,6 +53,7 @@ import {
 } from "./field-settings";
 import { FieldTypePicker } from "./field-type-picker";
 import { LinkSelectionEditor } from "./link-selection";
+import { Refusal, useRefusal } from "../shell/dialogs";
 
 export type { FieldEditorTarget } from "./field-draft";
 
@@ -95,7 +94,7 @@ export function FieldEditor({
   tables: readonly CatalogTable[];
 }) {
   const { t } = useLingui();
-  const errorText = useErrorText();
+  const refusal = useRefusal();
   const api = useTRPC();
   const queryClient = useQueryClient();
   const editing = target.mode === "edit" ? target.column : null;
@@ -163,6 +162,7 @@ export function FieldEditor({
   }
 
   async function send() {
+    refusal.clear();
     const converted =
       editing && convertsValues(draft, editing) && !preview
         ? editing.name
@@ -227,7 +227,7 @@ export function FieldEditor({
       });
       onOpenChange(false);
     } catch (cause) {
-      toast.error(errorText(cause));
+      refusal.say(cause);
     }
   }
 
@@ -486,6 +486,7 @@ export function FieldEditor({
               })}
             />
           ) : null}
+          <Refusal text={refusal.text} />
           <DialogFooter>
             <Button variant="ghost" onClick={() => onOpenChange(false)}>
               {t`Cancel`}

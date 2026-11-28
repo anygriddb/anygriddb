@@ -157,14 +157,10 @@ export function DashboardList({ baseId }: { baseId: string }) {
           description={t`Its widgets go with it. A deleted dashboard cannot be brought back: the tables it reads keep their rows.`}
           confirmLabel={t`Delete`}
           onConfirm={async () => {
-            try {
-              await trpc.dashboards.delete.mutate({
-                dashboardId: removing.id,
-              });
-              toast.success(t`Dashboard deleted`);
-            } catch (cause) {
-              toast.error(errorText(cause));
-            }
+            await trpc.dashboards.delete.mutate({
+              dashboardId: removing.id,
+            });
+            toast.success(t`Dashboard deleted`);
             await queryClient.invalidateQueries({
               queryKey: api.dashboards.list.queryKey({ baseId }),
             });

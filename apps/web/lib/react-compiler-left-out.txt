@@ -64,7 +64,6 @@ components/settings/webhooks-panel.tsx WebhooksPanel
 components/shell/new-base-dialog.tsx NewBaseForm
 components/shell/notebook-page.tsx NotebookPage
 components/shell/pending-invitations.tsx PendingInvitations
-components/shell/trash-dialog.tsx TrashDialog
 components/shell/trashed-bases.tsx TrashedBases
 components/sort-header.tsx SortHeader
 components/table/automations-dialog.tsx AutomationEditor

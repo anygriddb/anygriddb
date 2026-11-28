@@ -14,6 +14,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { useErrorText } from "../../lib/errors";
 import { trpc, useTRPC, type RouterOutputs } from "../../lib/trpc";
+import { Refusal, useRefusal } from "../shell/dialogs";
 import {
   AccountName,
   useAccountChoices,
@@ -71,6 +72,7 @@ function HandoffForm({
   const { t } = useLingui();
   const api = useTRPC();
   const errorText = useErrorText();
+  const refusal = useRefusal();
   const queryClient = useQueryClient();
   const [typed, setTyped] = useState("");
   const [successor, setSuccessor] = useState<AccountChoice | null>(null);
@@ -93,6 +95,7 @@ function HandoffForm({
 
   async function confirm() {
     if (!successor) return;
+    refusal.clear();
     setBusy(true);
     try {
       const done = await trpc.admin.handOver.mutate({
@@ -109,7 +112,7 @@ function HandoffForm({
       );
       toast.success(t`Handed over to ${{ successor: successor.displayName }}`);
     } catch (cause) {
-      toast.error(errorText(cause));
+      refusal.say(cause);
     } finally {
       setBusy(false);
     }
@@ -256,6 +259,7 @@ function HandoffForm({
           ) : null}
         </div>
       )}
+      <Refusal text={refusal.text} />
       <DialogFooter>
         <Button variant="ghost" onClick={onClose} disabled={busy}>
           {t`Cancel`}

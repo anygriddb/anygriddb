@@ -10,9 +10,9 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { CalendarPlus, Copy } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
-import { useErrorText } from "../../lib/errors";
 import { trpc, useTRPC } from "../../lib/trpc";
 import { formatInstant } from "../../lib/format";
+import { Refusal, useRefusal } from "../shell/dialogs";
 
 /**
  * A private iCal address of a calendar view, for the person: a calendar
@@ -23,7 +23,7 @@ export function CalendarFeedButton({ viewId }: { viewId: string }) {
   const { t, i18n } = useLingui();
   const api = useTRPC();
   const queryClient = useQueryClient();
-  const errorText = useErrorText();
+  const refusal = useRefusal();
   const [open, setOpen] = useState(false);
   const [url, setUrl] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -36,12 +36,13 @@ export function CalendarFeedButton({ viewId }: { viewId: string }) {
       queryKey: api.catalog.calendarFeed.queryKey({ viewId }),
     });
   async function run(action: () => Promise<void>) {
+    refusal.clear();
     setBusy(true);
     try {
       await action();
       await refresh();
     } catch (cause) {
-      toast.error(errorText(cause));
+      refusal.say(cause);
     } finally {
       setBusy(false);
     }
@@ -59,7 +60,10 @@ export function CalendarFeedButton({ viewId }: { viewId: string }) {
         open={open}
         onOpenChange={(next) => {
           setOpen(next);
-          if (!next) setUrl(null);
+          if (!next) {
+            setUrl(null);
+            refusal.clear();
+          }
         }}
       >
         <DialogContent
@@ -102,6 +106,7 @@ export function CalendarFeedButton({ viewId }: { viewId: string }) {
               <p>{t`You have no address for this view yet.`}</p>
             ) : null}
           </div>
+          <Refusal text={refusal.text} className="mx-4 mt-0" />
           <DialogFooter>
             {current ? (
               <Button

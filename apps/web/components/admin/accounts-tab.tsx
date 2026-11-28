@@ -31,7 +31,7 @@ import { useSession } from "../../lib/session";
 import { trpc, useTRPC } from "../../lib/trpc";
 import { useWhen } from "../../lib/i18n";
 import { useColumnSort } from "../sort-header";
-import { ConfirmDialog, Refusal } from "../shell/dialogs";
+import { ConfirmDialog, Refusal, useRefusal } from "../shell/dialogs";
 import { LoadFailed } from "../shell/load-failed";
 import {
   ACCOUNT_ACTIONS,
@@ -621,6 +621,7 @@ function AddPersonDialog({
   const [typed, setTyped] = useState("");
   const [busy, setBusy] = useState(false);
   const needs = useNeeds();
+  const refusal = useRefusal();
   const stepUp = useStepUp();
   const bases = useBaseChoices(typed, picking);
   const found = bases.found;
@@ -658,6 +659,7 @@ function AddPersonDialog({
       },
     ]);
     if (!ready) return;
+    refusal.clear();
     setBusy(true);
     try {
       // Making an administrator asks who is asking, again (ROADMAP #28).
@@ -690,7 +692,7 @@ function AddPersonDialog({
         onHanded(displayName, result.link);
       }
     } catch (cause) {
-      toast.error(errorText(cause));
+      refusal.say(cause);
     } finally {
       setBusy(false);
     }
@@ -833,7 +835,7 @@ function AddPersonDialog({
               </fieldset>
             ) : null}
           </div>
-          <Refusal text={needs.said} />
+          <Refusal text={needs.said ?? refusal.text} />
           <DialogFooter>
             <Button variant="ghost" onClick={onClose}>
               {t`Cancel`}

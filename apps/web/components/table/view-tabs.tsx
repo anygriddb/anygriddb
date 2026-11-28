@@ -122,6 +122,12 @@ export function ViewTabs(props: {
     }
   }
 
+  /** In a dialog, which says a refusal itself: the views read again after. */
+  async function inDialog(action: () => Promise<unknown>) {
+    await action();
+    await props.onChanged();
+  }
+
   /** A view a place left or right among the tabs the person sees. */
   function move(view: ViewItem, by: -1 | 1) {
     const order = props.views.map((item) => item.id);
@@ -320,7 +326,7 @@ export function ViewTabs(props: {
           initial={t(VIEW_LABELS[creating.type] ?? raw(creating.type))}
           submitLabel={t`Create`}
           onSubmit={(name) =>
-            run(async () => {
+            inDialog(async () => {
               const view = await trpc.catalog.createView.mutate({
                 tableId: props.tableId,
                 name,
@@ -358,7 +364,7 @@ export function ViewTabs(props: {
           label={t`View name`}
           initial={renaming.name}
           onSubmit={(name) =>
-            run(() =>
+            inDialog(() =>
               trpc.catalog.updateView.mutate({ viewId: renaming.id, name }),
             )
           }
@@ -397,7 +403,7 @@ export function ViewTabs(props: {
               : ""
           }
           onSubmit={(text) =>
-            run(() =>
+            inDialog(() =>
               trpc.catalog.updateView.mutate({
                 viewId: describing.id,
                 patch: { description: text || null },
@@ -419,13 +425,10 @@ export function ViewTabs(props: {
           confirmLabel={t`Delete`}
           onConfirm={async () => {
             const view = deleting;
-            // Set inside the callback: typed wide so the check below is kept.
-            let done = false as boolean;
-            await run(async () => {
-              await trpc.catalog.deleteView.mutate({ viewId: view.id });
-              done = true;
-            });
-            if (done) trashed(t`View moved to the trash`, "view", view.id);
+            await inDialog(() =>
+              trpc.catalog.deleteView.mutate({ viewId: view.id }),
+            );
+            trashed(t`View moved to the trash`, "view", view.id);
           }}
         />
       ) : null}

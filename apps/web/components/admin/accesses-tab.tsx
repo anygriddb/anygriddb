@@ -194,15 +194,11 @@ export function AccessesTab() {
           description={t`It stops working now, for whoever holds it. What it reaches stays as it is; its author can make a new one.`}
           confirmLabel={t`Revoke`}
           onConfirm={async () => {
-            try {
-              await trpc.admin.access.revoke.mutate({ id: revoking.id });
-              await queryClient.invalidateQueries({
-                queryKey: api.admin.access.list.queryKey(),
-              });
-              toast.success(t`Revoked`);
-            } catch (cause) {
-              toast.error(errorText(cause));
-            }
+            await trpc.admin.access.revoke.mutate({ id: revoking.id });
+            await queryClient.invalidateQueries({
+              queryKey: api.admin.access.list.queryKey(),
+            });
+            toast.success(t`Revoked`);
           }}
         />
       ) : null}
