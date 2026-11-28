@@ -17,6 +17,8 @@ type SnapshotReport = {
   widgetsLeft?: number;
   /** Present when signed rows came back locked, without their signature. */
   signaturesLeft?: number;
+  /** Present when a restore point's group roles could not come back. */
+  groupsLeft?: number;
 };
 
 /** The report in a finished job's result, when it has one. */
@@ -76,6 +78,13 @@ export function useSnapshotGaps(): (result: unknown) => string[] {
         ? t`${plural(report.membersLeft ?? 0, {
             one: "# member who has left the base since, left out",
             other: "# members who have left the base since, left out",
+          })}`
+        : null,
+      (report.groupsLeft ?? 0) > 0
+        ? t`${plural(report.groupsLeft ?? 0, {
+            one: "# role of a group deleted since, or of a role that changed, left out",
+            other:
+              "# roles of groups deleted since, or of roles that changed, left out",
           })}`
         : null,
       widgets > 0

@@ -194,6 +194,7 @@ export const FAMILY_OF = {
   "snapshot.comments": "files",
   "snapshot.dashboards": "files",
   "snapshot.widgets": "files",
+  "snapshot.groups": "files",
   "view.sorts": "content",
   "view.frozen_fields": "content",
   "attachment.max_bytes_top": "files",

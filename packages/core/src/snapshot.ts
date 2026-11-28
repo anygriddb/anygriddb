@@ -119,6 +119,24 @@ const snapshotTableAccessSchema = z
   })
   .strict();
 
+/**
+ * A group's role on the base, or on one table with the rules it carries,
+ * as a restore point keeps it (version 4 only, ADR 0117): by the group's
+ * id, which only the instance that made it knows.
+ */
+const snapshotGroupRoleSchema = z
+  .object({ group: z.uuid(), role: snapshotRoleSchema })
+  .strict();
+const snapshotGroupAccessSchema = snapshotGroupRoleSchema
+  .extend({
+    rowFilter: filterGroupSchema.optional(),
+    columns: z.array(columnAclEntrySchema).max(200).optional(),
+  })
+  .strict();
+
+/** The most groups a restore point keeps on the base, or on one table. */
+const MAX_SNAPSHOT_GROUPS = ceilingOf("snapshot.groups");
+
 /** A field as the file keeps it, its settings read as this version reads them. */
 const snapshotColumnSchema = columnDefinitionSchema.transform((column) =>
   column.config
@@ -157,6 +175,11 @@ const snapshotTableSchema = z
     rowCount: z.int().min(0).max(Number.MAX_SAFE_INTEGER).optional(),
     /** Version 3, with the members: each person's own access to the table. */
     access: z.array(snapshotTableAccessSchema).max(5_000).optional(),
+    /** Version 4: each group's role on the table, with its rules. */
+    groups: z
+      .array(snapshotGroupAccessSchema)
+      .max(MAX_SNAPSHOT_GROUPS)
+      .optional(),
     /** The folder the table is kept in, by its name; none: the base's root. */
     folder: labelSchema.optional(),
     /**
@@ -266,6 +289,15 @@ export const baseSnapshotSchema = z
     computed: z.array(snapshotComputedSchema).max(500).default([]),
     /** Version 2: the base's members. User cells hold their emails. */
     members: z.array(snapshotMemberSchema).max(5_000).optional(),
+    /**
+     * Version 4: each group's role on the base, as it was. Absent from a
+     * restore point made before it was kept, whose groups are read as they
+     * are now.
+     */
+    groups: z
+      .array(snapshotGroupRoleSchema)
+      .max(MAX_SNAPSHOT_GROUPS)
+      .optional(),
     /** Version 2, with an archive: the files attachment cells name. */
     files: z.array(snapshotFileSchema).max(MAX_SNAPSHOT_FILES).optional(),
     /**
@@ -285,6 +317,14 @@ export const baseSnapshotSchema = z
   })
   .strict()
   .superRefine((snapshot, context) => {
+    // Groups are an instance's own: only its own copy names them.
+    if (
+      snapshot.version !== SNAPSHOT_KEPT_VERSION &&
+      (snapshot.groups !== undefined ||
+        snapshot.tables.some((table) => table.groups !== undefined))
+    ) {
+      context.addIssue({ code: "custom", message: "Invalid snapshot" });
+    }
     // A base names each dashboard once. A widget reads a table the
     // snapshot lists and, when it reads a view, one of that table's;
     // its settings are those of its kind, and name no id of another base.

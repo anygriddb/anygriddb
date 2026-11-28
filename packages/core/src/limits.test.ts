@@ -170,6 +170,7 @@ describe("the catalogue of limits", () => {
       "snapshot.comments": 1_000_000,
       "snapshot.dashboards": 500,
       "snapshot.widgets": 500,
+      "snapshot.groups": 1000,
       "view.sorts": 10,
       "view.frozen_fields": 10,
       "attachment.max_bytes_top": 524_288_000,

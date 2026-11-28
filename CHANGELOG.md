@@ -8,6 +8,15 @@ first.
 
 ## Unreleased
 
+### Fixed
+
+- A restore point gives the groups back their roles as they were at the
+  point: on the base, and on each of its tables with their field and row
+  rules. A restore point read the groups' roles on the base as they were
+  at the restore, and left their roles on a table behind. A group deleted
+  since is left out, and the report says so. A point made before this
+  version gives back the base's groups as they are now, as it did.
+
 ## 0.15.0 - 2026-11-28
 
 **Before upgrading:** check the scripts and agents that make or change
