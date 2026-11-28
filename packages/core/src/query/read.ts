@@ -134,6 +134,11 @@ type ProjectedColumn = ColumnRef & {
   errorSql?: string;
   /** A lookup's or a rollup's values are durations, shown in this format. */
   duration?: string;
+  /**
+   * The column of `q` that is 1 on the rows where the reader does not see
+   * this field, which another of their attributions shows (ADR 0144).
+   */
+  hiddenOn?: string;
 };
 
 type Prepared = {
@@ -503,6 +508,16 @@ function prepare(catalog: EngineCatalog, spec: ReadSpec): Prepared {
       projected.storedNumber = `q.${storedNumberColumn(index)}`;
     }
   });
+  // Which rows hide each field the reader sees on others: the page says
+  // so, rather than drawing what reads empty as empty (ADR 0144).
+  [...columns.values()].forEach((projected, index) => {
+    const shown = ctx.shown?.(table, projected.column, "r");
+    if (!shown) return;
+    select.push(
+      `(case when ${shown} then null else 1 end) as ${hiddenColumn(index)}`,
+    );
+    projected.hiddenOn = `q.${hiddenColumn(index)}`;
+  });
   const own = ctx.scope?.(table, "r");
   const derived = `(select ${select.join(", ")} from ${readTableSql(table)} r${own ? ` where ${own}` : ""}) q`;
   const filterContext: FilterContext = {
@@ -811,6 +826,22 @@ function readsCanonically(d: Prepared["d"], ref: ProjectedColumn): boolean {
 /** The key of a row's formula errors: field name to message (ADR 0036). */
 export const ROW_ERRORS = "ag_errors";
 
+/** The key of a row's fields hidden on it: field name to "hidden" (ADR 0144). */
+export const ROW_HIDDEN = "ag_hidden";
+
+/** Whether the reader sees a field on other rows but not on this one. */
+export function rowHidden(
+  row: Readonly<Record<string, unknown>>,
+  name: string,
+): boolean {
+  const hidden = row[ROW_HIDDEN];
+  return (
+    !!hidden &&
+    typeof hidden === "object" &&
+    (hidden as Record<string, unknown>)[name] === "hidden"
+  );
+}
+
 /** The message of the error a field's value is in a row, or null. */
 export function rowError(
   row: Readonly<Record<string, unknown>>,
@@ -825,6 +856,11 @@ export function rowError(
 /** The column of `q` that holds the error of the `index`th column. */
 function errorColumn(index: number): string {
   return `"ag_e${String(index)}"`;
+}
+
+/** The column of `q` that says the `index`th column is hidden on a row. */
+function hiddenColumn(index: number): string {
+  return `"ag_h${String(index)}"`;
 }
 
 function storedNumberColumn(index: number): string {
@@ -861,6 +897,33 @@ function errorsEntry(
   });
   if (entries.length === 0) return undefined;
   return [ROW_ERRORS, prepared.d.json(prepared.d.jsonObject(entries), "json")];
+}
+
+/**
+ * The fields of a page hidden on each row, one object per row (ADR 0144):
+ * each with "hidden". Absent when the reader sees every field on every
+ * row they read.
+ */
+function hiddenEntry(
+  prepared: Prepared,
+  names: readonly string[],
+): readonly [string, string] | undefined {
+  const d = prepared.d;
+  const entries = names.flatMap((name) => {
+    const flag = prepared.columns.get(name)?.hiddenOn;
+    return flag
+      ? [
+          [
+            name,
+            d.errorJson(
+              `(case when ${flag} = 1 then ${d.errorMessage("'hidden'")} end)`,
+            ),
+          ] as const,
+        ]
+      : [];
+  });
+  if (entries.length === 0) return undefined;
+  return [ROW_HIDDEN, d.json(d.jsonObject(entries), "json")];
 }
 
 /**
@@ -926,6 +989,8 @@ function projection(
   }
   const errors = errorsEntry(prepared, names);
   if (errors) entries.push(errors);
+  const hidden = hiddenEntry(prepared, names);
+  if (hidden) entries.push(hidden);
   const floats = floatsEntry(prepared, names);
   if (floats) entries.push(floats);
   return d.row(entries);

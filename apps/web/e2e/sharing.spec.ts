@@ -292,6 +292,10 @@ test("an owner invites an address, its account accepts, and reads what its permi
   await guest.reload();
   await expect(guest.getByRole("gridcell", { name: "Lamp" })).toBeVisible();
   await expect(guest.getByRole("gridcell", { name: "ada" })).toHaveCount(1);
+  // Hidden on the lamp's row, and said so: not an empty seller.
+  await expect(
+    guest.getByRole("gridcell", { name: "Seller: hidden on this row" }),
+  ).toHaveCount(1);
 
   // Kept: opened again, the settings show the rule and the hidden field.
   await page.reload();

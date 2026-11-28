@@ -1,6 +1,7 @@
-import { rowError } from "@anygriddb/core";
+import { rowError, rowHidden } from "@anygriddb/core";
 import { cn } from "@anygriddb/ui";
 import { useLingui } from "@lingui/react/macro";
+import { EyeOff } from "lucide-react";
 import type { PointerEvent as ReactPointerEvent } from "react";
 import { cellDisplay } from "../../lib/format";
 import { rowStateWord } from "../fields/use-row-states";
@@ -73,6 +74,8 @@ export function GridCell(props: {
   const editable = isEditableColumn(column) || isEditableLink(column);
   const value = row ? row[column.name as keyof RowItem] : undefined;
   const error = row ? rowError(row, column.name) : null;
+  // A field the reader sees on other rows and not on this one (ADR 0144).
+  const hiddenHere = row ? rowHidden(row, column.name) : false;
   const { t, i18n } = useLingui();
   return (
     <div // NOSONAR: the grid holds the focus and names the active cell (aria-activedescendant)
@@ -81,19 +84,21 @@ export function GridCell(props: {
       // The row header is column 1.
       aria-colindex={columnIndex + 2}
       aria-selected={selected}
-      aria-readonly={!props.canEdit || !editable}
+      aria-readonly={!props.canEdit || !editable || hiddenHere}
       // While it is edited, the editor inside names itself.
       aria-label={
         editing
           ? undefined
           : row
             ? `${column.label}: ${
-                error === null
-                  ? column.fieldType === "row_state" &&
-                    typeof value === "string"
-                    ? rowStateWord(table.states, value, i18n)
-                    : cellDisplay(value, column, table.locale, table.people)
-                  : t`error, ${error}`
+                hiddenHere
+                  ? t`hidden on this row`
+                  : error === null
+                    ? column.fieldType === "row_state" &&
+                      typeof value === "string"
+                      ? rowStateWord(table.states, value, i18n)
+                      : cellDisplay(value, column, table.locale, table.people)
+                    : t`error, ${error}`
               }`
             : column.label
       }
@@ -120,7 +125,9 @@ export function GridCell(props: {
       }}
       onPointerDown={(event) => props.onPointerDown(event, cell)}
       onPointerEnter={() => props.onPointerEnter(cell)}
-      onDoubleClick={() => props.onEdit(cell)}
+      onDoubleClick={() => {
+        if (!hiddenHere) props.onEdit(cell);
+      }}
     >
       {row ? (
         <div
@@ -129,7 +136,9 @@ export function GridCell(props: {
             props.wrap ? "items-start" : "items-center",
           )}
         >
-          {column.fieldType === "button" ? (
+          {hiddenHere ? (
+            <HiddenHere />
+          ) : column.fieldType === "button" ? (
             <ButtonCell column={column} row={row} />
           ) : (
             <CellValueView
@@ -194,5 +203,16 @@ export function GridCell(props: {
         />
       ) : null}
     </div>
+  );
+}
+
+/** What a cell shows of a field hidden on its row (ADR 0144). */
+function HiddenHere() {
+  const { t } = useLingui();
+  return (
+    <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+      <EyeOff className="h-3.5 w-3.5" aria-hidden />
+      {t`Hidden`}
+    </span>
   );
 }

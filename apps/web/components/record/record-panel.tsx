@@ -1,4 +1,4 @@
-import { cellText, rowError } from "@anygriddb/core";
+import { cellText, rowError, rowHidden } from "@anygriddb/core";
 import {
   Avatar,
   Button,
@@ -13,6 +13,7 @@ import {
 } from "@anygriddb/ui";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+  EyeOff,
   Check,
   ChevronDown,
   ChevronUp,
@@ -123,8 +124,12 @@ function FieldRow({
         })
     : undefined;
   const files = column.fieldType === "attachment" ? attachmentList(value) : [];
+  // A field the reader sees on other rows and not on this one (ADR 0144).
+  const hiddenHere = rowHidden(row, column.name);
   const canEditField =
-    editable && (isEditableColumn(column) || isEditableLink(column));
+    editable &&
+    !hiddenHere &&
+    (isEditableColumn(column) || isEditableLink(column));
   // A checkbox is ticked by a click on it, and opens no editor.
   const ticks = editingOf(column.fieldType).by === "checkbox";
   const toggle = () =>
@@ -208,7 +213,12 @@ function FieldRow({
             </Tooltip>
           )
         ) : null}
-        {column.fieldType === "button" ? (
+        {hiddenHere ? (
+          <span className="inline-flex items-center gap-1.5 text-muted-foreground">
+            <EyeOff className="h-3.5 w-3.5" aria-hidden />
+            {t`Hidden on this row`}
+          </span>
+        ) : column.fieldType === "button" ? (
           <ButtonCell column={column} row={row} />
         ) : drawing.kind === "blank" ? (
           <span className="text-muted-foreground">

@@ -2,6 +2,7 @@ import {
   type FilterGroup,
   formWindowNeverOpens,
   rowError,
+  rowHidden,
   visibleFormFields,
 } from "@anygriddb/core";
 import { Button, cn, Input, Label, Spinner } from "@anygriddb/ui";
@@ -490,14 +491,20 @@ export function PublicRows({
                           column.kind === "number" && "justify-end",
                         )}
                       >
-                        <CellValueView
-                          value={row[column.name]}
-                          error={rowError(row, column.name)}
-                          column={column}
-                          locale={locale}
-                          people={NO_PEOPLE}
-                          search={debounced}
-                        />
+                        {rowHidden(row, column.name) ? (
+                          <span className="text-xs text-muted-foreground">
+                            {t`Hidden`}
+                          </span>
+                        ) : (
+                          <CellValueView
+                            value={row[column.name]}
+                            error={rowError(row, column.name)}
+                            column={column}
+                            locale={locale}
+                            people={NO_PEOPLE}
+                            search={debounced}
+                          />
+                        )}
                       </div>
                     </td>
                   ))}
