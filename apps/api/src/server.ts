@@ -499,7 +499,6 @@ export async function createApp(deps: {
   registerScim(app, {
     db: deps.db,
     publicUrl: deps.env.PUBLIC_URL,
-    bus: deps.bus,
   });
   registerOauth(app, { db: deps.db, publicUrl: deps.env.PUBLIC_URL });
   registerAdminApi(app, {
