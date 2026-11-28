@@ -11,6 +11,7 @@ import { useState, type SubmitEvent, type ReactNode } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { TRPCClientError } from "@trpc/client";
 import { useErrorText } from "../../lib/errors";
+import { useNeeds } from "../../lib/form-needs";
 import { reportFailure } from "../../lib/report-failure";
 
 /**
@@ -116,16 +117,25 @@ function PromptForm(props: PromptProps) {
   const [value, setValue] = useState(props.initial ?? "");
   const [busy, setBusy] = useState(false);
   const { run, refusal } = useAction();
+  const needs = useNeeds();
   async function submit(event: SubmitEvent) {
     event.preventDefault();
-    if (!value.trim() && !props.optional) return;
+    const filled = needs.met([
+      {
+        missing: !value.trim() && !props.optional,
+        // Its label may be a whole sentence: the field is marked instead.
+        say: t`This cannot be empty.`,
+        field: "prompt-value",
+      },
+    ]);
+    if (!filled) return;
     setBusy(true);
     const done = await run(() => props.onSubmit(value.trim()));
     setBusy(false);
     if (done) props.onOpenChange(false);
   }
   return (
-    <form onSubmit={submit} className="flex flex-col gap-2">
+    <form onSubmit={submit} noValidate className="flex flex-col gap-2">
       <Label htmlFor="prompt-value">{props.label}</Label>
       {props.multiline ? (
         <textarea
@@ -133,6 +143,7 @@ function PromptForm(props: PromptProps) {
           autoFocus // NOSONAR: a prompt opens with the caret in its field
           rows={4}
           maxLength={1_000}
+          aria-invalid={needs.invalid("prompt-value")}
           className="w-full resize-y rounded-md border border-border bg-card px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
           value={value}
           onChange={(event) => setValue(event.target.value)}
@@ -141,20 +152,18 @@ function PromptForm(props: PromptProps) {
         <Input
           id="prompt-value"
           autoFocus // NOSONAR: a prompt opens with the caret in its field
+          aria-invalid={needs.invalid("prompt-value")}
           value={value}
           onChange={(event) => setValue(event.target.value)}
         />
       )}
       {props.children}
-      <Refusal text={refusal} />
+      <Refusal text={needs.said ?? refusal} />
       <DialogFooter>
         <Button variant="ghost" onClick={() => props.onOpenChange(false)}>
           {t`Cancel`}
         </Button>
-        <Button
-          type="submit"
-          disabled={busy || (!value.trim() && !props.optional)}
-        >
+        <Button type="submit" disabled={busy}>
           {props.submitLabel ?? t`Save`}
         </Button>
       </DialogFooter>

@@ -17,9 +17,11 @@ import { ArrowLeft, LockKeyhole, MoreHorizontal } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import { useErrorText } from "../../lib/errors";
+import { useNeeds } from "../../lib/form-needs";
 import { useSession } from "../../lib/session";
 import { trpc, useTRPC } from "../../lib/trpc";
 import { useWhen } from "../../lib/i18n";
+import { Refusal } from "../shell/dialogs";
 import { LoadFailed } from "../shell/load-failed";
 import {
   ACCOUNT_ACTIONS,
@@ -57,6 +59,7 @@ export function AccountAdminPage({ userId }: { userId: string }) {
   const [opening, setOpening] = useState(false);
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
+  const needs = useNeeds();
   const detail = useQuery(api.admin.account.queryOptions({ userId }));
   const actions = useAccountActions({
     mails: detail.data?.smtpReady ?? false,
@@ -297,18 +300,28 @@ export function AccountAdminPage({ userId }: { userId: string }) {
               <Label htmlFor="act-as-reason">{t`Reason`}</Label>
               <Textarea
                 id="act-as-reason"
+                aria-invalid={needs.invalid("act-as-reason")}
                 maxLength={200}
                 value={reason}
                 onChange={(event) => setReason(event.target.value)}
               />
             </div>
+            <Refusal text={needs.said} />
             <DialogFooter>
               <Button variant="ghost" onClick={() => setOpening(false)}>
                 {t`Cancel`}
               </Button>
               <Button
-                disabled={busy || reason.trim().length === 0}
+                disabled={busy}
                 onClick={() => {
+                  const given = needs.met([
+                    {
+                      missing: !reason.trim(),
+                      say: t`Say why you act as them: they are told.`,
+                      field: "act-as-reason",
+                    },
+                  ]);
+                  if (!given) return;
                   setBusy(true);
                   void trpc.admin.startActing
                     .mutate({ userId: account.id, reason })

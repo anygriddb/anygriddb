@@ -2420,6 +2420,7 @@ msgstr "Ajouter un état"
 msgid "Add a step"
 msgstr "Ajouter une étape"
 
+#: components/shell/base-home.tsx
 #: components/shell/sidebar.tsx
 msgid "Add a table"
 msgstr "Ajouter une table"
@@ -3923,6 +3924,10 @@ msgstr "Choisir un fichier"
 #: components/auth/reset-page.tsx
 msgid "Choose a new password"
 msgstr "Choisir un nouveau mot de passe"
+
+#: components/auth/auth-page.tsx
+msgid "Choose a password of at least {minLength} characters."
+msgstr "Choisissez un mot de passe d’au moins {minLength} caractères."
 
 #: components/admin/identity-tab.tsx
 msgid "Choose an image"
@@ -5624,8 +5629,28 @@ msgid "Enter"
 msgstr "Entrée"
 
 #: components/auth/auth-page.tsx
+msgid "Enter an address such as name@example.com."
+msgstr "Saisissez une adresse de la forme nom@example.com."
+
+#: components/auth/auth-page.tsx
+msgid "Enter the install token."
+msgstr "Saisissez le jeton d’installation."
+
+#: components/auth/auth-page.tsx
+msgid "Enter the name others will see."
+msgstr "Saisissez le nom que les autres verront."
+
+#: components/auth/auth-page.tsx
 msgid "Enter your address: we send a link to choose a new password. Your second factor stays as it is."
 msgstr "Saisissez votre adresse : nous envoyons un lien pour choisir un nouveau mot de passe. Votre second facteur reste en place."
+
+#: components/auth/auth-page.tsx
+msgid "Enter your email address."
+msgstr "Saisissez votre adresse email."
+
+#: components/auth/auth-page.tsx
+msgid "Enter your password."
+msgstr "Saisissez votre mot de passe."
 
 #: components/admin/integrations-tab.tsx
 msgid "Entry point (SSO URL)"
@@ -6510,9 +6535,21 @@ msgstr "Donner des rôles pas plus larges que celui-ci, inviter, et régler les 
 msgid "Give the account manager role"
 msgstr "Donner le rôle de gestionnaire des comptes"
 
+#: components/admin/oauth-clients-tab.tsx
+msgid "Give the address it comes back to."
+msgstr "Indiquez l’adresse où elle revient."
+
+#: components/settings/webhooks-panel.tsx
+msgid "Give the address it writes to."
+msgstr "Indiquez l’adresse à laquelle il écrit."
+
 #: components/fields/field-settings.tsx
 msgid "Give the address the button opens."
 msgstr "Indiquez l’adresse que le bouton ouvre."
+
+#: components/admin/oauth-clients-tab.tsx
+msgid "Give the application a name."
+msgstr "Donnez un nom à l’application."
 
 #: components/admin/account-actions.tsx
 msgid "Give the auditor role"
@@ -6522,15 +6559,36 @@ msgstr "Donner le rôle d’auditeur"
 msgid "Give the automation a name."
 msgstr "Donnez un nom à l’automatisation."
 
+#: components/dashboards/dashboard-list.tsx
+msgid "Give the dashboard a name."
+msgstr "Donnez un nom au tableau de bord."
+
+#: components/admin/api-tokens-tab.tsx
+msgid "Give the days it lives, a whole number from 1 to 365."
+msgstr "Indiquez sa durée en jours, un nombre entier de 1 à 365."
+
+#: components/admin/group-page.tsx
+#: components/admin/groups-tab.tsx
+msgid "Give the group a name."
+msgstr "Donnez un nom au groupe."
+
 #: components/table/automations-dialog.tsx
 msgid "Give the host alone, such as api.example.com."
 msgstr "Indiquez l’hôte seul, par exemple api.example.com."
+
+#: components/settings/webhooks-panel.tsx
+msgid "Give the HTTPS address it calls."
+msgstr "Indiquez l’adresse HTTPS qu’il appelle."
 
 #: components/admin/account-actions.tsx
 #: components/admin/account-bases.tsx
 #: components/admin/base-admin-members.tsx
 msgid "Give the role"
 msgstr "Donner le rôle"
+
+#: components/admin/roles-tab.tsx
+msgid "Give the role a name."
+msgstr "Donnez un nom au rôle."
 
 #: components/settings/table-rules-panel.tsx
 msgid "Give the role table by table"
@@ -6547,6 +6605,24 @@ msgstr "Donner le rôle de gestionnaire des sources"
 #: components/admin/account-actions.tsx
 msgid "Give the support role"
 msgstr "Donner le rôle de support"
+
+#: components/shell/new-table-dialog.tsx
+msgid "Give the table a name."
+msgstr "Donnez un nom à la table."
+
+#: components/admin/api-tokens-tab.tsx
+#: components/admin/scim-tab.tsx
+#: components/settings/account-settings.tsx
+msgid "Give the token a name."
+msgstr "Donnez un nom au jeton."
+
+#: components/admin/accounts-tab.tsx
+msgid "Give their display name."
+msgstr "Indiquez son nom affiché."
+
+#: components/admin/accounts-tab.tsx
+msgid "Give their email address."
+msgstr "Indiquez son adresse email."
 
 #: components/admin/give-base-role.tsx
 msgid "Give yourself this role?"
@@ -8712,11 +8788,6 @@ msgstr "Nouvel état"
 #: components/table/circuit-editor.tsx
 msgid "New step"
 msgstr "Nouvelle étape"
-
-#: components/shell/base-home.tsx
-#: components/shell/sidebar.tsx
-msgid "New table"
-msgstr "Nouvelle table"
 
 #: components/shell/base-home.tsx
 #: components/shell/sidebar.tsx
@@ -11646,6 +11717,10 @@ msgstr "Enregistrement…"
 msgid "Say what the signature commits you to"
 msgstr "Dites ce à quoi la signature vous engage"
 
+#: components/admin/account-page.tsx
+msgid "Say why you act as them: they are told."
+msgstr "Dites pourquoi vous agissez en son nom : la personne en est informée."
+
 #: components/views/timeline-view.tsx
 msgid "Scale"
 msgstr "Échelle"
@@ -14387,6 +14462,10 @@ msgstr "Cette base garde déjà autant de points de restauration qu’elle le pe
 msgid "This cannot be done to this account"
 msgstr "Opération impossible sur ce compte"
 
+#: components/shell/dialogs.tsx
+msgid "This cannot be empty."
+msgstr "Ce champ ne peut pas être vide."
+
 #: lib/errors.ts
 msgid "This cannot be put back"
 msgstr "Ceci ne peut pas être remis"
@@ -14927,6 +15006,14 @@ msgstr "Pouce"
 #: components/table/automations-dialog.tsx
 msgid "Thursday"
 msgstr "Jeudi"
+
+#: components/settings/webhooks-panel.tsx
+msgid "Tick at least one event."
+msgstr "Cochez au moins un événement."
+
+#: components/admin/api-tokens-tab.tsx
+msgid "Tick what the token may do."
+msgstr "Cochez ce que le jeton peut faire."
 
 #: lib/known-text.ts
 msgid "Tickets"

@@ -9,7 +9,8 @@ import { trpc, useTRPC } from "../../lib/trpc";
 import { grants } from "../../lib/types";
 import { useLingui } from "@lingui/react/macro";
 import { useErrorText } from "../../lib/errors";
-import { ConfirmDialog } from "../shell/dialogs";
+import { useNeeds } from "../../lib/form-needs";
+import { ConfirmDialog, Refusal } from "../shell/dialogs";
 import { LoadFailed } from "../shell/load-failed";
 import { EmptyState, NotebookPage } from "../shell/notebook-page";
 import { useWhen } from "../../lib/i18n";
@@ -27,6 +28,7 @@ export function DashboardList({ baseId }: { baseId: string }) {
   const list = useQuery(api.dashboards.list.queryOptions({ baseId }));
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
+  const needs = useNeeds();
   // The dashboard about to be deleted, once that is confirmed.
   const [removing, setRemoving] = useState<{ id: string; name: string } | null>(
     null,
@@ -35,7 +37,14 @@ export function DashboardList({ baseId }: { baseId: string }) {
   if (!base) return null;
 
   async function create() {
-    if (!name.trim()) return;
+    const named = needs.met([
+      {
+        missing: !name.trim(),
+        say: t`Give the dashboard a name.`,
+        field: "dashboard-name",
+      },
+    ]);
+    if (!named) return;
     setBusy(true);
     try {
       const created = await trpc.dashboards.create.mutate({
@@ -76,15 +85,17 @@ export function DashboardList({ baseId }: { baseId: string }) {
             <Label htmlFor="dashboard-name">{t`New dashboard`}</Label>
             <Input
               id="dashboard-name"
+              aria-invalid={needs.invalid("dashboard-name")}
               value={name}
               maxLength={100}
               onChange={(event) => setName(event.target.value)}
             />
           </div>
-          <Button type="submit" disabled={busy || !name.trim()}>
+          <Button type="submit" disabled={busy}>
             {busy ? <Spinner /> : <Plus className="h-4 w-4" aria-hidden />}
             {t`Create`}
           </Button>
+          <Refusal text={needs.said} className="mt-0 basis-full" />
         </form>
       ) : null}
       {list.isLoading ? <Spinner className="mt-6" /> : null}

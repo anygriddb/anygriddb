@@ -9,6 +9,7 @@ import { trpc, useTRPC } from "../../lib/trpc";
 import { signInWithPasskey } from "../../lib/webauthn";
 import { useLingui } from "@lingui/react/macro";
 import { useErrorText } from "../../lib/errors";
+import { looksLikeAddress, useNeeds } from "../../lib/form-needs";
 import { AuthFrame } from "./auth-frame";
 
 /**
@@ -135,6 +136,7 @@ export function AuthPage({
   /** Recovery path: hide TOTP/passkey and show the backup-code form alone. */
   const [useBackup, setUseBackup] = useState(false);
   const [error, setError] = useState("");
+  const needs = useNeeds();
   const [busy, setBusy] = useState(false);
   const [forgot, setForgot] = useState(false);
   const [sent, setSent] = useState(false);
@@ -142,7 +144,8 @@ export function AuthPage({
   const [awaiting, setAwaiting] = useState("");
   const finishing = useRef(false);
   const shownError =
-    error || (refused ? errorText({ reason: { code: refused } }) : "");
+    needs.said ??
+    (error || (refused ? errorText({ reason: { code: refused } }) : ""));
   const minLength = instance.data?.passwordMinLength ?? 12;
   // The sign-in form never waits on the policy; the sign-up form does.
   const view =
@@ -191,8 +194,47 @@ export function AuthPage({
     }
   }
 
+  /** The address first: an empty field said by the page, not the browser. */
+  function addressNeeds(field: string) {
+    const address = email.trim();
+    return [
+      { missing: !address, say: t`Enter your email address.`, field },
+      {
+        missing: !looksLikeAddress(address),
+        say: t`Enter an address such as name@example.com.`,
+        field,
+      },
+    ];
+  }
+
   function onSubmit(event: SubmitEvent) {
     event.preventDefault();
+    const signup = mode === "signup";
+    const ready = needs.met([
+      ...addressNeeds("email"),
+      {
+        missing: signup && !displayName.trim(),
+        say: t`Enter the name others will see.`,
+        field: "name",
+      },
+      signup
+        ? {
+            missing: password.length < minLength,
+            say: t`Choose a password of at least ${{ minLength }} characters.`,
+            field: "password",
+          }
+        : {
+            missing: !password,
+            say: t`Enter your password.`,
+            field: "password",
+          },
+      {
+        missing: signup && firstAccount && !installToken.trim(),
+        say: t`Enter the install token.`,
+        field: "install-token",
+      },
+    ]);
+    if (!ready) return;
     void run(async () => {
       if (mode === "signup") {
         const invitation = invitationToken(next);
@@ -234,8 +276,10 @@ export function AuthPage({
       ) : forgot ? (
         <form
           className="flex flex-col gap-3"
+          noValidate
           onSubmit={(event) => {
             event.preventDefault();
+            if (!needs.met(addressNeeds("forgot-email"))) return;
             void run(async () => {
               await trpc.auth.requestPasswordReset.mutate({ email });
               setSent(true);
@@ -258,6 +302,7 @@ export function AuthPage({
                 type="email"
                 autoComplete="email"
                 required
+                aria-invalid={needs.invalid("forgot-email")}
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
               />
@@ -273,6 +318,7 @@ export function AuthPage({
               setForgot(false);
               setSent(false);
               setError("");
+              needs.clear();
             }}
           >
             {t`Back to sign-in`}
@@ -429,7 +475,7 @@ export function AuthPage({
           </div>
         )
       ) : (
-        <form className="flex flex-col gap-3" onSubmit={onSubmit}>
+        <form className="flex flex-col gap-3" noValidate onSubmit={onSubmit}>
           <h1 className="text-2xl font-semibold">
             {mode === "login" ? t`Sign in` : t`Create an account`}
           </h1>
@@ -467,6 +513,7 @@ export function AuthPage({
                 type="email"
                 autoComplete="email"
                 required
+                aria-invalid={needs.invalid("email")}
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
               />
@@ -476,6 +523,7 @@ export function AuthPage({
                   <Input
                     id="name"
                     required
+                    aria-invalid={needs.invalid("name")}
                     autoComplete="name"
                     value={displayName}
                     onChange={(event) => setDisplayName(event.target.value)}
@@ -487,7 +535,8 @@ export function AuthPage({
                 id="password"
                 type="password"
                 required
-                minLength={mode === "signup" ? minLength : 12}
+                aria-invalid={needs.invalid("password")}
+                minLength={mode === "signup" ? minLength : undefined}
                 autoComplete={
                   mode === "login" ? "current-password" : "new-password"
                 }
@@ -505,6 +554,7 @@ export function AuthPage({
                   <Input
                     id="install-token"
                     required
+                    aria-invalid={needs.invalid("install-token")}
                     autoComplete="off"
                     spellCheck={false}
                     aria-describedby="install-token-help"
@@ -531,6 +581,7 @@ export function AuthPage({
                   onClick={() => {
                     setForgot(true);
                     setError("");
+                    needs.clear();
                   }}
                 >
                   {t`Forgot your password?`}

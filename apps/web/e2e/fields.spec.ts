@@ -61,7 +61,10 @@ test.describe("the field dialog", () => {
     };
 
     // A second table, with a row, for the links to reach.
-    await page.getByRole("button", { name: "Add a table" }).click();
+    await page
+      .getByRole("navigation", { name: "Bases" })
+      .getByRole("button", { name: "Add a table" })
+      .click();
     await dialog.getByLabel("Table name").fill("Projects");
     await dialog.getByRole("button", { name: "Create", exact: true }).click();
     await expect(

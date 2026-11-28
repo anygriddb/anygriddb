@@ -7,8 +7,9 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { useCopy } from "../../lib/clipboard";
 import { useErrorText } from "../../lib/errors";
+import { useNeeds } from "../../lib/form-needs";
 import { trpc, useTRPC } from "../../lib/trpc";
-import { ConfirmDialog } from "../shell/dialogs";
+import { ConfirmDialog, Refusal } from "../shell/dialogs";
 import { LoadFailed } from "../shell/load-failed";
 import { RuledSection } from "../shell/notebook-page";
 import { sortRows } from "../../lib/sort-rows";
@@ -30,6 +31,7 @@ export function ScimTab() {
   const stepUp = useStepUp();
   const settings = useQuery(api.admin.scim.settings.queryOptions());
   const [name, setName] = useState("");
+  const needs = useNeeds();
   const [fresh, setFresh] = useState<string | null>(null);
   const [revoking, setRevoking] = useState<{ id: string; name: string } | null>(
     null,
@@ -185,6 +187,14 @@ export function ScimTab() {
           className="flex flex-wrap items-end gap-2"
           onSubmit={(event) => {
             event.preventDefault();
+            const named = needs.met([
+              {
+                missing: !name.trim(),
+                say: t`Give the token a name.`,
+                field: "scim-token-name",
+              },
+            ]);
+            if (!named) return;
             void (async () => {
               try {
                 if (!(await stepUp.ensure())) return;
@@ -204,15 +214,15 @@ export function ScimTab() {
             <Label htmlFor="scim-token-name">{t`Token name`}</Label>
             <Input
               id="scim-token-name"
+              aria-invalid={needs.invalid("scim-token-name")}
               placeholder="Okta"
               maxLength={80}
               value={name}
               onChange={(event) => setName(event.target.value)}
             />
           </div>
-          <Button type="submit" disabled={!name.trim()}>
-            {t`Create a token`}
-          </Button>
+          <Button type="submit">{t`Create a token`}</Button>
+          <Refusal text={needs.said} className="mt-0 basis-full" />
         </form>
       </RuledSection>
 

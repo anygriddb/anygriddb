@@ -7,7 +7,9 @@ import { Plus, UsersRound } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { useErrorText } from "../../lib/errors";
+import { useNeeds } from "../../lib/form-needs";
 import { trpc, useTRPC } from "../../lib/trpc";
+import { Refusal } from "../shell/dialogs";
 import { LoadFailed } from "../shell/load-failed";
 import { RuledSection } from "../shell/notebook-page";
 
@@ -25,6 +27,7 @@ export function GroupsTab() {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [busy, setBusy] = useState(false);
+  const needs = useNeeds();
 
   if (groups.isError) {
     return (
@@ -35,7 +38,14 @@ export function GroupsTab() {
 
   async function create() {
     const displayName = name.trim();
-    if (!displayName) return;
+    const named = needs.met([
+      {
+        missing: !displayName,
+        say: t`Give the group a name.`,
+        field: "group-name",
+      },
+    ]);
+    if (!named) return null;
     setBusy(true);
     try {
       const created = await trpc.admin.groups.create.mutate({
@@ -84,6 +94,7 @@ export function GroupsTab() {
               <Label htmlFor="group-name">{t`Name`}</Label>
               <Input
                 id="group-name"
+                aria-invalid={needs.invalid("group-name")}
                 value={name}
                 maxLength={80}
                 autoFocus
@@ -100,8 +111,9 @@ export function GroupsTab() {
                 onChange={(event) => setDescription(event.target.value)}
               />
             </div>
+            <Refusal text={needs.said} className="mt-0" />
             <div className="flex flex-wrap gap-2">
-              <Button type="submit" disabled={busy || !name.trim()}>
+              <Button type="submit" disabled={busy}>
                 {t`Create`}
               </Button>
               <Button

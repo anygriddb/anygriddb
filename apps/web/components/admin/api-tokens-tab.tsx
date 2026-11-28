@@ -6,15 +6,17 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { useCopy } from "../../lib/clipboard";
 import { useErrorText } from "../../lib/errors";
+import { useNeeds } from "../../lib/form-needs";
 import { trpc, useTRPC } from "../../lib/trpc";
 import { sortRows } from "../../lib/sort-rows";
 import { useWhen } from "../../lib/i18n";
 import { useColumnSort } from "../sort-header";
-import { ConfirmDialog } from "../shell/dialogs";
+import { ConfirmDialog, Refusal } from "../shell/dialogs";
 import { LoadFailed } from "../shell/load-failed";
 import { RuledSection } from "../shell/notebook-page";
 
-type Scope = "accounts" | "invitations" | "settings";
+const SCOPES = ["accounts", "invitations", "settings"] as const;
+type Scope = (typeof SCOPES)[number];
 
 /**
  * The administration API (ADR 0086): its address, and the tokens an
@@ -33,6 +35,7 @@ export function ApiTokensTab() {
   const [name, setName] = useState("");
   const [days, setDays] = useState("30");
   const [scopes, setScopes] = useState<ReadonlySet<Scope>>(new Set());
+  const needs = useNeeds();
   const [fresh, setFresh] = useState<string | null>(null);
   const [revoking, setRevoking] = useState<{ id: string; name: string } | null>(
     null,
@@ -215,8 +218,28 @@ export function ApiTokensTab() {
         )}
         <form
           className="flex flex-col gap-3"
+          noValidate
           onSubmit={(event) => {
             event.preventDefault();
+            const life = Number(days);
+            const ready = needs.met([
+              {
+                missing: !name.trim(),
+                say: t`Give the token a name.`,
+                field: "admin-token-name",
+              },
+              {
+                missing: !Number.isInteger(life) || life < 1 || life > 365,
+                say: t`Give the days it lives, a whole number from 1 to 365.`,
+                field: "admin-token-days",
+              },
+              {
+                missing: scopes.size === 0,
+                say: t`Tick what the token may do.`,
+                field: `admin-token-scope-${SCOPES[0]}`,
+              },
+            ]);
+            if (!ready) return;
             void (async () => {
               try {
                 const created = await trpc.admin.apiTokens.create.mutate({
@@ -241,6 +264,7 @@ export function ApiTokensTab() {
                 id="admin-token-name"
                 maxLength={80}
                 required
+                aria-invalid={needs.invalid("admin-token-name")}
                 value={name}
                 onChange={(event) => setName(event.target.value)}
               />
@@ -255,6 +279,7 @@ export function ApiTokensTab() {
                 max={365}
                 step={1}
                 required
+                aria-invalid={needs.invalid("admin-token-days")}
                 value={days}
                 onChange={(event) => setDays(event.target.value)}
               />
@@ -264,9 +289,10 @@ export function ApiTokensTab() {
             <legend className="mb-1 text-sm font-medium">
               {t`What the token may do`}
             </legend>
-            {(Object.keys(scopeLabels) as Scope[]).map((scope) => (
+            {SCOPES.map((scope) => (
               <label key={scope} className="flex items-start gap-2">
                 <Checkbox
+                  id={`admin-token-scope-${scope}`}
                   className="mt-0.5"
                   checked={scopes.has(scope)}
                   onChange={(event) => {
@@ -287,11 +313,8 @@ export function ApiTokensTab() {
               </label>
             ))}
           </fieldset>
-          <Button
-            type="submit"
-            className="self-start"
-            disabled={!name.trim() || scopes.size === 0}
-          >
+          <Refusal text={needs.said} className="mt-0" />
+          <Button type="submit" className="self-start">
             {t`Make a token`}
           </Button>
         </form>
