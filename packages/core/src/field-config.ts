@@ -4,8 +4,10 @@ import {
   formulaReferences,
   type FormulaExpr,
 } from "./formula";
+import { compareDecimals, isDecimalString, numberToDecimal } from "./decimal";
 import { type FieldType } from "./field-types";
 import { AppError } from "./errors";
+import { fitsMask, isMask } from "./text-mask";
 import {
   filterColumnNames,
   filterGroupSchema,
@@ -207,8 +209,16 @@ export type ColumnConfig = {
     | BooleanAppearance
     | TextAppearance;
   number?: NumberFormat;
-  /** A number field that takes no value under zero, on every write. */
-  nonNegative?: boolean;
+  /**
+   * A number field's smallest and largest value, bounds included, as exact
+   * decimals (ADR 0141), held on every write.
+   */
+  min?: string;
+  max?: string;
+  /** A short text field's longest value, in characters (ADR 0141). */
+  maxLength?: number;
+  /** A short text field's mask, which every value fits (`text-mask.ts`). */
+  mask?: string;
   date?: DateFormat;
   durationFormat?: (typeof DURATION_FORMATS)[number];
   ratingMax?: number;
@@ -254,10 +264,84 @@ const buttonConfigSchema = z
 
 export type ButtonConfig = z.infer<typeof buttonConfigSchema>;
 
+/** A bound of a number field: an exact decimal (ADR 0023). */
+const boundSchema = z.string().refine(isDecimalString).optional();
+
+/** Whether a number lies within a field's bounds, both included. */
+export function withinBounds(
+  value: string,
+  bounds: Pick<ColumnConfig, "min" | "max">,
+): boolean {
+  return (
+    (bounds.min === undefined || compareDecimals(value, bounds.min) >= 0) &&
+    (bounds.max === undefined || compareDecimals(value, bounds.max) <= 0)
+  );
+}
+
+/**
+ * A field's settings as a file written before ADR 0141 may hold them: a
+ * number that refused negative numbers takes a smallest value of 0, as
+ * migration 0160 does for the fields of an instance.
+ */
+export function settingsFromBefore(
+  fieldType: string,
+  config: Readonly<Record<string, unknown>>,
+): Record<string, unknown> {
+  if (!Object.hasOwn(config, "nonNegative")) return { ...config };
+  const { nonNegative, ...rest } = config;
+  return fieldType === "number" &&
+    nonNegative === true &&
+    rest.min === undefined
+    ? { ...rest, min: "0" }
+    : rest;
+}
+
+/**
+ * A number field's bounds as a refusal says them, in no language: `0 – 120`,
+ * `≥ 0`, `≤ 120`.
+ */
+export function boundsText(bounds: Pick<ColumnConfig, "min" | "max">): string {
+  if (bounds.min !== undefined && bounds.max !== undefined) {
+    return `${bounds.min} – ${bounds.max}`;
+  }
+  return bounds.min !== undefined ? `≥ ${bounds.min}` : `≤ ${bounds.max ?? ""}`;
+}
+
+/** Whether a text keeps to a short text field's length and mask. */
+export function fitsTextRules(
+  value: string,
+  rules: Pick<ColumnConfig, "maxLength" | "mask">,
+): "ok" | "too_long" | "mismatch" {
+  if (
+    rules.maxLength !== undefined &&
+    Array.from(value).length > rules.maxLength
+  ) {
+    return "too_long";
+  }
+  if (rules.mask !== undefined && !fitsMask(rules.mask, value)) {
+    return "mismatch";
+  }
+  return "ok";
+}
+
 const CONFIG_SCHEMAS: Record<FieldType, z.ZodType<ColumnConfig>> = {
   text: z
-    .object({ defaultValue: textDefault, appearance: textAppearanceSchema })
-    .strict(),
+    .object({
+      defaultValue: textDefault,
+      appearance: textAppearanceSchema,
+      // The most a short text holds (`CELL_TEXT_LIMITS.text`).
+      maxLength: z.int().min(1).max(4_000).optional(),
+      mask: z.string().refine(isMask).optional(),
+    })
+    .strict()
+    // A default the field itself would refuse is no default.
+    .refine(
+      (config) =>
+        config.defaultValue === undefined ||
+        config.defaultValue === "" ||
+        fitsTextRules(config.defaultValue, config) === "ok",
+      { message: "Default out of the field's rules", path: ["defaultValue"] },
+    ),
   long_text: z
     .object({ richText: z.boolean().optional(), defaultValue: textDefault })
     .strict(),
@@ -271,16 +355,25 @@ const CONFIG_SCHEMAS: Record<FieldType, z.ZodType<ColumnConfig>> = {
     .object({
       number: numberFormatSchema.optional(),
       defaultValue: z.number().optional(),
-      nonNegative: z.boolean().optional(),
+      min: boundSchema,
+      max: boundSchema,
     })
     .strict()
-    // A default the field itself would refuse is no default.
     .refine(
       (config) =>
-        !config.nonNegative ||
-        config.defaultValue === undefined ||
-        config.defaultValue >= 0,
-      { message: "Negative default", path: ["defaultValue"] },
+        config.min === undefined ||
+        config.max === undefined ||
+        compareDecimals(config.min, config.max) <= 0,
+      { message: "Smallest above largest", path: ["max"] },
+    )
+    // A default the field itself would refuse is no default.
+    .refine(
+      (config) => {
+        if (config.defaultValue === undefined) return true;
+        const value = numberToDecimal(config.defaultValue);
+        return value !== undefined && withinBounds(value, config);
+      },
+      { message: "Default out of bounds", path: ["defaultValue"] },
     ),
   rating: z
     .object({
@@ -419,7 +512,10 @@ const LINK_CONFIG_KEYS = [
   "preventNewOptions",
   "appearance",
   "number",
-  "nonNegative",
+  "min",
+  "max",
+  "maxLength",
+  "mask",
   "date",
   "durationFormat",
   "ratingMax",

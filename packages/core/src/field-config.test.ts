@@ -4,6 +4,7 @@ import {
   parseColumnConfig,
   readerColumnConfig,
   rollupFitsTarget,
+  settingsFromBefore,
 } from "./field-config";
 
 describe("parseColumnConfig", () => {
@@ -50,16 +51,41 @@ describe("parseColumnConfig", () => {
     expect(() =>
       parseColumnConfig("number", { number: { precision: 12 } }),
     ).toThrow("Invalid column");
-    // A number that refuses negatives takes no negative default.
+    // A number's bounds are exact decimals, the smallest first, and its
+    // default lies between them (ADR 0141).
     expect(
-      parseColumnConfig("number", { nonNegative: true, defaultValue: 0 }),
-    ).toMatchObject({ nonNegative: true });
-    expect(() =>
-      parseColumnConfig("number", { nonNegative: true, defaultValue: -1 }),
-    ).toThrow("Invalid column");
-    expect(() => parseColumnConfig("text", { nonNegative: true })).toThrow(
-      "Invalid column",
-    );
+      parseColumnConfig("number", { min: "0", max: "10.5", defaultValue: 0 }),
+    ).toMatchObject({ min: "0", max: "10.5" });
+    for (const config of [
+      { min: "0", defaultValue: -1 },
+      { min: "2", max: "1" },
+      { min: "1e3" },
+      { min: 0 },
+      { nonNegative: true },
+    ]) {
+      expect(() => parseColumnConfig("number", config)).toThrow(
+        "Invalid column",
+      );
+    }
+    // A short text's mask and length, which its default fits.
+    expect(
+      parseColumnConfig("text", {
+        mask: "AA-##",
+        maxLength: 5,
+        defaultValue: "FR-01",
+      }),
+    ).toMatchObject({ mask: "AA-##", maxLength: 5 });
+    for (const config of [
+      { mask: "AA-##", defaultValue: "FR" },
+      { maxLength: 2, defaultValue: "abc" },
+      { mask: "" },
+      { mask: "A\\" },
+      { maxLength: 0 },
+      { maxLength: 4_001 },
+      { min: "0" },
+    ]) {
+      expect(() => parseColumnConfig("text", config)).toThrow("Invalid column");
+    }
     expect(() =>
       parseColumnConfig("datetime", { date: { timeZone: "Mars/Base" } }),
     ).toThrow("Invalid column");
@@ -161,7 +187,10 @@ describe("a field's settings on a public link", () => {
       preventNewOptions: true,
       appearance: "badge",
       number: { precision: 2, style: "currency", currency: "EUR" },
-      nonNegative: true,
+      min: "0",
+      max: "10",
+      maxLength: 8,
+      mask: "AA-####",
       date: { format: "eu" },
       durationFormat: "h:mm",
       ratingMax: 5,
@@ -193,8 +222,11 @@ describe("a field's settings on a public link", () => {
         "appearance",
         "date",
         "durationFormat",
+        "mask",
+        "max",
+        "maxLength",
+        "min",
         "multiple",
-        "nonNegative",
         "number",
         "options",
         "preventNewOptions",
@@ -291,5 +323,26 @@ describe("a field's settings under a reader's field rules", () => {
       rules,
     );
     expect(kept.button?.url).toBe("https://example.org//{{title}}");
+  });
+});
+
+describe("a field's settings from before its bounds (ADR 0141)", () => {
+  it("reads a number that refused negatives as one whose smallest value is 0", () => {
+    expect(
+      settingsFromBefore("number", {
+        nonNegative: true,
+        number: { precision: 2 },
+      }),
+    ).toEqual({
+      min: "0",
+      number: { precision: 2 },
+    });
+    expect(settingsFromBefore("number", { nonNegative: false })).toEqual({});
+    expect(
+      settingsFromBefore("number", { nonNegative: true, min: "5" }),
+    ).toEqual({ min: "5" });
+    expect(settingsFromBefore("text", { appearance: "plain" })).toEqual({
+      appearance: "plain",
+    });
   });
 });

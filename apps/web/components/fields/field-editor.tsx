@@ -47,6 +47,7 @@ import {
   DateSettings,
   DurationSettings,
   NumberSettings,
+  TextRulesSettings,
   OptionsSettings,
   PeopleSettings,
   RatingSettings,
@@ -308,6 +309,7 @@ export function FieldEditor({
             <CodeSettings {...settings} />
           ) : null}
           {fieldType === "boolean" ? <CheckboxSettings {...settings} /> : null}
+          {fieldType === "text" ? <TextRulesSettings {...settings} /> : null}
           {fieldType === "number" ? <NumberSettings {...settings} /> : null}
           {DATED.has(fieldType) ? <DateSettings {...settings} /> : null}
           {fieldType === "rating" ? <RatingSettings {...settings} /> : null}

@@ -50,6 +50,26 @@ describe("baseSnapshotSchema", () => {
     expect(parsed.tables[0]?.rows).toHaveLength(1);
   });
 
+  it("reads a number that refused negatives, from an older file, as one whose smallest value is 0", () => {
+    const parsed = baseSnapshotSchema.parse({
+      ...minimal,
+      tables: [
+        {
+          ...minimal.tables[0],
+          columns: [
+            { label: "Nom", fieldType: "text" },
+            {
+              label: "Stock",
+              fieldType: "number",
+              config: { nonNegative: true },
+            },
+          ],
+        },
+      ],
+    });
+    expect(parsed.tables[0]?.columns[1]?.config).toEqual({ min: "0" });
+  });
+
   it("refuses a wrong kind or version", () => {
     expect(
       baseSnapshotSchema.safeParse({ ...minimal, kind: "other" }).success,

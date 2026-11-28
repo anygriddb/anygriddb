@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { assertCellValue, coerceCellValue, readCellValue } from "./cell-values";
+import {
+  assertCellValue,
+  coerceCellValue,
+  readCellValue,
+  refusalDetail,
+} from "./cell-values";
 
 const select = {
   fieldType: "single_select" as const,
@@ -55,28 +60,91 @@ describe("assertCellValue", () => {
   });
 });
 
-describe("a number field that refuses negatives", () => {
-  const stock = { fieldType: "number" as const, config: { nonNegative: true } };
+describe("a number field's bounds (ADR 0141)", () => {
+  const stock = { fieldType: "number" as const, config: { min: "0" } };
+  const dose = {
+    fieldType: "number" as const,
+    config: { min: "0.5", max: "12.25" },
+  };
   const free = { fieldType: "number" as const, config: {} };
 
-  it("takes zero and above, as a decimal text or a number", () => {
+  it("takes the bounds and what lies between, as a decimal text or a number", () => {
     for (const value of ["0", "12.50", "-0", "-0.00", 0, 3, null]) {
       expect(() => assertCellValue(stock, value)).not.toThrow();
+    }
+    for (const value of ["0.5", "0.50", "12.25", "7", 12]) {
+      expect(() => assertCellValue(dose, value)).not.toThrow();
     }
     // Pasted text goes through the same check.
     expect(coerceCellValue(stock, "7")).toBe("7");
   });
 
-  it("refuses a value under zero, and only where the field says so", () => {
+  it("refuses a value past a bound, saying the bounds, only where the field has them", () => {
     for (const value of ["-1", "-0.01", -3]) {
       expect(() => assertCellValue(stock, value)).toThrow(
-        "Negative number refused",
+        expect.objectContaining({ code: "value_out_of_range", detail: "≥ 0" }),
       );
       expect(() => assertCellValue(free, value)).not.toThrow();
+    }
+    for (const value of ["0.49", "12.251", "13", 100]) {
+      expect(() => assertCellValue(dose, value)).toThrow(
+        expect.objectContaining({ detail: "0.5 – 12.25" }),
+      );
     }
     // Loose input never throws: what the field refuses does not fit.
     expect(coerceCellValue(stock, "-7")).toBeUndefined();
     expect(coerceCellValue(free, "-7")).toBe("-7");
+  });
+});
+
+describe("a short text field's length and mask (ADR 0141)", () => {
+  const code = {
+    fieldType: "text" as const,
+    config: { mask: "AA-####", maxLength: 7 },
+  };
+  const short = { fieldType: "text" as const, config: { maxLength: 3 } };
+
+  it("takes a value that fits, and an empty one, which a required field judges", () => {
+    for (const value of ["FR-0012", "be-1234", "", null]) {
+      expect(() => assertCellValue(code, value)).not.toThrow();
+    }
+    expect(() => assertCellValue(short, "été")).not.toThrow();
+  });
+
+  it("refuses a value too long or out of the mask, saying the rule", () => {
+    expect(() => assertCellValue(short, "abcd")).toThrow(
+      expect.objectContaining({ code: "value_too_long", detail: "3" }),
+    );
+    expect(() => assertCellValue(code, "FR-12")).toThrow(
+      expect.objectContaining({ code: "value_mismatch", detail: "AA-####" }),
+    );
+    expect(coerceCellValue(code, "fr 0012")).toBeUndefined();
+  });
+
+  it("says the rule a typed value missed, as a form reads it", () => {
+    expect(readCellValue(code, "FR-12")).toEqual({
+      refused: { code: "value_mismatch", mask: "AA-####" },
+    });
+    expect(readCellValue(short, "abcd")).toEqual({
+      refused: { code: "value_too_long", limit: 3 },
+    });
+    expect(
+      readCellValue(
+        { fieldType: "number", config: { min: "0", max: "120" } },
+        "121",
+      ),
+    ).toEqual({ refused: { code: "value_out_of_range", bounds: "0 – 120" } });
+  });
+
+  it("gives the rule as a refusal's detail, and none for a plain refusal", () => {
+    expect(refusalDetail({ code: "value_mismatch", mask: "AA-####" })).toBe(
+      "AA-####",
+    );
+    expect(refusalDetail({ code: "value_out_of_range", bounds: "≥ 0" })).toBe(
+      "≥ 0",
+    );
+    expect(refusalDetail({ code: "value_too_long", limit: 3 })).toBe("3");
+    expect(refusalDetail({ code: "invalid_cell" })).toBeUndefined();
   });
 });
 

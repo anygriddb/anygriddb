@@ -2,8 +2,11 @@ import { ceilingOf } from "./limits";
 import { z } from "zod";
 import { isDecimalString, numberToDecimal } from "./decimal";
 import {
+  boundsText,
+  fitsTextRules,
   isTimeZone,
   selectOptionNames,
+  withinBounds,
   type ColumnConfig,
 } from "./field-config";
 import {
@@ -319,6 +322,10 @@ type CoerceContext = {
 /** Why a value was not taken, for whoever reports it. */
 export type CellRefusal =
   | { code: "value_too_long"; limit: number }
+  /** Past a number field's bounds, said as `boundsText` writes them (ADR 0141). */
+  | { code: "value_out_of_range"; bounds: string }
+  /** Out of a short text's mask, which it names. */
+  | { code: "value_mismatch"; mask: string }
   | { code: "ambiguous_number" }
   | { code: "ambiguous_point" }
   | { code: "ambiguous_date" }
@@ -372,7 +379,7 @@ type CellRule = {
   ) => CellRefusal | undefined;
 };
 
-function isTextWithin(value: unknown, limit: number): boolean {
+function isTextWithin(value: unknown, limit: number): value is string {
   return typeof value === "string" && value.length <= limit;
 }
 
@@ -457,7 +464,19 @@ function itemsOfText(
 /** One rule per writable type, the compiler refusing a type left out. */
 const CELL_RULES = {
   text: {
-    keeps: (value) => isTextWithin(value, CELL_TEXT_LIMITS.text),
+    keeps: (value, column) => {
+      if (!isTextWithin(value, CELL_TEXT_LIMITS.text)) return false;
+      // An empty text is no value: a required field says that (ADR 0141).
+      if (value === "") return true;
+      const fit = fitsTextRules(value, column.config);
+      if (fit === "too_long") {
+        throw new AppError("value_too_long", String(column.config.maxLength));
+      }
+      if (fit === "mismatch") {
+        throw new AppError("value_mismatch", column.config.mask);
+      }
+      return true;
+    },
     read: ({ text }) => text.replace(/\n/g, " "),
     refusal: tooLong(CELL_TEXT_LIMITS.text),
   },
@@ -501,26 +520,19 @@ const CELL_RULES = {
     },
   },
   number: {
-    keeps: (value, { config }) => {
+    keeps: (value, column) => {
       // Exact as a decimal string (ADR 0023). A finite number is accepted
       // from older clients, unless it is an integer JSON has already rounded.
-      const decimal = isDecimalString(value);
-      if (
-        !decimal &&
-        !(
-          typeof value === "number" &&
-          Number.isFinite(value) &&
-          !isRoundedInteger(value)
-        )
-      ) {
-        return false;
-      }
-      // Under zero: a minus sign before a digit that is not zero.
-      const negative = decimal
-        ? value.startsWith("-") && /[1-9]/.test(value)
-        : value < 0;
-      if (config.nonNegative && negative) {
-        throw new AppError("negative_number");
+      const decimal = isDecimalString(value)
+        ? value
+        : typeof value === "number" &&
+            Number.isFinite(value) &&
+            !isRoundedInteger(value)
+          ? numberToDecimal(value)
+          : undefined;
+      if (decimal === undefined) return false;
+      if (!withinBounds(decimal, column.config)) {
+        throw new AppError("value_out_of_range", boundsText(column.config));
       }
       return true;
     },
@@ -665,9 +677,40 @@ export function readCellValue(
   try {
     assertCellValue(column, candidate);
     return { value: candidate };
-  } catch {
-    return { refused: refusalOf(column, raw, candidate, context) };
+  } catch (error) {
+    return {
+      refused:
+        ruleRefusal(column, error) ??
+        refusalOf(column, raw, candidate, context),
+    };
   }
+}
+
+/** What a refusal says beside its code: the limit, the bounds or the mask. */
+export function refusalDetail(refused: CellRefusal): string | undefined {
+  if (refused.code === "value_too_long") return String(refused.limit);
+  if (refused.code === "value_out_of_range") return refused.bounds;
+  if (refused.code === "value_mismatch") return refused.mask;
+  return undefined;
+}
+
+/** A refusal of the field's own rules (ADR 0141), said with the rule. */
+function ruleRefusal(
+  column: CellColumn,
+  error: unknown,
+): CellRefusal | undefined {
+  if (!(error instanceof AppError)) return undefined;
+  const { config } = column;
+  if (error.code === "value_out_of_range") {
+    return { code: "value_out_of_range", bounds: boundsText(config) };
+  }
+  if (error.code === "value_mismatch" && config.mask !== undefined) {
+    return { code: "value_mismatch", mask: config.mask };
+  }
+  if (error.code === "value_too_long" && config.maxLength !== undefined) {
+    return { code: "value_too_long", limit: config.maxLength };
+  }
+  return undefined;
 }
 
 /** `readCellValue`'s value, or `undefined` when it was refused. */

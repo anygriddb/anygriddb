@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   canonicalScientific,
+  compareDecimals,
   decimalSeries,
   decimalToNumber,
   isDecimalString,
@@ -78,5 +79,20 @@ describe("canonicalScientific", () => {
     expect(canonicalScientific("e5")).toBeUndefined();
     expect(canonicalScientific("12")).toBeUndefined();
     expect(canonicalScientific("abc")).toBeUndefined();
+  });
+});
+
+describe("compareDecimals", () => {
+  it("orders decimals exactly, whatever their scale or sign", () => {
+    expect(compareDecimals("0.1", "0.10")).toBe(0);
+    expect(compareDecimals("-1", "0")).toBe(-1);
+    expect(
+      compareDecimals("12345678901234567890.5", "12345678901234567890.49"),
+    ).toBe(1);
+    expect(compareDecimals("-0.001", "-0.0001")).toBe(-1);
+  });
+
+  it("tells apart what a float would take for one number", () => {
+    expect(compareDecimals("9007199254740993", "9007199254740992")).toBe(1);
   });
 });

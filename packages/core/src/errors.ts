@@ -191,7 +191,10 @@ export const ERRORS = {
     "Ambiguous date: write it YYYY-MM-DD or set the field's date format",
   ],
   invalid_number: [BAD, "Invalid number"],
-  negative_number: [BAD, "Negative number refused"],
+  /** A number past its field's bounds (ADR 0141): the detail says them. */
+  value_out_of_range: [BAD, "Value out of the field's range"],
+  /** A text that does not fit its field's mask (ADR 0141): the detail is the mask. */
+  value_mismatch: [BAD, "Value does not fit the field's pattern"],
   invalid_link: [BAD, "Invalid link"],
   invalid_link_count: [BAD, "Invalid link count"],
   invalid_attachment: [BAD, "Invalid attachment"],

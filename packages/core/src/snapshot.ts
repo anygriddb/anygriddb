@@ -7,7 +7,7 @@ import {
   widgetConfigOn,
   widgetPlace,
 } from "./dashboards";
-import { rollupFnSchema } from "./field-config";
+import { rollupFnSchema, settingsFromBefore } from "./field-config";
 import { filterGroupSchema } from "./filter";
 import { columnNameSchema, labelSchema } from "./names";
 import {
@@ -119,7 +119,12 @@ const snapshotTableAccessSchema = z
   })
   .strict();
 
-const snapshotColumnSchema = columnDefinitionSchema;
+/** A field as the file keeps it, its settings read as this version reads them. */
+const snapshotColumnSchema = columnDefinitionSchema.transform((column) =>
+  column.config
+    ? { ...column, config: settingsFromBefore(column.fieldType, column.config) }
+    : column,
+);
 
 const snapshotViewSchema = z
   .object({

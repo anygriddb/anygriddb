@@ -36,6 +36,14 @@ msgid "“{field}” is required"
 msgstr "“{field}” is required"
 
 #: lib/cell-reading.ts
+msgid "“{field}” takes {bounds}"
+msgstr "“{field}” takes {bounds}"
+
+#: lib/cell-reading.ts
+msgid "“{field}” takes the form {mask}"
+msgstr "“{field}” takes the form {mask}"
+
+#: lib/cell-reading.ts
 msgid "“{field}”: this date reads two ways. Write it YYYY-MM-DD, or set the field's date format"
 msgstr "“{field}”: this date reads two ways. Write it YYYY-MM-DD, or set the field's date format"
 
@@ -3581,6 +3589,10 @@ msgstr "Body"
 msgid "Body (an id per row)"
 msgstr "Body (an id per row)"
 
+#: components/fields/field-settings.tsx
+msgid "Both included. Checked on every change, wherever it comes from; values already in the table stay until they are changed."
+msgstr "Both included. Checked on every change, wherever it comes from; values already in the table stay until they are changed."
+
 #: components/admin/account-page.tsx
 msgid "Bound to single sign-on"
 msgstr "Bound to single sign-on"
@@ -3917,10 +3929,6 @@ msgstr "Checked"
 #: components/admin/sources-tab.tsx
 msgid "Checked at {time}"
 msgstr "Checked at {time}"
-
-#: components/fields/field-settings.tsx
-msgid "Checked on every change, wherever it comes from. Negative values already in the table stay until they are changed."
-msgstr "Checked on every change, wherever it comes from. Negative values already in the table stay until they are changed."
 
 #: components/fields/field-settings.tsx
 msgid "Checklist"
@@ -5621,6 +5629,10 @@ msgstr "End password access now?"
 msgid "End sessions and revoke tokens"
 msgstr "End sessions and revoke tokens"
 
+#: components/fields/field-settings.tsx
+msgid "End the pattern on something other than a lone \\."
+msgstr "End the pattern on something other than a lone \\."
+
 #: components/admin/accesses-tab.tsx
 msgid "Ended"
 msgstr "Ended"
@@ -6456,6 +6468,10 @@ msgstr "From"
 msgid "From {floor} to {top}; shipped with {shipped}."
 msgstr "From {floor} to {top}; shipped with {shipped}."
 
+#: components/fields/field-settings.tsx
+msgid "From 1 to 4,000, or leave it empty."
+msgstr "From 1 to 4,000, or leave it empty."
+
 #: components/shell/new-base-dialog.tsx
 msgid "from a backup file"
 msgstr "from a backup file"
@@ -7097,6 +7113,10 @@ msgstr "In a client's database"
 #: components/shell/shortcuts-dialog.tsx
 msgid "In a long text, end editing ({enter}: a new line)"
 msgstr "In a long text, end editing ({enter}: a new line)"
+
+#: components/fields/field-settings.tsx
+msgid "In a pattern, # is a digit, A a letter from A to Z, * either, \\ makes the next sign itself, and every other sign is itself. Checked on every change, wherever it comes from; values already in the table stay until they are changed."
+msgstr "In a pattern, # is a digit, A a letter from A to Z, * either, \\ makes the next sign itself, and every other sign is itself. Checked on every change, wherever it comes from; values already in the table stay until they are changed."
 
 #: components/admin/emergency-section.tsx
 msgid "In an emergency"
@@ -7761,6 +7781,10 @@ msgstr "Language"
 #: components/admin/settings-tab.tsx
 msgid "Largest attachment"
 msgstr "Largest attachment"
+
+#: components/fields/field-settings.tsx
+msgid "Largest value"
+msgstr "Largest value"
 
 #: components/dashboards/dashboard-board.tsx
 msgid "Largest value first"
@@ -8505,6 +8529,10 @@ msgstr "More actions"
 #: components/admin/people-file-dialog.tsx
 msgid "More than 20 bases for one person"
 msgstr "More than 20 bases for one person"
+
+#: components/fields/field-settings.tsx
+msgid "Most characters"
+msgstr "Most characters"
 
 #: components/admin/limits-tab.tsx
 msgid "Most from one address"
@@ -9320,6 +9348,7 @@ msgstr "Node.js, up for"
 #: components/admin/health-tab.tsx
 #: components/admin/sources-tab.tsx
 #: components/dashboards/dashboard-board.tsx
+#: components/fields/field-settings.tsx
 #: components/grid/grid-footer.tsx
 #: components/table/view-toolbar.tsx
 #: components/views/view-common.tsx
@@ -9354,6 +9383,10 @@ msgstr "Not encrypted"
 #: lib/errors.ts
 msgid "Not found"
 msgstr "Not found"
+
+#: lib/errors.ts
+msgid "Not in the form this field takes"
+msgstr "Not in the form this field takes"
 
 #: components/admin/account-actions.tsx
 msgid "Not linked to single sign-on"
@@ -9881,6 +9914,10 @@ msgstr "Others see this name in comments, history, and signatures."
 msgid "Otherwise:"
 msgstr "Otherwise:"
 
+#: lib/errors.ts
+msgid "Outside the values this field takes"
+msgstr "Outside the values this field takes"
+
 #: components/admin/admin-sections.ts
 msgid "Overview"
 msgstr "Overview"
@@ -10046,6 +10083,10 @@ msgstr "Pasted data"
 #: components/settings/api-docs.tsx
 msgid "PATCH takes the same shape with an id per row; DELETE takes ?records=id1,id2. 100 rows per call. X-Reason header for fields that require a reason."
 msgstr "PATCH takes the same shape with an id per row; DELETE takes ?records=id1,id2. 100 rows per call. X-Reason header for fields that require a reason."
+
+#: components/fields/field-settings.tsx
+msgid "Pattern"
+msgstr "Pattern"
 
 #: components/admin/health-tab.tsx
 msgid "Pending deliveries"
@@ -10698,10 +10739,6 @@ msgstr "refreshed every"
 #: components/admin/sources-tab.tsx
 msgid "refreshes"
 msgstr "refreshes"
-
-#: components/fields/field-settings.tsx
-msgid "Refuse negative numbers"
-msgstr "Refuse negative numbers"
 
 #: components/admin/settings-tab.tsx
 msgid "Refused file extensions"
@@ -12689,6 +12726,10 @@ msgstr "Slow"
 msgid "Slow means one second or more. Figures come from every process writing to the database, not from Prometheus."
 msgstr "Slow means one second or more. Figures come from every process writing to the database, not from Prometheus."
 
+#: components/fields/field-settings.tsx
+msgid "Smallest value"
+msgstr "Smallest value"
+
 #: components/admin/effective-rights.tsx
 msgid "Some fields only"
 msgstr "Some fields only"
@@ -13783,6 +13824,10 @@ msgstr "The job has already finished"
 msgid "The job was interrupted by a restart. Start it again."
 msgstr "The job was interrupted by a restart. Start it again."
 
+#: components/fields/field-settings.tsx
+msgid "The largest value is below the smallest."
+msgstr "The largest value is below the smallest."
+
 #: components/fields/formula-docs.ts
 msgid "The largest value, number or date."
 msgstr "The largest value, number or date."
@@ -14633,10 +14678,6 @@ msgstr "This field names the rows: create or choose another that can before conv
 #: components/table/reason-dialog.tsx
 msgid "This field needs a reason, kept in the audit trail."
 msgstr "This field needs a reason, kept in the audit trail."
-
-#: lib/errors.ts
-msgid "This field takes no negative number"
-msgstr "This field takes no negative number"
 
 #: lib/errors.ts
 msgid "This figure is too large for the client's database to compute"
@@ -16242,6 +16283,10 @@ msgstr "Write"
 #: components/record/record-panel.tsx
 msgid "Write a comment… (@ to mention)"
 msgstr "Write a comment… (@ to mention)"
+
+#: components/fields/field-settings.tsx
+msgid "Write a number, or leave it empty."
+msgstr "Write a number, or leave it empty."
 
 #: components/table/automations-dialog.tsx
 msgid "Write the message."

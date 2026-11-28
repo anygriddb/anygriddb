@@ -1,6 +1,7 @@
 // Explicit re-exports: bundlers resolve these reliably across the workspace.
 
 export { compareCodeUnits } from "./text-order";
+export { isMask, MAX_MASK_LENGTH, maskPattern } from "./text-mask";
 
 export {
   AppError,
@@ -75,6 +76,7 @@ export {
   parsePlace,
   type Place,
   readCellValue,
+  refusalDetail,
 } from "./cell-values";
 
 export {
@@ -107,6 +109,7 @@ export {
   ROLLUP_FNS,
   SINGLE_SELECT_APPEARANCES,
   TEXT_APPEARANCES,
+  boundsText,
   isTimeZone,
   parseColumnConfig,
   rollupFitsTarget,
@@ -941,6 +944,7 @@ export {
   MAX_WORKBOOK_SHEETS,
 } from "./workbook";
 export {
+  compareDecimals,
   decimalSeries,
   canonicalScientific,
   decimalToNumber,

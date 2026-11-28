@@ -12,6 +12,7 @@ import {
   cellText,
   type CellValue,
   readCellValue,
+  refusalDetail,
   type FilterGroup,
   effectiveTableRole,
   type EngineCatalog,
@@ -879,12 +880,14 @@ function coerceAll(
     });
     if ("refused" in reading) {
       const { refused } = reading;
-      throw refused.code === "value_too_long"
-        ? new AppError("value_too_long", `${name}: ${String(refused.limit)}`)
-        : refused.code === "ambiguous_number" ||
-            refused.code === "ambiguous_date"
-          ? new AppError(refused.code, name)
-          : new AppError("invalid_value", name);
+      const detail = refusalDetail(refused);
+      throw refused.code === "invalid_cell" ||
+        refused.code === "ambiguous_point"
+        ? new AppError("invalid_value", name)
+        : new AppError(
+            refused.code,
+            detail === undefined ? name : `${name}: ${detail}`,
+          );
     }
     out[name] = reading.value;
   }
