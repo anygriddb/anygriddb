@@ -457,6 +457,14 @@ describe("the role the application signs in as", () => {
       });
     });
 
+    it("cannot call the trigger that tells sockets of a change of rights", async () => {
+      // It runs only as a trigger, so it sends nothing the role could not
+      // send itself; and it does not take what it is given.
+      await expect(inTransaction("select ag_rights_changed()")).rejects.toThrow(
+        /trigger functions can only be called as triggers/,
+      );
+    });
+
     it("leaves an event when it erases an account", async () => {
       await within(async (client) => {
         const made = await client.query<{ id: string }>(

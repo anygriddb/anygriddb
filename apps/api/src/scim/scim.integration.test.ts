@@ -17,7 +17,6 @@ import {
   setAccountAttributes,
 } from "../data/person-attributes.js";
 import { insertBase } from "../data/schema-ops.js";
-import { recordingBus } from "../realtime/recording-bus.test-helpers.js";
 import { createTestDatabase } from "../test-database.js";
 import { setGroupRole } from "./groups.js";
 import { registerScim } from "./routes.js";
@@ -68,7 +67,6 @@ describe("SCIM 2.0", () => {
     registerScim(app, {
       db,
       publicUrl: "https://grid.example",
-      bus: recordingBus().bus,
     });
     await app.ready();
   });

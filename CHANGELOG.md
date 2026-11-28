@@ -8,6 +8,14 @@ first.
 
 ## Unreleased
 
+### Fixed
+
+- A change of who may read what reaches open pages at once, whichever
+  way it came: the identity provider, the administration API, a restore
+  point giving roles back, or a role whose end came. Some of these were
+  heard only at the next check, within half a minute; the database now
+  tells every process itself (migration 0162).
+
 ## 0.15.3 - 2026-11-28
 
 Nothing to do before or after upgrading.
