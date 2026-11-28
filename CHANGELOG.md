@@ -8,6 +8,13 @@ first.
 
 ## Unreleased
 
+### Changed
+
+- A field someone sees on some rows only reads "Hidden" on the others,
+  in the grid, a row's panel and a public link's page, no longer as an
+  empty value; the rows read through the app say which fields they hide
+  (`ag_hidden`).
+
 ### Fixed
 
 - A change of who may read what reaches open pages at once, whichever

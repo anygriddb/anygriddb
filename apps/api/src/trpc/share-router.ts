@@ -9,6 +9,7 @@ import {
   describeColumns,
   formWindow,
   ROW_ERRORS,
+  ROW_HIDDEN,
   viewFilter,
   visibleFormFields,
 } from "@anygriddb/core";
@@ -77,8 +78,13 @@ function publicRows(
           if (attachmentFields.has(key)) return [[key, []]];
           return [[key, value]];
         }
-        // Formula errors (ADR 0036), of the fields shown only.
-        if (key === ROW_ERRORS && value && typeof value === "object")
+        // Formula errors (ADR 0036), and the fields a row hides from its
+        // link's maker (ADR 0144), of the fields shown only.
+        if (
+          (key === ROW_ERRORS || key === ROW_HIDDEN) &&
+          value &&
+          typeof value === "object"
+        )
           return [
             [
               key,

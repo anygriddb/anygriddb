@@ -14,6 +14,7 @@ import {
   buildCountRows,
   buildGroupCounts,
   buildReadRows,
+  rowHidden,
 } from "./read";
 
 function withAccess(access: Partial<EngineAccess>): EngineCatalog {
@@ -152,6 +153,31 @@ describe("a field shown on some rows", () => {
       `case when r."id" in (select q."id" from (select r."id", r."status" as "status" from "t_orders" r) q where`,
     );
     expectBound(sql);
+  });
+
+  it("tells each row the fields it hides, as `ag_hidden`", () => {
+    const sql = buildReadRows(
+      withAccess({
+        shownOn: (tableId, column) =>
+          tableId === ORDERS_ID && column === "price"
+            ? rule("status", "is", "Open")
+            : undefined,
+      }),
+      { limit: 10 },
+    );
+    expect(sql.text).toContain(`then null else 1 end) as "ag_h`);
+    expect(sql.text).toContain(`as "ag_hidden"`);
+    expectBound(sql);
+    const plain = buildReadRows(withAccess({}), { limit: 10 });
+    expect(plain.text).not.toContain("ag_hidden");
+  });
+
+  it("reads a row's hidden fields, and nothing else as hidden", () => {
+    const row = { price: null, ag_hidden: { price: "hidden" } };
+    expect(rowHidden(row, "price")).toBe(true);
+    expect(rowHidden(row, "qty")).toBe(false);
+    expect(rowHidden({ price: null }, "price")).toBe(false);
+    expect(rowHidden({ ag_hidden: { price: null } }, "price")).toBe(false);
   });
 
   it("leaves a field shown on every row read as it is", () => {

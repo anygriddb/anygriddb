@@ -6986,6 +6986,8 @@ msgstr "Bonjour {name}. D’abord, protégez votre compte."
 msgid "Here is this webhook's address. Copy it now: it will not be shown again."
 msgstr "Voici l’adresse de ce webhook. Copiez-la maintenant : elle ne sera plus affichée."
 
+#: components/grid/grid-cell.tsx
+#: components/public/public-view.tsx
 #: components/settings/table-rules-panel.tsx
 msgid "Hidden"
 msgstr "Masqué"
@@ -6993,6 +6995,14 @@ msgstr "Masqué"
 #: components/shell/new-base-dialog.tsx
 msgid "hidden in the workbook"
 msgstr "masquée dans le classeur"
+
+#: components/grid/grid-cell.tsx
+msgid "hidden on this row"
+msgstr "masqué sur cette ligne"
+
+#: components/record/record-panel.tsx
+msgid "Hidden on this row"
+msgstr "Masqué sur cette ligne"
 
 #: components/grid/grid-header.tsx
 msgid "Hide"

@@ -178,6 +178,12 @@ describe("what several rules give together", () => {
     expect(await seen()).toEqual({ Alba: "flu", Boris: null });
     // A formula over it reads it empty there too.
     expect(await seen("shout")).toEqual({ Alba: "FLU", Boris: null });
+    // Each row says which of its fields it hides, so empty is not taken
+    // for hidden; a formula no rule hides computes on what she sees.
+    expect(await seen("ag_hidden")).toEqual({
+      Alba: {},
+      Boris: { diagnosis: "hidden" },
+    });
     // So does a lookup from a table she reads whole.
     await as("owner").catalog.setTableRole({
       tableId: visitsId,
