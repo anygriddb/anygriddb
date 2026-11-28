@@ -863,6 +863,21 @@ test("an administrator ends a session, reads the sign-ins, and exports access", 
     await expect(page.getByText(`Group Team ${stamp}`).first()).toBeVisible();
     expect(await accessibilityViolations(page)).toEqual([]);
 
+    // An attribute of a person (ADR 0142): a ward, which the member holds,
+    // set on their page; a rule below names it as the reader's own.
+    const memberPage = new URL(page.url()).pathname;
+    await openAdmin(page, "People", "Attributes");
+    await page.getByLabel("New attribute").fill("Ward");
+    await page.getByRole("button", { name: "Add the attribute" }).click();
+    await expect(page.getByText("Attribute added")).toBeVisible();
+    await expect(page.getByText("0 accounts hold a value")).toBeVisible();
+    expect(await accessibilityViolations(page)).toEqual([]);
+    await page.goto(memberPage);
+    await page.getByLabel("Ward", { exact: true }).fill("north");
+    await page.getByRole("button", { name: "Save the attributes" }).click();
+    await expect(page.getByText("Attributes saved")).toBeVisible();
+    expect(await accessibilityViolations(page)).toEqual([]);
+
     // The group on one table instead (ADR 0131): its role on the base
     // taken back, a role on Samples given in the base's settings, which
     // its rule narrows for every member, and its page says so.
@@ -910,7 +925,11 @@ test("an administrator ends a session, reads the sign-ins, and exports access", 
       .getByLabel(`Rows the members of Team ${stamp} see`)
       .selectOption({ label: "Only the rows that match" });
     await ruling.getByRole("button", { name: "Add a condition" }).click();
-    await ruling.getByLabel("Value").fill("north");
+    // Compared with each member's own ward, not a value typed here.
+    await ruling
+      .getByLabel("Compared with")
+      .selectOption({ label: "The reader's Ward" });
+    await expect(ruling.getByLabel("Value")).toHaveCount(0);
     await ruling
       .getByLabel(`What the members of Team ${stamp} may do with Notes`)
       .selectOption({ label: "Hidden" });

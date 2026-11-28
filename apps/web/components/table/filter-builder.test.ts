@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { CatalogColumn } from "../../lib/types";
-import { operatorsFor } from "./filter-builder";
+import { operatorsFor, takesAttribute } from "./filter-builder";
 
 function column(
   partial: Partial<CatalogColumn> & Pick<CatalogColumn, "kind" | "name">,
@@ -59,5 +59,24 @@ describe("operatorsFor", () => {
         column({ name: "state", kind: "text", fieldType: "row_state" }),
       ),
     ).toEqual(["is", "is_not", "is_any_of", "is_none_of"]);
+  });
+});
+
+describe("takesAttribute", () => {
+  const text = column({ name: "ward", kind: "text" });
+  const tags = column({ name: "teams", kind: "options" });
+  const beds = column({ name: "beds", kind: "number" });
+
+  it("offers the reader's attribute where a condition keeps rows by it", () => {
+    expect(takesAttribute(text, "is")).toBe(true);
+    expect(takesAttribute(text, "is_any_of")).toBe(true);
+    expect(takesAttribute(tags, "has_any_of")).toBe(true);
+  });
+
+  it("offers it nowhere else: an operator that keeps rows out, or a number", () => {
+    expect(takesAttribute(text, "is_not")).toBe(false);
+    expect(takesAttribute(text, "contains")).toBe(false);
+    expect(takesAttribute(tags, "has_none_of")).toBe(false);
+    expect(takesAttribute(beds, "is")).toBe(false);
   });
 });

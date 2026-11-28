@@ -157,17 +157,22 @@ export {
 } from "./field-api";
 
 export {
+  ATTRIBUTE_OPERATORS,
   DATE_MODES,
   MAX_FILTER_CONDITIONS,
   MAX_FILTER_DEPTH,
   WITHIN_MODES,
   andFilters,
+  attributeKeySchema,
+  attributeOf,
   awaitsValue,
+  filterAttributes,
   filterGap,
   filterGroupSchema,
   filterOperatorsFor,
   isFilterGroup,
   legacyFiltersToGroup,
+  resolveAttributes,
   type FilterCondition,
   type FilterGroup,
   type FilterKind,
@@ -983,6 +988,7 @@ export {
   type MappedField,
 } from "./source-types";
 export {
+  NO_ENTERPRISE,
   parseScimFilter,
   parseScimGroup,
   parseScimPatch,
@@ -1000,6 +1006,9 @@ export {
   scimResourceTypes,
   scimSchemas,
   scimServiceProviderConfig,
+  SCIM_ENTERPRISE_FIELDS,
+  type ScimEnterprise,
+  type ScimEnterpriseField,
   scimUserResource,
   type ScimUserState,
 } from "./scim";

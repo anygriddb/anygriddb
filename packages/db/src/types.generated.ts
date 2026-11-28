@@ -185,6 +185,14 @@ export type WebauthnCeremony = "authenticate" | "register";
 
 export type WebhookKind = "http" | "smtp";
 
+export interface AccountAttributes {
+  key: string;
+  updatedAt: Generated<Timestamp>;
+  updatedBy: string | null;
+  userId: string;
+  values: string[];
+}
+
 export interface AlertOptouts {
   kind: string;
   userId: string;
@@ -904,6 +912,14 @@ export interface PasswordResets {
   userId: string;
 }
 
+export interface PersonAttributes {
+  createdAt: Generated<Timestamp>;
+  createdBy: string | null;
+  key: string;
+  label: string;
+  scimField: string | null;
+}
+
 export interface Pins {
   baseId: string | null;
   createdAt: Generated<Timestamp>;
@@ -1222,6 +1238,7 @@ export interface Webhooks {
 }
 
 export interface DB {
+  accountAttributes: AccountAttributes;
   alertOptouts: AlertOptouts;
   attachments: Attachments;
   attributions: Attributions;
@@ -1282,6 +1299,7 @@ export interface DB {
   oauthStates: OauthStates;
   passwordHashes: PasswordHashes;
   passwordResets: PasswordResets;
+  personAttributes: PersonAttributes;
   pins: Pins;
   rateWindows: RateWindows;
   recentTables: RecentTables;

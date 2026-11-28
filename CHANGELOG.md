@@ -8,6 +8,18 @@ first.
 
 ## Unreleased
 
+### Added
+
+- A row rule may name an attribute of the person who reads: "Ward is the
+  reader's Ward" keeps each person to the rows of their own ward, and one
+  rule, given to a group, serves every ward. Administration › People ›
+  Attributes keeps the attributes an instance knows; each account's
+  values are set on its page, or sent by the identity provider through
+  SCIM's enterprise extension (`department`, `division`, `organization`,
+  `costCenter`) for an attribute bound to one of them. Someone without a
+  value reaches no row by such a rule, and changing a value is on the
+  change trail. SCIM now keeps those four fields and returns them.
+
 ### Fixed
 
 - A restore point gives the groups back their roles as they were at the

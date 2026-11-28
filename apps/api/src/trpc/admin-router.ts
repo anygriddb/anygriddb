@@ -1,4 +1,5 @@
 import { adminAccountProcedures } from "./admin-accounts-router.js";
+import { attributesRouter } from "./admin-attributes-router.js";
 import { adminBaseProcedures } from "./admin-bases-router.js";
 import { groupsRouter } from "./admin-groups-router.js";
 import { rolesRouter } from "./admin-roles-router.js";
@@ -25,6 +26,7 @@ import { t } from "./init.js";
  * of `admin-procedure.ts`, which holds the auditor's rule and the proof.
  */
 export const adminRouter = t.router({
+  attributes: attributesRouter,
   groups: groupsRouter,
   roles: rolesRouter,
   scim: scimRouter,

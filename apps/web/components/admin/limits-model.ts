@@ -160,6 +160,7 @@ export const FAMILY_OF = {
   "request.input_depth": "reads",
   "grid.series_rows": "content",
   "cell.place_chars": "content",
+  "account.attribute_values": "access",
   "field.mask_chars": "content",
   "cell.list_items": "content",
   "cell.files": "content",

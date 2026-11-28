@@ -176,6 +176,12 @@ export const ERRORS = {
   /** Whoever the address is, with an account or without: it is invited. */
   not_a_member: [404, "Not a member of this base"],
   value_required: [BAD, "Value required"],
+  /** An attribute of a person the instance does not know (ADR 0142). */
+  unknown_attribute: [BAD, "Unknown attribute"],
+  /** A key or a label another attribute already has. */
+  attribute_exists: [409, "Attribute already exists"],
+  /** An attribute the identity provider keeps for this account. */
+  attribute_provisioned: [409, "Attribute kept by the identity provider"],
   invalid_reason: [BAD, "Invalid reason"],
   invalid_cell: [BAD, "Invalid cell"],
   invalid_value: [BAD, "Invalid value"],

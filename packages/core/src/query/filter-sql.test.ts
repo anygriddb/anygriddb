@@ -198,3 +198,50 @@ describe("a condition whose value its field cannot use", () => {
     expect(compileFilter(context(), group())).toBeNull();
   });
 });
+
+describe("a rule's condition on the reader's attribute (ADR 0142)", () => {
+  const columns = new Map<string, ColumnRef>([
+    ["ward", { name: "ward", kind: "text" }],
+    ["teams", { name: "teams", kind: "options" }],
+    ["beds", { name: "beds", kind: "number" }],
+  ]);
+  const compileAs = (
+    check: FilterCheck | undefined,
+    condition: FilterCondition,
+  ) => {
+    const params = new SqlParams();
+    return compileCondition(
+      {
+        params,
+        ...(check ? { check } : {}),
+        d: POSTGRES,
+        tz: params.bind("UTC"),
+        columns,
+      },
+      condition,
+    );
+  };
+  const ward = { attribute: "ward" };
+
+  it("keeps no row while it still names the attribute: a reader without a value", () => {
+    expect(compileAs("rule", { column: "ward", op: "is", value: ward })).toBe(
+      "(1 = 0)",
+    );
+    expect(
+      compileAs("rule", { column: "teams", op: "has_any_of", value: ward }),
+    ).toBe("(1 = 0)");
+  });
+
+  it("is refused outside a rule, with an operator that keeps rows out, or on a number", () => {
+    for (const [check, condition] of [
+      ["values", { column: "ward", op: "is", value: ward }],
+      [undefined, { column: "ward", op: "is", value: ward }],
+      ["rule", { column: "ward", op: "is_not", value: ward }],
+      ["rule", { column: "ward", op: "is_none_of", value: ward }],
+      ["rule", { column: "teams", op: "has_none_of", value: ward }],
+      ["rule", { column: "beds", op: "is", value: ward }],
+    ] as const) {
+      expect(() => compileAs(check, condition)).toThrow(AppError);
+    }
+  });
+});
