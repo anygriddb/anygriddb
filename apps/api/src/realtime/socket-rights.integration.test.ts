@@ -219,7 +219,6 @@ describe("what an open socket hears", () => {
     registerScim(scim, {
       db,
       publicUrl: "https://grid.example",
-      bus: here,
     });
     await scim.ready();
     witness = await following(adminId);
