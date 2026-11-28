@@ -8,6 +8,13 @@ first.
 
 ## Unreleased
 
+## 0.15.2 - 2026-11-28
+
+Nothing to do before or after upgrading. **Someone reached by several
+roles on one table may now see or write a field on fewer rows than
+before:** on exactly the rows of the roles that give it (Security,
+below).
+
 ### Added
 
 - A timeline draws what each row comes after: choose "Comes after", a
