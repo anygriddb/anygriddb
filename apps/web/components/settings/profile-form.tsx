@@ -58,6 +58,9 @@ export function ProfileForm(props: {
             maxLength={80}
             value={name}
             readOnly={props.nameManaged}
+            aria-describedby={
+              props.nameManaged ? "profile-email-hint" : "profile-name-hint"
+            }
             onChange={(event) => setName(event.target.value)}
           />
           {props.nameManaged ? null : (
@@ -66,16 +69,26 @@ export function ProfileForm(props: {
             </Button>
           )}
         </div>
+        {props.nameManaged ? null : (
+          <p id="profile-name-hint" className="text-xs text-muted-foreground">
+            {t`Others see this name in comments, history, and signatures.`}
+          </p>
+        )}
       </div>
       <div className="flex flex-col gap-1">
         <Label htmlFor="profile-email">{t`Email`}</Label>
-        <Input id="profile-email" readOnly value={props.email} />
+        <Input
+          id="profile-email"
+          readOnly
+          value={props.email}
+          aria-describedby="profile-email-hint"
+        />
+        <p id="profile-email-hint" className="text-xs text-muted-foreground">
+          {props.nameManaged
+            ? t`Your organization's directory keeps your name and address: change them there.`
+            : t`An administrator changes the address.`}
+        </p>
       </div>
-      <p className="text-xs text-muted-foreground">
-        {props.nameManaged
-          ? t`Your organization's directory keeps your name and address: change them there.`
-          : t`Others see this name in comments, history, and signatures. An administrator changes the address.`}
-      </p>
     </form>
   );
 }

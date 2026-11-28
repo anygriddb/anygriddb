@@ -74,3 +74,48 @@ it("no class names a colour the theme does not have", () => {
   );
   expect(found).toEqual([]);
 });
+
+// A `var(--name)` the theme does not define draws nothing either: the
+// header of every administration list drew its rule with `--border`, a
+// name no stylesheet sets, and showed none.
+const DEFINED = new Set(
+  [
+    ...readFileSync(join(ROOT, "packages/ui/src/styles.css"), "utf8").matchAll(
+      /(--[a-z0-9-]+):/g,
+    ),
+  ].map((match) => match[1] ?? ""),
+);
+
+/** The custom properties a source reads that no stylesheet of ours sets. */
+function unknownVariables(source: string): string[] {
+  return [...source.matchAll(/var\((--[a-zA-Z0-9-]+)/g)]
+    .map((match) => match[1] ?? "")
+    .filter((name) => !DEFINED.has(name));
+}
+
+describe("unknownVariables", () => {
+  it("finds a variable no stylesheet sets", () => {
+    expect(unknownVariables("shadow-[0_1px_0_0_var(--border)]")).toEqual([
+      "--border",
+    ]);
+  });
+
+  it("lets through the theme's variables", () => {
+    expect(
+      unknownVariables(
+        "shadow-[0_1px_0_0_var(--color-border)] accent-[var(--ag-primary)]",
+      ),
+    ).toEqual([]);
+  });
+});
+
+it("no class reads a variable the theme does not set", () => {
+  const found = FOLDERS.flatMap((folder) =>
+    sources(join(ROOT, folder)).flatMap((file) =>
+      unknownVariables(readFileSync(file, "utf8")).map(
+        (name) => `${relative(ROOT, file)}: ${name}`,
+      ),
+    ),
+  );
+  expect(found).toEqual([]);
+});

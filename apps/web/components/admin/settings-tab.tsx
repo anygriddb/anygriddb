@@ -14,6 +14,7 @@ import { toast } from "sonner";
 import { trpc, useTRPC } from "../../lib/trpc";
 import { ConfirmDialog } from "../shell/dialogs";
 import { LoadFailed } from "../shell/load-failed";
+import { RuledSection } from "../shell/notebook-page";
 import { useLingui } from "@lingui/react/macro";
 import { useErrorText } from "../../lib/errors";
 import { useStepUp } from "./step-up";
@@ -73,248 +74,262 @@ export function SettingsTab() {
           .filter(Boolean)
           .join(" · ");
   return (
-    <div className="flex max-w-lg flex-col gap-4">
+    // Ruled sections, as Security and Connections are: a field's hint
+    // right under it, its button after.
+    <div className="flex max-w-3xl flex-col">
       {stepUp.dialog}
-      <div className="flex flex-col gap-1">
-        <Label htmlFor="setting-maintenance">{t`Maintenance`}</Label>
-        <label className="flex items-center gap-2 text-sm">
-          <Checkbox
-            id="setting-maintenance"
-            checked={settings.data.maintenance}
-            onChange={(event) => setMaintenance(event.target.checked)}
-          />
-          {t`Only administrators can sign in and work`}
-        </label>
-        <p className="text-xs text-muted-foreground">
-          {t`For an upgrade or a restore. Turning it on signs everyone else out; their API tokens stop working until it is off.`}
-        </p>
-      </div>
-      <div className="flex flex-col gap-1">
-        <Label htmlFor="setting-banner">{t`Announcement`}</Label>
-        <Textarea
-          id="setting-banner"
-          rows={2}
-          maxLength={500}
-          placeholder={t`Shown at the top of the app to everyone signed in`}
-          value={bannerText}
-          onChange={(event) => setBanner(event.target.value)}
-        />
-        <div className="flex gap-2">
-          <Button
-            size="sm"
-            disabled={bannerText.trim() === (settings.data.banner ?? "")}
-            onClick={() =>
-              void save({ banner: bannerText.trim() || null }).then(() =>
-                setBanner(null),
-              )
-            }
-          >
-            {t`Publish`}
-          </Button>
-          <Button
-            size="sm"
-            variant="ghost"
-            disabled={!settings.data.banner}
-            onClick={() =>
-              void save({ banner: null }).then(() => setBanner(null))
-            }
-          >
-            {t`Remove`}
-          </Button>
-        </div>
-      </div>
-      <div className="flex flex-col gap-1">
-        <Label htmlFor="setting-signup">{t`Sign-ups`}</Label>
-        <Select
-          id="setting-signup"
-          value={settings.data.signup}
-          onChange={(event) =>
-            void save({
-              signup: event.target.value as "open" | "invite" | "closed",
-            })
-          }
-        >
-          <option value="open">{t`Open to anyone`}</option>
-          <option value="invite">{t`By invitation to a base`}</option>
-          <option value="closed">{t`Closed`}</option>
-        </Select>
-        <p className="text-xs text-muted-foreground">
-          {t`Open: anyone can create an account from the sign-in page. Closed: only administrators create accounts and send a reset link (Accounts). By invitation: a pending base invitation is required. SSO for new accounts follows the same rule. Existing accounts are not affected.`}
-        </p>
-      </div>
-      <div className="flex flex-col gap-1">
-        <Label htmlFor="setting-domains">{t`Sign-up domains`}</Label>
-        <Input
-          id="setting-domains"
-          placeholder="example.org, example.com"
-          value={domainsText}
-          onChange={(event) => setDomains(event.target.value)}
-        />
-        <div className="flex gap-2">
-          <Button
-            size="sm"
-            disabled={domains === null || domainsText === savedDomains}
-            onClick={() =>
-              void save({
-                signupDomains: domainsText
-                  .split(/[\s,;]+/)
-                  .map((domain) => domain.trim())
-                  .filter(Boolean),
-              }).then(() => setDomains(null))
-            }
-          >
-            {t`Save`}
-          </Button>
-        </div>
-        <p className="text-xs text-muted-foreground">
-          {t`Only addresses of these domains can create an account on their own, by sign-up or SSO. Empty: any address. An owner's invitation still lets anyone in.`}
-        </p>
-      </div>
-      <div className="flex flex-col gap-1">
-        <Label htmlFor="setting-locale">{t`Default language`}</Label>
-        <Select
-          id="setting-locale"
-          value={settings.data.defaultLocale}
-          onChange={(event) =>
-            void save({ defaultLocale: event.target.value as "fr" | "en" })
-          }
-        >
-          <option value="fr">Français</option>
-          <option value="en">English</option>
-        </Select>
-        <p className="text-xs text-muted-foreground">
-          {t`For mail, and for people whose browser asks for neither English nor French, until they pick their own language.`}
-        </p>
-      </div>
-      <div className="flex flex-col gap-1">
-        <Label htmlFor="setting-attachment-mb">{t`Largest attachment`}</Label>
-        <div className="flex items-center gap-2">
-          <Input
-            id="setting-attachment-mb"
-            type="number"
-            className="w-28"
-            min={1}
-            max={500}
-            placeholder="20"
-            aria-describedby="setting-attachment-mb-hint"
-            // The environment's ceiling is read here and changed there.
-            disabled={heldBytes != null}
-            defaultValue={
-              shownBytes != null
-                ? String(Math.round(shownBytes / (1024 * 1024)))
-                : ""
-            }
-            key={String(shownBytes)}
-            onBlur={(event) => {
-              const raw = event.target.value.trim();
-              if (!raw) {
-                if (settings.data.attachmentMaxBytes != null) {
-                  void save({ attachmentMaxBytes: null });
-                }
-                return;
-              }
-              const mb = Number(raw);
-              if (!Number.isFinite(mb) || mb < 1 || mb > 500) {
-                // Out of bounds: the field shows what is saved again.
-                event.target.value = event.target.defaultValue;
-                return;
-              }
-              const bytes = Math.round(mb * 1024 * 1024);
-              if (bytes !== settings.data.attachmentMaxBytes) {
-                void save({ attachmentMaxBytes: bytes });
-              }
-            }}
-          />
-          <span className="text-sm text-muted-foreground">{t`MiB`}</span>
-        </div>
-        <p
-          id="setting-attachment-mb-hint"
-          className="text-xs text-muted-foreground"
-        >
-          {heldBytes != null
-            ? t`Set in the instance's environment: its operator changes it where the instance is installed.`
-            : t`Empty uses 20 MiB. Between 1 and 500.`}
-        </p>
-      </div>
-      <div className="flex flex-col gap-1">
-        <Label htmlFor="setting-attachment-refused-ext">
-          {t`Refused file extensions`}
-        </Label>
-        <Textarea
-          id="setting-attachment-refused-ext"
-          rows={3}
-          className="font-mono text-sm"
-          aria-describedby="setting-attachment-refused-ext-hint"
-          defaultValue={settings.data.attachmentRefusedExtensions.join("\n")}
-          key={settings.data.attachmentRefusedExtensions.join(",")}
-          onBlur={(event) => {
-            const next = event.target.value
-              .split(/[\n,]+/)
-              .map((entry) => entry.trim())
-              .filter(Boolean);
-            const current = settings.data.attachmentRefusedExtensions;
-            if (
-              next.length === current.length &&
-              next.every((entry, index) => entry === current[index])
-            ) {
-              return;
-            }
-            void save({ attachmentRefusedExtensions: next });
-          }}
-        />
-        <p
-          id="setting-attachment-refused-ext-hint"
-          className="text-xs text-muted-foreground"
-        >
-          {t`One per line (for example .exe). Empty: every extension is taken. Checked with the file name.`}
-        </p>
-      </div>
-      <fieldset
-        className="flex flex-col gap-1"
-        aria-describedby="setting-attachment-refused-kinds-hint"
-      >
-        <legend className="text-sm font-medium">
-          {t`Refused whatever their name`}
-        </legend>
-        {(
-          [
-            ["program", t`Programs (Windows, Linux, macOS)`],
-            ["script", t`Scripts that start with #!`],
-            ["page", t`Web pages and SVG images`],
-          ] as const
-        ).map(([kind, label]) => (
-          <label key={kind} className="flex items-center gap-2 text-sm">
+      <RuledSection title={t`Maintenance`}>
+        <div className="flex flex-col gap-1">
+          <Label htmlFor="setting-maintenance" className="sr-only">
+            {t`Maintenance`}
+          </Label>
+          <label className="flex items-center gap-2 text-sm">
             <Checkbox
-              checked={settings.data.attachmentRefusedKinds.includes(kind)}
-              onChange={(event) => {
-                const current = settings.data.attachmentRefusedKinds;
+              id="setting-maintenance"
+              checked={settings.data.maintenance}
+              onChange={(event) => setMaintenance(event.target.checked)}
+            />
+            {t`Only administrators can sign in and work`}
+          </label>
+          <p className="text-xs text-muted-foreground">
+            {t`For an upgrade or a restore. Turning it on signs everyone else out; their API tokens stop working until it is off.`}
+          </p>
+        </div>
+        <div className="flex flex-col gap-1">
+          <Label htmlFor="setting-banner">{t`Announcement`}</Label>
+          <Textarea
+            id="setting-banner"
+            rows={2}
+            maxLength={500}
+            placeholder={t`Shown at the top of the app to everyone signed in`}
+            value={bannerText}
+            onChange={(event) => setBanner(event.target.value)}
+          />
+          <div className="flex gap-2">
+            <Button
+              size="sm"
+              disabled={bannerText.trim() === (settings.data.banner ?? "")}
+              onClick={() =>
+                void save({ banner: bannerText.trim() || null }).then(() =>
+                  setBanner(null),
+                )
+              }
+            >
+              {t`Publish`}
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              disabled={!settings.data.banner}
+              onClick={() =>
+                void save({ banner: null }).then(() => setBanner(null))
+              }
+            >
+              {t`Remove`}
+            </Button>
+          </div>
+        </div>
+      </RuledSection>
+      <RuledSection title={t`Accounts`}>
+        <div className="flex flex-col gap-1">
+          <Label htmlFor="setting-signup">{t`Sign-ups`}</Label>
+          <Select
+            id="setting-signup"
+            value={settings.data.signup}
+            onChange={(event) =>
+              void save({
+                signup: event.target.value as "open" | "invite" | "closed",
+              })
+            }
+          >
+            <option value="open">{t`Open to anyone`}</option>
+            <option value="invite">{t`By invitation to a base`}</option>
+            <option value="closed">{t`Closed`}</option>
+          </Select>
+          <p className="text-xs text-muted-foreground">
+            {t`Open: anyone can create an account from the sign-in page. Closed: only administrators create accounts and send a reset link (Accounts). By invitation: a pending base invitation is required. SSO for new accounts follows the same rule. Existing accounts are not affected.`}
+          </p>
+        </div>
+        <div className="flex flex-col gap-1">
+          <Label htmlFor="setting-domains">{t`Sign-up domains`}</Label>
+          <Input
+            id="setting-domains"
+            placeholder="example.org, example.com"
+            value={domainsText}
+            onChange={(event) => setDomains(event.target.value)}
+          />
+          <p className="text-xs text-muted-foreground">
+            {t`Only addresses of these domains can create an account on their own, by sign-up or SSO. Empty: any address. An owner's invitation still lets anyone in.`}
+          </p>
+          <div className="flex gap-2">
+            <Button
+              size="sm"
+              disabled={domains === null || domainsText === savedDomains}
+              onClick={() =>
                 void save({
-                  attachmentRefusedKinds: event.target.checked
-                    ? [...current, kind]
-                    : current.filter((item) => item !== kind),
-                });
+                  signupDomains: domainsText
+                    .split(/[\s,;]+/)
+                    .map((domain) => domain.trim())
+                    .filter(Boolean),
+                }).then(() => setDomains(null))
+              }
+            >
+              {t`Save`}
+            </Button>
+          </div>
+        </div>
+      </RuledSection>
+      <RuledSection title={t`Language`}>
+        <div className="flex flex-col gap-1">
+          <Label htmlFor="setting-locale">{t`Default language`}</Label>
+          <Select
+            id="setting-locale"
+            value={settings.data.defaultLocale}
+            onChange={(event) =>
+              void save({ defaultLocale: event.target.value as "fr" | "en" })
+            }
+          >
+            <option value="fr">Français</option>
+            <option value="en">English</option>
+          </Select>
+          <p className="text-xs text-muted-foreground">
+            {t`For mail, and for people whose browser asks for neither English nor French, until they pick their own language.`}
+          </p>
+        </div>
+      </RuledSection>
+      <RuledSection title={t`Files`}>
+        <div className="flex flex-col gap-1">
+          <Label htmlFor="setting-attachment-mb">{t`Largest attachment`}</Label>
+          <div className="flex items-center gap-2">
+            <Input
+              id="setting-attachment-mb"
+              type="number"
+              className="w-28"
+              min={1}
+              max={500}
+              placeholder="20"
+              aria-describedby="setting-attachment-mb-hint"
+              // The environment's ceiling is read here and changed there.
+              disabled={heldBytes != null}
+              defaultValue={
+                shownBytes != null
+                  ? String(Math.round(shownBytes / (1024 * 1024)))
+                  : ""
+              }
+              key={String(shownBytes)}
+              onBlur={(event) => {
+                const raw = event.target.value.trim();
+                if (!raw) {
+                  if (settings.data.attachmentMaxBytes != null) {
+                    void save({ attachmentMaxBytes: null });
+                  }
+                  return;
+                }
+                const mb = Number(raw);
+                if (!Number.isFinite(mb) || mb < 1 || mb > 500) {
+                  // Out of bounds: the field shows what is saved again.
+                  event.target.value = event.target.defaultValue;
+                  return;
+                }
+                const bytes = Math.round(mb * 1024 * 1024);
+                if (bytes !== settings.data.attachmentMaxBytes) {
+                  void save({ attachmentMaxBytes: bytes });
+                }
               }}
             />
-            {label}
-          </label>
-        ))}
-        <p
-          id="setting-attachment-refused-kinds-hint"
-          className="text-xs text-muted-foreground"
+            <span className="text-sm text-muted-foreground">{t`MiB`}</span>
+          </div>
+          <p
+            id="setting-attachment-mb-hint"
+            className="text-xs text-muted-foreground"
+          >
+            {heldBytes != null
+              ? t`Set in the instance's environment: its operator changes it where the instance is installed.`
+              : t`Empty uses 20 MiB. Between 1 and 500.`}
+          </p>
+        </div>
+        <div className="flex flex-col gap-1">
+          <Label htmlFor="setting-attachment-refused-ext">
+            {t`Refused file extensions`}
+          </Label>
+          <Textarea
+            id="setting-attachment-refused-ext"
+            rows={3}
+            className="font-mono text-sm"
+            aria-describedby="setting-attachment-refused-ext-hint"
+            defaultValue={settings.data.attachmentRefusedExtensions.join("\n")}
+            key={settings.data.attachmentRefusedExtensions.join(",")}
+            onBlur={(event) => {
+              const next = event.target.value
+                .split(/[\n,]+/)
+                .map((entry) => entry.trim())
+                .filter(Boolean);
+              const current = settings.data.attachmentRefusedExtensions;
+              if (
+                next.length === current.length &&
+                next.every((entry, index) => entry === current[index])
+              ) {
+                return;
+              }
+              void save({ attachmentRefusedExtensions: next });
+            }}
+          />
+          <p
+            id="setting-attachment-refused-ext-hint"
+            className="text-xs text-muted-foreground"
+          >
+            {t`One per line (for example .exe). Empty: every extension is taken. Checked with the file name.`}
+          </p>
+        </div>
+        <fieldset
+          className="flex flex-col gap-1"
+          aria-describedby="setting-attachment-refused-kinds-hint"
         >
-          {t`Told by the file's first bytes, so renaming it does not help. Nothing ticked: every kind is taken.`}
-        </p>
-      </fieldset>
-      <section
-        className="flex flex-col gap-1"
-        aria-labelledby="setting-operator"
+          <legend className="text-sm font-medium">
+            {t`Refused whatever their name`}
+          </legend>
+          {(
+            [
+              ["program", t`Programs (Windows, Linux, macOS)`],
+              ["script", t`Scripts that start with #!`],
+              ["page", t`Web pages and SVG images`],
+            ] as const
+          ).map(([kind, label]) => (
+            <label key={kind} className="flex items-center gap-2 text-sm">
+              <Checkbox
+                checked={settings.data.attachmentRefusedKinds.includes(kind)}
+                onChange={(event) => {
+                  const current = settings.data.attachmentRefusedKinds;
+                  void save({
+                    attachmentRefusedKinds: event.target.checked
+                      ? [...current, kind]
+                      : current.filter((item) => item !== kind),
+                  });
+                }}
+              />
+              {label}
+            </label>
+          ))}
+          <p
+            id="setting-attachment-refused-kinds-hint"
+            className="text-xs text-muted-foreground"
+          >
+            {t`Told by the file's first bytes, so renaming it does not help. Nothing ticked: every kind is taken.`}
+          </p>
+        </fieldset>
+      </RuledSection>
+      <RuledSection title={t`Maps`}>
+        <MapTilesSetting
+          key={`${settings.data.mapTileUrl ?? ""}\n${settings.data.mapTileCredit ?? ""}`}
+          url={settings.data.mapTileUrl}
+          credit={settings.data.mapTileCredit}
+          onSave={save}
+        />
+      </RuledSection>
+      <RuledSection
+        title={t`Set where the instance is installed`}
+        className="border-b-0"
       >
-        <h3
-          id="setting-operator"
-          className="text-xs font-medium text-muted-foreground"
-        >
-          {t`Set where the instance is installed`}
-        </h3>
         {operator.isError ? (
           <LoadFailed
             error={operator.error}
@@ -339,13 +354,7 @@ export function SettingsTab() {
         <p className="text-xs text-muted-foreground">
           {t`What the operator fixed in the instance's environment: it changes there, with a restart. Passwords and keys are never shown.`}
         </p>
-      </section>
-      <MapTilesSetting
-        key={`${settings.data.mapTileUrl ?? ""}\n${settings.data.mapTileCredit ?? ""}`}
-        url={settings.data.mapTileUrl}
-        credit={settings.data.mapTileCredit}
-        onSave={save}
-      />
+      </RuledSection>
       {maintenance !== null ? (
         <ConfirmDialog
           open

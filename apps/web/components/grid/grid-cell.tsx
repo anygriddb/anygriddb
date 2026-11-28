@@ -166,8 +166,10 @@ export function GridCell(props: {
         />
       ) : null}
       {props.peer && !active ? (
-        <span className="pointer-events-none absolute inset-0 z-10 border-2 border-dashed border-purple-500">
-          <span className="absolute -top-4 left-0 rounded bg-purple-500 px-1 text-[10px] text-white">
+        // A colleague's cell: the purple of the options' palette, its
+        // label at AA contrast in both themes.
+        <span className="pointer-events-none absolute inset-0 z-10 border-2 border-dashed border-[var(--ag-series-7)]">
+          <span className="opt-purple absolute -top-4 left-0 rounded-sm px-1 text-[10px] leading-4 font-medium">
             {props.peer.name}
           </span>
         </span>

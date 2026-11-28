@@ -35,18 +35,19 @@ function Code({ text }: { text: string }) {
   const { t } = useLingui();
   const copy = useCopy();
   return (
-    <div className="relative">
+    // The button stands beside the sample, never over a line of it.
+    <div className="flex items-start gap-2 rounded-sm bg-foreground/95 py-2 pr-2">
       {/* Focusable: a line wider than the column scrolls by keyboard too. */}
       <pre
         tabIndex={0} // NOSONAR: scrollable sample takes the keyboard
-        className="overflow-x-auto rounded-sm bg-foreground/95 p-3 text-xs text-background focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+        className="min-w-0 flex-1 overflow-x-auto rounded-sm px-3 py-1 text-xs text-background focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
       >
         {text}
       </pre>
       <Button
         size="xs"
         variant="outline"
-        className="absolute top-2 right-2"
+        className="shrink-0"
         aria-label={t`Copy`}
         onClick={() => copy(text)}
       >
@@ -155,45 +156,53 @@ export function ApiDocs({ baseId }: { baseId: string }) {
       {tab === "guide" && table ? (
         <>
           <RuledSection title={t`${{ name: table.name }} fields`}>
-            <table className="w-full text-sm">
-              <thead className="text-left text-xs text-muted-foreground">
-                <tr>
-                  {fieldSort.header("key", t`Key`, "py-1")}
-                  {fieldSort.header("label", t`Label`)}
-                  {fieldSort.header("type", t`Type`)}
-                  {fieldSort.header("write", t`Write`)}
-                  {fieldSort.header("example", t`Example`)}
-                </tr>
-              </thead>
-              <tbody>
-                {fields.map((column) => (
-                  <tr
-                    key={column.name}
-                    className="border-t border-rule align-top"
-                  >
-                    <td className="py-1.5 font-mono text-xs">{column.name}</td>
-                    <td>{column.label}</td>
-                    <td>
-                      <span className="inline-flex items-center gap-1">
-                        <FieldIcon fieldType={column.fieldType} />
-                        {t(
-                          FIELD_LABELS[column.fieldType] ??
-                            raw(column.fieldType),
-                        )}
-                      </span>
-                    </td>
-                    <td>
-                      {takesApiWrites(column.fieldType) ? t`yes` : t`computed`}
-                    </td>
-                    <td className="font-mono text-xs">
-                      {takesApiWrites(column.fieldType)
-                        ? JSON.stringify(example(column, text))
-                        : "—"}
-                    </td>
+            {/* Its own scroll on a narrow screen: the columns keep their
+                words apart rather than run together. */}
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="text-left text-xs text-muted-foreground">
+                  <tr>
+                    {fieldSort.header("key", t`Key`, "pl-0")}
+                    {fieldSort.header("label", t`Label`)}
+                    {fieldSort.header("type", t`Type`)}
+                    {fieldSort.header("write", t`Write`)}
+                    {fieldSort.header("example", t`Example`)}
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {fields.map((column) => (
+                    <tr
+                      key={column.name}
+                      className="border-t border-rule align-middle [&>td]:px-2 [&>td]:py-1.5 [&>td:first-child]:pl-0"
+                    >
+                      <td className="font-mono text-xs whitespace-nowrap">
+                        {column.name}
+                      </td>
+                      <td>{column.label}</td>
+                      <td className="whitespace-nowrap">
+                        <span className="inline-flex items-center gap-1">
+                          <FieldIcon fieldType={column.fieldType} />
+                          {t(
+                            FIELD_LABELS[column.fieldType] ??
+                              raw(column.fieldType),
+                          )}
+                        </span>
+                      </td>
+                      <td className="whitespace-nowrap">
+                        {takesApiWrites(column.fieldType)
+                          ? t`Yes`
+                          : t`Computed`}
+                      </td>
+                      <td className="font-mono text-xs whitespace-nowrap">
+                        {takesApiWrites(column.fieldType)
+                          ? JSON.stringify(example(column, text))
+                          : "—"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </RuledSection>
           <RuledSection
             title={t`Read rows`}

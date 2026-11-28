@@ -2175,6 +2175,7 @@ msgstr "comptes"
 #: components/admin/api-tokens-tab.tsx
 #: components/admin/group-page.tsx
 #: components/admin/health-tab.tsx
+#: components/admin/settings-tab.tsx
 msgid "Accounts"
 msgstr "Comptes"
 
@@ -2827,6 +2828,10 @@ msgstr "Administrateur qui agit au nom d’une personne"
 msgid "An administrator already can"
 msgstr "Un administrateur le peut déjà"
 
+#: components/settings/profile-form.tsx
+msgid "An administrator changes the address."
+msgstr "Un administrateur change l’adresse."
+
 #: components/admin/limits-tab.tsx
 msgid "An administrator locked out"
 msgstr "Administrateur verrouillé"
@@ -3317,6 +3322,7 @@ msgstr "Retour à l’accueil"
 #: components/auth/auth-page.tsx
 #: components/auth/confirm-signup-page.tsx
 #: components/auth/reset-page.tsx
+#: components/public/invitation-page.tsx
 msgid "Back to sign-in"
 msgstr "Retour à la connexion"
 
@@ -4230,8 +4236,8 @@ msgid "Compliance"
 msgstr "Conformité"
 
 #: components/settings/api-docs.tsx
-msgid "computed"
-msgstr "calculé"
+msgid "Computed"
+msgstr "Calculé"
 
 #: components/fields/field-meta.tsx
 msgid "Computed and system"
@@ -4262,7 +4268,6 @@ msgid "Configured in this page"
 msgstr "Configuré sur cette page"
 
 #: components/admin/step-up.tsx
-#: components/public/unsubscribe-page.tsx
 #: components/record/take-step.tsx
 #: components/table/reason-dialog.tsx
 msgid "Confirm"
@@ -6139,6 +6144,7 @@ msgstr "Fichier trop volumineux : un classeur fait 64 Mo au plus."
 #: components/admin/base-admin-page.tsx
 #: components/admin/bases-tab.tsx
 #: components/admin/health-tab.tsx
+#: components/admin/settings-tab.tsx
 msgid "Files"
 msgstr "Fichiers"
 
@@ -7306,6 +7312,7 @@ msgid "Inventory"
 msgstr "Inventaire"
 
 #: components/admin/trails.tsx
+#: components/public/invitation-page.tsx
 msgid "Invitation"
 msgstr "Invitation"
 
@@ -7639,6 +7646,7 @@ msgstr "Libellé"
 msgid "Label for {field}"
 msgstr "Libellé de {field}"
 
+#: components/admin/settings-tab.tsx
 #: components/shell/user-menu.tsx
 msgid "Language"
 msgstr "Langue"
@@ -8197,6 +8205,10 @@ msgstr "Tuiles de carte"
 #: components/admin/sign-in-trail.tsx
 msgid "Map tiles' credit"
 msgstr "Crédit des tuiles de carte"
+
+#: components/admin/settings-tab.tsx
+msgid "Maps"
+msgstr "Cartes"
 
 #: components/shell/notification-bell.tsx
 msgid "Mark all as read"
@@ -9764,8 +9776,8 @@ msgid "Origin"
 msgstr "Origine"
 
 #: components/settings/profile-form.tsx
-msgid "Others see this name in comments, history, and signatures. An administrator changes the address."
-msgstr "Les autres voient ce nom dans les commentaires, l’historique et les signatures. Un administrateur change l’adresse."
+msgid "Others see this name in comments, history, and signatures."
+msgstr "Les autres voient ce nom dans les commentaires, l’historique et les signatures."
 
 #: components/table/automations-dialog.tsx
 msgid "Otherwise:"
@@ -10947,12 +10959,9 @@ msgstr "Exiger un motif à chaque modification"
 msgid "Require a value in every row"
 msgstr "Rendre obligatoire dans chaque ligne"
 
-#: components/views/form-view.tsx
-msgid "required"
-msgstr "requis"
-
 #: components/history/earlier.tsx
 #: components/views/form-files.tsx
+#: components/views/form-view.tsx
 msgid "Required"
 msgstr "Obligatoire"
 
@@ -12819,6 +12828,10 @@ msgstr "Arrêtez d’agir en tant que cette personne avant d’utiliser l’admi
 #: components/settings/base-settings.tsx
 msgid "Stop being an owner of {base}?"
 msgstr "Ne plus être propriétaire de {base} ?"
+
+#: components/public/unsubscribe-page.tsx
+msgid "Stop these emails"
+msgstr "Ne plus recevoir ces e-mails"
 
 #: components/public/unsubscribe-page.tsx
 msgid "Stop these notices by email. Every other choice stays as it is, and you can change them all again from your account."
@@ -16116,14 +16129,11 @@ msgstr "Année"
 msgid "Yellow"
 msgstr "Jaune"
 
-#: components/settings/api-docs.tsx
-msgid "yes"
-msgstr "oui"
-
 #: components/admin/accounts-tab.tsx
 #: components/admin/integrations-tab.tsx
 #: components/dashboards/chart-view.tsx
 #: components/fields/cell-value.tsx
+#: components/settings/api-docs.tsx
 #: components/views/form-view.tsx
 msgid "Yes"
 msgstr "Oui"

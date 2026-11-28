@@ -469,7 +469,14 @@ function SourceLoadSection({
         </p>
       ) : null}
       {load && load.sources.length > 0 ? (
-        <div className="overflow-x-auto">
+        // Wider than a phone: the table scrolls, by keyboard too, and holds
+        // nothing else that takes it.
+        <div
+          className="overflow-x-auto focus-visible:outline-2 focus-visible:outline-ring"
+          role="region"
+          aria-label={t`Load by source`}
+          tabIndex={0} // NOSONAR: a table wider than the screen scrolls by keyboard
+        >
           <table className="w-full min-w-[32rem] border-collapse text-left text-sm">
             <thead>
               <tr className="border-b border-border text-xs text-muted-foreground">

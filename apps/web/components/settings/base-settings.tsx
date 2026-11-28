@@ -1,5 +1,13 @@
 import { LINK_PERMISSIONS } from "@anygriddb/core";
-import { Avatar, Button, Input, Label, Select, Tooltip } from "@anygriddb/ui";
+import {
+  Avatar,
+  Button,
+  Input,
+  Label,
+  Select,
+  Textarea,
+  Tooltip,
+} from "@anygriddb/ui";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Download, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
@@ -125,8 +133,7 @@ export function BaseSettings({ baseId }: { baseId: string }) {
   return (
     <NotebookPage title={t`${{ name: base.name }} settings`}>
       <RuledSection title={t`Description`}>
-        <textarea
-          className="min-h-20 rounded-md border border-border bg-card p-2 text-sm"
+        <Textarea
           aria-label={t`Description`}
           disabled={!manage}
           value={description ?? base.description ?? ""}

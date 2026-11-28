@@ -735,7 +735,7 @@ export function FormView(props: ViewProps) {
                           update({ required: event.target.checked })
                         }
                       />
-                      {t`required`}
+                      {t`Required`}
                     </label>
                     {included && !byTable && earlier.length > 0 ? (
                       <Popover>
