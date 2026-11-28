@@ -8,6 +8,10 @@ first.
 
 ## Unreleased
 
+## 0.15.1 - 2026-11-28
+
+Nothing to do before or after upgrading.
+
 ### Added
 
 - A row rule may name an attribute of the person who reads: "Ward is the
