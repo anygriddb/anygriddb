@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   barHoldsName,
   barTarget,
+  dayWidth,
   namesWidth,
   openingScroll,
   shiftPeriod,
@@ -142,5 +143,25 @@ describe("timelineFilter", () => {
         },
       ],
     });
+  });
+});
+
+describe("dayWidth", () => {
+  it("stretches a period narrower than its axis to fill it", () => {
+    // A quarter at a wide screen: 92 days of 12 pixels in 1,440.
+    const quarter = dayWidth({ least: 12, days: 92, shown: 1_440 });
+    expect(quarter).toBe(15.65);
+    // Within a pixel of the axis, never past it.
+    expect(1_440 - 92 * quarter).toBeGreaterThanOrEqual(0);
+    expect(1_440 - 92 * quarter).toBeLessThan(1);
+    expect(dayWidth({ least: 40, days: 30, shown: 1_445 })).toBe(48.16);
+  });
+
+  it("keeps the scale's own width when the period is wider than the axis", () => {
+    expect(dayWidth({ least: 4, days: 365, shown: 1_440 })).toBe(4);
+    expect(dayWidth({ least: 40, days: 31, shown: 840 })).toBe(40);
+    // Not measured yet, or no day at all.
+    expect(dayWidth({ least: 12, days: 92, shown: 0 })).toBe(12);
+    expect(dayWidth({ least: 12, days: 0, shown: 1_440 })).toBe(12);
   });
 });

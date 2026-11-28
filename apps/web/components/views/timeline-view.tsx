@@ -12,6 +12,7 @@ import { thisMonth } from "./calendar-view";
 import {
   barHoldsName,
   barTarget,
+  dayWidth,
   namesWidth,
   openingScroll,
   shiftPeriod,
@@ -96,8 +97,16 @@ export function TimelineView(
     startMoves && endName !== startName ? barField(endColumn) : undefined;
   const drag = startMoves ? { start: startMoves, end: endMoves } : undefined;
   const scale = timelineScale(props.config.timelineScale);
-  const perDay = SCALE[scale];
   const period = timelinePeriod(props.focus, scale);
+  // The axis as it shows: its width stretches a short period to fill it,
+  // and its own scrollbar takes height the names must scroll by too, or
+  // the two panes stop short of the last line.
+  const [axisShown, setAxisShown] = useState({ width: 0, bar: 0 });
+  const perDay = dayWidth({
+    least: SCALE[scale],
+    days: period.days,
+    shown: axisShown.width,
+  });
   // Every row of the period has its line, read as it comes into view.
   // TanStack Virtual hands back a mutable instance, so the React Compiler
   // leaves this component as written.
@@ -129,14 +138,14 @@ export function TimelineView(
       shown: axis.clientWidth,
     });
   }, [drawn, periodStart, period.days, todayIn, perDay]);
-  // The axis's own scrollbar takes height from it: the names get as much
-  // more to scroll, or the two panes stop short of the last line.
-  const [axisBar, setAxisBar] = useState(0);
   useEffect(() => {
     const axis = scrollRef.current;
     if (!drawn || !axis) return;
     const observer = new ResizeObserver(() =>
-      setAxisBar(axis.offsetHeight - axis.clientHeight),
+      setAxisShown({
+        width: axis.clientWidth,
+        bar: axis.offsetHeight - axis.clientHeight,
+      }),
     );
     observer.observe(axis);
     return () => observer.disconnect();
@@ -276,7 +285,10 @@ export function TimelineView(
               }
             }}
           >
-            <div className="relative" style={{ height: height + axisBar }}>
+            <div
+              className="relative"
+              style={{ height: height + axisShown.bar }}
+            >
               <div className="sticky top-0 z-[5] h-8 border-b border-border bg-card" />
               {lines.map((line) => {
                 const row = props.rowAt(line.index);

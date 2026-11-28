@@ -53,6 +53,27 @@ export function timelinePeriod(
 }
 
 /**
+ * Pixels a day takes: the scale's own, or more when the whole period is
+ * narrower than the axis that shows it. At a wide screen's width a
+ * quarter left the right fifth of the axis empty; stretched, it fills it,
+ * and a drag reads the same width as the bars it moves. Cut to a
+ * hundredth of a pixel: the sheet comes within a pixel of the axis's edge
+ * and never passes it, which would scroll it sideways.
+ */
+export function dayWidth(input: {
+  /** The scale's own width of a day, the least it takes. */
+  least: number;
+  /** Days of the period. */
+  days: number;
+  /** Pixels of the axis that show at once; 0 before it is measured. */
+  shown: number;
+}): number {
+  if (input.days <= 0) return input.least;
+  const fitted = Math.floor((input.shown / input.days) * 100) / 100;
+  return Math.max(input.least, fitted);
+}
+
+/**
  * How far along its axis a period opens, in pixels: today a third of the
  * way into what shows, when the period holds it, so that what is under
  * way and what comes next are both there; at its first day otherwise. A
