@@ -20,7 +20,7 @@ import { useNeeds } from "../../lib/form-needs";
 import { useSession } from "../../lib/session";
 import { trpc, useTRPC } from "../../lib/trpc";
 
-import { givenValue } from "../settings/role-label";
+import { givenValue, useRoleLabel } from "../settings/role-label";
 import { RoleOptions } from "../settings/role-options";
 import { ConfirmDialog, Refusal } from "../shell/dialogs";
 import { LoadFailed } from "../shell/load-failed";
@@ -30,7 +30,8 @@ import { useStepUp } from "./step-up";
 
 /**
  * One group's page in Administration (ROADMAP #27): members, bases where
- * it holds a role, and for a local group the ways to change them.
+ * it holds a role, the tables where it holds one, and for a local group
+ * the ways to change them.
  */
 export function GroupAdminPage({ groupId }: { groupId: string }) {
   const { t } = useLingui();
@@ -40,6 +41,7 @@ export function GroupAdminPage({ groupId }: { groupId: string }) {
   const navigate = useNavigate();
   const stepUp = useStepUp();
   const isAdmin = useSession().data?.isAdmin === true;
+  const roleLabel = useRoleLabel();
   const detail = useQuery(api.admin.groups.get.queryOptions({ groupId }));
   const [busy, setBusy] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -83,6 +85,15 @@ export function GroupAdminPage({ groupId }: { groupId: string }) {
   const local = group.provider === null;
   const memberIds = new Set(group.members.map((row) => row.userId));
   const roleBaseIds = new Set(group.roles.map((row) => row.baseId));
+  // Every base the group reaches, by a role on it or on some of its tables.
+  const reachedBases = [
+    ...new Map(
+      [...group.roles, ...group.tables].map((row) => [
+        row.baseId,
+        row.baseName,
+      ]),
+    ).values(),
+  ];
   const memberOptions = members.options.filter(
     (option) => !memberIds.has(option.id),
   );
@@ -478,6 +489,38 @@ export function GroupAdminPage({ groupId }: { groupId: string }) {
         </section>
       </ReadOnly>
 
+      {group.tables.length > 0 ? (
+        <section className="flex flex-col gap-2" aria-labelledby="group-tables">
+          <h3 id="group-tables" className="text-sm font-semibold">
+            {t`Roles on tables`}
+          </h3>
+          <p className="text-xs text-muted-foreground">
+            {t`Given in each base's settings, by whoever manages its members, and changed there.`}
+          </p>
+          <ul className="divide-y divide-border rounded-sm border border-border">
+            {group.tables.map((row) => (
+              <li
+                key={row.tableId}
+                className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 text-sm"
+              >
+                <Link
+                  to="/admin/bases/$baseId"
+                  params={{ baseId: row.baseId }}
+                  className="min-w-0 flex-1 truncate hover:underline"
+                >
+                  {row.baseName} › {row.tableName}
+                </Link>
+                <span className="text-muted-foreground">
+                  {row.ruled
+                    ? t`${{ role: roleLabel(row.role) }}, narrowed by its rules`
+                    : roleLabel(row.role)}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
       {deleting ? (
         <ConfirmDialog
           open
@@ -485,10 +528,10 @@ export function GroupAdminPage({ groupId }: { groupId: string }) {
           onOpenChange={(open) => !open && setDeleting(false)}
           title={t`Delete ${{ name: group.displayName }}?`}
           description={
-            group.roles.length === 0
+            reachedBases.length === 0
               ? t`The group and its membership are removed. This cannot be undone.`
               : t`The group leaves these bases, and its members lose the roles it gave them: ${{
-                  bases: group.roles.map((row) => row.baseName).join(", "),
+                  bases: reachedBases.join(", "),
                 }}. This cannot be undone.`
           }
           confirmLabel={t`Delete`}
@@ -509,7 +552,7 @@ export function GroupAdminPage({ groupId }: { groupId: string }) {
           other: `# members`,
         })}
         {" · "}
-        {plural(group.roles.length, {
+        {plural(reachedBases.length, {
           one: `# base`,
           other: `# bases`,
         })}

@@ -1,7 +1,9 @@
 import { createHash } from "node:crypto";
 import { rulesOwner } from "./acting-context.js";
 import {
+  aclSubjectOf,
   AppError,
+  type AclSubject,
   effectiveTableRole,
   roleGrants,
   tableRules,
@@ -14,6 +16,7 @@ import {
   type TableRules,
 } from "@anygriddb/core";
 import type { Database } from "@anygriddb/db";
+import { holderOf, liveAttribution } from "./attributions.js";
 import { withAudit, type AuditTx } from "./audit-context.js";
 import { fieldsOf, givenOf, MADE_COLUMNS, rowsOf } from "./made-roles.js";
 import { liveColumnNames } from "./live.js";
@@ -26,9 +29,19 @@ import {
   type CatalogRows,
 } from "./engine.js";
 
+/** Where a subject's attribution is kept: its column, and the id there. */
+function subjectColumn(
+  subject: AclSubject,
+): ["userId", string] | ["groupId", string] {
+  return "userId" in subject
+    ? ["userId", subject.userId]
+    : ["groupId", subject.groupId];
+}
+
 /**
- * The rules on a table (ADR 0131): each person's role given on the table
- * that narrows what it gives, to some rows and field by field.
+ * The rules on a table (ADR 0131): each role given on the table, to a
+ * person or to a group, that narrows what it gives, to some rows and
+ * field by field.
  */
 export async function listTableAcls(
   db: Database,
@@ -36,10 +49,9 @@ export async function listTableAcls(
 ): Promise<TableAcl[]> {
   const rows = await db
     .selectFrom("attributions")
-    .select(["userId", "rowFilter", "fieldAccess"])
+    .select(["userId", "groupId", "rowFilter", "fieldAccess"])
     .where("scope", "=", "table")
     .where("scopeId", "=", tableId)
-    .where("userId", "is not", null)
     .where((eb) =>
       eb.or([
         eb("rowFilter", "is not", null),
@@ -47,38 +59,46 @@ export async function listTableAcls(
       ]),
     )
     .execute();
-  return rows.flatMap((row) =>
-    row.userId === null
-      ? []
-      : [
-          {
-            userId: row.userId,
-            rowFilter: rowsOf(row.rowFilter),
-            columns: Object.entries(fieldsOf(row.fieldAccess) ?? {}).map(
-              ([column, access]) => ({ column, access }),
-            ),
-          },
-        ],
-  );
+  return rows.flatMap((row) => {
+    const subject: AclSubject | null =
+      row.userId !== null
+        ? { userId: row.userId }
+        : row.groupId !== null
+          ? { groupId: row.groupId }
+          : null;
+    if (!subject) return [];
+    return [
+      {
+        ...subject,
+        rowFilter: rowsOf(row.rowFilter),
+        columns: Object.entries(fieldsOf(row.fieldAccess) ?? {}).map(
+          ([column, access]) => ({ column, access }),
+        ),
+      },
+    ];
+  });
 }
 
 /**
- * A rule narrows only the role it comes with: someone must hold a role
- * given on this table, and nothing on its base, mine or a group's, that
- * would give them the table whole.
+ * A rule narrows only the role it comes with: its subject must hold a role
+ * given on this table, and nothing on its base that would give them the
+ * table whole. For a person, that is their own role on the base or one a
+ * group gives them; for a group, its own. A group's rule binds each member
+ * who holds nothing wider: what reaches them otherwise adds to it.
  */
 async function assertRuleNarrows(
   tx: AuditTx,
   table: { id: string; baseId: string },
-  userId: string,
+  subject: AclSubject,
 ): Promise<void> {
   const reached = await tx
     .selectFrom("attributions as a")
-    .leftJoin("groupMembers as gm", "gm.groupId", "a.groupId")
     .leftJoin("madeRoles as m", "m.id", "a.madeRoleId")
-    .select(["a.scope", "a.userId", "a.role", ...MADE_COLUMNS])
+    .select(["a.scope", "a.userId", "a.groupId", "a.role", ...MADE_COLUMNS])
     .where((eb) =>
-      eb.or([eb("a.userId", "=", userId), eb("gm.userId", "=", userId)]),
+      "userId" in subject
+        ? holderOf(eb, subject.userId)
+        : eb("a.groupId", "=", subject.groupId),
     )
     .where((eb) =>
       eb.or([
@@ -89,9 +109,11 @@ async function assertRuleNarrows(
         ]),
       ]),
     )
+    .where(liveAttribution)
     .execute();
+  const [column, id] = subjectColumn(subject);
   const own = reached.find(
-    (row) => row.scope === "table" && row.userId === userId,
+    (row) => row.scope === "table" && row[column] === id,
   );
   if (!own || reached.some((row) => row.scope === "base")) {
     throw new AppError("rule_needs_table_role");
@@ -102,17 +124,17 @@ async function assertRuleNarrows(
   }
 }
 
-/** Replaces one person's rules on a table, audited under the manager. */
+/** Replaces one person's or one group's rules on a table, audited under the manager. */
 export async function setTableAcl(
   db: Database,
   actorId: string,
-  input: {
+  input: AclSubject & {
     tableId: string;
-    userId: string;
     rowFilter: FilterGroup | null;
     columns: readonly ColumnAclEntry[];
   },
 ): Promise<void> {
+  const subject = aclSubjectOf(input);
   await withAudit(
     db,
     { userId: actorId, tableId: input.tableId, source: "web" },
@@ -122,7 +144,8 @@ export async function setTableAcl(
         .select(["id", "baseId"])
         .where("id", "=", input.tableId)
         .executeTakeFirstOrThrow();
-      await assertRuleNarrows(tx, table, input.userId);
+      await assertRuleNarrows(tx, table, subject);
+      const [column, id] = subjectColumn(subject);
       await tx
         .updateTable("attributions")
         .set({
@@ -134,7 +157,7 @@ export async function setTableAcl(
                   input.columns.map((entry) => [entry.column, entry.access]),
                 ),
         })
-        .where("userId", "=", input.userId)
+        .where(column, "=", id)
         .where("scope", "=", "table")
         .where("scopeId", "=", input.tableId)
         .execute();
@@ -142,13 +165,14 @@ export async function setTableAcl(
   );
 }
 
-/** Takes away one person's rules on a table: their role there stays. */
+/** Takes away one person's or one group's rules on a table: the role there stays. */
 export async function clearTableAcl(
   db: Database,
   actorId: string,
   tableId: string,
-  userId: string,
+  subject: AclSubject,
 ): Promise<void> {
+  const [column, id] = subjectColumn(subject);
   await withAudit(
     db,
     { userId: actorId, tableId, source: "web" },
@@ -156,7 +180,7 @@ export async function clearTableAcl(
       await tx
         .updateTable("attributions")
         .set({ rowFilter: null, fieldAccess: null })
-        .where("userId", "=", userId)
+        .where(column, "=", id)
         .where("scope", "=", "table")
         .where("scopeId", "=", tableId)
         .execute();

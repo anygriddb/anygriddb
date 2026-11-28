@@ -159,7 +159,7 @@ test("an owner invites an address, its account accepts, and reads what its permi
   await page.goto(`${base}/settings`);
   const rules = page.getByRole("region", { name: "Permissions on Samples" });
   await expect(
-    rules.getByLabel("Member whose permissions are set").getByRole("option"),
+    rules.getByLabel("Whose permissions are set").getByRole("option"),
   ).toHaveText([`Guest ${stamp}`]);
   // Their role on the base gives the table whole: given table by table, a
   // rule may then narrow this one alone.

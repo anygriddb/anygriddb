@@ -874,10 +874,12 @@ export {
 } from "./snapshot";
 
 export {
+  aclSubjectOf,
   clearTableAclInputSchema,
   getTableAclInputSchema,
   setTableAclInputSchema,
   viewAsInputSchema,
+  type AclSubject,
   type ColumnAccess,
   type ColumnAclEntry,
   type TableAcl,

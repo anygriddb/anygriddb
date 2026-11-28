@@ -215,7 +215,7 @@ describe("a field read across two links", () => {
     const outside = await rowOfA("reader");
     expect(JSON.stringify(outside.seen_seen ?? [])).not.toContain("7");
     expect(outside.sum_sum ?? null).not.toBe("7");
-    await clearTableAcl(db, owner, tables.c, reader);
+    await clearTableAcl(db, owner, tables.c, { userId: reader });
     expect(await rowOfA("reader")).toMatchObject({ sum_sum: "7" });
     // The owner read all of it throughout.
     expect(await rowOfA("owner")).toMatchObject({ sum_sum: "7" });

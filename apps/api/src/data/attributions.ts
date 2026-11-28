@@ -71,7 +71,7 @@ export async function attributionsOfOne(
 }
 
 /** Rows of `attributions as a` that reach someone: theirs, or a group's they are in. */
-function holderOf(
+export function holderOf(
   eb: ExpressionBuilder<
     { a: { userId: string | null; groupId: string | null } },
     "a"

@@ -559,7 +559,8 @@ Then `.env` `DATABASE_URL` is `anygriddb_app`. App refuses start until
    Okta: "SCIM 2.0 Test App (Header Auth)", push users/groups,
    `userName` = email. Entra: Automatic provisioning; map UPN/mail →
    `userName` / `emails[type eq "work"].value`.
-3. Assign groups roles on bases (or Administration → People → Groups).
+3. Assign groups roles on bases or tables in each base's settings, or on
+   bases in Administration → People → Groups.
 
 - Accounts keyed by email; provisioned user takes existing account.
 - Local groups (ADR 0070) are invisible to IdP; same name → refused.

@@ -12,12 +12,16 @@ import type { SmtpConfig } from "../mail.js";
 import { deliverPersonNotices } from "../notify/deliver-person.js";
 import type { Publisher } from "../realtime/bus.js";
 
-/** What was given: to a person, to several at once, to a group, or to a group's new member. */
+/**
+ * What was given: to a person, to several at once, to a group, or to a
+ * group's new member, whose group holds a role on the base or (`role`
+ * null) on some of its tables only.
+ */
 type RoleGift =
   | { to: "person"; userId: string; role: Given }
   | { to: "people"; count: number }
   | { to: "group"; groupId: string; role: Given }
-  | { to: "member"; userId: string; groupId: string; role: Given };
+  | { to: "member"; userId: string; groupId: string; role: Given | null };
 
 export type RoleNoticeDeps = {
   db: Database;
@@ -99,8 +103,10 @@ async function tell(
   if (!named) {
     if (group) data.group = group.displayName;
     // One of the four by its key, a made role by its name (ADR 0128).
-    if ("role" in gift) {
+    if ("role" in gift && gift.role !== null) {
       data.role = typeof gift.role === "string" ? gift.role : gift.role.name;
+    } else if ("role" in gift) {
+      data.scope = "tables";
     }
     if (gift.to === "people") data.count = String(gift.count);
   }

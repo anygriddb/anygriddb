@@ -115,7 +115,13 @@ describe("a row rule on what is written", () => {
       })
     ).id;
     // Made after the editor's role went table by table: given apart.
-    await setTableRole(db, owner, { id: linkedId, baseId }, editor, "editor");
+    await setTableRole(
+      db,
+      owner,
+      { id: linkedId, baseId },
+      { userId: editor },
+      "editor",
+    );
     [target] = await createRows(
       deps(),
       await scopeOf(linkedId, owner),
@@ -137,7 +143,13 @@ describe("a row rule on what is written", () => {
     });
     // A table made after the editor's role went table by table gives
     // them nothing until someone gives it (ADR 0131).
-    await setTableRole(db, owner, { id: linkTable, baseId }, editor, "editor");
+    await setTableRole(
+      db,
+      owner,
+      { id: linkTable, baseId },
+      { userId: editor },
+      "editor",
+    );
     await narrowOn(db, owner, {
       tableId: linkTable,
       userId: editor,
@@ -172,7 +184,13 @@ describe("a row rule on what is written", () => {
     });
     // A table made after the editor's role went table by table gives
     // them nothing until someone gives it (ADR 0131).
-    await setTableRole(db, owner, { id: dealsId, baseId }, editor, "editor");
+    await setTableRole(
+      db,
+      owner,
+      { id: dealsId, baseId },
+      { userId: editor },
+      "editor",
+    );
     await narrowOn(db, owner, {
       tableId: dealsId,
       userId: editor,

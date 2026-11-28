@@ -444,7 +444,7 @@ describe("field and row rules on PostgreSQL", () => {
     );
     expect(page.total).toBe(0);
     for (const tableId of [ordersId, clientsId]) {
-      await clearTableAcl(database, owner, tableId, editor);
+      await clearTableAcl(database, owner, tableId, { userId: editor });
     }
   });
 
@@ -538,7 +538,7 @@ describe("field and row rules on PostgreSQL", () => {
       expect(all.map((item) => item.label)).toContain("Theirs");
       expect(all.map((item) => item.rowId)).not.toContain(mine);
     } finally {
-      await clearTableAcl(database, owner, projectsId, editor);
+      await clearTableAcl(database, owner, projectsId, { userId: editor });
     }
   });
 
@@ -669,7 +669,7 @@ describe("field and row rules on PostgreSQL", () => {
     expect(
       await visibleToReader(deps, await reader(), ordersId, keys[0] ?? ""),
     ).toBe(false);
-    await clearTableAcl(database, owner, ordersId, editor);
+    await clearTableAcl(database, owner, ordersId, { userId: editor });
   });
 
   it("refuses an upload over the limit in force, the setting before the environment", async () => {

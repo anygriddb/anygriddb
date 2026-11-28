@@ -344,7 +344,7 @@ describe("samples C read engine on Chinook", () => {
         control.db,
         control.actorId,
         { id: trackId, baseId: control.baseId },
-        member,
+        { userId: member },
         "editor",
       );
       await narrowOn(control.db, control.actorId, {

@@ -77,7 +77,13 @@ describe("a role on a base given table by table", () => {
 
   it("gives the same role on each table, keeps a wider one, and none on the base", async () => {
     const [visits, notes, archive] = tables as [string, string, string];
-    await setTableRole(db, owner, { id: notes, baseId }, editor, "owner");
+    await setTableRole(
+      db,
+      owner,
+      { id: notes, baseId },
+      { userId: editor },
+      "owner",
+    );
     await splitBaseRole(db, owner, { baseId, userId: editor });
     const bindings = await loadBindings(db, editor);
     expect(bindings.filter((binding) => binding.scope === "base")).toHaveLength(

@@ -15,7 +15,8 @@ import {
   enrollTotp,
   signUpProved,
 } from "../trpc/caller.test-helpers.js";
-import { insertBase } from "./schema-ops.js";
+import { insertBase, insertTable } from "./schema-ops.js";
+import { setTableRole } from "./sharing.js";
 
 const suffix = randomBytes(6).toString("hex");
 const PASSWORD = "correct horse battery staple";
@@ -233,6 +234,42 @@ describe("what a base's owners are told of the roles an administrator gives", ()
       .call()
       .admin.groups.setBaseRole({ groupId, baseId, role: null });
     expect(await told()).toEqual([]);
+  });
+
+  it("tells them of a member added to a group that holds roles on tables only", async () => {
+    const { id: groupId } = await admin
+      .call()
+      .admin.groups.create({ displayName: `Paie ${suffix}` });
+    const table = await insertTable(db, ownerId, {
+      baseId,
+      name: "Salaires",
+      columns: [{ name: "name", label: "Nom", fieldType: "text" }],
+    });
+    // The base's owner gives the group a table: nothing to tell them.
+    await setTableRole(
+      db,
+      ownerId,
+      { id: table.id, baseId },
+      { groupId },
+      "viewer",
+    );
+    expect(await told()).toEqual([]);
+    await admin
+      .call()
+      .admin.groups.addMember({ groupId, userId: await person("Lea") });
+    expect(await told()).toEqual([
+      {
+        kind: "role_given",
+        actorId: adminId,
+        data: {
+          baseId,
+          base: "Ventes",
+          name: "Lea",
+          group: `Paie ${suffix}`,
+          scope: "tables",
+        },
+      },
+    ]);
   });
 
   it("says nothing of what an owner does on their own base", async () => {

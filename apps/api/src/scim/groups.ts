@@ -12,7 +12,7 @@ import { z } from "zod";
 import { type AuditTx, withAudit } from "../data/audit-context.js";
 import { ERASED_USER_ID } from "../data/erasure.js";
 import { liveAttribution } from "../data/attributions.js";
-import { liveBase } from "../data/live.js";
+import { liveBase, liveTable } from "../data/live.js";
 import { givenColumns, givenOf, MADE_COLUMNS } from "../data/made-roles.js";
 import { postgresCode } from "../data/pg-error.js";
 
@@ -145,7 +145,8 @@ export async function listGroups(db: Database) {
       sql<number>`(select count(*)::int from group_members m where m.group_id = g.id)`.as(
         "members",
       ),
-      sql<number>`(select count(*)::int from attributions r where r.group_id = g.id and r.scope = 'base')`.as(
+      // The bases it reaches, by a role on each or on some of its tables.
+      sql<number>`(select count(distinct coalesce(t.base_id, r.scope_id))::int from attributions r left join data_tables t on r.scope = 'table' and t.id = r.scope_id where r.group_id = g.id and r.scope in ('base', 'table'))`.as(
         "bases",
       ),
     ])
@@ -155,7 +156,10 @@ export async function listGroups(db: Database) {
   return rows;
 }
 
-/** One group with its members and the bases it has a role on. */
+/**
+ * One group with its members, the bases it has a role on, and the tables
+ * it has one on, which those who manage each base give.
+ */
 export async function getGroup(db: Database, groupId: string) {
   const group = await db
     .selectFrom("groups")
@@ -171,7 +175,7 @@ export async function getGroup(db: Database, groupId: string) {
     .where("id", "=", groupId)
     .executeTakeFirst();
   if (!group) throw new AppError("unknown_group");
-  const [members, roles] = await Promise.all([
+  const [members, roles, tables] = await Promise.all([
     db
       .selectFrom("groupMembers as m")
       .innerJoin("users as u", "u.id", "m.userId")
@@ -197,6 +201,30 @@ export async function getGroup(db: Database, groupId: string) {
       .where(liveBase("b"))
       .orderBy(sql`lower(b.name)`)
       .execute(),
+    db
+      .selectFrom("attributions as r")
+      .innerJoin("dataTables as t", "t.id", "r.scopeId")
+      .innerJoin("bases as b", "b.id", "t.baseId")
+      .leftJoin("madeRoles as made", "made.id", "r.madeRoleId")
+      .select([
+        "b.id as baseId",
+        "b.name as baseName",
+        "t.id as tableId",
+        "t.name as tableName",
+        "r.role",
+        "r.rowFilter",
+        "r.fieldAccess",
+        "made.id as madeId",
+        "made.name as madeName",
+        "made.permissions as madePermissions",
+      ])
+      .where("r.groupId", "=", groupId)
+      .where("r.scope", "=", "table")
+      .where(liveBase("b"))
+      .where(liveTable("t"))
+      .orderBy(sql`lower(b.name)`)
+      .orderBy(sql`lower(t.name)`)
+      .execute(),
   ]);
   return {
     ...group,
@@ -205,6 +233,14 @@ export async function getGroup(db: Database, groupId: string) {
       baseId: row.baseId,
       baseName: row.baseName,
       role: givenOf(row),
+    })),
+    tables: tables.map((row) => ({
+      baseId: row.baseId,
+      baseName: row.baseName,
+      tableId: row.tableId,
+      tableName: row.tableName,
+      role: givenOf(row),
+      ruled: row.rowFilter !== null || row.fieldAccess !== null,
     })),
   };
 }
@@ -399,12 +435,16 @@ async function requireActiveAccount(
   if (!account) throw new AppError("unknown_account");
 }
 
-/** Adds an active account to a local group; bindings follow at once. */
+/**
+ * Adds an active account to a local group; bindings follow at once. Says
+ * which bases the member now reaches: by the group's role on the base, or
+ * (`role` null) by its roles on some of its tables only.
+ */
 export async function addLocalGroupMember(
   db: Database,
   actorId: string,
   input: { groupId: string; userId: string },
-): Promise<{ roles: { baseId: string; role: Given }[] }> {
+): Promise<{ roles: { baseId: string; role: Given | null }[] }> {
   return withAudit(db, { userId: actorId, source: "web" }, async (tx) => {
     await requireLocalGroup(tx, input.groupId);
     await requireActiveAccount(tx, input.userId);
@@ -419,18 +459,35 @@ export async function addLocalGroupMember(
     // The roles the group holds, which the new member now has; none for
     // someone who was a member already.
     if (!added) return { roles: [] };
-    const roles = await tx
-      .selectFrom("attributions as r")
-      .leftJoin("madeRoles as m", "m.id", "r.madeRoleId")
-      .select(["r.scopeId as baseId", "r.role", ...MADE_COLUMNS])
-      .where("r.groupId", "=", input.groupId)
-      .where("r.scope", "=", "base")
-      .execute();
+    const [roles, tables] = await Promise.all([
+      tx
+        .selectFrom("attributions as r")
+        .leftJoin("madeRoles as m", "m.id", "r.madeRoleId")
+        .select(["r.scopeId as baseId", "r.role", ...MADE_COLUMNS])
+        .where("r.groupId", "=", input.groupId)
+        .where("r.scope", "=", "base")
+        .execute(),
+      tx
+        .selectFrom("attributions as r")
+        .innerJoin("dataTables as t", "t.id", "r.scopeId")
+        .select("t.baseId")
+        .distinct()
+        .where("r.groupId", "=", input.groupId)
+        .where("r.scope", "=", "table")
+        .execute(),
+    ]);
+    const onBases = roles.flatMap((row) => {
+      const role = givenOf(row);
+      return role && row.baseId ? [{ baseId: row.baseId, role }] : [];
+    });
+    const reached = new Set(onBases.map((row) => row.baseId));
     return {
-      roles: roles.flatMap((row) => {
-        const role = givenOf(row);
-        return role && row.baseId ? [{ baseId: row.baseId, role }] : [];
-      }),
+      roles: [
+        ...onBases,
+        ...tables
+          .filter((row) => !reached.has(row.baseId))
+          .map((row) => ({ baseId: row.baseId, role: null })),
+      ],
     };
   });
 }

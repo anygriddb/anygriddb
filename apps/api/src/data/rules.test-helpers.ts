@@ -37,7 +37,7 @@ export async function giveTableByTable(
 export async function narrowOn(
   db: Database,
   actorId: string,
-  input: Parameters<typeof setTableAcl>[2],
+  input: Parameters<typeof setTableAcl>[2] & { userId: string },
 ): Promise<void> {
   await giveTableByTable(db, actorId, input);
   await setTableAcl(db, actorId, input);

@@ -256,7 +256,7 @@ describe("local groups and effective rights", () => {
       db,
       adminId,
       { id: table.id, baseId: base.id },
-      person.id,
+      { userId: person.id },
       "editor",
     );
     await setTableAcl(db, adminId, {
