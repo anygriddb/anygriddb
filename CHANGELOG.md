@@ -8,6 +8,16 @@ first.
 
 ## Unreleased
 
+## 0.15.0 - 2026-11-28
+
+**Before upgrading:** check the scripts and agents that make or change
+number fields through the API or MCP: a field's settings say `"min": "0"`
+where they said `"nonNegative": true`, a field sent with `nonNegative` is
+now refused (`invalid_column`), and a negative number in such a field is
+refused as `value_out_of_range`, no longer `negative_number`. Nothing to
+do on the instance: the upgrade keeps every field that refused negative
+numbers refusing them.
+
 ### Breaking
 
 - API and MCP clients: a number field that refused negative numbers now
