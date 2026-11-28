@@ -62,6 +62,7 @@ What works today, what is known not to, and what comes next.
 - A view saved while one of its fields is in the trash keeps that field's place and settings, but not its conditions inside a nested filter group, a colour rule, or a form field's condition.
 - A base snapshot names people by email: a user cell keeps the people who are members of the new base. Roles given by groups stay behind, but a restore point gives them back as they were, on the base and on its tables. So do what acts outside the base (automations, webhooks, public links), comments, the change trail, and a dashboard's widget that reads a table of a source or a personal view, which the import's report counts.
 - A workbook made a base brings its sheets' values: a formula comes as the value the file kept, and its formatting, charts, comments, merged cells, and the links between its sheets do not come (ADR 0078). Its fields take the types every row of their sheet fits, and can be converted afterwards.
+- A field someone sees on some rows only, by one of their attributions and not another (ADR 0144), reads empty on the others: the page does not yet tell it from an empty value.
 - A collaborator with field or row rules finds in the row trash only the rows they deleted, named by their primary field when they may see it; on a client's table they have no row trash.
 - A first SAML sign-in reaches an existing account by its address only when an administrator says the provider verifies addresses (ADR 0111). OIDC, and SAML with a persistent NameID, then keep the account bound to the provider's subject.
 - The map view shows the rows of its view over a plain background, or over the tiles of the server an administrator names (ADR 0068). Over tiles it pans and zooms; over the plain background it stays fitted to its rows.
@@ -113,10 +114,10 @@ no command line and no access to the database.
 
 ### Views and organisation
 
-| #   | What                                          | Effort | Notes                                                                                                                                                                               |
-| --- | --------------------------------------------- | ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 8   | Workspaces (and teams) above bases            | L      | Bases stay the top level of membership until someone needs more: a new level in the model is to be decided first (ADR 0017 notes the cost of cross-base links inside one workspace) |
-| 9   | Richer field rules (per-row field conditions) | L      | Several rules reach someone since roles add up, and a rule may name the reader's attributes (ADR 0131, 0142). Left: a field hidden on some rows only                                |
+| #   | What                                          | Effort | Notes                                                                                                                                                                                                          |
+| --- | --------------------------------------------- | ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 8   | Workspaces (and teams) above bases            | L      | Bases stay the top level of membership until someone needs more: a new level in the model is to be decided first (ADR 0017 notes the cost of cross-base links inside one workspace)                            |
+| 9   | Richer field rules (per-row field conditions) | L      | Several rules reach someone since roles add up, each field on its own role's rows, and a rule may name the reader's attributes (ADR 0131, 0142, 0144). Left: a rule that hides a field on some of its own rows |
 
 ## Non-goals
 

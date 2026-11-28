@@ -449,6 +449,75 @@ describe("tableRules", () => {
     expect(rules?.narrowed).toEqual({ rows: false, fields: false });
   });
 
+  it("gives each attribution's fields on its own rows only", () => {
+    // A ward's role on its rows, whole; one's own on every row, without
+    // the secret and without writing the amount.
+    const bindings: Binding[] = [
+      { role: "editor", scope: "table", scopeId: "t", rows: theirs },
+      {
+        role: "editor",
+        scope: "table",
+        scopeId: "t",
+        fields: { name: "write", amount: "read", secret: "hide" },
+      },
+    ];
+    const rules = tableRules(bindings, "t", "b");
+    expect(rules?.rows("rows.read")).toBeUndefined();
+    // Seen on the ward's rows only, where its role shows them.
+    expect(rules?.shownOn("secret")).toEqual(theirs);
+    expect(rules?.shownOn("notes")).toEqual(theirs);
+    expect(rules?.shownOn("amount")).toBeUndefined();
+    expect(rules?.writableOn("amount")).toEqual(theirs);
+    expect(rules?.writableOn("name")).toBeUndefined();
+    // The widest access says what may be done somewhere.
+    expect(rules?.access("secret")).toBe("write");
+    expect(rules?.narrowed).toEqual({ rows: false, fields: true });
+  });
+
+  it("shows a field everywhere one attribution reaching every row shows it", () => {
+    const rules = tableRules(
+      [
+        { role: "viewer", scope: "base", scopeId: "b" },
+        {
+          role: "editor",
+          scope: "table",
+          scopeId: "t",
+          rows: mine,
+          fields: { secret: "hide" },
+        },
+      ],
+      "t",
+      "b",
+    );
+    expect(rules?.shownOn("secret")).toBeUndefined();
+    // Hidden by every attribution that reads rows: seen on none.
+    const hidden = tableRules(
+      [
+        {
+          role: "viewer",
+          scope: "table",
+          scopeId: "t",
+          rows: mine,
+          fields: { secret: "hide" },
+        },
+        {
+          role: "viewer",
+          scope: "table",
+          scopeId: "t",
+          rows: theirs,
+          fields: { secret: "hide" },
+        },
+      ],
+      "t",
+      "b",
+    );
+    expect(hidden?.access("secret")).toBe("hide");
+    expect(hidden?.shownOn("secret")).toEqual({
+      conjunction: "or",
+      conditions: [],
+    });
+  });
+
   it("says whether rows or fields are kept from the reader", () => {
     const rowsOnly = tableRules(
       [{ role: "viewer", scope: "table", scopeId: "t", rows: mine }],

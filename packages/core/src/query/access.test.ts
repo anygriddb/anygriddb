@@ -130,6 +130,38 @@ describe("field access", () => {
   });
 });
 
+describe("a field shown on some rows", () => {
+  it("compiles it to its value on those rows and empty on the others, wherever it is read", () => {
+    const open = rule("status", "is", "Open");
+    const catalog = withAccess({
+      shownOn: (tableId, column) =>
+        tableId === ORDERS_ID && column === "price" ? open : undefined,
+    });
+    const sql = buildReadRows(catalog, {
+      limit: 10,
+      filter: rule("price", "gt", 100),
+      sort: [{ column: "price", direction: "desc" }],
+      search: "42",
+    });
+    const masked = sql.text.match(/then r\."price" else null::numeric end/g);
+    // Read masked where the table is read; the filter, the sort and the
+    // search read what that gave, and nothing reads it otherwise.
+    expect(masked?.length ?? 0).toBeGreaterThanOrEqual(1);
+    expect(sql.text.match(/r\."price"/g)?.length).toBe(masked?.length);
+    expect(sql.text).toContain(
+      `case when r."id" in (select q."id" from (select r."id", r."status" as "status" from "t_orders" r) q where`,
+    );
+    expectBound(sql);
+  });
+
+  it("leaves a field shown on every row read as it is", () => {
+    const sql = buildReadRows(withAccess({ shownOn: () => undefined }), {
+      limit: 10,
+    });
+    expect(sql.text).not.toContain("case when r.");
+  });
+});
+
 describe("row access", () => {
   it("keeps only the rule's rows on the table itself, reading real values", () => {
     const catalog = withAccess({

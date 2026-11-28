@@ -591,14 +591,39 @@ function fieldThrough(binding: Binding, column: string): ColumnAccess {
 }
 
 /**
+ * The rows the given attributions reach together, by OR: undefined when
+ * one reaches every row, no row when there is none.
+ */
+function rowsReached(givers: readonly Binding[]): FilterGroup | undefined {
+  if (givers.some((binding) => !rowsThrough(binding))) return undefined;
+  const filters = givers.flatMap((binding) => {
+    const through = rowsThrough(binding);
+    return through ? [through] : [];
+  });
+  if (filters.length === 0) return NO_ROW;
+  if (filters.length === 1) return filters[0];
+  return { conjunction: "or", conditions: filters };
+}
+
+/**
  * The rules that narrow someone's access to one table, or undefined when
  * no attribution that reaches it carries one. The rows reached for an act
  * are those of every attribution that gives it, by OR (one without a
- * filter: every row); a field takes the widest access any of them gives.
+ * filter: every row). A field is shown, or written, on the rows of the
+ * attributions that show it, or let it be written: never on a row another
+ * attribution reaches (ADR 0144). Its access, the widest any of them
+ * gives, says what the reader may do with it somewhere.
  */
 export type TableRules = {
   rows: (act: Permission) => FilterGroup | undefined;
   access: (column: string) => ColumnAccess;
+  /**
+   * The rows on which a field is shown: undefined on every row read, a
+   * filter for some, no row for none.
+   */
+  shownOn: (column: string) => FilterGroup | undefined;
+  /** The rows on which a field may be written: undefined on every row written. */
+  writableOn: (column: string) => FilterGroup | undefined;
   /**
    * Whether the rules keep anything of the table from its reader: some
    * rows, or a field no attribution that reads rows shows whole.
@@ -621,29 +646,53 @@ export function tableRules(
         binding.scopeId === baseId),
   );
   if (!reach.some(narrowing)) return undefined;
-  const rows = (act: Permission): FilterGroup | undefined => {
-    const givers = reach.filter((binding) => bindingGrants(binding, act));
-    if (givers.some((binding) => !rowsThrough(binding))) return undefined;
-    const filters = givers.flatMap((binding) => {
-      const through = rowsThrough(binding);
-      return through ? [through] : [];
-    });
-    if (filters.length === 0) return NO_ROW;
-    if (filters.length === 1) return filters[0];
-    return { conjunction: "or", conditions: filters };
+  const rows = (act: Permission): FilterGroup | undefined =>
+    rowsReached(reach.filter((binding) => bindingGrants(binding, act)));
+  const readers = reach.filter((binding) =>
+    bindingGrants(binding, "rows.read"),
+  );
+  const writers = reach.filter((binding) =>
+    bindingGrants(binding, "rows.write"),
+  );
+  const shownOn = (column: string): FilterGroup | undefined => {
+    const showing = readers.filter(
+      (binding) => fieldThrough(binding, column) !== "hide",
+    );
+    return showing.length === readers.length ? undefined : rowsReached(showing);
   };
+  // The fields a rule names, and one no rule names (`""`, never a field's
+  // name): what each shows is all there is to know of the others.
+  const named = new Set([
+    "",
+    ...readers.flatMap((binding) =>
+      narrowing(binding) && binding.fields ? Object.keys(binding.fields) : [],
+    ),
+  ]);
   const narrowed = {
     rows: rows("rows.read") !== undefined,
-    fields: !reach.some(
-      (binding) =>
-        !(narrowing(binding) && binding.fields) &&
-        bindingGrants(binding, "rows.read"),
-    ),
+    fields:
+      !reach.some(
+        (binding) =>
+          !(narrowing(binding) && binding.fields) &&
+          bindingGrants(binding, "rows.read"),
+      ) ||
+      // A field one attribution shows and another hides on the rows it
+      // reaches is seen on some rows only (ADR 0144).
+      [...named].some((column) => shownOn(column) !== undefined),
   };
   return {
     rows,
     narrows: narrowed.rows || narrowed.fields,
     narrowed,
+    shownOn,
+    writableOn: (column) => {
+      const writing = writers.filter(
+        (binding) => fieldThrough(binding, column) === "write",
+      );
+      return writing.length === writers.length
+        ? undefined
+        : rowsReached(writing);
+    },
     access: (column) => {
       let best: ColumnAccess = "hide";
       for (const binding of reach) {

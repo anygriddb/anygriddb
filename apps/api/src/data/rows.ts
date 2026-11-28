@@ -43,6 +43,7 @@ import {
   placeTarget,
   type WriteColumn,
   withExactNumbers,
+  type FilterGroup,
 } from "@anygriddb/core";
 import { type RawBuilder, sql } from "kysely";
 import { reachersOf } from "./attributions.js";
@@ -663,7 +664,9 @@ export function hasRules(engine: EngineCatalog): boolean {
     access.rowFilter(id) !== undefined ||
     engine.table.columns.some(
       (column) =>
-        access.hidden(id, column.name) || access.readOnly(id, column.name),
+        access.hidden(id, column.name) ||
+        access.readOnly(id, column.name) ||
+        access.shownOn?.(id, column.name) !== undefined,
     )
   );
 }
@@ -700,6 +703,107 @@ function actingOn(engine: EngineCatalog, act: Permission): EngineCatalog {
         access.rowFilter(tableId, tableId === own ? (asked ?? act) : asked),
     },
   };
+}
+
+/** The engine whose table's rows are those `rule` keeps, its other rules as they are. */
+function keptBy(engine: EngineCatalog, rule: FilterGroup): EngineCatalog {
+  const access = engine.access;
+  if (!access) return engine;
+  const own = engine.table.id;
+  return {
+    ...engine,
+    access: {
+      ...access,
+      rowFilter: (tableId, asked) =>
+        tableId === own ? rule : access.rowFilter(tableId, asked),
+    },
+  };
+}
+
+/**
+ * The rules a write of these fields asks of its rows (ADR 0144), each once:
+ * a field is written only on the rows of the attributions that let it be.
+ */
+function fieldRules(
+  engine: EngineCatalog,
+  names: Iterable<string>,
+): FilterGroup[] {
+  const access = engine.access;
+  if (!access?.writableOn) return [];
+  const rules = new Map<string, FilterGroup>();
+  for (const name of new Set(names)) {
+    const rule = access.writableOn(engine.table.id, name);
+    if (rule) rules.set(JSON.stringify(rule), rule);
+  }
+  return [...rules.values()];
+}
+
+/** Whether every one of these rows is among those the engine's table keeps. */
+async function allKept(
+  run: (statement: ParameterizedSql) => Promise<Record<string, unknown>[]>,
+  engine: EngineCatalog,
+  rowIds: readonly string[],
+): Promise<boolean> {
+  const unique = [...new Set(rowIds)];
+  for (let start = 0; start < unique.length; start += MAX_READ_LIMIT) {
+    const chunk = unique.slice(start, start + MAX_READ_LIMIT);
+    const [row] = await run(buildCountRows(engine, { rowIds: chunk }));
+    if (Number(row?.total ?? 0) !== chunk.length) return false;
+  }
+  return true;
+}
+
+/**
+ * Refuses a write of a field on rows where no attribution that lets the
+ * writer write it reaches (ADR 0144): another attribution's rows are not
+ * the field's.
+ */
+export async function assertFieldsInScope(
+  db: Database,
+  engine: EngineCatalog,
+  rowIds: readonly string[],
+  names: Iterable<string>,
+): Promise<void> {
+  for (const rule of fieldRules(engine, names)) {
+    const kept = keptBy(engine, rule);
+    const all = await readTransaction(db, kept, (run) =>
+      allKept(run, kept, rowIds),
+    );
+    if (!all) throw new AppError("access_denied");
+  }
+}
+
+/**
+ * The fields the reader sees on some rows and not on this one (ADR 0144):
+ * what its history leaves out, as the row's page does.
+ */
+export async function fieldsHiddenOnRow(
+  db: Database,
+  engine: EngineCatalog,
+  rowId: string,
+): Promise<ReadonlySet<string>> {
+  const access = engine.access;
+  const hidden = new Set<string>();
+  if (!access?.shownOn) return hidden;
+  const id = engine.table.id;
+  const byRule = new Map<string, { rule: FilterGroup; names: string[] }>();
+  for (const column of engine.table.columns) {
+    if (access.hidden(id, column.name)) continue;
+    const rule = access.shownOn(id, column.name);
+    if (!rule) continue;
+    const key = JSON.stringify(rule);
+    const entry = byRule.get(key) ?? { rule, names: [] };
+    entry.names.push(column.name);
+    byRule.set(key, entry);
+  }
+  for (const { rule, names } of byRule.values()) {
+    const kept = keptBy(engine, rule);
+    const shown = await readTransaction(db, kept, (run) =>
+      allKept(run, kept, [rowId]),
+    );
+    if (!shown) for (const name of names) hidden.add(name);
+  }
+  return hidden;
 }
 
 /** Refuses an act on rows outside what the actor's rules let them act on. */
@@ -745,7 +849,14 @@ export async function assertRowsStayInRule(
   run: (statement: ParameterizedSql) => Promise<Record<string, unknown>[]>,
   engine: EngineCatalog,
   rowIds: readonly string[],
+  /** The fields written: each stays on rows its writer may write it on. */
+  fields: Iterable<string> = [],
 ): Promise<void> {
+  for (const rule of fieldRules(engine, fields)) {
+    if (!(await allKept(run, keptBy(engine, rule), rowIds))) {
+      throw new AppError("access_denied");
+    }
+  }
   const scoped = actingOn(engine, "rows.write");
   if (!scoped.access?.rowFilter(scoped.table.id)) return;
   const unique = [...new Set(rowIds)];
@@ -763,8 +874,12 @@ export async function assertOwnRowsStayInRule(
   tx: AuditTx,
   engine: EngineCatalog,
   rowIds: readonly string[],
+  fields: readonly string[] = [],
 ): Promise<void> {
-  if (!actingOn(engine, "rows.write").access?.rowFilter(engine.table.id)) {
+  if (
+    !actingOn(engine, "rows.write").access?.rowFilter(engine.table.id) &&
+    fieldRules(engine, fields).length === 0
+  ) {
     return;
   }
   await sql.raw("set local time zone 'UTC'").execute(tx);
@@ -772,6 +887,7 @@ export async function assertOwnRowsStayInRule(
     (statement) => runRows(tx, statement),
     engine,
     rowIds,
+    fields,
   );
 }
 
@@ -1101,7 +1217,14 @@ export async function insertRows(
         ids.push(readId([row]));
       }
     }
-    if (!context.deferRule) await assertOwnRowsStayInRule(tx, engine, ids);
+    if (!context.deferRule) {
+      await assertOwnRowsStayInRule(
+        tx,
+        engine,
+        ids,
+        rows.flatMap((row) => Object.keys(row)),
+      );
+    }
     return ids;
   });
 }
@@ -1174,6 +1297,7 @@ export async function updateRows(
       tx,
       engine,
       statements.map((item) => item.rowId),
+      updates.flatMap((update) => Object.keys(update.values)),
     );
   });
   return statements.map((item) => item.rowId);

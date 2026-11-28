@@ -224,6 +224,8 @@ export function readerAccess(
     readOnly: (tableId, column) =>
       rules.get(tableId)?.access(column) === "read",
     rowFilter: (tableId, act = "rows.read") => rules.get(tableId)?.rows(act),
+    shownOn: (tableId, column) => rules.get(tableId)?.shownOn(column),
+    writableOn: (tableId, column) => rules.get(tableId)?.writableOn(column),
     me: rulesOwner(reader.userId),
   };
 }
@@ -263,11 +265,17 @@ export async function readerRulesPrint(
         table: table.id,
         readable,
         rows: rules?.rows("rows.read") ?? null,
+        // Each field the reader sees, with the rows it is shown on when
+        // not every row (ADR 0144).
         fields:
           rules?.narrows === true
             ? names
                 .filter((name) => rules.access(name) !== "hide")
                 .sort((a, b) => (a < b ? -1 : a > b ? 1 : 0))
+                .map((name) => {
+                  const shown = rules.shownOn(name);
+                  return shown ? [name, shown] : name;
+                })
             : null,
       };
     })

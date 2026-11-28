@@ -122,6 +122,14 @@ export type EngineAccess = {
    * (ADR 0131); undefined for every row.
    */
   rowFilter: (tableId: string, act?: Permission) => FilterGroup | undefined;
+  /**
+   * The rows on which a field the reader sees somewhere is shown, when
+   * not every row they read (ADR 0144): its value compiles to empty on
+   * the others. Undefined, or absent, for every row read.
+   */
+  shownOn?: (tableId: string, columnName: string) => FilterGroup | undefined;
+  /** The rows on which a field may be written, when not every row written. */
+  writableOn?: (tableId: string, columnName: string) => FilterGroup | undefined;
   /** The reader, substituted for `me` in row filters. */
   me?: string;
 };

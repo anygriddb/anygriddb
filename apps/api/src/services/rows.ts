@@ -37,6 +37,7 @@ import { liveBase, liveTable } from "../data/live.js";
 import { violatedUnique } from "../data/pg-error.js";
 import { setLinks } from "../data/relations.js";
 import {
+  assertFieldsInScope,
   assertFieldsWritable,
   assertRowsInScope,
   deleteRows as deleteRowRecords,
@@ -366,6 +367,12 @@ async function prepare(
   );
   if (existing.length > 0) {
     await assertRowsInScope(deps.db, scope.engine, existing, "rows.write");
+    await assertFieldsInScope(
+      deps.db,
+      scope.engine,
+      existing,
+      touchedColumns(rows),
+    );
   }
   const checked = new Map<string, EngineColumn>();
   for (const row of rows) {
@@ -711,6 +718,7 @@ async function linkNewRows(
       );
     }
     await assertNewRowsInRule(deps, scope, ids);
+    await assertFieldsInScope(deps.db, scope.engine, ids, touchedColumns(rows));
   } catch (error) {
     await deleteRowRecords(
       deps.db,

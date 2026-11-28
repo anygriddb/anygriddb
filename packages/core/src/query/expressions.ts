@@ -118,6 +118,16 @@ export type ExprContext = {
    */
   scope?: (table: EngineTable, alias: string) => string | null;
   /**
+   * Predicate on `alias` that keeps the rows of `table` on which the reader
+   * sees `column`, or null for every row they read (ADR 0144). Set beside
+   * `scope`.
+   */
+  shown?: (
+    table: EngineTable,
+    column: EngineColumn,
+    alias: string,
+  ) => string | null;
+  /**
    * What the engine computes differently from AnyGridDB's semantics, met
    * while compiling: the field shows it (ADR 0005).
    */
@@ -487,13 +497,17 @@ export function linksJsonSql(
     ...stack,
     `${table.id}:${column.name}`,
   ]);
-  return ctx.d.linksAgg({
+  const links = ctx.d.linksAgg({
     id: idSql(target, inner),
     label,
     from: source.from,
     where: `${source.where}${scopeAnd(ctx, target, inner)}`,
     order: stableOrderSql(target, inner),
   });
+  const shown = ctx.shown?.(table, column, alias);
+  return shown
+    ? `(case when ${shown} then ${links} else ${ctx.d.emptyLinks()} end)`
+    : links;
 }
 
 /* ------------------------------------------------------------------ */
@@ -553,12 +567,39 @@ export function compileColumn(
   stack: readonly string[],
 ): Typed {
   if (!isHidden(ctx, table, column)) {
-    return compileVisibleColumn(ctx, table, alias, column, stack);
+    return onlyWhereShown(
+      ctx,
+      table,
+      alias,
+      column,
+      compileVisibleColumn(ctx, table, alias, column, stack),
+    );
   }
   return blank(
     compileVisibleColumn(sandboxOf(ctx), table, alias, column, stack),
     ctx.d,
   );
+}
+
+/**
+ * A field's value on the rows where the reader sees it, and empty of the
+ * same kind on the others (ADR 0144): a filter, a sort, a search, a
+ * formula or a lookup that reads it reads the empty value there.
+ */
+function onlyWhereShown(
+  ctx: ExprContext,
+  table: EngineTable,
+  alias: string,
+  column: EngineColumn,
+  typed: Typed,
+): Typed {
+  const shown = ctx.shown?.(table, column, alias);
+  if (!shown || typed.kind === "null") return typed;
+  const empty = blank(typed, ctx.d);
+  return {
+    ...typed,
+    sql: `(case when ${shown} then ${typed.sql} else ${empty.sql} end)`,
+  };
 }
 
 /**
@@ -1845,7 +1886,13 @@ function formulaError(
       if (!column || !inner || isHidden(ctx, table, column)) return undefined;
       const key = `${table.id}:${column.name}`;
       if (stack.includes(key)) throw new AppError("circular_formula");
-      return formulaError(ctx, table, alias, inner, [...stack, key]);
+      return errorWhereShown(
+        ctx,
+        table,
+        alias,
+        column,
+        formulaError(ctx, table, alias, inner, [...stack, key]),
+      );
     }
     case "if":
       return choose(expr.cond, expr.then, expr.else);
@@ -2051,15 +2098,39 @@ export function columnError(
     !physical.controlPlane &&
     !physical.missing
   ) {
-    return ctx.d.storedError?.(
-      `${alias}.${quoteExternalIdent(physical.name)}`,
-      physical,
-      column.fieldType,
+    return errorWhereShown(
+      ctx,
+      table,
+      alias,
+      column,
+      ctx.d.storedError?.(
+        `${alias}.${quoteExternalIdent(physical.name)}`,
+        physical,
+        column.fieldType,
+      ),
     );
   }
   const expr = formulaExprOf(column);
   if (!expr) return undefined;
-  return formulaError(ctx, table, alias, expr, [`${table.id}:${column.name}`]);
+  return errorWhereShown(
+    ctx,
+    table,
+    alias,
+    column,
+    formulaError(ctx, table, alias, expr, [`${table.id}:${column.name}`]),
+  );
+}
+
+/** A field's error on the rows where the reader sees it, none on the others. */
+function errorWhereShown(
+  ctx: ExprContext,
+  table: EngineTable,
+  alias: string,
+  column: EngineColumn,
+  error: string | undefined,
+): string | undefined {
+  const shown = error ? ctx.shown?.(table, column, alias) : null;
+  return error && shown ? `(case when ${shown} then ${error} end)` : error;
 }
 
 /* ------------------------------------------------------------------ */
