@@ -15,6 +15,24 @@ first.
   bar to the start of the bars that come after it. A row that starts
   before a row it comes after has ended is drawn apart, its arrow in red,
   and a screen reader hears it in the bar's name.
+- A change of someone's attributes is told to the owners of each base
+  where a row rule names one of them, as a role given is; an
+  administrator's own attributes ask a reason first, as a role they give
+  themselves does, and the owners read it (ADR 0143).
+
+### Fixed
+
+- A field's mask was written in the API's description with a `\-` that
+  a validator reading patterns as Unicode refuses: only the characters
+  that mean something in an expression are escaped now.
+
+### Security
+
+- Whoever manages a base's members could set or take away the row and
+  field rules of a role they could not give, an editor's or a group's,
+  and so open every row of a table to them. A table's rules are now set
+  and cleared only by someone who could give the role they narrow
+  (`role_beyond_reach`), as the role itself already was.
 
 ### Security
 

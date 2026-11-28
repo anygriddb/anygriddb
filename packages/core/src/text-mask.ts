@@ -83,7 +83,10 @@ export function maskPattern(mask: string): string {
           ? "[A-Za-z]"
           : slot === "either"
             ? "[0-9A-Za-z]"
-            : slot.literal.replace(/[.*+?^${}()|[\]\\/-]/g, "\\$&"),
+            : // The characters that mean something in an expression, and
+              // no other: a validator that reads patterns as Unicode
+              // refuses an escape a character does not need (`\-`).
+              slot.literal.replace(/[.*+?^${}()|[\]\\/]/g, "\\$&"),
     )
     .join("");
   return `^${body}$`;

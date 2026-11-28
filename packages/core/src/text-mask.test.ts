@@ -37,10 +37,20 @@ describe("a text field's mask", () => {
 
   it("writes itself as an anchored expression whose literals stay literal", () => {
     expect(maskPattern("AA-##.*")).toBe(
-      "^[A-Za-z][A-Za-z]\\-[0-9][0-9]\\.[0-9A-Za-z]$",
+      "^[A-Za-z][A-Za-z]-[0-9][0-9]\\.[0-9A-Za-z]$",
     );
     const pattern = new RegExp(maskPattern("(#)"));
     expect(pattern.test("(4)")).toBe(true);
     expect(pattern.test("44")).toBe(false);
+  });
+
+  it("writes every printable character as a pattern a Unicode validator reads", () => {
+    for (let code = 0x20; code < 0x7f; code += 1) {
+      const character = String.fromCharCode(code);
+      const mask = "#A*\\".includes(character) ? `\\${character}` : character;
+      const pattern = new RegExp(maskPattern(`#${mask}#`), "u");
+      expect(pattern.test(`1${character}2`)).toBe(true);
+      expect(pattern.test(`1${character === "x" ? "y" : "x"}2`)).toBe(false);
+    }
   });
 });

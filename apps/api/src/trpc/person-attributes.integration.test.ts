@@ -11,9 +11,14 @@ import type { Database } from "@anygriddb/db";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { keyRing } from "../auth/key-ring.js";
 import { createApiToken } from "../auth/tokens.js";
+import { setMemberRole } from "../data/members.js";
 import { insertBase, insertTable } from "../data/schema-ops.js";
 import type { Env } from "../env.js";
-import { addLocalGroupMember, createLocalGroup } from "../scim/groups.js";
+import {
+  addLocalGroupMember,
+  createLocalGroup,
+  removeLocalGroupMember,
+} from "../scim/groups.js";
 import { createTestDatabase } from "../test-database.js";
 import {
   browserFactory,
@@ -41,6 +46,7 @@ describe("a person's attributes in a row rule", () => {
   const page = plainBrowsers(() => db)();
   const ids = { admin: "", nina: "", nate: "", nils: "" };
   const tokens = { admin: "", nina: "", nate: "", nils: "" };
+  let baseId = "";
   let tableId = "";
   let groupId = "";
 
@@ -95,7 +101,7 @@ describe("a person's attributes in a row rule", () => {
         await createApiToken(db, ids[name], name, { days: 1 })
       ).token;
     }
-    const baseId = (await insertBase(db, ids.admin, { name: "Hospital" })).id;
+    baseId = (await insertBase(db, ids.admin, { name: "Hospital" })).id;
     tableId = (
       await insertTable(db, ids.admin, {
         baseId,
@@ -227,6 +233,62 @@ describe("a person's attributes in a row rule", () => {
       ),
     ).toBe("invalid_view");
     expect(await names("nina")).toEqual(["Alba", "Cora"]);
+  });
+
+  it("tells the base's owners of values a rule reads, and asks an administrator's own a reason", async () => {
+    const olga = (
+      await db
+        .insertInto("users")
+        .values({ email: `olga-${suffix}@example.org`, displayName: "Olga" })
+        .returning("id")
+        .executeTakeFirstOrThrow()
+    ).id;
+    await setMemberRole(db, ids.admin, { baseId, userId: olga, role: "owner" });
+    const told = async () =>
+      (
+        await db
+          .selectFrom("notifications")
+          .select("data")
+          .where("userId", "=", olga)
+          .where("kind", "=", "role_given")
+          .orderBy("createdAt")
+          .execute()
+      ).map((notice) => notice.data);
+    // Nate moved to ward 3: his ward is read by the nurses' rule.
+    await setWard("nate", ["3"]);
+    expect(await told()).toEqual([
+      expect.objectContaining({ baseId, name: "nate", attributes: "Ward" }),
+    ]);
+    expect((await told())[0]).not.toHaveProperty("reason");
+    // The same values again change nothing, and tell nothing.
+    await setWard("nate", ["3"]);
+    expect(await told()).toHaveLength(1);
+    // The administrator's own values, as a nurse: a reason first.
+    await addLocalGroupMember(db, ids.admin, { groupId, userId: ids.admin });
+    const own = { userId: ids.admin, values: { ward: ["4"] } };
+    expect(
+      await errorCode(admin.call().admin.attributes.setForAccount(own)),
+    ).toBe("reason_required");
+    expect(await told()).toHaveLength(1);
+    const reason = "Covering ward 4 tonight";
+    await admin.call().admin.attributes.setForAccount({ ...own, reason });
+    expect((await told())[1]).toMatchObject({ attributes: "Ward", reason });
+    const trail = await db
+      .selectFrom("auditEvents")
+      .select("reason")
+      .where("catalogTable", "=", "account_attributes")
+      .where("userId", "=", ids.admin)
+      .orderBy("occurredAt", "desc")
+      .executeTakeFirst();
+    expect(trail?.reason).toBe(reason);
+    // Values no rule reaches tell no one: Nils's group rule is the only
+    // one, and he leaves the group.
+    await removeLocalGroupMember(db, ids.admin, { groupId, userId: ids.nils });
+    await admin.call().admin.attributes.setForAccount({
+      userId: ids.nils,
+      values: { ward: ["3"] },
+    });
+    expect(await told()).toHaveLength(2);
   });
 
   it("keeps no row once the catalogue loses the attribute", async () => {
