@@ -8,6 +8,10 @@ first.
 
 ## Unreleased
 
+## 0.15.3 - 2026-11-28
+
+Nothing to do before or after upgrading.
+
 ### Added
 
 - A role on a base or a table, a person's or a group's, may be given
