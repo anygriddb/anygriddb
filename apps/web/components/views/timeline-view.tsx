@@ -35,6 +35,16 @@ import {
 } from "./view-common";
 import { useLingui } from "@lingui/react/macro";
 import { intlLocale } from "../../lib/format";
+import {
+  arrowHead,
+  arrowPath,
+  arrowsBetween,
+  barSpan,
+  dependencyColumn,
+  dependencyColumns,
+  predecessorsOf,
+  toTime,
+} from "./timeline-links";
 
 const DAY = 86_400_000;
 const SCALE: Record<TimelineScale, number> = { day: 40, week: 12, month: 4 };
@@ -42,12 +52,6 @@ const ROW = 36;
 const HEADER = 32;
 /** The width of a bar's edge that takes one of its dates, in pixels. */
 const GRIP = 6;
-
-function toTime(value: unknown): number | null {
-  if (typeof value !== "string") return null;
-  const time = Date.parse(value.length === 10 ? `${value}T00:00:00Z` : value);
-  return Number.isFinite(time) ? time : null;
-}
 
 function utcDay(date: Date): number {
   return Date.UTC(date.getFullYear(), date.getMonth(), date.getDate());
@@ -86,6 +90,9 @@ export function TimelineView(
   const scrollRef = useRef<HTMLDivElement>(null);
   const namesScrollRef = useRef<HTMLDivElement>(null);
   const dated = props.allColumns.filter(canDateBy);
+  // The rows each row comes after, by a link the view chose (ROADMAP 10).
+  const links = dependencyColumns(props.allColumns, table.table.id);
+  const dependency = dependencyColumn(props.config, links);
   const startColumn = startField(props.config, props.allColumns);
   const endColumn = endField(props.config, props.allColumns);
   const startName = startColumn?.name;
@@ -207,6 +214,36 @@ export function TimelineView(
   }
   const today = min + todayIn * DAY;
   const height = HEADER + virtualizer.getTotalSize();
+  // The lines on screen, as the arrows between them read them.
+  const shownLines = lines.flatMap((line) => {
+    const row = props.rowAt(line.index);
+    return row
+      ? [
+          {
+            row,
+            rowId: row.id,
+            middle: HEADER + line.start + ROW / 2,
+            span: barSpan(row, startName, endName),
+            after: predecessorsOf(row, dependency).map((item) => item.id),
+          },
+        ]
+      : [];
+  });
+  const arrows = dependency
+    ? arrowsBetween({ lines: shownLines, min, max, perDay })
+    : [];
+  // Which rows start before a row they come after has ended, by name.
+  const earlyAfter = new Map<string, string[]>();
+  for (const arrow of arrows) {
+    if (!arrow.early) continue;
+    const [earlierId = "", laterId = ""] = arrow.key.split(">");
+    const earlier = shownLines.find((line) => line.rowId === earlierId);
+    if (!earlier) continue;
+    earlyAfter.set(laterId, [
+      ...(earlyAfter.get(laterId) ?? []),
+      title(earlier.row),
+    ]);
+  }
   const step = (direction: -1 | 1) =>
     props.onFocus(shiftPeriod(props.focus, scale, direction));
   return (
@@ -251,6 +288,15 @@ export function TimelineView(
           allowNone
           onChange={(value) => props.onPatch({ endColumn: value })}
         />
+        {links.length > 0 ? (
+          <ColumnPicker
+            label={t`Comes after`}
+            value={dependency}
+            columns={links}
+            allowNone
+            onChange={(value) => props.onPatch({ dependencyColumn: value })}
+          />
+        ) : null}
         <label className="flex items-center gap-2 text-xs text-muted-foreground">
           {t`Scale`}
           <Select
@@ -342,6 +388,35 @@ export function TimelineView(
                   </span>
                 ))}
               </div>
+              {arrows.length > 0 ? (
+                <svg
+                  aria-hidden
+                  className="pointer-events-none absolute top-0 left-0 z-[1] overflow-visible"
+                  width={width}
+                  height={height}
+                >
+                  {arrows.map((arrow) => (
+                    <g key={arrow.key}>
+                      <path
+                        d={arrowPath(arrow)}
+                        fill="none"
+                        strokeWidth={arrow.early ? 2 : 1.5}
+                        className={
+                          arrow.early
+                            ? "stroke-danger"
+                            : "stroke-muted-foreground"
+                        }
+                      />
+                      <path
+                        d={arrowHead(arrow)}
+                        className={
+                          arrow.early ? "fill-danger" : "fill-muted-foreground"
+                        }
+                      />
+                    </g>
+                  ))}
+                </svg>
+              ) : null}
               {today >= min && today < max ? (
                 <div
                   className="absolute top-8 bottom-0 w-px bg-primary/60"
@@ -361,6 +436,10 @@ export function TimelineView(
                       <Bar
                         row={row}
                         label={title(row)}
+                        after={predecessorsOf(row, dependency).map(
+                          (item) => item.label,
+                        )}
+                        early={earlyAfter.get(row.id) ?? []}
                         startName={startName}
                         endName={endName}
                         min={min}
@@ -400,6 +479,10 @@ type Held = {
 function Bar(props: {
   row: RowItem;
   label: string;
+  /** The rows it comes after, by name (ROADMAP 10). */
+  after: readonly string[];
+  /** Those of them it starts before the end of, by name. */
+  early: readonly string[];
   startName: string;
   endName: string | undefined;
   min: number;
@@ -414,6 +497,7 @@ function Bar(props: {
     seen: Record<string, CellValue>,
   ) => Promise<void>;
 }) {
+  const { t } = useLingui();
   const when = useWhen();
   const [held, setHeld] = useState<Held | null>(null);
   // Drawn where it was dropped until the write is taken or refused.
@@ -457,6 +541,14 @@ function Bar(props: {
   // Its edges are taken by a grip of their own, when both dates move and
   // the bar leaves room to take its middle.
   const grips = props.drag?.end !== undefined && width >= 3 * GRIP;
+  // What it comes after, said in its name, which starts with the one shown.
+  const rows = props.after.join(", ");
+  const fullName =
+    props.after.length === 0
+      ? undefined
+      : props.early.length > 0
+        ? t`${{ name: props.label }}, comes after ${{ rows }}, starts before ${{ early: props.early.join(", ") }} ends`
+        : t`${{ name: props.label }}, comes after ${{ rows }}`;
   const range = () => {
     const first = shown[props.startName as keyof RowItem];
     const last = props.endName
@@ -495,6 +587,7 @@ function Bar(props: {
   return (
     <button
       type="button"
+      aria-label={fullName}
       onClick={() => {
         if (dragged.current) {
           dragged.current = false;
@@ -556,6 +649,7 @@ function Bar(props: {
           cutBefore && "rounded-l-none",
           cutAfter && "rounded-r-none",
           props.tint && `row-tint-${props.tint}`,
+          props.early.length > 0 && "ring-2 ring-danger ring-offset-1",
         )}
         style={{ width }}
       >
