@@ -8,6 +8,17 @@ first.
 
 ## Unreleased
 
+### Breaking
+
+- API and MCP clients: a number field that refused negative numbers now
+  says it by a smallest value of 0, `"min": "0"` in its settings, where it
+  said `"nonNegative": true`; a field made or changed through the API
+  with `nonNegative` is refused, so send `min` instead. A value past a
+  number field's bounds is refused as `value_out_of_range` (its detail
+  says the bounds), no longer `negative_number`. Every field that refused
+  negatives keeps doing so: the upgrade writes it as a smallest value of
+  0, and a base snapshot made before is read the same way.
+
 ### Added
 
 - A group may be given a role on a table, beside its role on a base: in a
@@ -16,6 +27,12 @@ first.
   takes field and row rules as a person's does: one rule for every member,
   "Me" being each of them. A group's page in Administration lists its
   roles on tables.
+- A number field takes a smallest and a largest value, and a short text
+  field a longest length and a pattern (`#` a digit, `A` a letter, `*`
+  either, any other sign itself), in the field's dialog. They are checked
+  on every write, from the grid, a form, the API, MCP or an import; a
+  value already in the table stays until it is changed. The API's
+  document of a base says them.
 
 ## 0.14.1 - 2026-11-28
 

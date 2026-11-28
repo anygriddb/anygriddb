@@ -128,3 +128,14 @@ export function decimalSeries(
     unscaled(start + step * BigInt(index + 1), scale),
   );
 }
+
+/**
+ * Whether `a` is below (-1), equal to (0) or above (1) `b`, exactly: both
+ * canonical decimals (`isDecimalString`), compared as integers at the
+ * scale of the longer fraction, never as floats.
+ */
+export function compareDecimals(a: string, b: string): -1 | 0 | 1 {
+  const scale = Math.max(scaleOf(a), scaleOf(b));
+  const difference = scaled(a, scale) - scaled(b, scale);
+  return difference < 0n ? -1 : difference > 0n ? 1 : 0;
+}

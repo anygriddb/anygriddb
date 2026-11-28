@@ -383,7 +383,7 @@ test.describe("a number field that refuses negatives, then empties", () => {
     page.off("request", count);
     expect(asked).toBe(0);
     await pickFieldType(page, dialog, "Number");
-    await dialog.getByLabel("Refuse negative numbers").check();
+    await dialog.getByLabel("Smallest value").fill("0");
     await dialog.getByRole("button", { name: "Create field" }).click();
     await expect(dialog).toBeHidden();
 
@@ -456,6 +456,50 @@ test.describe("a number field that refuses negatives, then empties", () => {
     await page.reload();
     await expect(cells.first()).toContainText("5");
 
+    // A short text's pattern (ADR 0141): the dialog says a pattern it
+    // cannot read, where it is typed; the grid marks a value that does not
+    // fit, and the new row's dialog says the form the field takes.
+    await page.getByRole("button", { name: "Add a field" }).click();
+    await dialog.getByLabel("Field name").fill("Code");
+    await dialog.getByLabel("Pattern").fill("AA-####\\");
+    await dialog.getByRole("button", { name: "Create field" }).click();
+    await expect(
+      dialog.getByText("End the pattern on something other than a lone \\."),
+    ).toBeVisible();
+    await expect(dialog.getByLabel("Pattern")).toBeFocused();
+    expect(await accessibilityViolations(page)).toEqual([]);
+    await dialog.getByLabel("Pattern").fill("AA-####");
+    await dialog.getByRole("button", { name: "Create field" }).click();
+    await expect(dialog).toBeHidden();
+    const code = page.locator('[role="gridcell"][data-column="code"]').first();
+    await code.click();
+    await page.keyboard.type("fr 12");
+    await expect(page.getByRole("textbox", { name: "Code" })).toHaveAttribute(
+      "aria-invalid",
+      "true",
+    );
+    await page.keyboard.press("Escape");
+    await code.click();
+    const coded = page.waitForResponse(
+      (response) => response.url().includes("rows.updateMany") && response.ok(),
+    );
+    await page.keyboard.type("fr-0012");
+    await page.keyboard.press("Enter");
+    await coded;
+    await expect(code).toContainText("fr-0012");
+    await page.getByRole("button", { name: "Add a row", exact: true }).click();
+    await newRow.getByLabel("Stock").fill("1");
+    await newRow.getByLabel("Code").fill("FR-12");
+    await newRow.getByRole("button", { name: "Add the row" }).click();
+    await expect(
+      newRow.getByText("“Code” takes the form AA-####"),
+    ).toBeVisible();
+    await expect(newRow.getByLabel("Code")).toBeFocused();
+    expect(await accessibilityViolations(page)).toEqual([]);
+    await newRow.getByLabel("Code").fill("FR-0013");
+    await newRow.getByRole("button", { name: "Add the row" }).click();
+    await expect(newRow).toBeHidden();
+
     // The row's id as a field (ADR 0063): each row shows the id the API
     // takes, and no editor opens on it.
     await page.getByRole("button", { name: "Add a field" }).click();
@@ -464,7 +508,7 @@ test.describe("a number field that refuses negatives, then empties", () => {
     await dialog.getByRole("button", { name: "Create field" }).click();
     await expect(dialog).toBeHidden();
     const refs = page.locator('[role="gridcell"][data-column="ref"]');
-    await expect(refs).toHaveCount(2);
+    await expect(refs).toHaveCount(3);
     await expect(refs.first()).toContainText(
       /[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[0-9a-f]{4}-[0-9a-f]{12}/,
     );

@@ -1,9 +1,11 @@
 import {
   BOOLEAN_APPEARANCES,
   canBeRequired,
+  compareDecimals,
   type FieldType,
   type FilterGroup,
   isFieldType,
+  isMask,
   isPrimaryType,
   isTimeZone,
   type LinkSelection,
@@ -12,6 +14,7 @@ import {
   SIDE_FIELD_TYPES,
   SINGLE_SELECT_APPEARANCES,
   TEXT_APPEARANCES,
+  toDecimalString,
 } from "@anygriddb/core";
 import type { RouterInputs } from "../../lib/trpc";
 import type { CatalogColumn, CatalogTable } from "../../lib/types";
@@ -57,7 +60,13 @@ export type FieldDraft = {
   precision: string;
   numberStyle: string;
   currency: string;
-  nonNegative: boolean;
+  /** A number's smallest and largest value, as typed; empty for none (ADR 0141). */
+  numberMin: string;
+  numberMax: string;
+  /** A short text's longest length, as typed; empty for none. */
+  textMaxLength: string;
+  /** A short text's mask (`#` a digit, `A` a letter, `*` either). */
+  textMask: string;
   dateFormat: string;
   ratingMax: string;
   ratingIcon: string;
@@ -171,7 +180,11 @@ export function draftOf(
     precision: number.precision === undefined ? "" : String(number.precision),
     numberStyle: number.style ?? "decimal",
     currency: number.currency ?? "EUR",
-    nonNegative: config.nonNegative === true,
+    numberMin: typeof config.min === "string" ? config.min : "",
+    numberMax: typeof config.max === "string" ? config.max : "",
+    textMaxLength:
+      typeof config.maxLength === "number" ? String(config.maxLength) : "",
+    textMask: typeof config.mask === "string" ? config.mask : "",
     dateFormat: date.format ?? "eu",
     ratingMax: String((config.ratingMax as number | undefined) ?? 5),
     ratingIcon: (config.ratingIcon as string | undefined) ?? "star",
@@ -300,6 +313,26 @@ const drawn: Settings = (draft) => {
 const dated: Settings = (draft) => ({ date: { format: draft.dateFormat } });
 
 /**
+ * A bound as typed, as the exact decimal the server keeps: a comma may
+ * stand for the decimal point. `null` when the box is empty, undefined
+ * when it holds no number.
+ */
+export function typedBound(text: string): string | null | undefined {
+  const trimmed = text.trim();
+  if (trimmed === "") return null;
+  const written =
+    trimmed.includes(",") && !trimmed.includes(".")
+      ? trimmed.replace(",", ".")
+      : trimmed;
+  return toDecimalString(written);
+}
+
+function boundOf(key: "min" | "max", text: string): Record<string, string> {
+  const bound = typedBound(text);
+  return typeof bound === "string" ? { [key]: bound } : {};
+}
+
+/**
  * The settings of each type, as the server keeps them: one entry per type,
  * which the compiler refuses to leave out. `stored` is what the field holds
  * now: a text's default, given through the API, has no control here and
@@ -311,6 +344,10 @@ const SETTINGS: Record<FieldType, Settings> = {
       ? { defaultValue: stored.defaultValue }
       : {}),
     ...drawn(draft, stored),
+    ...(draft.textMaxLength.trim()
+      ? { maxLength: Number(draft.textMaxLength.trim()) }
+      : {}),
+    ...(draft.textMask ? { mask: draft.textMask } : {}),
   }),
   long_text: NO_SETTINGS,
   number: (draft) => ({
@@ -319,7 +356,8 @@ const SETTINGS: Record<FieldType, Settings> = {
       style: draft.numberStyle,
       ...(draft.numberStyle === "currency" ? { currency: draft.currency } : {}),
     },
-    ...(draft.nonNegative ? { nonNegative: true } : {}),
+    ...boundOf("min", draft.numberMin),
+    ...boundOf("max", draft.numberMax),
   }),
   boolean: (draft) => appearanceAmong(draft, BOOLEAN_APPEARANCES),
   date: dated,
@@ -616,7 +654,15 @@ export function fieldRequest(
 }
 
 /** A part of the field dialog that still lacks what the type needs. */
-export type DraftSpot = "options" | "relation" | "target" | "buttonUrl";
+export type DraftSpot =
+  | "options"
+  | "relation"
+  | "target"
+  | "buttonUrl"
+  | "numberMin"
+  | "numberMax"
+  | "textMaxLength"
+  | "textMask";
 
 /** The control each part is answered in, which takes the keyboard. */
 export const DRAFT_SPOT_CONTROLS: Record<DraftSpot, string> = {
@@ -624,6 +670,10 @@ export const DRAFT_SPOT_CONTROLS: Record<DraftSpot, string> = {
   relation: "lookup-relation",
   target: "lookup-target",
   buttonUrl: "button-url",
+  numberMin: "number-min",
+  numberMax: "number-max",
+  textMaxLength: "text-max-length",
+  textMask: "text-mask",
 };
 
 type Problems = (draft: FieldDraft, isNew: boolean) => DraftSpot[];
@@ -643,11 +693,40 @@ const linkMissing: Problems = (draft, isNew) =>
       ]
     : [];
 
+/** A number's bounds: each a number, the largest not below the smallest. */
+const boundsWrong: Problems = (draft) => {
+  const min = typedBound(draft.numberMin);
+  const max = typedBound(draft.numberMax);
+  return [
+    ...(min === undefined ? (["numberMin"] as const) : []),
+    ...(max === undefined ||
+    (typeof min === "string" &&
+      typeof max === "string" &&
+      compareDecimals(min, max) > 0)
+      ? (["numberMax"] as const)
+      : []),
+  ];
+};
+
+/** A short text's length is a whole number the field may hold, its mask one it reads. */
+const textRulesWrong: Problems = (draft) => {
+  const length = draft.textMaxLength.trim();
+  return [
+    ...(length !== "" &&
+    !(/^\d+$/.test(length) && Number(length) >= 1 && Number(length) <= 4_000)
+      ? (["textMaxLength"] as const)
+      : []),
+    ...(draft.textMask !== "" && !isMask(draft.textMask)
+      ? (["textMask"] as const)
+      : []),
+  ];
+};
+
 /** What each type still needs before the server makes it: one entry each. */
 const PROBLEMS: Record<FieldType, Problems> = {
-  text: NONE,
+  text: textRulesWrong,
   long_text: NONE,
-  number: NONE,
+  number: boundsWrong,
   boolean: NONE,
   date: NONE,
   datetime: NONE,
@@ -685,7 +764,9 @@ const PROBLEMS: Record<FieldType, Problems> = {
  * What the dialog still needs before the server can make the field, in
  * the order the dialog shows it: a list without options, a lookup or a
  * rollup without its link or the field it reads, a button that opens no
- * address. The server would refuse each without saying which part.
+ * address, a bound that is no number or a largest below the smallest, a
+ * length or a mask the field cannot take. The server would refuse each
+ * without saying which part.
  */
 export function draftProblems(draft: FieldDraft, isNew: boolean): DraftSpot[] {
   return isFieldType(draft.fieldType)

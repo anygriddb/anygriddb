@@ -1,5 +1,6 @@
 import {
   BOOLEAN_APPEARANCES,
+  MAX_MASK_LENGTH,
   MULTI_SELECT_APPEARANCES,
   OPTION_COLORS,
   RATING_ICONS,
@@ -16,6 +17,7 @@ import {
   type FieldDraft,
   type FieldOption,
   moveOption,
+  typedBound,
 } from "./field-draft";
 import { OPTION_COLOR_NAMES, OptionColorButton } from "./option-color";
 
@@ -289,7 +291,7 @@ export function CheckboxSettings({ draft, set }: SettingsProps) {
 }
 
 /** How a number is written, and whether it may go under zero. */
-export function NumberSettings({ draft, set }: SettingsProps) {
+export function NumberSettings({ draft, set, problems }: SettingsProps) {
   const { t } = useLingui();
   return (
     <>
@@ -335,19 +337,120 @@ export function NumberSettings({ draft, set }: SettingsProps) {
           </div>
         ) : null}
       </div>
-      <div className="flex flex-col gap-1">
-        <label className="flex items-center gap-2 text-sm">
-          <Checkbox
-            checked={draft.nonNegative}
-            onChange={(event) => set({ nonNegative: event.target.checked })}
+      <div className="grid grid-cols-2 gap-2">
+        <div className="flex flex-col gap-1">
+          <Label htmlFor={DRAFT_SPOT_CONTROLS.numberMin}>
+            {t`Smallest value`}
+          </Label>
+          <Input
+            id={DRAFT_SPOT_CONTROLS.numberMin}
+            inputMode="decimal"
+            placeholder={t`None`}
+            value={draft.numberMin}
+            onChange={(event) => set({ numberMin: event.target.value })}
+            {...missingProps(
+              DRAFT_SPOT_CONTROLS.numberMin,
+              problems?.has("numberMin") === true,
+            )}
           />
-          {t`Refuse negative numbers`}
-        </label>
-        <p className="text-xs text-muted-foreground">
-          {t`Checked on every change, wherever it comes from. Negative values already in the table stay until they are changed.`}
-        </p>
+          {problems?.has("numberMin") ? (
+            <Missing
+              control={DRAFT_SPOT_CONTROLS.numberMin}
+              text={t`Write a number, or leave it empty.`}
+            />
+          ) : null}
+        </div>
+        <div className="flex flex-col gap-1">
+          <Label htmlFor={DRAFT_SPOT_CONTROLS.numberMax}>
+            {t`Largest value`}
+          </Label>
+          <Input
+            id={DRAFT_SPOT_CONTROLS.numberMax}
+            inputMode="decimal"
+            placeholder={t`None`}
+            value={draft.numberMax}
+            onChange={(event) => set({ numberMax: event.target.value })}
+            {...missingProps(
+              DRAFT_SPOT_CONTROLS.numberMax,
+              problems?.has("numberMax") === true,
+            )}
+          />
+          {problems?.has("numberMax") ? (
+            <Missing
+              control={DRAFT_SPOT_CONTROLS.numberMax}
+              text={
+                typedBound(draft.numberMax) === undefined
+                  ? t`Write a number, or leave it empty.`
+                  : t`The largest value is below the smallest.`
+              }
+            />
+          ) : null}
+        </div>
       </div>
+      <p className="text-xs text-muted-foreground">
+        {t`Both included. Checked on every change, wherever it comes from; values already in the table stay until they are changed.`}
+      </p>
     </>
+  );
+}
+
+/**
+ * What a short text takes (ADR 0141): its longest length, and a mask its
+ * whole value fits.
+ */
+export function TextRulesSettings({ draft, set, problems }: SettingsProps) {
+  const { t } = useLingui();
+  return (
+    <div className="flex flex-col gap-1">
+      <div className="grid grid-cols-2 gap-2">
+        <div className="flex flex-col gap-1">
+          <Label htmlFor={DRAFT_SPOT_CONTROLS.textMaxLength}>
+            {t`Most characters`}
+          </Label>
+          <Input
+            id={DRAFT_SPOT_CONTROLS.textMaxLength}
+            inputMode="numeric"
+            placeholder={t`None`}
+            value={draft.textMaxLength}
+            onChange={(event) => set({ textMaxLength: event.target.value })}
+            {...missingProps(
+              DRAFT_SPOT_CONTROLS.textMaxLength,
+              problems?.has("textMaxLength") === true,
+            )}
+          />
+          {problems?.has("textMaxLength") ? (
+            <Missing
+              control={DRAFT_SPOT_CONTROLS.textMaxLength}
+              text={t`From 1 to 4,000, or leave it empty.`}
+            />
+          ) : null}
+        </div>
+        <div className="flex flex-col gap-1">
+          <Label htmlFor={DRAFT_SPOT_CONTROLS.textMask}>{t`Pattern`}</Label>
+          <Input
+            id={DRAFT_SPOT_CONTROLS.textMask}
+            className="font-mono"
+            placeholder="AA-####"
+            maxLength={MAX_MASK_LENGTH}
+            value={draft.textMask}
+            onChange={(event) => set({ textMask: event.target.value })}
+            {...missingProps(
+              DRAFT_SPOT_CONTROLS.textMask,
+              problems?.has("textMask") === true,
+            )}
+          />
+          {problems?.has("textMask") ? (
+            <Missing
+              control={DRAFT_SPOT_CONTROLS.textMask}
+              text={t`End the pattern on something other than a lone \\.`}
+            />
+          ) : null}
+        </div>
+      </div>
+      <p className="text-xs text-muted-foreground">
+        {t`In a pattern, # is a digit, A a letter from A to Z, * either, \\ makes the next sign itself, and every other sign is itself. Checked on every change, wherever it comes from; values already in the table stay until they are changed.`}
+      </p>
+    </div>
   );
 }
 

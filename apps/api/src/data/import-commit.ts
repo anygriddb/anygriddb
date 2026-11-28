@@ -14,6 +14,7 @@ import {
   MAX_READ_LIMIT,
   OPTION_COLORS,
   readCellValue,
+  refusalDetail,
   resolveChangeReason,
   type SelectOption,
   type WriteColumn,
@@ -726,6 +727,7 @@ export async function importIntoTable(
         });
         if ("refused" in reading) {
           const { refused } = reading;
+          const detail = refusalDetail(refused);
           ok = false;
           note({
             line: row.line,
@@ -733,9 +735,7 @@ export async function importIntoTable(
             value: raw.slice(0, 80),
             message: "Invalid value",
             ...(refused.code === "invalid_cell" ? {} : { code: refused.code }),
-            ...(refused.code === "value_too_long"
-              ? { detail: String(refused.limit) }
-              : {}),
+            ...(detail === undefined ? {} : { detail }),
           });
           continue;
         }

@@ -52,6 +52,10 @@ export function useRefusedText(): (
       switch (refused?.code) {
         case "value_too_long":
           return t`“${{ field: label }}” holds at most ${{ limit: refused.limit }} characters`;
+        case "value_out_of_range":
+          return t`“${{ field: label }}” takes ${{ bounds: refused.bounds }}`;
+        case "value_mismatch":
+          return t`“${{ field: label }}” takes the form ${{ mask: refused.mask }}`;
         case "ambiguous_number":
           return t`“${{ field: label }}”: this number reads two ways. Write it without a thousands separator`;
         case "ambiguous_point":

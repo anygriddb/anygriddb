@@ -38,6 +38,55 @@ const columns = [
 ] as never;
 
 describe("buildOpenApi", () => {
+  it("says a field's own rules: a text's length and mask, a number's bounds", () => {
+    const document = buildOpenApi(
+      { id: "base-1", name: "Ward" },
+      [
+        {
+          id: "11111111-2222-4333-8444-555555555555",
+          name: "Patients",
+          columns: [
+            {
+              name: "code",
+              label: "Code",
+              fieldType: "text",
+              kind: "text",
+              config: { mask: "AA-####", maxLength: 7 },
+              description: null,
+            },
+            {
+              name: "age",
+              label: "Age",
+              fieldType: "number",
+              kind: "number",
+              config: { min: "0", max: "130" },
+              description: null,
+            },
+            {
+              name: "note",
+              label: "Note",
+              fieldType: "text",
+              kind: "text",
+              config: {},
+              description: null,
+            },
+          ] as never,
+        },
+      ],
+      "https://grid.example.org",
+    );
+    const { properties } = document.components.schemas[
+      "Table_11111111222243338444555555555555"
+    ] as { properties: Record<string, Record<string, unknown>> };
+    expect(properties.code).toMatchObject({
+      maxLength: 7,
+      pattern: "^[A-Za-z][A-Za-z]\\-[0-9][0-9][0-9][0-9]$",
+    });
+    expect(properties.age?.description).toMatch(/^Age\. .*Takes 0 – 130$/);
+    expect(properties.note).not.toHaveProperty("pattern");
+    expect(properties.note).not.toHaveProperty("maxLength");
+  });
+
   it("describes each table's records with typed, read-only, and link fields", () => {
     const document = buildOpenApi(
       { id: "base-1", name: "CRM" },

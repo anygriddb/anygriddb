@@ -1,7 +1,10 @@
 import {
   apiValueNote,
   apiValueSchema,
+  boundsText,
+  type ColumnConfig,
   ERROR_CODES,
+  maskPattern,
   takesApiWrites,
 } from "@anygriddb/core";
 import { publicColumns } from "../trpc/catalog-shared.js";
@@ -42,16 +45,33 @@ function fieldSchema(
   const options = (
     column.config as { options?: Array<{ name: string }> }
   ).options?.map((option) => option.name);
-  const description = column.description ?? column.label;
-  const note = apiValueNote(column.fieldType);
+  const rules = column.config as Pick<
+    ColumnConfig,
+    "min" | "max" | "maxLength" | "mask"
+  >;
+  const bounded =
+    column.fieldType === "number" &&
+    (rules.min !== undefined || rules.max !== undefined);
+  const notes = [
+    column.description ?? column.label,
+    apiValueNote(column.fieldType),
+    // A decimal travels as text: its bounds are said, not typed (ADR 0141).
+    bounded ? `Takes ${boundsText(rules)}` : undefined,
+  ].filter((part) => part !== undefined);
   return {
-    description: note === undefined ? description : `${description}. ${note}`,
+    description: notes.join(". "),
     ...(takesApiWrites(column.fieldType) ? {} : { readOnly: true }),
     ...apiValueSchema({
       fieldType: column.fieldType,
       kind: column.kind,
       ...(options ? { options } : {}),
     }),
+    ...(column.fieldType === "text" && rules.maxLength !== undefined
+      ? { maxLength: rules.maxLength }
+      : {}),
+    ...(column.fieldType === "text" && rules.mask !== undefined
+      ? { pattern: maskPattern(rules.mask) }
+      : {}),
   };
 }
 

@@ -84,7 +84,8 @@ describe("draftOf", () => {
         requireReason: true,
         config: {
           number: { precision: 2, style: "currency", currency: "USD" },
-          nonNegative: true,
+          min: "0",
+          max: "999.99",
         },
       }),
       table,
@@ -98,7 +99,8 @@ describe("draftOf", () => {
       precision: "2",
       numberStyle: "currency",
       currency: "USD",
-      nonNegative: true,
+      numberMin: "0",
+      numberMax: "999.99",
     });
     // A link, whichever its kind, opens as a link; an option keeps the
     // name it was stored under.
@@ -192,14 +194,21 @@ describe("configOf", () => {
           numberStyle: "currency",
           precision: "2",
           currency: "USD",
-          nonNegative: true,
+          numberMin: " 0,5 ",
+          numberMax: "",
         }),
         {},
       ),
     ).toEqual({
       number: { precision: 2, style: "currency", currency: "USD" },
-      nonNegative: true,
+      min: "0.5",
     });
+    expect(
+      configOf(
+        fresh({ fieldType: "text", textMaxLength: "7", textMask: "AA-####" }),
+        {},
+      ),
+    ).toEqual({ maxLength: 7, mask: "AA-####" });
     expect(configOf(fresh({ fieldType: "number" }), {})).toEqual({
       number: { style: "decimal" },
     });
@@ -640,6 +649,30 @@ describe("draftProblems", () => {
         true,
       ),
     ).toEqual([]);
+  });
+
+  it("asks a number's bounds to be numbers, the largest not below the smallest", () => {
+    const number = (numberMin: string, numberMax: string) =>
+      draftProblems(fresh({ fieldType: "number", numberMin, numberMax }), true);
+    expect(number("", "")).toEqual([]);
+    expect(number("0", "10,5")).toEqual([]);
+    expect(number("5", "5")).toEqual([]);
+    expect(number("ten", "")).toEqual(["numberMin"]);
+    expect(number("", "1.2.3")).toEqual(["numberMax"]);
+    expect(number("10", "9.99")).toEqual(["numberMax"]);
+  });
+
+  it("asks a short text's length and mask to be ones the field takes", () => {
+    const text = (textMaxLength: string, textMask: string) =>
+      draftProblems(
+        fresh({ fieldType: "text", textMaxLength, textMask }),
+        true,
+      );
+    expect(text("40", "AA-####")).toEqual([]);
+    expect(text("0", "")).toEqual(["textMaxLength"]);
+    expect(text("4001", "")).toEqual(["textMaxLength"]);
+    expect(text("1.5", "")).toEqual(["textMaxLength"]);
+    expect(text("", "AA\\")).toEqual(["textMask"]);
   });
 
   it("names each part still missing, in the dialog's order", () => {
