@@ -29,6 +29,7 @@ import { GroupRoles } from "./group-roles";
 import { BaseLinks } from "./base-links";
 import { RoleOptions, useRoleChoiceLabel } from "./role-options";
 import { RestorePoints } from "./restore-points";
+import { RoleEnd } from "./role-end";
 import { useRoleLabel } from "./role-label";
 import { TableRulesPanel } from "./table-rules-panel";
 import { WebhooksPanel } from "./webhooks-panel";
@@ -240,6 +241,26 @@ export function BaseSettings({ baseId }: { baseId: string }) {
                     ) : null}
                     <RoleOptions />
                   </Select>
+                  {member.direct &&
+                  member.given !== null &&
+                  member.given !== "owner" ? (
+                    <RoleEnd
+                      target={{
+                        scope: "base",
+                        scopeId: baseId,
+                        userId: member.userId,
+                      }}
+                      endsAt={member.endsAt}
+                      name={member.displayName}
+                      onChanged={() =>
+                        queryClient.invalidateQueries({
+                          queryKey: api.catalog.members.queryKey({ baseId }),
+                        })
+                      }
+                    />
+                  ) : (
+                    <span className="w-32" aria-hidden />
+                  )}
                   <Tooltip content={t`Remove ${{ name: member.displayName }}`}>
                     <Button
                       size="icon"
@@ -601,20 +622,23 @@ function TableAccess({
     (group) => !given.has(group.id),
   );
 
+  const refreshAccess = () =>
+    Promise.all([
+      queryClient.invalidateQueries({
+        queryKey: api.catalog.tableAccess.queryKey({ tableId }),
+      }),
+      queryClient.invalidateQueries({
+        queryKey: api.catalog.tableAcl.queryKey({ tableId }),
+      }),
+    ]);
+
   async function setRole(
     subject: { userId: string } | { groupId: string },
     role: string | null,
   ): Promise<boolean> {
     try {
       await trpc.catalog.setTableRole.mutate({ tableId, ...subject, role });
-      await Promise.all([
-        queryClient.invalidateQueries({
-          queryKey: api.catalog.tableAccess.queryKey({ tableId }),
-        }),
-        queryClient.invalidateQueries({
-          queryKey: api.catalog.tableAcl.queryKey({ tableId }),
-        }),
-      ]);
+      await refreshAccess();
       return true;
     } catch (cause) {
       toast.error(errorText(cause));
@@ -650,6 +674,20 @@ function TableAccess({
               </option>
               <RoleOptions />
             </Select>
+            {person.tableGiven !== null && person.tableGiven !== "owner" ? (
+              <RoleEnd
+                target={{
+                  scope: "table",
+                  scopeId: tableId,
+                  userId: person.userId,
+                }}
+                endsAt={person.tableEndsAt}
+                name={person.displayName}
+                onChanged={refreshAccess}
+              />
+            ) : (
+              <span className="w-32" aria-hidden />
+            )}
           </li>
         ))}
         {reach.groups.map((group) => (
@@ -671,6 +709,20 @@ function TableAccess({
             >
               <RoleOptions />
             </Select>
+            {group.tableGiven !== "owner" ? (
+              <RoleEnd
+                target={{
+                  scope: "table",
+                  scopeId: tableId,
+                  groupId: group.groupId,
+                }}
+                endsAt={group.tableEndsAt}
+                name={group.displayName}
+                onChanged={refreshAccess}
+              />
+            ) : (
+              <span className="w-32" aria-hidden />
+            )}
             <Button
               size="icon"
               variant="ghost"

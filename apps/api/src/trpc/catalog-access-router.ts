@@ -9,6 +9,7 @@ import {
   checkFilter,
   filterAttributes,
   givenRoleSchema,
+  roleEndInputSchema,
   clearTableAclInputSchema,
   effectiveTableRole,
   getTableAclInputSchema,
@@ -55,6 +56,7 @@ import {
 import { listGroupRoles, listGroups, setGroupRole } from "../scim/groups.js";
 import { readPage, safeTimeZone, visibleFields } from "../data/rows.js";
 import { liveColumnNames } from "../data/live.js";
+import { setRoleEnd } from "../data/role-ends.js";
 import {
   assertMayTouch,
   givenBy,
@@ -259,6 +261,53 @@ export const catalogAccessProcedures = {
         await setGroupRole(ctx.db, user.id, {
           ...input,
           role: input.role ? await givenBy(ctx.db, role, input.role) : null,
+        });
+        return { ok: true as const };
+      }),
+    ),
+  /**
+   * When a person's or a group's own role on the base or one of its tables
+   * ends, or no end (ADR 0146): set by whoever could give that role.
+   */
+  setRoleEnd: asking({ asks: ["members.manage"] })
+    .input(roleEndInputSchema)
+    .mutation(({ ctx, input }) =>
+      handle(ctx, async () => {
+        const subject = aclSubjectOf(input);
+        let actorId: string;
+        if (input.scope === "base") {
+          const { user, role } = await guardBase(
+            ctx,
+            input.scopeId,
+            "members.manage",
+          );
+          assertMayTouch(
+            role,
+            "userId" in subject
+              ? await ownGiven(ctx.db, subject.userId, "base", input.scopeId)
+              : await groupGiven(
+                  ctx.db,
+                  subject.groupId,
+                  "base",
+                  input.scopeId,
+                ),
+          );
+          actorId = user.id;
+        } else {
+          const { user, table, role } = await guardTable(
+            ctx,
+            input.scopeId,
+            "members.manage",
+          );
+          await guardBase(ctx, table.baseId, "members.manage");
+          await assertMayTouchOnTable(ctx, role, table.id, subject);
+          actorId = user.id;
+        }
+        await setRoleEnd(ctx.db, actorId, {
+          scope: input.scope,
+          scopeId: input.scopeId,
+          subject,
+          endsAt: input.endsAt ? new Date(input.endsAt) : null,
         });
         return { ok: true as const };
       }),

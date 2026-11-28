@@ -10,6 +10,13 @@ first.
 
 ### Added
 
+- A role on a base or a table, a person's or a group's, may be given
+  until a day: in the base's settings, "No end" beside the role opens
+  its last day. From the next day it gives nothing, and the hourly purge
+  removes it, written to the change trail as ended. An owner's role does
+  not end, and a role keeps its end when it changes. Restore points and
+  copies of a base keep it, and a role that ended since is not given
+  back (ADR 0146).
 - A rule may give a field on some of its rows only: "Diagnosis, read
   only, on the rows where Ward is the reader's Ward" lets a ward's nurses
   read every patient and the diagnosis of their own ward's alone. In a

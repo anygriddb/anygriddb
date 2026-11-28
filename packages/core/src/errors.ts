@@ -118,6 +118,12 @@ export const ERRORS = {
   invalid_permissions: [BAD, "Invalid permissions"],
   /** Nobody gives a role that gives more than they hold. */
   role_beyond_reach: [403, "Role beyond the giver's own"],
+  /** A base keeps an owner (ADR 0146). */
+  owner_never_ends: [BAD, "An owner's role does not end"],
+  /** A role's end is a day to come. */
+  end_in_past: [BAD, "The end is past"],
+  /** No role of their own here, to end. */
+  role_not_given: [404, "No role given here"],
   /**
    * A rule narrows only the role it comes with (ADR 0131): it needs a
    * role given on its table, and none on the base that gives it whole.

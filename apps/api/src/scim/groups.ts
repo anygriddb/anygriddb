@@ -255,6 +255,7 @@ export async function listGroupRoles(db: Database, baseId: string) {
       "g.id as groupId",
       "g.displayName",
       "r.role",
+      "r.endsAt",
       ...MADE_COLUMNS,
       sql<number>`(select count(*)::int from group_members gm where gm.group_id = g.id)`.as(
         "members",
@@ -262,6 +263,13 @@ export async function listGroupRoles(db: Database, baseId: string) {
     ])
     .where("r.scope", "=", "base")
     .where("r.scopeId", "=", baseId)
+    // A role that has ended gives nothing, and is no longer listed.
+    .where((eb) =>
+      eb.or([
+        eb("r.endsAt", "is", null),
+        eb("r.endsAt", ">", sql<Date>`now()`),
+      ]),
+    )
     .orderBy(sql`lower(g.display_name)`)
     .execute();
   return rows.map((row) => ({
@@ -269,6 +277,8 @@ export async function listGroupRoles(db: Database, baseId: string) {
     displayName: row.displayName,
     members: row.members,
     role: givenOf(row),
+    /** When the group's role on the base ends (ADR 0146), or null. */
+    endsAt: row.endsAt ? new Date(row.endsAt).toISOString() : null,
   }));
 }
 
@@ -309,7 +319,12 @@ export async function setGroupRole(
       if (before) {
         await tx
           .updateTable("attributions")
-          .set({ ...given, givenBy: actorId })
+          .set({
+            ...given,
+            givenBy: actorId,
+            // A role changed keeps its end; an owner's has none.
+            ...(input.role === "owner" ? { endsAt: null } : {}),
+          })
           .where("id", "=", before.id)
           .execute();
       } else {

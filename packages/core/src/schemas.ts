@@ -536,6 +536,21 @@ export type AuditRole = Grant;
  */
 export const givenRoleSchema = z.union([z.enum(ROLES), z.uuid()]);
 
+/**
+ * When a role given on a base or a table ends (ADR 0146): the instant it
+ * stops giving anything, or null for no end. A person's or a group's.
+ */
+const roleEndShape = {
+  scope: z.enum(["base", "table"]),
+  scopeId: z.uuid(),
+  endsAt: z.iso.datetime({ offset: true }).nullable(),
+};
+export const roleEndInputSchema = z.union([
+  z.object({ ...roleEndShape, userId: z.uuid() }).strict(),
+  z.object({ ...roleEndShape, groupId: z.uuid() }).strict(),
+]);
+export type RoleEndInput = z.infer<typeof roleEndInputSchema>;
+
 /** A role an administrator makes: its name and the permissions it gives. */
 export const madeRoleInputSchema = z.object({
   name: z.string().trim().min(1).max(60),

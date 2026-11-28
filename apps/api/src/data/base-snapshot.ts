@@ -210,13 +210,14 @@ async function baseMembers(db: Database, baseId: string) {
     .selectFrom("attributions as a")
     .innerJoin("users as u", "u.id", "a.userId")
     .leftJoin("madeRoles as m", "m.id", "a.madeRoleId")
-    .select(["u.email", "a.role", ...MADE_COLUMNS])
+    .select(["u.email", "a.role", "a.endsAt", ...MADE_COLUMNS])
     .where("a.scope", "=", "base")
     .where("a.scopeId", "=", baseId)
+    .where(liveAttribution)
     .execute();
   return rows.flatMap((row) => {
     const role = snapshotRoleOf(givenOf(row));
-    return role ? [{ email: row.email, role }] : [];
+    return role ? [{ email: row.email, role, ...untilOf(row.endsAt) }] : [];
   });
 }
 
@@ -226,6 +227,18 @@ function snapshotRoleOf(given: Given | null): SnapshotRole | null {
   if (typeof given === "string") return given;
   if (given.permissions.length === 0) return null;
   return { name: given.name, permissions: [...given.permissions] };
+}
+
+/** A role's end as a snapshot keeps it, and none when it has none. */
+function untilOf(endsAt: Date | string | null): { until?: string } {
+  return endsAt ? { until: new Date(endsAt).toISOString() } : {};
+}
+
+/** A kept end, or none once it has come: a role that ended is not given back. */
+function endOf(until: string | undefined): Date | null | "ended" {
+  if (!until) return null;
+  const end = new Date(until);
+  return end.getTime() <= Date.now() ? "ended" : end;
 }
 
 function madeKey(role: { name: string; permissions: readonly string[] }) {
@@ -293,16 +306,19 @@ async function tablesAccess(
       "a.role",
       "a.rowFilter",
       "a.fieldAccess",
+      "a.endsAt",
       ...MADE_COLUMNS,
     ])
     .where("a.scope", "=", "table")
     .where("a.scopeId", "in", tableIds)
+    .where(liveAttribution)
     .execute();
   for (const row of roles) {
     const role = snapshotRoleOf(givenOf(row));
     if (!role || row.tableId === null) continue;
     const current = entry(row.tableId, row.email);
     current.role = role;
+    if (row.endsAt) current.until = new Date(row.endsAt).toISOString();
     const rows = rowsOf(row.rowFilter);
     if (rows) current.rowFilter = rows;
     const columns = aclColumnsOf(row.fieldAccess);
@@ -339,6 +355,7 @@ async function keptGroups(
       "a.role",
       "a.rowFilter",
       "a.fieldAccess",
+      "a.endsAt",
       ...MADE_COLUMNS,
     ])
     .where("a.groupId", "is not", null)
@@ -363,7 +380,7 @@ async function keptGroups(
     const role = snapshotRoleOf(givenOf(row));
     if (!role || row.groupId === null || row.scopeId === null) continue;
     if (row.scope === "base") {
-      kept.base.push({ group: row.groupId, role });
+      kept.base.push({ group: row.groupId, role, ...untilOf(row.endsAt) });
       continue;
     }
     const rules = rowsOf(row.rowFilter);
@@ -372,6 +389,7 @@ async function keptGroups(
     list.push({
       group: row.groupId,
       role,
+      ...untilOf(row.endsAt),
       ...(rules ? { rowFilter: rules } : {}),
       ...(columns ? { columns } : {}),
     });
@@ -1252,6 +1270,9 @@ async function madeRolesOf(
   return { made, unmatched };
 }
 
+/** A role given back, and when it ends (ADR 0146). */
+type HeldRole = GivenColumns & { endsAt: Date | null };
+
 /** Who gets their access back on the new base: its importer has it all. */
 type Restoring = {
   userId: string;
@@ -1294,20 +1315,23 @@ async function restoreMembers(
   restoring: Restoring,
   report: SnapshotImportReport,
   ruled: ReadonlySet<string>,
-): Promise<Map<string, GivenColumns>> {
-  const held = new Map<string, GivenColumns>();
-  const grants = new Map<string, GivenColumns>();
+): Promise<Map<string, HeldRole>> {
+  const held = new Map<string, HeldRole>();
+  const grants = new Map<string, HeldRole>();
   for (const member of members) {
     const email = member.email.toLowerCase();
     const id = restoring.accounts.get(email);
     const given = givenBack(member.role, restoring.made);
+    const endsAt = endOf(member.until);
     if (!id) report.membersMissing += 1;
     else if (restoring.keep && !restoring.keep.has(id)) report.membersLeft += 1;
     else if (id === restoring.userId) continue;
+    // A role that has ended since is not given back (ADR 0146).
+    else if (endsAt === "ended") report.membersLeft += 1;
     else if (!given || restoring.unmatched.has(email)) {
       report.membersRoleMissing += 1;
-    } else if (ruled.has(email)) held.set(id, given);
-    else grants.set(id, given);
+    } else if (ruled.has(email)) held.set(id, { ...given, endsAt });
+    else grants.set(id, { ...given, endsAt });
   }
   report.members += grants.size + held.size;
   if (grants.size === 0) return held;
@@ -1373,13 +1397,15 @@ async function restoreGroups(
   );
   const given = named.flatMap((item) => {
     const role = givenBack(item.role, restoring.made);
-    if (!role || !here.has(item.group)) return [];
+    const endsAt = endOf(item.until);
+    if (!role || !here.has(item.group) || endsAt === "ended") return [];
     return [
       {
         groupId: item.group,
         ...role,
         scope: item.scope,
         scopeId: item.scopeId,
+        endsAt,
         givenBy: restoring.userId,
         rowFilter: item.rowFilter ?? null,
         fieldAccess: storedFieldAccess(item.columns),
@@ -1405,7 +1431,7 @@ async function restoreTableAccess(
   tables: readonly SnapshotTable[],
   ids: ReadonlyMap<string, string>,
   restoring: Restoring,
-  held: ReadonlyMap<string, GivenColumns>,
+  held: ReadonlyMap<string, HeldRole>,
 ): Promise<void> {
   for (const table of tables) {
     const tableId = ids.get(table.key);
@@ -1422,16 +1448,21 @@ async function restoreTableAccess(
     const roles = [...new Set([...granted.keys(), ...held.keys()])].flatMap(
       (userId) => {
         const item = granted.get(userId);
+        const kept = held.get(userId);
         const given = item?.role
           ? givenBack(item.role, restoring.made)
-          : (held.get(userId) ?? null);
-        if (!given) return [];
+          : kept
+            ? { role: kept.role, madeRoleId: kept.madeRoleId }
+            : null;
+        const endsAt = item?.role ? endOf(item.until) : (kept?.endsAt ?? null);
+        if (!given || endsAt === "ended") return [];
         return [
           {
             userId,
             ...given,
             scope: "table" as const,
             scopeId: tableId,
+            endsAt,
             rowFilter: item?.rowFilter ?? null,
             fieldAccess: storedFieldAccess(item?.columns),
           },
@@ -1924,7 +1955,7 @@ export async function importBaseSnapshot(
             report,
             ruledMembers(parsed.tables),
           )
-        : new Map<string, GivenColumns>();
+        : new Map<string, HeldRole>();
     // Formulas may read lookups and rollups, which need the links first:
     // tables start with their stored fields, formulas come at the end.
     const formulas = new Map<string, ColumnDefinition[]>();

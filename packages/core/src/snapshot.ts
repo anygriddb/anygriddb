@@ -98,10 +98,14 @@ const snapshotRoleSchema = z.union([
 ]);
 export type SnapshotRole = z.infer<typeof snapshotRoleSchema>;
 
+/** When a role a snapshot keeps ends (ADR 0146): absent, it does not. */
+const untilSchema = z.iso.datetime({ offset: true }).optional();
+
 const snapshotMemberSchema = z
   .object({
     email: z.email().max(254),
     role: snapshotRoleSchema,
+    until: untilSchema,
   })
   .strict();
 
@@ -114,6 +118,7 @@ const snapshotTableAccessSchema = z
   .object({
     email: z.email().max(254),
     role: snapshotRoleSchema.optional(),
+    until: untilSchema,
     rowFilter: filterGroupSchema.optional(),
     columns: z.array(columnAclEntrySchema).max(200).optional(),
   })
@@ -125,7 +130,7 @@ const snapshotTableAccessSchema = z
  * id, which only the instance that made it knows.
  */
 const snapshotGroupRoleSchema = z
-  .object({ group: z.uuid(), role: snapshotRoleSchema })
+  .object({ group: z.uuid(), role: snapshotRoleSchema, until: untilSchema })
   .strict();
 const snapshotGroupAccessSchema = snapshotGroupRoleSchema
   .extend({
