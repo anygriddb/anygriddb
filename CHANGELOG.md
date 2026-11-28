@@ -37,9 +37,6 @@ first.
   location, motion sensor, payment or device port
   (`Permissions-Policy`): a script that came in by a hole would be
   refused them too.
-
-### Security
-
 - Two attributions on one table gave together more than either: a
   field one of them shows, or lets someone write, on its own rows was
   seen, or written, on the rows only the other reaches. A nurse who reads
