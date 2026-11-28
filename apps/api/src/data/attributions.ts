@@ -5,6 +5,7 @@
  */
 import {
   type Binding,
+  type FilterGroup,
   filterAttributes,
   type Permission,
   resolveAttributes,
@@ -77,10 +78,12 @@ async function withAttributes(
   const needed = new Map<string, Set<string>>();
   for (const [userId, bindings] of held) {
     for (const binding of bindings) {
-      for (const key of binding.rows ? filterAttributes(binding.rows) : []) {
-        const keys = needed.get(userId) ?? new Set<string>();
-        keys.add(key);
-        needed.set(userId, keys);
+      for (const rule of rulesOf(binding)) {
+        for (const key of filterAttributes(rule)) {
+          const keys = needed.get(userId) ?? new Set<string>();
+          keys.add(key);
+          needed.set(userId, keys);
+        }
       }
     }
   }
@@ -97,21 +100,36 @@ async function withAttributes(
     rows.map((row) => [`${row.userId}\u0000${row.key}`, row.values]),
   );
   for (const userId of needed.keys()) {
+    const valuesOf = (key: string) => values.get(`${userId}\u0000${key}`);
     held.set(
       userId,
-      (held.get(userId) ?? []).map((binding) =>
-        binding.rows
+      (held.get(userId) ?? []).map((binding) => ({
+        ...binding,
+        ...(binding.rows
+          ? { rows: resolveAttributes(binding.rows, valuesOf) }
+          : {}),
+        ...(binding.fieldRows
           ? {
-              ...binding,
-              rows: resolveAttributes(binding.rows, (key) =>
-                values.get(`${userId}\u0000${key}`),
+              fieldRows: Object.fromEntries(
+                Object.entries(binding.fieldRows).map(([column, rule]) => [
+                  column,
+                  resolveAttributes(rule, valuesOf),
+                ]),
               ),
             }
-          : binding,
-      ),
+          : {}),
+      })),
     );
   }
   return held;
+}
+
+/** The conditions an attribution holds: its rows', and its fields' own. */
+function rulesOf(binding: Binding): FilterGroup[] {
+  return [
+    ...(binding.rows ? [binding.rows] : []),
+    ...Object.values(binding.fieldRows ?? {}),
+  ];
 }
 
 /** What reaches one person now, their groups' included. */

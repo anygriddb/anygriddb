@@ -474,6 +474,45 @@ describe("tableRules", () => {
     expect(rules?.narrowed).toEqual({ rows: false, fields: true });
   });
 
+  it("shows a field on the rows of its own condition, within its rule's rows", () => {
+    const rules = tableRules(
+      [
+        {
+          role: "editor",
+          scope: "table",
+          scopeId: "t",
+          rows: theirs,
+          fields: { name: "write", secret: "write" },
+          fieldRows: { secret: mine },
+        },
+      ],
+      "t",
+      "b",
+    );
+    const both = { conjunction: "and", conditions: [theirs, mine] };
+    expect(rules?.rows("rows.read")).toEqual(theirs);
+    expect(rules?.shownOn("secret")).toEqual(both);
+    expect(rules?.writableOn("secret")).toEqual(both);
+    expect(rules?.shownOn("name")).toBeUndefined();
+    expect(rules?.narrowed).toEqual({ rows: true, fields: true });
+    // On every row, by a rule without rows of its own.
+    const everywhere = tableRules(
+      [
+        {
+          role: "viewer",
+          scope: "table",
+          scopeId: "t",
+          fields: { secret: "read" },
+          fieldRows: { secret: mine },
+        },
+      ],
+      "t",
+      "b",
+    );
+    expect(everywhere?.shownOn("secret")).toEqual(mine);
+    expect(everywhere?.rows("rows.read")).toBeUndefined();
+  });
+
   it("shows a field everywhere one attribution reaching every row shows it", () => {
     const rules = tableRules(
       [

@@ -217,7 +217,13 @@ export interface Attachments {
 export interface Attributions {
   createdAt: Generated<Timestamp>;
   endsAt: Timestamp | null;
-  fieldAccess: Record<string, "hide" | "read" | "write"> | null;
+  fieldAccess: Record<
+    string,
+    | "hide"
+    | "read"
+    | "write"
+    | { access: "read" | "write"; rows: Record<string, unknown> }
+  > | null;
   givenBy: string | null;
   groupId: string | null;
   id: Generated<string>;

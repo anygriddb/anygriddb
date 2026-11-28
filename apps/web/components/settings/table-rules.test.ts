@@ -7,6 +7,7 @@ import {
   ruleSubjects,
   ruleToSave,
   storedAccess,
+  storedFieldRows,
   subjectInput,
   subjectKey,
   subjectShown,
@@ -156,6 +157,32 @@ describe("ruleToSave", () => {
       rowFilter: own,
       columns: [],
     });
+  });
+
+  it("names every field once one holds on some rows, hidden ones on none", () => {
+    expect(
+      ruleToSave({ name: "write", price: "read", notes: "hide" }, null, {
+        price: own,
+        notes: own,
+        name: null,
+      }),
+    ).toEqual({
+      rowFilter: null,
+      columns: [
+        { column: "name", access: "write" },
+        { column: "price", access: "read", rows: own },
+        { column: "notes", access: "hide" },
+      ],
+    });
+    expect(
+      storedFieldRows({
+        rowFilter: null,
+        columns: [
+          { column: "price", access: "read", rows: own },
+          { column: "name", access: "write" },
+        ],
+      }),
+    ).toEqual({ price: own });
   });
 
   it("names every field once one is restricted", () => {

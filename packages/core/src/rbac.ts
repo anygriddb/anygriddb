@@ -365,7 +365,8 @@ export function isInstancePermission(
  * One attribution (ADR 0131): a role on a base or a table, given to the
  * person or to one of their groups. On a table it may narrow what it
  * gives: to some rows (`rows`), and field by field (`fields`, a field not
- * named being hidden). A rule narrows only the attribution it comes with.
+ * named being hidden), a field on some of those rows only (`fieldRows`).
+ * A rule narrows only the attribution it comes with.
  */
 export type Binding = {
   role: Given;
@@ -373,6 +374,12 @@ export type Binding = {
   scopeId: string;
   rows?: FilterGroup | null;
   fields?: Readonly<Record<string, ColumnAccess>> | null;
+  /**
+   * The rows, among its own, on which a field is shown at its access, and
+   * hidden on the others (ADR 0145). A field not named here holds on
+   * every row the attribution reaches.
+   */
+  fieldRows?: Readonly<Record<string, FilterGroup>> | null;
   /**
    * What a delegated access acting through it was entrusted (ADR 0131,
    * §5): the role gives no more than these. Absent, all the role gives.
@@ -592,17 +599,38 @@ function fieldThrough(binding: Binding, column: string): ColumnAccess {
 
 /**
  * The rows the given attributions reach together, by OR: undefined when
- * one reaches every row, no row when there is none.
+ * one reaches every row, no row when there is none. `through` says the
+ * rows of one: those of its rule, or of a field's on it.
  */
-function rowsReached(givers: readonly Binding[]): FilterGroup | undefined {
-  if (givers.some((binding) => !rowsThrough(binding))) return undefined;
-  const filters = givers.flatMap((binding) => {
-    const through = rowsThrough(binding);
-    return through ? [through] : [];
-  });
+function rowsReached(
+  givers: readonly Binding[],
+  through: (binding: Binding) => FilterGroup | null = rowsThrough,
+): FilterGroup | undefined {
+  const filters: FilterGroup[] = [];
+  for (const binding of givers) {
+    const rows = through(binding);
+    if (!rows) return undefined;
+    filters.push(rows);
+  }
   if (filters.length === 0) return NO_ROW;
   if (filters.length === 1) return filters[0];
   return { conjunction: "or", conditions: filters };
+}
+
+/** The rows of its own on which an attribution shows a field it names. */
+function fieldWhere(binding: Binding, column: string): FilterGroup | null {
+  return narrowing(binding) ? (binding.fieldRows?.[column] ?? null) : null;
+}
+
+/** The rows on which an attribution gives a field: its own, or some of them. */
+function fieldRowsThrough(
+  binding: Binding,
+  column: string,
+): FilterGroup | null {
+  const rows = rowsThrough(binding);
+  const where = fieldWhere(binding, column);
+  if (!rows || !where) return rows ?? where;
+  return { conjunction: "and", conditions: [rows, where] };
 }
 
 /**
@@ -658,7 +686,10 @@ export function tableRules(
     const showing = readers.filter(
       (binding) => fieldThrough(binding, column) !== "hide",
     );
-    return showing.length === readers.length ? undefined : rowsReached(showing);
+    return showing.length === readers.length &&
+      !showing.some((binding) => fieldWhere(binding, column))
+      ? undefined
+      : rowsReached(showing, (binding) => fieldRowsThrough(binding, column));
   };
   // The fields a rule names, and one no rule names (`""`, never a field's
   // name): what each shows is all there is to know of the others.
@@ -689,9 +720,10 @@ export function tableRules(
       const writing = writers.filter(
         (binding) => fieldThrough(binding, column) === "write",
       );
-      return writing.length === writers.length
+      return writing.length === writers.length &&
+        !writing.some((binding) => fieldWhere(binding, column))
         ? undefined
-        : rowsReached(writing);
+        : rowsReached(writing, (binding) => fieldRowsThrough(binding, column));
     },
     access: (column) => {
       let best: ColumnAccess = "hide";

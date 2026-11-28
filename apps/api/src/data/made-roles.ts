@@ -9,6 +9,7 @@ import {
   AppError,
   type Binding,
   type ColumnAccess,
+  type ColumnAclEntry,
   filterGroupSchema,
   type FilterGroup,
   type Given,
@@ -63,16 +64,79 @@ export function rowsOf(stored: unknown): FilterGroup | null {
   return parsed.success ? parsed.data : NO_ROW;
 }
 
+/**
+ * A field's entry in a stored rule: its access, or its access on some of
+ * the rule's rows (ADR 0145).
+ */
+export type StoredFieldAccess =
+  string | { access?: unknown; rows?: unknown } | null | undefined;
+
 /** Each field's access a stored rule says: anything else hides it. */
 export function fieldsOf(
-  stored: Readonly<Record<string, string>> | null | undefined,
+  stored: Readonly<Record<string, StoredFieldAccess>> | null | undefined,
 ): Record<string, ColumnAccess> | null {
   if (!stored) return null;
   const fields: Record<string, ColumnAccess> = {};
-  for (const [column, access] of Object.entries(stored)) {
-    fields[column] = ACCESSES.has(access) ? (access as ColumnAccess) : "hide";
+  for (const [column, entry] of Object.entries(stored)) {
+    const access =
+      typeof entry === "object" && entry !== null ? entry.access : entry;
+    fields[column] =
+      typeof access === "string" && ACCESSES.has(access)
+        ? (access as ColumnAccess)
+        : "hide";
   }
   return fields;
+}
+
+/**
+ * The rows of its own on which a stored rule shows each field it gives on
+ * some of them only: a condition that no longer parses, on none.
+ */
+export function fieldRowsOf(
+  stored: Readonly<Record<string, StoredFieldAccess>> | null | undefined,
+): Record<string, FilterGroup> | null {
+  if (!stored) return null;
+  const rows: Record<string, FilterGroup> = {};
+  for (const [column, entry] of Object.entries(stored)) {
+    if (typeof entry !== "object" || entry === null) continue;
+    rows[column] = rowsOf(entry.rows) ?? NO_ROW;
+  }
+  return Object.keys(rows).length > 0 ? rows : null;
+}
+
+/** A stored rule's fields as a rule lists them, by name. */
+export function aclColumnsOf(
+  stored: Readonly<Record<string, StoredFieldAccess>> | null | undefined,
+): ColumnAclEntry[] | null {
+  const fields = fieldsOf(stored);
+  if (!fields) return null;
+  const rows = fieldRowsOf(stored);
+  return Object.entries(fields)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([column, access]) => {
+      const where = rows?.[column];
+      return where && access !== "hide"
+        ? { column, access, rows: where }
+        : { column, access };
+    });
+}
+
+/** A rule's fields as they are stored: none for a rule that names none. */
+export function storedFieldAccess(
+  columns: readonly ColumnAclEntry[] | undefined,
+): Record<
+  string,
+  "hide" | "read" | "write" | { access: "read" | "write"; rows: FilterGroup }
+> | null {
+  if (!columns?.length) return null;
+  return Object.fromEntries(
+    columns.map((entry) => [
+      entry.column,
+      entry.rows && entry.access !== "hide"
+        ? { access: entry.access, rows: entry.rows }
+        : entry.access,
+    ]),
+  );
 }
 
 /** Bindings as the rules read them, from rows joined with their made role. */
@@ -82,7 +146,7 @@ export function bindingsFrom(
       scope: string;
       scopeId: string | null;
       rowFilter?: unknown;
-      fieldAccess?: Readonly<Record<string, string>> | null;
+      fieldAccess?: Readonly<Record<string, StoredFieldAccess>> | null;
     }
   >,
 ): Binding[] {
@@ -95,12 +159,14 @@ export function bindingsFrom(
     if (role === null) continue;
     const rows = rowsOf(row.rowFilter);
     const fields = fieldsOf(row.fieldAccess);
+    const fieldRows = fieldRowsOf(row.fieldAccess);
     bindings.push({
       role,
       scope: row.scope,
       scopeId: row.scopeId,
       ...(rows ? { rows } : {}),
       ...(fields ? { fields } : {}),
+      ...(fieldRows ? { fieldRows } : {}),
     });
   }
   return bindings;

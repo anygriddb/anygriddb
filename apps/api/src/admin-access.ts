@@ -21,6 +21,7 @@ import { liveAttribution } from "./data/attributions.js";
 import { ERASED_USER_ID } from "./data/erasure.js";
 import { liveBase, liveTable } from "./data/live.js";
 import {
+  fieldRowsOf,
   fieldsOf,
   givenKey,
   givenName,
@@ -146,6 +147,7 @@ export async function effectiveAccess(
     if (row.scope !== "base" && row.scope !== "table") return [];
     const rule = rowsOf(row.rowFilter);
     const fields = fieldsOf(row.fieldAccess);
+    const fieldRows = fieldRowsOf(row.fieldAccess);
     return [
       {
         scope: row.scope,
@@ -163,6 +165,7 @@ export async function effectiveAccess(
           scopeId: row.scopeId,
           ...(rule ? { rows: rule } : {}),
           ...(fields ? { fields } : {}),
+          ...(fieldRows ? { fieldRows } : {}),
         },
       },
     ];
