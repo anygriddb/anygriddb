@@ -6,6 +6,7 @@
  */
 import {
   OPERATORS_BY_KIND,
+  attributeOf,
   calendarPeriod,
   isFilterGroup,
   type DateFilterValue,
@@ -58,6 +59,9 @@ function evaluateCondition(
 ): boolean | null {
   const kind = context.kinds.get(condition.column);
   if (!kind || !OPERATORS_BY_KIND[kind].includes(condition.op)) return null;
+  // A condition still naming the reader's attribute keeps no row, as the
+  // compiler reads it (ADR 0142).
+  if (attributeOf(condition.value) !== undefined) return false;
   const x = values[condition.column];
   const { op, value } = condition;
   if (op === "is_empty") return isEmpty(x, kind);
@@ -265,7 +269,12 @@ function dayRange(
     spec = isIsoDate(value.slice(0, 10))
       ? { mode: "exact", date: value.slice(0, 10) }
       : undefined;
-  } else if (value && typeof value === "object" && !Array.isArray(value)) {
+  } else if (
+    value &&
+    typeof value === "object" &&
+    !Array.isArray(value) &&
+    "mode" in value
+  ) {
     spec = value;
   }
   if (!spec) return undefined;

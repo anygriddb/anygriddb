@@ -6,6 +6,7 @@ import {
   aclSubjectOf,
   AppError,
   checkFilter,
+  filterAttributes,
   givenRoleSchema,
   clearTableAclInputSchema,
   effectiveTableRole,
@@ -36,6 +37,10 @@ import { invitationMailBody, invitationMailSubject } from "../mail-i18n.js";
 import { resolveSmtp } from "../integrations/smtp.js";
 import { sendMail, smtpReady } from "../mail.js";
 import { loadEngine } from "../data/engine.js";
+import {
+  assertKnownAttributes,
+  attributeChoices,
+} from "../data/person-attributes.js";
 import {
   grantInputSchema,
   grantMember,
@@ -93,6 +98,16 @@ export const catalogAccessProcedures = {
           permissions: [...role.permissions],
         })),
       };
+    }),
+  ),
+  /**
+   * The attributes of a person a rule may name (ADR 0142), to choose from:
+   * their keys and labels, never anyone's values.
+   */
+  personAttributes: asking({ exception: "ownBases" }).query(({ ctx }) =>
+    handle(ctx, async () => {
+      await authorize(ctx);
+      return { attributes: await attributeChoices(ctx.db) };
     }),
   ),
   members: asking({ asks: ["members.manage"] })
@@ -412,6 +427,13 @@ export const catalogAccessProcedures = {
         const known = await liveColumnNames(ctx.db, table.id);
         for (const column of input.columns) {
           if (!known.has(column.column)) throw new AppError("unknown_column");
+        }
+        // A rule names only the attributes the instance knows (ADR 0142).
+        if (input.rowFilter) {
+          await assertKnownAttributes(
+            ctx.db,
+            filterAttributes(input.rowFilter),
+          );
         }
         if (input.rowFilter) {
           // A rule kept is one that compiles whole: a condition without a

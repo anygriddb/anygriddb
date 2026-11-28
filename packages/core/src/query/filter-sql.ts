@@ -1,6 +1,7 @@
 import { numberToDecimal, toDecimalString } from "../decimal";
 import {
   OPERATORS_BY_KIND,
+  attributeOf,
   awaitsValue,
   calendarPeriod,
   isFilterGroup,
@@ -260,7 +261,12 @@ function dateRange(
     spec = isIsoDate(value.slice(0, 10))
       ? { mode: "exact", date: value.slice(0, 10) }
       : undefined;
-  } else if (value && typeof value === "object" && !Array.isArray(value)) {
+  } else if (
+    value &&
+    typeof value === "object" &&
+    !Array.isArray(value) &&
+    "mode" in value
+  ) {
     spec = value;
   }
   if (!spec) {
@@ -363,6 +369,28 @@ function dateRange(
 }
 
 /**
+ * A rule's condition that still names the reader's attribute (ADR 0142):
+ * a reader's values replace it when their rules are read
+ * (`resolveAttributes`), so one left is a reader without a value, who
+ * keeps no row by it. Only a rule takes one, on a text or a single select
+ * (`is`, `is any of`) or a multiple select (`has any of`).
+ */
+function attributeSql(
+  ctx: FilterContext,
+  ref: ColumnRef,
+  condition: FilterCondition,
+): string {
+  const fits =
+    (ref.kind === "text" &&
+      (condition.op === "is" || condition.op === "is_any_of")) ||
+    (ref.kind === "options" && condition.op === "has_any_of");
+  if (!fits || ctx.check !== "rule") {
+    throw new AppError("invalid_filter", condition.column);
+  }
+  return "(1 = 0)";
+}
+
+/**
  * Compiles one condition, or returns null when its value cannot be used and
  * `ctx.check` lets it be skipped.
  */
@@ -382,6 +410,9 @@ export function compileCondition(
   }
   if (ref.noCompare && COMPARING_OPERATORS.has(condition.op)) {
     throw new AppError("not_comparable", condition.column);
+  }
+  if (attributeOf(condition.value) !== undefined) {
+    return attributeSql(ctx, ref, condition);
   }
   const x = ref.expression ?? refSql(ref.name);
   const { op, value } = condition;

@@ -20,6 +20,7 @@ type AdminPath =
   | "/admin/people/accounts"
   | "/admin/people/groups"
   | "/admin/people/roles"
+  | "/admin/people/attributes"
   | "/admin/people/sessions"
   | "/admin/people/provisioning"
   | "/admin/security"
@@ -88,7 +89,10 @@ export function useAdminSections(): AdminSection[] {
         ? ([{ to: "/admin/people/groups", label: t`Groups` }] as const)
         : []),
       ...(seesAll
-        ? ([{ to: "/admin/people/roles", label: t`Roles` }] as const)
+        ? ([
+            { to: "/admin/people/roles", label: t`Roles` },
+            { to: "/admin/people/attributes", label: t`Attributes` },
+          ] as const)
         : []),
       { to: "/admin/people/sessions", label: t`Sessions` },
       ...(seesAll

@@ -5,6 +5,8 @@
 import { isAdminOf } from "../auth/instance-roles.js";
 import { dropAccountTokens } from "../auth/tokens.js";
 import {
+  NO_ENTERPRISE,
+  type ScimEnterprise,
   parseScimGroup,
   parseScimUser,
   patchScimGroup,
@@ -21,6 +23,10 @@ import type { Database, UserRow } from "@anygriddb/db";
 import { type Expression, type SqlBool, sql } from "kysely";
 import { recordAuthEvent } from "../auth/auth-events.js";
 import { type AuditTx, withAudit } from "../data/audit-context.js";
+import {
+  enterpriseOf,
+  provisionAttributes,
+} from "../data/person-attributes.js";
 import { ERASED_USER_ID } from "../data/erasure.js";
 import { postgresCode } from "../data/pg-error.js";
 
@@ -80,7 +86,10 @@ const ACCOUNT_COLUMNS = [
   "deprovisionedAt",
 ] as const;
 
-function stateOf(account: Account): ScimUserState {
+function stateOf(
+  account: Account,
+  enterprise: ScimEnterprise = NO_ENTERPRISE,
+): ScimUserState {
   return {
     userName: account.scimUserName ?? account.email,
     email: account.email,
@@ -89,7 +98,17 @@ function stateOf(account: Account): ScimUserState {
     active: account.disabledAt === null,
     givenName: account.scimGivenName,
     familyName: account.scimFamilyName,
+    enterprise,
   };
+}
+
+/** An account as the provider sees it, its enterprise fields read too. */
+async function heldState(
+  db: Database | AuditTx,
+  account: Account,
+): Promise<ScimUserState> {
+  const enterprise = await enterpriseOf(db, [account.id]);
+  return stateOf(account, enterprise.get(account.id));
 }
 
 async function groupsOf(db: Database, userIds: readonly string[]) {
@@ -118,10 +137,14 @@ async function userResources(
     context.db,
     accounts.map((account) => account.id),
   );
+  const enterprise = await enterpriseOf(
+    context.db,
+    accounts.map((account) => account.id),
+  );
   return accounts.map((account) =>
     scimUserResource(
       {
-        ...stateOf(account),
+        ...stateOf(account, enterprise.get(account.id)),
         id: account.id,
         created: account.createdAt,
         groups: groups.get(account.id) ?? [],
@@ -265,6 +288,7 @@ async function saveAccount(
     })
     .where("id", "=", account.id)
     .execute();
+  await provisionAttributes(tx, actorId, account.id, next.enterprise);
   // A new address ends sessions and API tokens, so a reset link for the
   // old address cannot be redirected, and a stolen token does not outlive
   // the change. A deactivated account is signed out the same way.
@@ -328,6 +352,7 @@ export async function createScimUser(context: ScimContext, body: unknown) {
       })
       .returning("id")
       .executeTakeFirstOrThrow();
+    await provisionAttributes(tx, context.actorId, created.id, next.enterprise);
     return created.id;
   });
   return getScimUser(context, id);
@@ -344,7 +369,7 @@ export async function replaceScimUser(
       tx,
       context.actorId,
       account,
-      parseScimUser(body, stateOf(account)),
+      parseScimUser(body, await heldState(tx, account)),
     );
   });
   return getScimUser(context, id);
@@ -361,7 +386,7 @@ export async function patchScimUserById(
       tx,
       context.actorId,
       account,
-      patchScimUser(stateOf(account), operations),
+      patchScimUser(await heldState(tx, account), operations),
     );
   });
   return getScimUser(context, id);

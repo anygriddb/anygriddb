@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  NO_ENTERPRISE,
   parseScimFilter,
   parseScimGroup,
   parseScimPatch,
@@ -10,6 +11,8 @@ import {
   ScimError,
   scimDisplayName,
   scimPage,
+  scimSchemas,
+  scimUserResource,
   type ScimUserState,
 } from "./scim";
 
@@ -24,6 +27,7 @@ const ada: ScimUserState = {
   active: true,
   givenName: "Ada",
   familyName: "Lovelace",
+  enterprise: NO_ENTERPRISE,
 };
 
 const scimType = (run: () => unknown) => {
@@ -114,6 +118,7 @@ describe("parseScimUser", () => {
       active: true,
       givenName: "Ada",
       familyName: "Lovelace",
+      enterprise: NO_ENTERPRISE,
     });
   });
 
@@ -231,6 +236,8 @@ describe("patchScimUser", () => {
       displayName: "Augusta Lovelace",
       givenName: "Augusta",
       email: "augusta@corp.example",
+      // The enterprise extension's department is kept (ADR 0142).
+      enterprise: { ...NO_ENTERPRISE, department: "R&D" },
     });
     expect(
       patchScimUser(
@@ -317,5 +324,78 @@ describe("groups", () => {
         patchScimGroup(group, patch({ op: "add", path: "owners", value: [] })),
       ),
     ).toBe("400 invalidPath");
+  });
+});
+
+describe("SCIM's enterprise extension (ADR 0142)", () => {
+  const ENTERPRISE =
+    "urn:ietf:params:scim:schemas:extension:enterprise:2.0:User";
+
+  it("reads a user's department and division, and none where the body says none", () => {
+    const user = parseScimUser({
+      userName: "ada@corp.example",
+      emails: [{ value: "ada@corp.example" }],
+      [ENTERPRISE]: {
+        department: "  Ward 3 ",
+        division: "",
+        manager: { value: "00u2" },
+      },
+    });
+    expect(user.enterprise).toEqual({
+      department: "Ward 3",
+      division: null,
+      organization: null,
+      costCenter: null,
+    });
+  });
+
+  it("patches a field by its path, by the extension whole, and takes one away", () => {
+    const moved = patchScimUser(
+      ada,
+      patch(
+        { op: "replace", path: `${ENTERPRISE}:department`, value: "Ward 4" },
+        { op: "add", value: { [ENTERPRISE]: { costCenter: "CC-9" } } },
+        { op: "Replace", path: `${ENTERPRISE}:employeeNumber`, value: "7" },
+      ),
+    );
+    expect(moved.enterprise).toEqual({
+      ...NO_ENTERPRISE,
+      department: "Ward 4",
+      costCenter: "CC-9",
+    });
+    expect(
+      patchScimUser(
+        moved,
+        patch({ op: "remove", path: `${ENTERPRISE}:department` }),
+      ).enterprise.department,
+    ).toBeNull();
+    expect(
+      patchScimUser(moved, patch({ op: "remove", path: ENTERPRISE }))
+        .enterprise,
+    ).toEqual(NO_ENTERPRISE);
+  });
+
+  it("returns the fields it keeps, and announces the extension", () => {
+    const resource = scimUserResource(
+      {
+        ...ada,
+        enterprise: { ...NO_ENTERPRISE, department: "Ward 3" },
+        id: "u1",
+        created: new Date("2026-01-01T00:00:00Z"),
+      },
+      "https://grid.example.org/scim/v2",
+    );
+    expect(resource.schemas).toContain(ENTERPRISE);
+    expect(resource).toMatchObject({ [ENTERPRISE]: { department: "Ward 3" } });
+    const plain = scimUserResource(
+      { ...ada, id: "u1", created: new Date("2026-01-01T00:00:00Z") },
+      "https://grid.example.org/scim/v2",
+    );
+    expect(plain.schemas).not.toContain(ENTERPRISE);
+    expect(
+      scimSchemas("https://grid.example.org/scim/v2").map(
+        (schema) => schema.id,
+      ),
+    ).toContain(ENTERPRISE);
   });
 });

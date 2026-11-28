@@ -5,7 +5,9 @@
  */
 import {
   type Binding,
+  filterAttributes,
   type Permission,
+  resolveAttributes,
   ROLES,
   roleGrants,
 } from "@anygriddb/core";
@@ -58,6 +60,56 @@ export async function attributionsOf(
       ...(held.get(row.holder) ?? []),
       ...bindingsFrom([row]),
     ]);
+  }
+  return withAttributes(db, held);
+}
+
+/**
+ * Each person's rules as they read them (ADR 0142): a condition naming an
+ * attribute becomes one over that person's values, read in one query for
+ * every person whose rules name one, and none for anyone else. One they
+ * hold no value of keeps no row.
+ */
+async function withAttributes(
+  db: Pick<Database, "selectFrom">,
+  held: Map<string, Binding[]>,
+): Promise<Map<string, Binding[]>> {
+  const needed = new Map<string, Set<string>>();
+  for (const [userId, bindings] of held) {
+    for (const binding of bindings) {
+      for (const key of binding.rows ? filterAttributes(binding.rows) : []) {
+        const keys = needed.get(userId) ?? new Set<string>();
+        keys.add(key);
+        needed.set(userId, keys);
+      }
+    }
+  }
+  if (needed.size === 0) return held;
+  const rows = await db
+    .selectFrom("accountAttributes")
+    .select(["userId", "key", "values"])
+    .where("userId", "in", [...needed.keys()])
+    .where("key", "in", [
+      ...new Set([...needed.values()].flatMap((keys) => [...keys])),
+    ])
+    .execute();
+  const values = new Map(
+    rows.map((row) => [`${row.userId}\u0000${row.key}`, row.values]),
+  );
+  for (const userId of needed.keys()) {
+    held.set(
+      userId,
+      (held.get(userId) ?? []).map((binding) =>
+        binding.rows
+          ? {
+              ...binding,
+              rows: resolveAttributes(binding.rows, (key) =>
+                values.get(`${userId}\u0000${key}`),
+              ),
+            }
+          : binding,
+      ),
+    );
   }
   return held;
 }

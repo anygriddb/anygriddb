@@ -11,6 +11,22 @@ import { labelSchema, tidyLabel } from "./names";
 
 const SCIM_USER = "urn:ietf:params:scim:schemas:core:2.0:User";
 const SCIM_GROUP = "urn:ietf:params:scim:schemas:core:2.0:Group";
+/** SCIM's enterprise extension of a user (RFC 7643, §4.3). */
+const SCIM_ENTERPRISE =
+  "urn:ietf:params:scim:schemas:extension:enterprise:2.0:User";
+/**
+ * The texts of the enterprise extension an attribute of a person may be
+ * bound to (ADR 0142): where a person works, not who they report to.
+ */
+export const SCIM_ENTERPRISE_FIELDS = [
+  "department",
+  "division",
+  "organization",
+  "costCenter",
+] as const;
+export type ScimEnterpriseField = (typeof SCIM_ENTERPRISE_FIELDS)[number];
+/** What a provider says of the enterprise fields: null for none. */
+export type ScimEnterprise = Record<ScimEnterpriseField, string | null>;
 const SCIM_LIST = "urn:ietf:params:scim:api:messages:2.0:ListResponse";
 export const SCIM_PATCH = "urn:ietf:params:scim:api:messages:2.0:PatchOp";
 const SCIM_ERROR = "urn:ietf:params:scim:api:messages:2.0:Error";
@@ -197,7 +213,37 @@ export type ScimUserState = {
   /** The parts of the name the provider gave, which it changes one by one. */
   givenName: string | null;
   familyName: string | null;
+  /** The enterprise extension's fields, as the instance keeps them (ADR 0142). */
+  enterprise: ScimEnterprise;
 };
+
+/** No enterprise field said. */
+export const NO_ENTERPRISE: ScimEnterprise = {
+  department: null,
+  division: null,
+  organization: null,
+  costCenter: null,
+};
+
+/** An enterprise field as kept: a text on one line, null when empty. */
+function enterpriseText(value: unknown): string | null {
+  return typeof value === "string"
+    ? tidyLabel(value).slice(0, 200) || null
+    : null;
+}
+
+/** The enterprise extension of a user's body: every field, null where absent. */
+function enterpriseOf(body: Record<string, unknown>): ScimEnterprise {
+  const raw = body[SCIM_ENTERPRISE];
+  const extension =
+    raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
+  return Object.fromEntries(
+    SCIM_ENTERPRISE_FIELDS.map((field) => [
+      field,
+      enterpriseText(extension[field]),
+    ]),
+  ) as ScimEnterprise;
+}
 
 /** A part of a name as it is kept: on one line, and null when empty. */
 function namePart(text: string | null | undefined): string | null {
@@ -277,6 +323,8 @@ export function parseScimUser(
     familyName: name
       ? namePart(name.familyName)
       : (current?.familyName ?? null),
+    // A user replaced whole says each field: one it leaves out has none.
+    enterprise: enterpriseOf(user),
   };
 }
 
@@ -339,6 +387,32 @@ export function patchScimUser(
   } = {};
   const set = (rawPath: string, value: unknown, op: string) => {
     const path = rawPath.trim().toLowerCase().replace(/\s+/g, " ");
+    const enterprise = SCIM_ENTERPRISE.toLowerCase();
+    if (path === enterprise) {
+      // The extension whole: each field it holds, as its own path.
+      if (op === "remove") next.enterprise = { ...NO_ENTERPRISE };
+      else if (value && typeof value === "object") {
+        for (const [key, item] of Object.entries(
+          value as Record<string, unknown>,
+        )) {
+          set(`${SCIM_ENTERPRISE}:${key}`, item, op);
+        }
+      }
+      return;
+    }
+    if (path.startsWith(`${enterprise}:`)) {
+      const field = SCIM_ENTERPRISE_FIELDS.find(
+        (name) => name.toLowerCase() === path.slice(enterprise.length + 1),
+      );
+      // A field AnyGridDB does not keep (a manager, a number) is let go.
+      if (field) {
+        next.enterprise = {
+          ...next.enterprise,
+          [field]: op === "remove" ? null : enterpriseText(value),
+        };
+      }
+      return;
+    }
     if (op === "remove") {
       if (path === "externalid") next.externalId = null;
       else if (path === "name.givenname") names.given = null;
@@ -401,8 +475,8 @@ export function patchScimUser(
         return;
       }
       default:
-        // Attributes AnyGridDB does not keep (title, phone numbers, the
-        // enterprise extension, …) are let go, as providers expect.
+        // Attributes AnyGridDB does not keep (title, phone numbers, …) are
+        // let go, as providers expect.
         return;
     }
   };
@@ -452,8 +526,15 @@ export function scimUserResource(
   },
   baseUrl: string,
 ) {
+  const enterprise = Object.fromEntries(
+    SCIM_ENTERPRISE_FIELDS.flatMap((field) => {
+      const value = user.enterprise[field];
+      return value === null ? [] : [[field, value]];
+    }),
+  );
+  const extended = Object.keys(enterprise).length > 0;
   return {
-    schemas: [SCIM_USER],
+    schemas: extended ? [SCIM_USER, SCIM_ENTERPRISE] : [SCIM_USER],
     id: user.id,
     ...(user.externalId ? { externalId: user.externalId } : {}),
     userName: user.userName,
@@ -465,6 +546,7 @@ export function scimUserResource(
     },
     emails: [{ value: user.email, type: "work", primary: true }],
     active: user.active,
+    ...(extended ? { [SCIM_ENTERPRISE]: enterprise } : {}),
     groups: (user.groups ?? []).map((group) => ({
       value: group.id,
       display: group.displayName,
@@ -667,6 +749,7 @@ export function scimResourceTypes(baseUrl: string) {
       name: "User",
       endpoint: "/Users",
       schema: SCIM_USER,
+      schemaExtensions: [{ schema: SCIM_ENTERPRISE, required: false }],
       meta: {
         resourceType: "ResourceType",
         location: `${baseUrl}/ResourceTypes/User`,
@@ -738,6 +821,16 @@ export function scimSchemas(baseUrl: string) {
       meta: {
         resourceType: "Schema",
         location: `${baseUrl}/Schemas/${SCIM_USER}`,
+      },
+    },
+    {
+      schemas: [SCIM_SCHEMA],
+      id: SCIM_ENTERPRISE,
+      name: "EnterpriseUser",
+      attributes: SCIM_ENTERPRISE_FIELDS.map((field) => attribute(field)),
+      meta: {
+        resourceType: "Schema",
+        location: `${baseUrl}/Schemas/${SCIM_ENTERPRISE}`,
       },
     },
     {

@@ -113,6 +113,17 @@ const dateFilterValueSchema = z
 
 export type DateFilterValue = z.infer<typeof dateFilterValueSchema>;
 
+/** An attribute's key (ADR 0142): what a catalogue of the instance names. */
+export const attributeKeySchema = z.string().regex(/^[a-z][a-z0-9_]{0,39}$/);
+
+/**
+ * A condition's value that is the reader's own (ADR 0142): their values of
+ * an attribute of the instance, such as their ward.
+ */
+const attributeFilterValueSchema = z
+  .object({ attribute: attributeKeySchema })
+  .strict();
+
 const filterValueSchema = z.union([
   z.string().max(4_000),
   z.number(),
@@ -120,9 +131,72 @@ const filterValueSchema = z.union([
   z.null(),
   z.array(z.string().max(200)).max(100),
   dateFilterValueSchema,
+  attributeFilterValueSchema,
 ]);
 
 export type FilterValue = z.infer<typeof filterValueSchema>;
+
+/** The attribute a condition's value names, if it names one (ADR 0142). */
+export function attributeOf(
+  value: FilterValue | undefined,
+): string | undefined {
+  return value !== null &&
+    typeof value === "object" &&
+    !Array.isArray(value) &&
+    "attribute" in value
+    ? value.attribute
+    : undefined;
+}
+
+/**
+ * The operators a condition naming an attribute takes: those that keep
+ * rows, so that a reader without a value keeps none, never every row.
+ */
+export const ATTRIBUTE_OPERATORS: ReadonlySet<FilterOperator> = new Set([
+  "is",
+  "is_any_of",
+  "has_any_of",
+]);
+
+/**
+ * A rule as one reader reads it (ADR 0142): each condition naming an
+ * attribute becomes one over the reader's values of it (`is any of`, or
+ * `has any of` for a multiple select). One the reader holds no value of
+ * is left as written, and keeps no row.
+ */
+export function resolveAttributes(
+  group: FilterGroup,
+  values: (key: string) => readonly string[] | undefined,
+): FilterGroup {
+  return {
+    conjunction: group.conjunction,
+    conditions: group.conditions.map((node) => {
+      if ("conditions" in node) return resolveAttributes(node, values);
+      const key = attributeOf(node.value);
+      const held = key === undefined ? undefined : values(key);
+      if (!held || held.length === 0) return node;
+      return {
+        column: node.column,
+        op: node.op === "has_any_of" ? "has_any_of" : "is_any_of",
+        value: [...held],
+      };
+    }),
+  };
+}
+
+/** The attributes a filter names, each once. */
+export function filterAttributes(group: FilterGroup): string[] {
+  const found = new Set<string>();
+  const visit = (node: FilterGroup | FilterCondition) => {
+    if ("conditions" in node) node.conditions.forEach(visit);
+    else {
+      const key = attributeOf(node.value);
+      if (key !== undefined) found.add(key);
+    }
+  };
+  visit(group);
+  return [...found];
+}
 
 const filterConditionSchema = z
   .object({
@@ -203,7 +277,11 @@ export function awaitsValue(condition: FilterCondition): boolean {
   if (value === undefined || value === null) return true;
   if (typeof value === "string") return value === "";
   if (Array.isArray(value)) return value.every((item) => item === "");
-  if (typeof value === "object") return value.mode === "exact" && !value.date;
+  if (typeof value === "object") {
+    // The reader's attribute is a value, which they may hold or not.
+    if ("attribute" in value) return false;
+    return value.mode === "exact" && !value.date;
+  }
   return false;
 }
 

@@ -1,4 +1,6 @@
 import {
+  ATTRIBUTE_OPERATORS,
+  attributeOf,
   DATE_MODES,
   COMPARING_OPERATORS,
   filterOperatorsFor,
@@ -123,6 +125,23 @@ function defaultValue(
   return "";
 }
 
+/** An attribute of a person a rule may compare with (ADR 0142). */
+export type RuleAttribute = { key: string; label: string };
+
+/**
+ * Whether a condition may take the reader's attribute for its value: one
+ * that keeps rows (`is`, `is any of` on a text or a single select, `has any
+ * of` on a multiple select).
+ */
+export function takesAttribute(
+  column: Pick<CatalogColumn, "kind">,
+  op: FilterOperator,
+): boolean {
+  if (!ATTRIBUTE_OPERATORS.has(op)) return false;
+  if (column.kind === "text") return op !== "has_any_of";
+  return column.kind === "options" && op === "has_any_of";
+}
+
 export function newCondition(column: CatalogColumn): FilterCondition {
   const op = operatorsFor(column)[0] ?? "is";
   return { column: column.name, op, value: defaultValue(column, op) };
@@ -143,6 +162,8 @@ function ValueInput({
   const states = useRowStates();
   const { op, value } = condition;
   if (op === "is_empty" || op === "is_not_empty") return null;
+  // The reader's attribute stands for the value (ADR 0142).
+  if (attributeOf(value) !== undefined) return null;
   if (column.kind === "boolean") {
     return (
       <label className="flex items-center gap-1 text-sm">
@@ -181,7 +202,10 @@ function ValueInput({
   }
   if (column.kind === "date" || column.kind === "datetime") {
     const spec =
-      value && typeof value === "object" && !Array.isArray(value)
+      value &&
+      typeof value === "object" &&
+      !Array.isArray(value) &&
+      "mode" in value
         ? value
         : { mode: "today" as const };
     const modes = op === "is_within" ? WITHIN_MODES : DATE_MODES;
@@ -338,6 +362,7 @@ export function FilterBuilder({
   group,
   columns,
   people,
+  attributes,
   depth = 1,
   /** Leaf conditions already used in the whole filter tree (root count). */
   leafTotal,
@@ -346,6 +371,8 @@ export function FilterBuilder({
   group: FilterGroup;
   columns: readonly CatalogColumn[];
   people: ReadonlyMap<string, Collaborator>;
+  /** A rule's: the reader's attributes a condition may compare with. */
+  attributes?: readonly RuleAttribute[];
   depth?: number;
   leafTotal?: number;
   onChange: (group: FilterGroup) => void;
@@ -406,6 +433,7 @@ export function FilterBuilder({
                 group={node}
                 columns={columns}
                 people={people}
+                {...(attributes ? { attributes } : {})}
                 depth={depth + 1}
                 leafTotal={total}
                 onChange={(next) => update(index, next)}
@@ -454,6 +482,28 @@ export function FilterBuilder({
                       </option>
                     ))}
                   </Select>
+                  {attributes?.length && takesAttribute(column, node.op) ? (
+                    <Select
+                      aria-label={t`Compared with`}
+                      className="h-8 w-48"
+                      value={attributeOf(node.value) ?? ""}
+                      onChange={(event) =>
+                        update(index, {
+                          ...node,
+                          value: event.target.value
+                            ? { attribute: event.target.value }
+                            : defaultValue(column, node.op),
+                        })
+                      }
+                    >
+                      <option value="">{t`A value`}</option>
+                      {attributes.map((attribute) => (
+                        <option key={attribute.key} value={attribute.key}>
+                          {t`The reader's ${{ attribute: attribute.label }}`}
+                        </option>
+                      ))}
+                    </Select>
+                  ) : null}
                   <ValueInput
                     column={column}
                     condition={node}

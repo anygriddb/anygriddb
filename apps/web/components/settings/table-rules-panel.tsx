@@ -64,6 +64,8 @@ export function TableRulesPanel(props: {
   const rules = useQuery(
     api.catalog.tableAcl.queryOptions({ tableId: props.tableId }),
   );
+  // What a rule may name as the reader's own (ADR 0142).
+  const attributes = useQuery(api.catalog.personAttributes.queryOptions());
   const subjects = ruleSubjects(props.reach.people, props.reach.groups);
   const [chosen, setChosen] = useState("");
   const key = subjectShown(subjects, chosen);
@@ -277,6 +279,7 @@ export function TableRulesPanel(props: {
                   group={rowFilter}
                   columns={props.columns}
                   people={props.people}
+                  attributes={attributes.data?.attributes ?? []}
                   onChange={(group) => edit({ rowFilter: group })}
                 />
                 <p className="text-xs text-muted-foreground">

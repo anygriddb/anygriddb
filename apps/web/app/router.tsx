@@ -89,6 +89,11 @@ const GroupsTab = page(() =>
 const RolesTab = page(() =>
   import("../components/admin/roles-tab").then((module) => module.RolesTab),
 );
+const AttributesTab = page(() =>
+  import("../components/admin/attributes-tab").then(
+    (module) => module.AttributesTab,
+  ),
+);
 const GroupAdminPage = page(() =>
   import("../components/admin/group-page").then(
     (module) => module.GroupAdminPage,
@@ -547,6 +552,7 @@ const adminRoutes = [
   adminAccountRoute,
   adminPage("people/groups", GroupsTab),
   adminPage("people/roles", RolesTab),
+  adminPage("people/attributes", AttributesTab),
   adminGroupRoute,
   adminPage("people/sessions", SessionsTab),
   adminPage("people/provisioning", ScimTab),

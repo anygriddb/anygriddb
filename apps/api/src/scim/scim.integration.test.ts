@@ -11,6 +11,11 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { loadBindings } from "../auth/access.js";
 import { withAudit } from "../data/audit-context.js";
 import { listMembers, revokeMember } from "../data/members.js";
+import {
+  accountAttributes,
+  createAttribute,
+  setAccountAttributes,
+} from "../data/person-attributes.js";
 import { insertBase } from "../data/schema-ops.js";
 import { recordingBus } from "../realtime/recording-bus.test-helpers.js";
 import { createTestDatabase } from "../test-database.js";
@@ -210,6 +215,48 @@ describe("SCIM 2.0", () => {
         },
       ],
     });
+  });
+
+  it("keeps a department the provider sends as the account's value of a bound attribute (ADR 0142)", async () => {
+    const ENTERPRISE =
+      "urn:ietf:params:scim:schemas:extension:enterprise:2.0:User";
+    await createAttribute(db, admin, {
+      key: "ward",
+      label: "Ward",
+      scimField: "department",
+    });
+    const created = await call("POST", "/Users", {
+      schemas: [USER, ENTERPRISE],
+      userName: `nina-${suffix}@corp.example`,
+      emails: [{ value: `nina-${suffix}@corp.example`, primary: true }],
+      [ENTERPRISE]: { department: "Ward 3", manager: { value: "x" } },
+    });
+    expect(created.status).toBe(201);
+    const id = created.body.id ?? "";
+    expect(await accountAttributes(db, id)).toEqual({ ward: ["Ward 3"] });
+    expect(created.body[ENTERPRISE]).toEqual({ department: "Ward 3" });
+    // Moved by a patch, then read back as the provider sent it.
+    await call("PATCH", `/Users/${id}`, {
+      schemas: [PATCH],
+      Operations: [
+        { op: "replace", path: `${ENTERPRISE}:department`, value: "Ward 4" },
+      ],
+    });
+    expect(await accountAttributes(db, id)).toEqual({ ward: ["Ward 4"] });
+    expect((await call("GET", `/Users/${id}`)).body[ENTERPRISE]).toEqual({
+      department: "Ward 4",
+    });
+    // The provider's to change: Administration may not.
+    await expect(
+      setAccountAttributes(db, admin, { userId: id, values: { ward: ["5"] } }),
+    ).rejects.toMatchObject({ code: "attribute_provisioned" });
+    // A replace that no longer says the department takes the value away.
+    await call("PUT", `/Users/${id}`, {
+      schemas: [USER],
+      userName: `nina-${suffix}@corp.example`,
+      emails: [{ value: `nina-${suffix}@corp.example`, primary: true }],
+    });
+    expect(await accountAttributes(db, id)).toEqual({});
   });
 
   it("takes over an account made before SCIM, by its email", async () => {

@@ -257,6 +257,11 @@ msgstr "(valeur)"
 msgid "{0, plural, =0 {no change} one {# row changed} other {# rows changed}}"
 msgstr "{0, plural, =0 {aucun changement} one {# ligne changée} other {# lignes changées}}"
 
+#. placeholder {0}: attribute.holders
+#: components/admin/attributes-tab.tsx
+msgid "{0, plural, one {# account holds a value} other {# accounts hold a value}}"
+msgstr "{0, plural, one {# compte a une valeur} other {# comptes ont une valeur}}"
+
 #. placeholder {0}: result.tokensRevoked
 #: components/admin/account-handoff.tsx
 msgid "{0, plural, one {# API token revoked} other {# API tokens revoked}}"
@@ -1842,6 +1847,10 @@ msgstr "Une règle ne restreint qu’un rôle donné sur cette table. Donnez-lui
 msgid "A rule of the client's database refuses this value"
 msgstr "Une règle de la base du client refuse cette valeur"
 
+#: components/admin/attributes-tab.tsx
+msgid "A rule that names it keeps no row from then on."
+msgstr "Une règle qui le nomme ne garde plus aucune ligne."
+
 #: components/admin/limits-tab.tsx
 msgid "A SAML request under way"
 msgstr "Requête SAML en cours"
@@ -2059,6 +2068,10 @@ msgstr "Un jeton, un lien ou un flux vit au plus"
 #: components/fields/field-meta.tsx
 msgid "A total over the linked rows"
 msgstr "Un total sur les lignes liées"
+
+#: components/table/filter-builder.tsx
+msgid "A value"
+msgstr "Une valeur"
 
 #: lib/errors.ts
 msgid "A value is required"
@@ -2530,6 +2543,10 @@ msgstr "Ajouter des personnes depuis un fichier"
 #: components/admin/sources-tab.tsx
 msgid "Add rows"
 msgstr "Ajouter des lignes"
+
+#: components/admin/attributes-tab.tsx
+msgid "Add the attribute"
+msgstr "Ajouter l’attribut"
 
 #: components/settings/base-settings.tsx
 #: components/settings/group-roles.tsx
@@ -3028,6 +3045,10 @@ msgid "Another application is changing this row: try again in a moment"
 msgstr "Une autre application modifie cette ligne : réessayez dans un instant"
 
 #: lib/errors.ts
+msgid "Another attribute already has this name"
+msgstr "Un autre attribut porte déjà ce nom"
+
+#: lib/errors.ts
 msgid "Another row already holds this value, in a field of unique values"
 msgstr "Une autre ligne contient déjà cette valeur, dans un champ à valeurs uniques"
 
@@ -3276,6 +3297,27 @@ msgstr "Essais"
 #: lib/known-text.ts
 msgid "Attendees"
 msgstr "Participants"
+
+#: components/admin/attributes-tab.tsx
+msgid "Attribute added"
+msgstr "Attribut ajouté"
+
+#: components/admin/attributes-tab.tsx
+msgid "Attribute removed"
+msgstr "Attribut retiré"
+
+#: components/admin/account-attributes.tsx
+#: components/admin/admin-sections.ts
+msgid "Attributes"
+msgstr "Attributs"
+
+#: components/admin/attributes-tab.tsx
+msgid "Attributes of a person"
+msgstr "Attributs d’une personne"
+
+#: components/admin/account-attributes.tsx
+msgid "Attributes saved"
+msgstr "Attributs enregistrés"
 
 #: components/admin/account-page.tsx
 msgid "Auditor"
@@ -3690,6 +3732,7 @@ msgstr "Appelle une adresse au démarrage d’une tâche, une autre quand elle r
 msgid "Calls the push address of an Uptime Kuma monitor, with status up or down."
 msgstr "Appelle l’adresse push d’un moniteur Uptime Kuma, avec l’état up ou down."
 
+#: components/admin/account-attributes.tsx
 #: components/admin/account-bases.tsx
 #: components/admin/account-handoff.tsx
 #: components/admin/account-page.tsx
@@ -4275,6 +4318,10 @@ msgstr "Entreprises"
 msgid "Companies, contacts, and deals, with a kanban pipeline."
 msgstr "Entreprises, contacts et opportunités, avec un pipeline en kanban."
 
+#: components/table/filter-builder.tsx
+msgid "Compared with"
+msgstr "Comparé à"
+
 #: components/record/circuit-labels.ts
 msgid "Compliance"
 msgstr "Conformité"
@@ -4547,6 +4594,10 @@ msgstr "Copyright © les contributeurs d’AnyGridDB et les auteurs des biblioth
 #: components/table/table-workspace.tsx
 msgid "Correct the filter"
 msgstr "Corriger le filtre"
+
+#: components/admin/attributes.ts
+msgid "Cost center"
+msgstr "Centre de coût"
 
 #: components/admin/logs-tab.tsx
 msgid "Could not copy."
@@ -5133,6 +5184,10 @@ msgstr "Envoi replanifié"
 msgid "Deny"
 msgstr "Refuser"
 
+#: components/admin/attributes.ts
+msgid "Department"
+msgstr "Département"
+
 #: components/table/view-tabs.tsx
 msgid "Describe the view"
 msgstr "Décrire la vue"
@@ -5227,6 +5282,10 @@ msgstr "Condition d’affichage de {field} : {count}"
 #: components/settings/profile-form.tsx
 msgid "Display name"
 msgstr "Nom affiché"
+
+#: components/admin/attributes.ts
+msgid "Division"
+msgstr "Division"
 
 #: components/admin/notifications-tab.tsx
 msgid "Documentation"
@@ -5764,6 +5823,10 @@ msgstr "toutes les"
 #: components/admin/access-report.tsx
 msgid "Every account, its bases and roles, and its last sign-in, as a CSV file."
 msgstr "Chaque compte, ses bases et rôles, et sa dernière connexion, en fichier CSV."
+
+#: components/admin/attributes-tab.tsx
+msgid "Every account's values go with it, and a rule that names it keeps no row from then on."
+msgstr "Les valeurs de chaque compte partent avec lui, et une règle qui le nomme ne garde plus aucune ligne."
 
 #: components/admin/sign-in-trail.tsx
 msgid "Every active account"
@@ -6601,6 +6664,10 @@ msgstr "Indiquez l’adresse que le bouton ouvre."
 #: components/admin/oauth-clients-tab.tsx
 msgid "Give the application a name."
 msgstr "Donnez un nom à l’application."
+
+#: components/admin/attributes-tab.tsx
+msgid "Give the attribute a name."
+msgstr "Donnez un nom à l’attribut."
 
 #: components/admin/account-actions.tsx
 msgid "Give the auditor role"
@@ -8791,6 +8858,10 @@ msgstr "Nouvelle adresse (l’ancienne cesse de marcher)"
 msgid "New and changed passwords follow it; existing ones keep working."
 msgstr "Les nouveaux mots de passe et ceux qui changent la suivent ; les mots de passe actuels restent valables."
 
+#: components/admin/attributes-tab.tsx
+msgid "New attribute"
+msgstr "Nouvel attribut"
+
 #: components/table/automations-dialog.tsx
 msgid "New automation"
 msgstr "Nouvelle automatisation"
@@ -8991,6 +9062,10 @@ msgstr "Aucun jeton d’API."
 #: components/admin/oauth-clients-tab.tsx
 msgid "No application yet. Register one below."
 msgstr "Aucune application pour l’instant. Enregistrez-en une ci-dessous."
+
+#: components/admin/attributes-tab.tsx
+msgid "No attribute yet."
+msgstr "Aucun attribut pour l’instant."
 
 #: components/admin/access-tab.tsx
 msgid "No automation."
@@ -9332,6 +9407,7 @@ msgstr "Aucun jeton pour l’instant. Créez-en un ci-dessous, pour ce que votre
 msgid "No type matches"
 msgstr "Aucun type ne correspond"
 
+#: components/admin/account-attributes.tsx
 #: components/record/record-panel.tsx
 #: components/views/kanban-view.tsx
 msgid "No value"
@@ -9420,6 +9496,10 @@ msgstr "Non précisé : refuser 1,234, et lire 1.234 avec un point décimal"
 #: components/table/import-dialog.tsx
 msgid "Not said: refuse these dates"
 msgstr "Non précisé : refuser ces dates"
+
+#: components/admin/attributes-tab.tsx
+msgid "Not sent (set here)"
+msgstr "Non envoyé (réglé ici)"
 
 #: components/admin/sources-tab.tsx
 msgid "Not set"
@@ -9683,6 +9763,10 @@ msgstr "Une ligne lue, créée, modifiée ou supprimée."
 msgid "One session"
 msgstr "Une session"
 
+#: components/admin/account-attributes.tsx
+msgid "One value a line"
+msgstr "Une valeur par ligne"
+
 #: components/fields/formula-docs.ts
 msgid "One value or the other, by the condition."
 msgstr "Une valeur ou l’autre, selon la condition."
@@ -9913,6 +9997,10 @@ msgstr "Orange"
 #: components/table/view-toolbar.tsx
 msgid "Order"
 msgstr "Ordre"
+
+#: components/admin/attributes.ts
+msgid "Organization"
+msgstr "Organisation"
 
 #: components/admin/account-page.tsx
 #: components/admin/accounts-tab.tsx
@@ -10820,6 +10908,7 @@ msgstr "Recharger la page"
 
 #: components/admin/account-actions.tsx
 #: components/admin/account-bases.tsx
+#: components/admin/attributes-tab.tsx
 #: components/admin/base-admin-members.tsx
 #: components/admin/integrations-tab.tsx
 #: components/admin/notifications-tab.tsx
@@ -10905,6 +10994,14 @@ msgstr "Retirer le secret"
 #: components/admin/account-actions.tsx
 msgid "Remove the account manager role"
 msgstr "Retirer le rôle de gestionnaire des comptes"
+
+#: components/admin/attributes-tab.tsx
+msgid "Remove the attribute {name}"
+msgstr "Retirer l’attribut {name}"
+
+#: components/admin/attributes-tab.tsx
+msgid "Remove the attribute {name}?"
+msgstr "Retirer l’attribut {name} ?"
 
 #: components/admin/account-actions.tsx
 msgid "Remove the auditor role"
@@ -11759,6 +11856,10 @@ msgstr "Enregistrer le webhook SIEM"
 msgid "Save syslog collector"
 msgstr "Enregistrer le collecteur syslog"
 
+#: components/admin/account-attributes.tsx
+msgid "Save the attributes"
+msgstr "Enregistrer les attributs"
+
 #: components/admin/identity-tab.tsx
 msgid "Save the mail settings"
 msgstr "Enregistrer les réglages des emails"
@@ -12189,6 +12290,14 @@ msgstr "Envoyé ({status})"
 #: components/admin/support-tab.tsx
 msgid "Sent by"
 msgstr "Envoyé par"
+
+#: components/admin/attributes-tab.tsx
+msgid "Sent by the identity provider as"
+msgstr "Envoyé par le fournisseur d’identité comme"
+
+#: components/admin/account-attributes.tsx
+msgid "Sent by your identity provider, as {field}"
+msgstr "Envoyé par votre fournisseur d’identité, comme {field}"
 
 #: components/admin/support-tab.tsx
 msgid "Sent to"
@@ -12917,6 +13026,10 @@ msgstr "Partir de"
 #: components/shell/shortcuts-dialog.tsx
 msgid "Start or end of the row ({mod}: of the grid)"
 msgstr "Début ou fin de la ligne ({mod} : de la grille)"
+
+#: components/admin/attributes-tab.tsx
+msgid "Start the name with a letter from A to Z."
+msgstr "Commencez le nom par une lettre de A à Z."
 
 #: components/shell/new-base-dialog.tsx
 msgid "Start with no table, or import a file."
@@ -14029,6 +14142,10 @@ msgstr "La personne, avec un lien envoyé par email"
 msgid "The proof Administration asks for"
 msgstr "Preuve que demande l’administration"
 
+#: components/table/filter-builder.tsx
+msgid "The reader's {attribute}"
+msgstr "{attribute} de qui lit"
+
 #: components/admin/limits-tab.tsx
 msgid "The reason for acting as someone"
 msgstr "Motif pour agir au nom d’une personne"
@@ -14539,6 +14656,10 @@ msgstr "Ce jeton d’API ne peut pas supprimer de lignes"
 #: components/oauth/consent-page.tsx
 msgid "This application is unknown or no longer allowed."
 msgstr "Cette application est inconnue ou n’est plus autorisée."
+
+#: lib/errors.ts
+msgid "This attribute is not one the instance knows"
+msgstr "Cet attribut n’est pas connu de l’instance"
 
 #: lib/errors.ts
 msgid "This automation keeps no secret of that name"
@@ -15758,6 +15879,10 @@ msgstr "Valeur obligatoire"
 msgid "Values"
 msgstr "Valeurs"
 
+#: components/admin/limits-tab.tsx
+msgid "Values of one attribute an account holds"
+msgstr "Valeurs d’un attribut qu’un compte détient"
+
 #: components/table/automations-dialog.tsx
 msgid "Values you can use in texts:"
 msgstr "Valeurs utilisables dans les textes :"
@@ -15857,6 +15982,10 @@ msgstr "En attente de l’index du journal, qu’un long journal reçoit après 
 #: components/settings/webhooks-panel.tsx
 msgid "Waiting to be sent"
 msgstr "En attente d’envoi"
+
+#: components/admin/attributes-tab.tsx
+msgid "Ward"
+msgstr "Service"
 
 #: components/admin/logs-tab.tsx
 msgid "Warning"
@@ -15958,6 +16087,14 @@ msgstr "Ce qu’une page lit et montre"
 #: components/admin/roles-tab.tsx
 msgid "What a role gives someone on a base or a table. The roles below come with every instance and never change. Make others from the same permissions, or duplicate one, then give them as these are, from a base's settings or from here."
 msgstr "Ce qu’un rôle donne à quelqu’un sur une base ou une table. Les rôles ci-dessous viennent avec chaque instance et ne changent jamais. Créez-en d’autres avec les mêmes permissions, ou dupliquez-en un, puis donnez-les comme ceux-ci, depuis les réglages d’une base ou d’ici."
+
+#: components/admin/attributes-tab.tsx
+msgid "What a row rule may name as the reader's own: a ward, a branch, a department. Someone without a value reaches no row by such a rule. Each account's values are set on its page, or sent by your identity provider (SCIM) for an attribute bound to one of its fields."
+msgstr "Ce qu’une règle de lignes peut nommer comme propre à qui lit : un service, une agence, un département. Sans valeur, une telle règle ne donne aucune ligne. Les valeurs de chaque compte se règlent sur sa page, ou sont envoyées par votre fournisseur d’identité (SCIM) pour un attribut lié à l’un de ses champs."
+
+#: components/admin/account-attributes.tsx
+msgid "What a row rule may name as this person's own. Without a value, such a rule gives them no row."
+msgstr "Ce qu’une règle de lignes peut nommer comme propre à cette personne. Sans valeur, une telle règle ne lui donne aucune ligne."
 
 #: components/admin/limits-tab.tsx
 msgid "What a script hands to the actions after it"
@@ -16461,6 +16598,10 @@ msgstr "Vos règles de champs ou de lignes sur cette table en cachent une partie
 #: components/admin/scim-tab.tsx
 msgid "Your identity provider (Okta, Microsoft Entra ID, …) creates, changes, and deactivates accounts, and keeps groups. Existing accounts are taken over by their email. Local groups are made under People → Groups. Then give groups a role in each base's settings or in Administration."
 msgstr "Votre fournisseur d’identité (Okta, Microsoft Entra ID, …) crée, modifie et désactive les comptes, et tient les groupes. Les comptes existants sont repris par leur adresse. Les groupes locaux se créent sous Personnes → Groupes. Donnez ensuite un rôle aux groupes dans les paramètres de chaque base ou dans l’Administration."
+
+#: lib/errors.ts
+msgid "Your identity provider sends this value: change it there"
+msgstr "Votre fournisseur d’identité envoie cette valeur : changez-la chez lui"
 
 #: components/settings/base-settings.tsx
 msgid "Your notifications"

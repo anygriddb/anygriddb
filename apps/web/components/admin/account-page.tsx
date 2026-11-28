@@ -1,3 +1,4 @@
+import { AccountAttributes } from "./account-attributes";
 import {
   Button,
   Dialog,
@@ -210,6 +211,14 @@ export function AccountAdminPage({ userId }: { userId: string }) {
         bases={account.bases}
         canChange={session.data?.isAdmin === true}
       />
+
+      {session.data?.isAdmin === true || session.data?.isAuditor === true ? (
+        <AccountAttributes
+          userId={account.id}
+          managed={account.provisioned && !account.deprovisioned}
+          canChange={session.data.isAdmin}
+        />
+      ) : null}
 
       <RightsAt userId={account.id} />
       <AccountExport userId={account.id} />

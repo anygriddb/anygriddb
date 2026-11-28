@@ -561,6 +561,11 @@ Then `.env` `DATABASE_URL` is `anygriddb_app`. App refuses start until
    `userName` / `emails[type eq "work"].value`.
 3. Assign groups roles on bases or tables in each base's settings, or on
    bases in Administration → People → Groups.
+4. For a row rule that names a person's attribute (their ward, their
+   department), add it in Administration → People → Attributes and bind it
+   to a field of the enterprise extension (`department`, `division`,
+   `organization`, `costCenter`): the provider's value is kept at each
+   provisioning, and is the provider's to change.
 
 - Accounts keyed by email; provisioned user takes existing account.
 - Local groups (ADR 0070) are invisible to IdP; same name → refused.

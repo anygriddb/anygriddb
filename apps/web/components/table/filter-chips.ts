@@ -73,6 +73,8 @@ export function chipValueText(
       .join(", ");
   }
   if (typeof value === "object") {
+    // Only a rule names one (ADR 0142), and a rule is no chip.
+    if ("attribute" in value) return value.attribute;
     if (value.mode === "exact") return value.date ?? "";
     return words.period(value.mode).replace("N", String(value.days ?? ""));
   }
