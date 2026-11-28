@@ -1,8 +1,9 @@
 /**
  * Who may do what in a base: members, roles, invitations, and the field
- * and row rules of one member.
+ * and row rules of one member or group.
  */
 import {
+  aclSubjectOf,
   AppError,
   checkFilter,
   givenRoleSchema,
@@ -218,7 +219,7 @@ export const catalogAccessProcedures = {
         );
         assertMayTouch(
           role,
-          await groupGiven(ctx.db, input.groupId, input.baseId),
+          await groupGiven(ctx.db, input.groupId, "base", input.baseId),
         );
         await setGroupRole(ctx.db, user.id, {
           ...input,
@@ -236,16 +237,31 @@ export const catalogAccessProcedures = {
           input.tableId,
           "members.manage",
         );
-        return { people: await listTableAccess(ctx.db, table) };
+        return listTableAccess(ctx.db, table);
       }),
     ),
+  /**
+   * Gives a person or a group a role on a table, which adds to what its
+   * base gives, or takes it away (`role` null) with its rules.
+   */
   setTableRole: asking({ asks: ["members.manage"] })
     .input(
-      z.object({
-        tableId: z.uuid(),
-        userId: z.uuid(),
-        role: givenRoleSchema.nullable(),
-      }),
+      z.union([
+        z
+          .object({
+            tableId: z.uuid(),
+            userId: z.uuid(),
+            role: givenRoleSchema.nullable(),
+          })
+          .strict(),
+        z
+          .object({
+            tableId: z.uuid(),
+            groupId: z.uuid(),
+            role: givenRoleSchema.nullable(),
+          })
+          .strict(),
+      ]),
     )
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
@@ -255,15 +271,18 @@ export const catalogAccessProcedures = {
           "members.manage",
         );
         await guardBase(ctx, table.baseId, "members.manage");
+        const subject = aclSubjectOf(input);
         assertMayTouch(
           role,
-          await ownGiven(ctx.db, input.userId, "table", table.id),
+          "userId" in subject
+            ? await ownGiven(ctx.db, subject.userId, "table", table.id)
+            : await groupGiven(ctx.db, subject.groupId, "table", table.id),
         );
         await setTableRole(
           ctx.db,
           user.id,
           table,
-          input.userId,
+          subject,
           input.role ? await givenBy(ctx.db, role, input.role) : null,
         );
         return { ok: true as const };
@@ -365,7 +384,7 @@ export const catalogAccessProcedures = {
         return { ok: true as const };
       }),
     ),
-  /** Field and row rules for every collaborator on a table. */
+  /** Field and row rules for every collaborator and group on a table. */
   tableAcl: asking({ asks: ["members.manage"] })
     .input(getTableAclInputSchema)
     .query(({ ctx, input }) =>
@@ -383,9 +402,12 @@ export const catalogAccessProcedures = {
           input.tableId,
           "members.manage",
         );
-        const bindings = await loadBindings(ctx.db, input.userId);
-        if (!effectiveTableRole(bindings, table.id, table.baseId)) {
-          throw new AppError("unknown_account");
+        // A group's rule is checked against the role it narrows, there.
+        if ("userId" in input) {
+          const bindings = await loadBindings(ctx.db, input.userId);
+          if (!effectiveTableRole(bindings, table.id, table.baseId)) {
+            throw new AppError("unknown_account");
+          }
         }
         const known = await liveColumnNames(ctx.db, table.id);
         for (const column of input.columns) {
@@ -393,9 +415,15 @@ export const catalogAccessProcedures = {
         }
         if (input.rowFilter) {
           // A rule kept is one that compiles whole: a condition without a
-          // value its field takes would otherwise be left out of it.
+          // value its field takes would otherwise be left out of it. "Me"
+          // is each reader; for a group's rule, any account stands for one.
           const { engine } = await loadEngine(ctx.db, table.id, () => true);
-          checkFilter(engine, input.rowFilter, "rule", input.userId);
+          checkFilter(
+            engine,
+            input.rowFilter,
+            "rule",
+            "userId" in input ? input.userId : user.id,
+          );
         }
         await setTableAcl(ctx.db, user.id, input);
         return { ok: true as const };
@@ -406,7 +434,12 @@ export const catalogAccessProcedures = {
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
         const { user } = await guardTable(ctx, input.tableId, "members.manage");
-        await clearTableAcl(ctx.db, user.id, input.tableId, input.userId);
+        await clearTableAcl(
+          ctx.db,
+          user.id,
+          input.tableId,
+          aclSubjectOf(input),
+        );
         return { ok: true as const };
       }),
     ),

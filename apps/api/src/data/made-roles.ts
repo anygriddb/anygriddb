@@ -184,19 +184,20 @@ export async function invitationGiven(
   return row ? givenOf(row) : null;
 }
 
-/** The role a group holds on a base, if any. */
+/** The role a group holds on a base or a table, if any. */
 export async function groupGiven(
   db: Pick<Database, "selectFrom">,
   groupId: string,
-  baseId: string,
+  scope: "base" | "table",
+  scopeId: string,
 ): Promise<Given | null> {
   const row = await db
     .selectFrom("attributions as a")
     .leftJoin("madeRoles as m", "m.id", "a.madeRoleId")
     .select(["a.role", ...MADE_COLUMNS])
     .where("a.groupId", "=", groupId)
-    .where("a.scope", "=", "base")
-    .where("a.scopeId", "=", baseId)
+    .where("a.scope", "=", scope)
+    .where("a.scopeId", "=", scopeId)
     .executeTakeFirst();
   return row ? givenOf(row) : null;
 }

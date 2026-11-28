@@ -16,21 +16,35 @@ export const columnAclEntrySchema = z
 
 export const getTableAclInputSchema = z.object({ tableId: z.uuid() }).strict();
 
-export const setTableAclInputSchema = z
-  .object({
-    tableId: z.uuid(),
-    userId: z.uuid(),
-    rowFilter: filterGroupSchema.nullable(),
-    columns: z.array(columnAclEntrySchema).max(200),
-  })
-  .strict();
+/**
+ * Whom a table's rule is about (ADR 0131): one person, or a group, whose
+ * attribution on the table it narrows. Exactly one: an input that names
+ * both, or neither, is refused.
+ */
+export type AclSubject = { userId: string } | { groupId: string };
 
-export const clearTableAclInputSchema = z
-  .object({
-    tableId: z.uuid(),
-    userId: z.uuid(),
-  })
-  .strict();
+const ruleShape = {
+  tableId: z.uuid(),
+  rowFilter: filterGroupSchema.nullable(),
+  columns: z.array(columnAclEntrySchema).max(200),
+};
+
+export const setTableAclInputSchema = z.union([
+  z.object({ ...ruleShape, userId: z.uuid() }).strict(),
+  z.object({ ...ruleShape, groupId: z.uuid() }).strict(),
+]);
+
+export const clearTableAclInputSchema = z.union([
+  z.object({ tableId: z.uuid(), userId: z.uuid() }).strict(),
+  z.object({ tableId: z.uuid(), groupId: z.uuid() }).strict(),
+]);
+
+/** The subject an input names, without its other keys. */
+export function aclSubjectOf(input: AclSubject): AclSubject {
+  return "userId" in input
+    ? { userId: input.userId }
+    : { groupId: input.groupId };
+}
 
 export const viewAsInputSchema = z
   .object({
@@ -40,9 +54,8 @@ export const viewAsInputSchema = z
   })
   .strict();
 
-/** One member's rules on a table: the rows they see, and each field's access. */
-export type TableAcl = {
-  userId: string;
+/** One person's or one group's rules on a table: the rows, and each field's access. */
+export type TableAcl = AclSubject & {
   rowFilter: FilterGroup | null;
   columns: ColumnAclEntry[];
 };

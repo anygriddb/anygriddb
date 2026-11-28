@@ -836,6 +836,7 @@ test("an administrator ends a session, reads the sign-ins, and exports access", 
     expect(await accessibilityViolations(page)).toEqual([]);
     await page.getByRole("link", { name: new RegExp(`Team ${stamp}`) }).click();
     await page.waitForURL(/\/admin\/people\/groups\/[0-9a-f-]{36}$/);
+    const groupPage = new URL(page.url()).pathname;
     await page.getByRole("button", { name: "Add a member" }).click();
     await page.getByLabel("Find an account").fill(`Renamed ${stamp}`);
     await page.getByRole("option", { name: new RegExp(movedEmail) }).click();
@@ -860,6 +861,65 @@ test("an administrator ends a session, reads the sign-ins, and exports access", 
     ).toBeVisible();
     await page.getByRole("button", { name: baseName }).click();
     await expect(page.getByText(`Group Team ${stamp}`).first()).toBeVisible();
+    expect(await accessibilityViolations(page)).toEqual([]);
+
+    // The group on one table instead (ADR 0131): its role on the base
+    // taken back, a role on Samples given in the base's settings, which
+    // its rule narrows for every member, and its page says so.
+    await page.goto(groupPage);
+    await page.getByRole("button", { name: `Remove from ${baseName}` }).click();
+    await expect(page.getByText("Role removed")).toBeVisible();
+    const {
+      rows: [adminBase],
+    } = await control.query<{ id: string }>(
+      "select r.scope_id as id from attributions r join users u on u.id = r.user_id where r.scope = 'base' and r.role = 'owner' and u.email = $1",
+      [email],
+    );
+    await page.goto(`/b/${adminBase?.id ?? ""}/settings`);
+    const giving = page.locator("form", {
+      has: page.getByLabel("Give a group a role on Samples"),
+    });
+    await giving
+      .getByLabel("Give a group a role on Samples")
+      .selectOption({ label: `Team ${stamp} (1)` });
+    await giving
+      .getByLabel("Role of the group on Samples")
+      .selectOption({ label: "Viewer" });
+    await giving.getByRole("button", { name: "Add the group" }).click();
+    await expect(
+      page.getByLabel(`Role of the group Team ${stamp} on Samples`),
+    ).toHaveValue("viewer");
+    // Its member reaches the table by the group alone, and is told so.
+    await expect(
+      page
+        .getByRole("listitem")
+        .filter({ hasText: `Renamed ${stamp}` })
+        .getByLabel("Role on Samples")
+        .locator("option:checked"),
+    ).toHaveText("A group's alone (Viewer)");
+    const ruling = page.getByRole("region", { name: "Permissions on Samples" });
+    await ruling
+      .getByLabel("Whose permissions are set")
+      .selectOption({ label: `Team ${stamp}` });
+    await expect(
+      ruling.getByText("These permissions bind each member of the group", {
+        exact: false,
+      }),
+    ).toBeVisible();
+    await ruling
+      .getByLabel(`Rows the members of Team ${stamp} see`)
+      .selectOption({ label: "Only the rows that match" });
+    await ruling.getByRole("button", { name: "Add a condition" }).click();
+    await ruling.getByLabel("Value").fill("north");
+    await ruling
+      .getByLabel(`What the members of Team ${stamp} may do with Notes`)
+      .selectOption({ label: "Hidden" });
+    expect(await accessibilityViolations(page)).toEqual([]);
+    await ruling.getByRole("button", { name: "Save", exact: true }).click();
+    await expect(page.getByText("Permissions saved")).toBeVisible();
+    await page.goto(groupPage);
+    await expect(page.getByText(`${baseName} › Samples`)).toBeVisible();
+    await expect(page.getByText("Viewer, narrowed by its rules")).toBeVisible();
     expect(await accessibilityViolations(page)).toEqual([]);
 
     await other.close();

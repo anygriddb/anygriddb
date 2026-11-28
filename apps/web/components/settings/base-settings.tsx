@@ -9,7 +9,7 @@ import {
   Tooltip,
 } from "@anygriddb/ui";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Download, Trash2 } from "lucide-react";
+import { Download, Trash2, UsersRound } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useCopy } from "../../lib/clipboard";
@@ -32,6 +32,7 @@ import { RestorePoints } from "./restore-points";
 import { useRoleLabel } from "./role-label";
 import { TableRulesPanel } from "./table-rules-panel";
 import { WebhooksPanel } from "./webhooks-panel";
+import { plural } from "@lingui/core/macro";
 import { useLingui } from "@lingui/react/macro";
 import { useErrorText } from "../../lib/errors";
 import { Earlier } from "../history/earlier";
@@ -382,7 +383,7 @@ export function BaseSettings({ baseId }: { baseId: string }) {
       {manageMembers ? (
         <RuledSection
           title={t`Per-table access`}
-          description={t`A role given on a table adds to what the base gives, and never takes from it. Someone who holds a role on a table and none on the base may then be narrowed there: to some rows, and field by field.`}
+          description={t`A role given on a table, to someone or to a group, adds to what the base gives, and never takes from it. Whoever holds a role on a table and none on the base may then be narrowed there: to some rows, and field by field.`}
         >
           {base.tables.map((table) => (
             <TableAccess
@@ -590,11 +591,42 @@ function TableAccess({
   const queryClient = useQueryClient();
   const roleLabel = useRoleLabel();
   const access = useQuery(api.catalog.tableAccess.queryOptions({ tableId }));
+  // The instance's groups, which a table may give a role to.
+  const groupRoles = useQuery(api.catalog.groupRoles.queryOptions({ baseId }));
+  const [groupId, setGroupId] = useState("");
+  const [groupRole, setGroupRole] = useState<string>("viewer");
+  const reach = access.data ?? { people: [], groups: [] };
+  const given = new Set(reach.groups.map((group) => group.groupId));
+  const available = (groupRoles.data?.groups ?? []).filter(
+    (group) => !given.has(group.id),
+  );
+
+  async function setRole(
+    subject: { userId: string } | { groupId: string },
+    role: string | null,
+  ): Promise<boolean> {
+    try {
+      await trpc.catalog.setTableRole.mutate({ tableId, ...subject, role });
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: api.catalog.tableAccess.queryKey({ tableId }),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: api.catalog.tableAcl.queryKey({ tableId }),
+        }),
+      ]);
+      return true;
+    } catch (cause) {
+      toast.error(errorText(cause));
+      return false;
+    }
+  }
+
   return (
     <div className="flex flex-col gap-3">
       <h3 className="text-sm font-medium">{name}</h3>
       <ul className="divide-y divide-border text-sm">
-        {(access.data?.people ?? []).map((person) => (
+        {reach.people.map((person) => (
           <li key={person.userId} className="flex items-center gap-3 py-1.5">
             <Avatar name={person.displayName} />
             <span className="min-w-0 flex-1 truncate">
@@ -604,35 +636,99 @@ function TableAccess({
               aria-label={t`Role on ${{ table: name }}`}
               className="h-8 w-48"
               value={person.tableGiven ?? ""}
-              onChange={async (event) => {
-                try {
-                  await trpc.catalog.setTableRole.mutate({
-                    tableId,
-                    userId: person.userId,
-                    role: event.target.value || null,
-                  });
-                  await queryClient.invalidateQueries({
-                    queryKey: api.catalog.tableAccess.queryKey({ tableId }),
-                  });
-                } catch (cause) {
-                  toast.error(errorText(cause));
-                }
-              }}
+              onChange={(event) =>
+                void setRole(
+                  { userId: person.userId },
+                  event.target.value || null,
+                )
+              }
             >
               <option value="">
-                {t`The base's alone (${{ role: roleLabel(person.baseRole) }})`}
+                {person.baseRole === null && person.tableGiven === null
+                  ? t`A group's alone (${{ role: roleLabel(person.tableRole) }})`
+                  : t`The base's alone (${{ role: roleLabel(person.baseRole) }})`}
               </option>
               <RoleOptions />
             </Select>
           </li>
         ))}
+        {reach.groups.map((group) => (
+          <li key={group.groupId} className="flex items-center gap-3 py-1.5">
+            <UsersRound className="h-5 w-5 text-muted-foreground" aria-hidden />
+            <div className="min-w-0 flex-1">
+              <p className="truncate">{group.displayName}</p>
+              <p className="text-xs text-muted-foreground">
+                {plural(group.members, { one: `# member`, other: `# members` })}
+              </p>
+            </div>
+            <Select
+              aria-label={t`Role of the group ${{ group: group.displayName }} on ${{ table: name }}`}
+              className="h-8 w-48"
+              value={group.tableGiven}
+              onChange={(event) =>
+                void setRole({ groupId: group.groupId }, event.target.value)
+              }
+            >
+              <RoleOptions />
+            </Select>
+            <Button
+              size="icon"
+              variant="ghost"
+              aria-label={t`Remove the group ${{ group: group.displayName }} from ${{ table: name }}`}
+              onClick={() => void setRole({ groupId: group.groupId }, null)}
+            >
+              <Trash2 className="h-4 w-4" aria-hidden />
+            </Button>
+          </li>
+        ))}
       </ul>
+      {available.length > 0 ? (
+        <form
+          className="flex flex-wrap items-end gap-2"
+          onSubmit={(event) => {
+            event.preventDefault();
+            const target = groupId || available[0]?.id;
+            if (!target) return;
+            void setRole({ groupId: target }, groupRole).then((done) => {
+              if (done) setGroupId("");
+            });
+          }}
+        >
+          <div className="flex min-w-60 flex-1 flex-col gap-1">
+            <Label htmlFor={`table-group-${tableId}`}>
+              {t`Give a group a role on ${{ table: name }}`}
+            </Label>
+            <Select
+              id={`table-group-${tableId}`}
+              value={groupId || available[0]?.id}
+              onChange={(event) => setGroupId(event.target.value)}
+            >
+              {available.map((group) => (
+                <option key={group.id} value={group.id}>
+                  {group.displayName} ({group.members})
+                </option>
+              ))}
+            </Select>
+          </div>
+          <Select
+            aria-label={t`Role of the group on ${{ table: name }}`}
+            className="w-40"
+            value={groupRole}
+            onChange={(event) => setGroupRole(event.target.value)}
+          >
+            <RoleOptions />
+          </Select>
+          <Button type="submit" variant="outline">
+            {t`Add the group`}
+          </Button>
+        </form>
+      ) : null}
       <TableRulesPanel
         baseId={baseId}
         tableId={tableId}
         tableName={name}
         columns={columns}
-        members={access.data?.people ?? []}
+        reach={reach}
         people={people}
       />
     </div>

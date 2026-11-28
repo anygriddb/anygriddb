@@ -101,6 +101,9 @@ export function useDescribeNotification() {
         if (item.data?.count) {
           return t`${actor}, an administrator, gave ${plural(item.data.count, { one: "# person", other: "# people" })} a role on ${base}`;
         }
+        if (group && item.data?.name && item.data.scope === "tables") {
+          return t`${actor}, an administrator, added ${name} to the group ${group}, which has a role on tables of ${base}`;
+        }
         if (group && item.data?.name) {
           return t`${actor}, an administrator, added ${name} to the group ${group}, which has a role on ${base} (${role})`;
         }

@@ -1,6 +1,7 @@
 import { sign, verify, type KeyRing } from "../auth/key-ring.js";
 import { createHash, randomBytes } from "node:crypto";
 import {
+  type AclSubject,
   AppError,
   memberDomainAllowed,
   type Given,
@@ -49,7 +50,8 @@ function isToken(value: string): boolean {
 /**
  * Who reaches a table, by a role on its base or on it, their own or a
  * group's (ADR 0131): what each gives, and the role of their own on the
- * table, which adds to the base's.
+ * table, which adds to the base's. Beside them, the groups given a role on
+ * the table itself, with the role each holds on its base.
  */
 export async function listTableAccess(
   db: Database,
@@ -125,40 +127,113 @@ export async function listTableAccess(
     }
     people.set(row.userId, current);
   }
-  return [...people.values()].map(
-    ({ bindings: _bindings, ...person }) => person,
-  );
+  return {
+    people: [...people.values()].map(
+      ({ bindings: _bindings, ...person }) => person,
+    ),
+    groups: await tableGroups(db, table),
+  };
 }
 
 /**
- * Gives one person a role on a table, which adds to what its base gives
- * them, or takes it away (`role` null) with its rules.
+ * The groups given a role on a table, by the attribution there (ADR
+ * 0131): its role, which a rule may narrow, and the role the group holds
+ * on the base, which gives the table whole.
+ */
+async function tableGroups(
+  db: Database,
+  table: { id: string; baseId: string },
+) {
+  const rows = await db
+    .selectFrom("attributions as a")
+    .innerJoin("groups as g", "g.id", "a.groupId")
+    .leftJoin("madeRoles as m", "m.id", "a.madeRoleId")
+    .select([
+      "g.id as groupId",
+      "g.displayName",
+      "a.role",
+      "a.scope",
+      "a.scopeId",
+      ...MADE_COLUMNS,
+      sql<number>`(select count(*)::int from group_members gm where gm.group_id = g.id)`.as(
+        "members",
+      ),
+    ])
+    .where((eb) =>
+      eb.or([
+        eb.and([
+          eb("a.scope", "=", "base"),
+          eb("a.scopeId", "=", table.baseId),
+        ]),
+        eb.and([eb("a.scope", "=", "table"), eb("a.scopeId", "=", table.id)]),
+      ]),
+    )
+    .where(liveAttribution)
+    .orderBy(sql`lower(g.display_name)`)
+    .execute();
+  const onBase = new Map(
+    rows
+      .filter((row) => row.scope === "base")
+      .map((row) => [
+        row.groupId,
+        roleFor(bindingsFrom([row]), "base", table.baseId),
+      ]),
+  );
+  return rows.flatMap((row) => {
+    const given = givenOf(row);
+    if (row.scope !== "table" || given === null) return [];
+    return [
+      {
+        groupId: row.groupId,
+        displayName: row.displayName,
+        members: row.members,
+        tableRole: roleFor(bindingsFrom([row]), "table", table.id),
+        tableGiven: typeof given === "string" ? given : given.id,
+        baseRole: onBase.get(row.groupId) ?? null,
+      },
+    ];
+  });
+}
+
+/**
+ * Gives one person or one group a role on a table, which adds to what its
+ * base gives them, or takes it away (`role` null) with its rules. A new
+ * role keeps the rules the role there carried.
  */
 export async function setTableRole(
   db: Database,
   actorId: string,
   table: { id: string; baseId: string },
-  userId: string,
+  subject: AclSubject,
   role: Given | null,
 ): Promise<void> {
-  const user = await db
-    .selectFrom("users")
-    .select("id")
-    .where("id", "=", userId)
-    .executeTakeFirst();
-  if (!user) {
-    throw new AppError("unknown_account");
+  const found =
+    "userId" in subject
+      ? await db
+          .selectFrom("users")
+          .select("id")
+          .where("id", "=", subject.userId)
+          .executeTakeFirst()
+      : await db
+          .selectFrom("groups")
+          .select("id")
+          .where("id", "=", subject.groupId)
+          .executeTakeFirst();
+  if (!found) {
+    throw new AppError(
+      "userId" in subject ? "unknown_account" : "unknown_group",
+    );
   }
+  const column = "userId" in subject ? "userId" : "groupId";
   await withAudit(
     db,
     { userId: actorId, tableId: table.id, source: "web" },
     async (tx) => {
       if (role) {
-        // A new role keeps the rules the table's role carried.
         await tx
           .insertInto("attributions")
           .values({
-            userId,
+            ...subject,
             ...givenColumns(role),
             scope: "table",
             scopeId: table.id,
@@ -166,15 +241,15 @@ export async function setTableRole(
           })
           .onConflict((conflict) =>
             conflict
-              .columns(["userId", "scope", "scopeId"])
-              .where("userId", "is not", null)
+              .columns([column, "scope", "scopeId"])
+              .where(column, "is not", null)
               .doUpdateSet({ ...givenColumns(role), givenBy: actorId }),
           )
           .execute();
       } else {
         await tx
           .deleteFrom("attributions")
-          .where("userId", "=", userId)
+          .where(column, "=", found.id)
           .where("scope", "=", "table")
           .where("scopeId", "=", table.id)
           .execute();

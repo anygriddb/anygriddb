@@ -1,8 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { setTableAclInputSchema } from "./acl";
+import {
+  aclSubjectOf,
+  clearTableAclInputSchema,
+  setTableAclInputSchema,
+} from "./acl";
 
 const tableId = "00000000-0000-4000-8000-000000000001";
 const userId = "00000000-0000-4000-8000-000000000002";
+const groupId = "00000000-0000-4000-8000-000000000003";
 
 describe("table rules input", () => {
   it("accepts field access and a row rule", () => {
@@ -40,5 +45,29 @@ describe("table rules input", () => {
     ]) {
       expect(setTableAclInputSchema.safeParse(input).success).toBe(false);
     }
+  });
+
+  it("takes a group in place of a person", () => {
+    const parsed = setTableAclInputSchema.parse({
+      tableId,
+      groupId,
+      rowFilter: null,
+      columns: [{ column: "salary", access: "hide" }],
+    });
+    expect(aclSubjectOf(parsed)).toEqual({ groupId });
+    expect(
+      aclSubjectOf(clearTableAclInputSchema.parse({ tableId, userId })),
+    ).toEqual({ userId });
+  });
+
+  it("refuses a rule about both a person and a group, or about nobody", () => {
+    const rule = { tableId, rowFilter: null, columns: [] };
+    for (const input of [{ ...rule, userId, groupId }, rule]) {
+      expect(setTableAclInputSchema.safeParse(input).success).toBe(false);
+    }
+    expect(
+      clearTableAclInputSchema.safeParse({ tableId, userId, groupId }).success,
+    ).toBe(false);
+    expect(clearTableAclInputSchema.safeParse({ tableId }).success).toBe(false);
   });
 });

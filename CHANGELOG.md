@@ -8,6 +8,15 @@ first.
 
 ## Unreleased
 
+### Added
+
+- A group may be given a role on a table, beside its role on a base: in a
+  base's settings, under "Per-table access". It reaches each member of the
+  group, and adds to what else they hold there. A group's role on a table
+  takes field and row rules as a person's does: one rule for every member,
+  "Me" being each of them. A group's page in Administration lists its
+  roles on tables.
+
 ## 0.14.1 - 2026-11-28
 
 ### Changed

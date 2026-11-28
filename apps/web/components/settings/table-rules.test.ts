@@ -1,12 +1,15 @@
 import type { Role } from "@anygriddb/core";
 import { describe, expect, it } from "vitest";
 import {
-  memberShown,
-  restricts,
   narrowable,
+  restricts,
   ruledMembers,
+  ruleSubjects,
   ruleToSave,
   storedAccess,
+  subjectInput,
+  subjectKey,
+  subjectShown,
 } from "./table-rules";
 
 const own = {
@@ -34,30 +37,84 @@ describe("ruledMembers", () => {
       "of the table only",
     ]);
   });
+});
 
-  it("narrows only those who reach the table by a role on it alone", () => {
-    expect(
-      ruledMembers(people)
-        .filter(narrowable)
-        .map((person) => person.name),
-    ).toEqual(["of the table only"]);
+describe("ruleSubjects", () => {
+  const person = (
+    userId: string,
+    baseRole: Role | null,
+    tableGiven: Role | null,
+    tableRole: Role | null = tableGiven,
+  ) => ({
+    userId,
+    displayName: userId,
+    baseRole,
+    tableRole,
+    tableGiven,
+    baseOwn: baseRole !== null,
+  });
+  const group = (groupId: string, baseRole: Role | null, tableRole: Role) => ({
+    groupId,
+    displayName: groupId,
+    members: 2,
+    baseRole,
+    tableRole,
+  });
+  const subjects = ruleSubjects(
+    [
+      person("ada", null, "commenter"),
+      person("bob", "editor", null),
+      // Reaches the table through a group's role on it alone.
+      person("cleo", null, null, "viewer"),
+      person("dan", null, "owner"),
+    ],
+    [
+      group("nurses", null, "editor"),
+      group("leads", "viewer", "editor"),
+      group("heads", null, "owner"),
+    ],
+  );
+
+  it("lists people, then groups, by keys of their own, managers left out", () => {
+    expect(subjects.map((subject) => subject.key)).toEqual([
+      "person:ada",
+      "person:bob",
+      "person:cleo",
+      "group:nurses",
+      "group:leads",
+    ]);
+  });
+
+  it("narrows a person by their own role on the table, a group by its own", () => {
+    expect(subjects.filter(narrowable).map((subject) => subject.key)).toEqual([
+      "person:ada",
+      "group:nurses",
+    ]);
+  });
+
+  it("tells the server whom the rule is about, and nothing else", () => {
+    const [ada] = subjects;
+    const nurses = subjects.find((subject) => subject.kind === "group");
+    expect(ada && subjectInput(ada)).toEqual({ userId: "ada" });
+    expect(nurses && subjectInput(nurses)).toEqual({ groupId: "nurses" });
+    expect(subjectKey({ groupId: "nurses" })).toBe("group:nurses");
   });
 });
 
-describe("memberShown", () => {
-  const people = [{ userId: "ada" }, { userId: "bob" }];
+describe("subjectShown", () => {
+  const subjects = [{ key: "person:ada" }, { key: "group:bob" }];
 
-  it("is the member chosen while the list holds them", () => {
-    expect(memberShown(people, "bob")).toBe("bob");
+  it("is the one chosen while the list holds them", () => {
+    expect(subjectShown(subjects, "group:bob")).toBe("group:bob");
   });
 
   it("is the list's first while nobody is chosen, or someone who left", () => {
-    expect(memberShown(people, "")).toBe("ada");
-    expect(memberShown(people, "gone")).toBe("ada");
+    expect(subjectShown(subjects, "")).toBe("person:ada");
+    expect(subjectShown(subjects, "person:gone")).toBe("person:ada");
   });
 
   it("is nobody while the list is empty", () => {
-    expect(memberShown([], "ada")).toBe("");
+    expect(subjectShown([], "person:ada")).toBe("");
   });
 });
 

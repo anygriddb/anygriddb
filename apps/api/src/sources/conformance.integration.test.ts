@@ -4187,7 +4187,7 @@ describe("conformance of formulas across engines", () => {
         db,
         actorId,
         { id: tableId, baseId },
-        member,
+        { userId: member },
         "editor",
       );
       await narrowOn(db, actorId, {
@@ -4890,7 +4890,7 @@ describe("conformance of formulas across engines", () => {
         db,
         actorId,
         { id: ledgerId, baseId: table.baseId },
-        ruledUser,
+        { userId: ruledUser },
         "editor",
       );
       await narrowOn(db, actorId, {

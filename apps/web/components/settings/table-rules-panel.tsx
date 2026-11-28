@@ -10,33 +10,30 @@ import { useErrorText } from "../../lib/errors";
 import { formatNumber } from "../../lib/format";
 import { useLocale } from "../../lib/i18n";
 import { trpc, useTRPC, type RouterOutputs } from "../../lib/trpc";
-import type { CatalogColumn, Collaborator, Grant } from "../../lib/types";
+import type { CatalogColumn, Collaborator } from "../../lib/types";
 import { CellValueView } from "../fields/cell-value";
 import { ConfirmDialog } from "../shell/dialogs";
 import { FilterBuilder } from "../table/filter-builder";
 import { useRoleLabel } from "./role-label";
 import {
-  memberShown,
   narrowable,
   restricts,
-  ruledMembers,
+  ruleSubjects,
   ruleToSave,
   storedAccess,
+  subjectInput,
+  subjectKey,
+  subjectShown,
   type FieldAccess,
+  type RuleSubject,
 } from "./table-rules";
 
-type Member = {
-  userId: string;
-  displayName: string;
-  baseRole: Grant | null;
-  tableRole: Grant | null;
-  /** Whether their role on the base is their own, not a group's. */
-  baseOwn: boolean;
-};
+/** Who reaches the table, as `catalog.tableAccess` lists them. */
+type Reach = RouterOutputs["catalog"]["tableAccess"];
 
-/** What was changed for one member and is not saved yet. */
+/** What was changed for one person or group and is not saved yet. */
 type Draft = {
-  userId: string;
+  key: string;
   rowFilter?: FilterGroup | null;
   access?: Record<string, FieldAccess>;
 };
@@ -45,9 +42,10 @@ type Draft = {
 const PREVIEW_ROWS = 5;
 
 /**
- * One member's permissions on a table: the rows they see, what they may
- * do with each field, and a look at the table as they read it. An owner
- * of the table has none to set: they read and change everything.
+ * One person's or one group's permissions on a table: the rows they see,
+ * what they may do with each field, and, for a person, a look at the
+ * table as they read it. Whoever manages the table has none to set: they
+ * read and change everything.
  */
 export function TableRulesPanel(props: {
   baseId: string;
@@ -55,8 +53,8 @@ export function TableRulesPanel(props: {
   /** The table's name: a base's settings hold a panel for each table. */
   tableName: string;
   columns: readonly CatalogColumn[];
-  /** Everyone with a role on the table, with that role. */
-  members: readonly Member[];
+  /** Everyone with a role on the table, and the groups given one there. */
+  reach: Reach;
   people: ReadonlyMap<string, Collaborator>;
 }) {
   const { t } = useLingui();
@@ -66,14 +64,16 @@ export function TableRulesPanel(props: {
   const rules = useQuery(
     api.catalog.tableAcl.queryOptions({ tableId: props.tableId }),
   );
-  const ruled = ruledMembers(props.members);
+  const subjects = ruleSubjects(props.reach.people, props.reach.groups);
   const [chosen, setChosen] = useState("");
-  const userId = memberShown(ruled, chosen);
+  const key = subjectShown(subjects, chosen);
+  const subject = subjects.find((item) => item.key === key);
   const [draft, setDraft] = useState<Draft | null>(null);
   const [viewing, setViewing] = useState(false);
   // Giving a role table by table is asked first: nobody undoes it alone.
   const [splitting, setSplitting] = useState(false);
-  // The table as the member shown reads it, once it is asked for.
+  const userId = subject?.kind === "person" ? subject.userId : "";
+  // The table as the person shown reads it, once it is asked for.
   const preview = useQuery({
     ...api.catalog.viewAs.queryOptions({
       tableId: props.tableId,
@@ -83,17 +83,17 @@ export function TableRulesPanel(props: {
     enabled: viewing && userId !== "",
   });
 
-  if (ruled.length === 0) {
+  if (!subject) {
     return (
       <p className="text-sm text-muted-foreground">
-        {t`A rule narrows only a role given on this table. Give someone a role here, and none on the base (which gives them the whole table), to set which rows and fields they see.`}
+        {t`A rule narrows only a role given on this table. Give someone or a group a role here, and none on the base (which gives them the whole table), to set which rows and fields they see.`}
       </p>
     );
   }
 
-  const person = ruled.find((member) => member.userId === userId);
-  const stored = rules.data?.rules.find((rule) => rule.userId === userId);
-  const own = draft?.userId === userId ? draft : null;
+  const groups = subjects.filter((item) => item.kind === "group");
+  const stored = rules.data?.rules.find((rule) => subjectKey(rule) === key);
+  const own = draft?.key === key ? draft : null;
   const access =
     own?.access ??
     storedAccess(
@@ -102,8 +102,10 @@ export function TableRulesPanel(props: {
     );
   const rowFilter =
     own?.rowFilter !== undefined ? own.rowFilter : (stored?.rowFilter ?? null);
-  const edit = (patch: Omit<Draft, "userId">) =>
-    setDraft({ ...own, ...patch, userId });
+  const edit = (patch: Omit<Draft, "key">) =>
+    setDraft({ ...own, ...patch, key });
+  const name = subject.displayName;
+  const isGroup = subject.kind === "group";
 
   async function refresh() {
     setDraft(null);
@@ -117,7 +119,7 @@ export function TableRulesPanel(props: {
     ]);
   }
 
-  async function save() {
+  async function save(target: RuleSubject) {
     const gap = rowFilter ? filterGap(rowFilter) : null;
     if (gap) {
       const field =
@@ -127,7 +129,7 @@ export function TableRulesPanel(props: {
           : "";
       toast.error(
         gap.kind === "empty"
-          ? t`Add a condition on the rows this member sees, or choose Every row.`
+          ? t`Add a condition on the rows ${{ name: target.displayName }} sees, or choose Every row.`
           : t`The condition on ${{ field }} has no value yet: give it one, or remove it.`,
       );
       return;
@@ -136,7 +138,7 @@ export function TableRulesPanel(props: {
     try {
       await trpc.catalog.setTableAcl.mutate({
         tableId: props.tableId,
-        userId,
+        ...subjectInput(target),
         rowFilter: rule.rowFilter,
         columns: [...rule.columns],
       });
@@ -172,11 +174,11 @@ export function TableRulesPanel(props: {
     toast.success(t`Role given table by table`);
   }
 
-  async function clear() {
+  async function clear(target: RuleSubject) {
     try {
       await trpc.catalog.clearTableAcl.mutate({
         tableId: props.tableId,
-        userId,
+        ...subjectInput(target),
       });
     } catch (cause) {
       toast.error(errorText(cause));
@@ -185,6 +187,12 @@ export function TableRulesPanel(props: {
     await refresh();
     toast.success(t`Restrictions cleared`);
   }
+
+  const choice = (item: RuleSubject) => (
+    <option key={item.key} value={item.key}>
+      {item.displayName}
+    </option>
+  );
 
   return (
     <section
@@ -195,43 +203,59 @@ export function TableRulesPanel(props: {
         <Shield className="h-4 w-4 text-muted-foreground" aria-hidden />
         <span className="text-sm font-medium">{t`Permissions of`}</span>
         <Select
-          aria-label={t`Member whose permissions are set`}
+          aria-label={t`Whose permissions are set`}
           className="w-56"
-          value={userId}
+          value={key}
           onChange={(event) => {
             setChosen(event.target.value);
             setDraft(null);
             setViewing(false);
           }}
         >
-          {ruled.map((person) => (
-            <option key={person.userId} value={person.userId}>
-              {person.displayName}
-            </option>
-          ))}
+          {groups.length === 0 ? (
+            subjects.map(choice)
+          ) : (
+            <>
+              <optgroup label={t`People`}>
+                {subjects.filter((item) => item.kind === "person").map(choice)}
+              </optgroup>
+              <optgroup label={t`Groups`}>{groups.map(choice)}</optgroup>
+            </>
+          )}
         </Select>
-        <Button
-          size="xs"
-          variant="outline"
-          className="ml-auto"
-          aria-expanded={viewing}
-          onClick={() => setViewing(true)}
-        >
-          <Eye className="h-3.5 w-3.5" aria-hidden />
-          {t`View as`}
-        </Button>
+        {isGroup ? null : (
+          <Button
+            size="xs"
+            variant="outline"
+            className="ml-auto"
+            aria-expanded={viewing}
+            onClick={() => setViewing(true)}
+          >
+            <Eye className="h-3.5 w-3.5" aria-hidden />
+            {t`View as`}
+          </Button>
+        )}
       </div>
       {rules.isLoading ? <Spinner /> : null}
 
-      {person && narrowable(person) ? (
+      {narrowable(subject) ? (
         <>
+          {isGroup ? (
+            <p className="text-xs text-muted-foreground">
+              {t`These permissions bind each member of the group who holds nothing more on this table. A role of their own, or another group's, adds to them. To see the table as one of them reads it, choose them under People.`}
+            </p>
+          ) : null}
           <div className="flex flex-col gap-2">
             <div className="flex flex-wrap items-center gap-2">
               <span className="text-xs font-medium text-muted-foreground">
                 {t`Rows`}
               </span>
               <Select
-                aria-label={t`Rows this member sees`}
+                aria-label={
+                  isGroup
+                    ? t`Rows the members of ${{ name }} see`
+                    : t`Rows this member sees`
+                }
                 className="h-8 w-64"
                 value={rowFilter === null ? "all" : "some"}
                 onChange={(event) =>
@@ -256,7 +280,9 @@ export function TableRulesPanel(props: {
                   onChange={(group) => edit({ rowFilter: group })}
                 />
                 <p className="text-xs text-muted-foreground">
-                  {t`A row that does not match is hidden from this member in every view, export, and answer of the API. “Me”, in a collaborator field, keeps each person to their own rows.`}
+                  {isGroup
+                    ? t`A row that does not match is hidden from them in every view, export, and answer of the API. “Me”, in a collaborator field, keeps each member to their own rows.`
+                    : t`A row that does not match is hidden from this member in every view, export, and answer of the API. “Me”, in a collaborator field, keeps each person to their own rows.`}
                 </p>
               </>
             )}
@@ -276,7 +302,11 @@ export function TableRulesPanel(props: {
                     {column.label}
                   </span>
                   <Select
-                    aria-label={t`What this member may do with ${{ field: column.label }}`}
+                    aria-label={
+                      isGroup
+                        ? t`What the members of ${{ name }} may do with ${{ field: column.label }}`
+                        : t`What this member may do with ${{ field: column.label }}`
+                    }
                     className="h-8 w-44"
                     value={access[column.name] ?? "write"}
                     onChange={(event) =>
@@ -298,46 +328,30 @@ export function TableRulesPanel(props: {
           </div>
 
           <div className="flex flex-wrap gap-2">
-            <Button size="sm" onClick={() => void save()}>
+            <Button size="sm" onClick={() => void save(subject)}>
               {t`Save`}
             </Button>
-            <Button size="sm" variant="ghost" onClick={() => void clear()}>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => void clear(subject)}
+            >
               {t`Clear restrictions`}
             </Button>
           </div>
         </>
       ) : (
         <div className="flex flex-col items-start gap-2 text-sm">
-          {person?.baseOwn ? (
-            <>
-              <p className="text-muted-foreground">
-                {t`${{ name: person.displayName }} reaches this table through their role on the base, which gives it whole. To narrow what they see here, give them that role on each table of the base instead.`}
-              </p>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => setSplitting(true)}
-              >
-                {t`Give the role table by table`}
-              </Button>
-              <ConfirmDialog
-                open={splitting}
-                onOpenChange={setSplitting}
-                title={t`Give ${{ name: person.displayName }} their role table by table?`}
-                description={t`They keep their role on each table the base holds now, and no longer hold it on the base: a table made later is not theirs until someone gives it to them.`}
-                confirmLabel={t`Give it table by table`}
-                onConfirm={split}
-              />
-            </>
-          ) : (
-            <p className="text-muted-foreground">
-              {t`A group gives ${{ name: person?.displayName ?? "" }} their role on the base, which gives this table whole: a rule cannot narrow it.`}
-            </p>
-          )}
+          <Unnarrowed
+            subject={subject}
+            splitting={splitting}
+            onSplitting={setSplitting}
+            onSplit={split}
+          />
         </div>
       )}
 
-      {viewing ? (
+      {viewing && !isGroup ? (
         <MemberPreview
           columns={props.columns}
           people={props.people}
@@ -349,6 +363,64 @@ export function TableRulesPanel(props: {
         />
       ) : null}
     </section>
+  );
+}
+
+/**
+ * Why a rule cannot narrow this person or group here, and for someone
+ * whose own role on the base gives the table whole, the way out.
+ */
+function Unnarrowed(props: {
+  subject: RuleSubject;
+  splitting: boolean;
+  onSplitting: (open: boolean) => void;
+  onSplit: () => Promise<void>;
+}) {
+  const { t } = useLingui();
+  const { subject } = props;
+  const name = subject.displayName;
+  if (subject.kind === "group") {
+    return (
+      <p className="text-muted-foreground">
+        {t`The group ${{ name }} also holds a role on the base, which gives this table whole: a rule cannot narrow it. Remove the group's role on the base to narrow it here.`}
+      </p>
+    );
+  }
+  if (subject.baseOwn) {
+    return (
+      <>
+        <p className="text-muted-foreground">
+          {t`${{ name }} reaches this table through their role on the base, which gives it whole. To narrow what they see here, give them that role on each table of the base instead.`}
+        </p>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => props.onSplitting(true)}
+        >
+          {t`Give the role table by table`}
+        </Button>
+        <ConfirmDialog
+          open={props.splitting}
+          onOpenChange={props.onSplitting}
+          title={t`Give ${{ name }} their role table by table?`}
+          description={t`They keep their role on each table the base holds now, and no longer hold it on the base: a table made later is not theirs until someone gives it to them.`}
+          confirmLabel={t`Give it table by table`}
+          onConfirm={props.onSplit}
+        />
+      </>
+    );
+  }
+  if (subject.baseRole !== null) {
+    return (
+      <p className="text-muted-foreground">
+        {t`A group gives ${{ name }} their role on the base, which gives this table whole: a rule cannot narrow it.`}
+      </p>
+    );
+  }
+  return (
+    <p className="text-muted-foreground">
+      {t`${{ name }} reaches this table through a group's role on it: set that group's permissions here, or give ${{ name }} a role of their own on this table to set theirs.`}
+    </p>
   );
 }
 

@@ -23,30 +23,95 @@ export function ruledMembers<
   );
 }
 
-/**
- * Whether a rule can narrow this member here (ADR 0131): a rule narrows
- * only the role it comes with, so they reach the table by a role given on
- * it alone. A role on the base, their own or a group's, gives it whole.
- */
-export function narrowable(person: {
+/** Someone who reaches the table, as its access lists them. */
+type Person = {
+  userId: string;
+  displayName: string;
   baseRole: Grant | null;
   tableRole: Grant | null;
-}): boolean {
-  return person.baseRole === null && person.tableRole !== null;
+  /** Their own role on the table, not a group's. */
+  tableGiven: string | null;
+  /** Whether their role on the base is their own, not a group's. */
+  baseOwn: boolean;
+};
+
+/** A group given a role on the table, with the one it holds on the base. */
+type Group = {
+  groupId: string;
+  displayName: string;
+  members: number;
+  baseRole: Grant | null;
+  tableRole: Grant | null;
+};
+
+/** Whom a table's rules are about: a person, or a group (ADR 0131). */
+export type RuleSubject =
+  | ({ kind: "person"; key: string } & Person)
+  | ({ kind: "group"; key: string } & Group);
+
+/** The key a person's or a group's rules are listed by. */
+export function subjectKey(subject: { userId: string } | { groupId: string }) {
+  return "userId" in subject
+    ? `person:${subject.userId}`
+    : `group:${subject.groupId}`;
 }
 
 /**
- * The member a list shows as chosen: the one chosen while the list holds
- * them, or its first. The list arrives after the panel is drawn, and a
- * panel that kept "nobody" from before it came sent its rules to nobody.
+ * Everyone a rule may be about, people first: those who manage the table
+ * are left out (`ruledMembers`), and so is a group whose role manages it.
  */
-export function memberShown(
-  people: ReadonlyArray<{ userId: string }>,
+export function ruleSubjects(
+  people: readonly Person[],
+  groups: readonly Group[],
+): RuleSubject[] {
+  return [
+    ...ruledMembers(people).map((person) => ({
+      ...person,
+      kind: "person" as const,
+      key: subjectKey(person),
+    })),
+    ...ruledMembers(groups).map((group) => ({
+      ...group,
+      kind: "group" as const,
+      key: subjectKey(group),
+    })),
+  ];
+}
+
+/**
+ * Whether a rule can narrow this person or group here (ADR 0131): a rule
+ * narrows only the role it comes with, so they reach the table by a role
+ * given on it alone, their own. A role on the base gives it whole: for a
+ * person, their own or a group's; for a group, its own.
+ */
+export function narrowable(subject: RuleSubject): boolean {
+  return subject.kind === "person"
+    ? subject.baseRole === null && subject.tableGiven !== null
+    : subject.baseRole === null;
+}
+
+/** What the server is told a rule is about. */
+export function subjectInput(
+  subject: RuleSubject,
+): { userId: string } | { groupId: string } {
+  return subject.kind === "person"
+    ? { userId: subject.userId }
+    : { groupId: subject.groupId };
+}
+
+/**
+ * The person or group a list shows as chosen: the one chosen while the
+ * list holds them, or its first. The list arrives after the panel is
+ * drawn, and a panel that kept "nobody" from before it came sent its rules
+ * to nobody.
+ */
+export function subjectShown(
+  subjects: ReadonlyArray<{ key: string }>,
   chosen: string,
 ): string {
   return (
-    people.find((person) => person.userId === chosen)?.userId ??
-    people[0]?.userId ??
+    subjects.find((subject) => subject.key === chosen)?.key ??
+    subjects[0]?.key ??
     ""
   );
 }

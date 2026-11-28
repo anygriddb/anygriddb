@@ -271,7 +271,7 @@ msgstr "{0, plural, one {# base held in a source} other {# bases held in a sourc
 
 #. placeholder {0}: access.bases
 #. placeholder {0}: group.bases
-#. placeholder {0}: group.roles.length
+#. placeholder {0}: reachedBases.length
 #: components/admin/accesses-tab.tsx
 #: components/admin/account-handoff.tsx
 #: components/admin/group-page.tsx
@@ -425,6 +425,7 @@ msgstr "{0, plural, one {# member without an active account here} other {# membe
 #: components/admin/group-page.tsx
 #: components/admin/groups-tab.tsx
 #: components/admin/scim-tab.tsx
+#: components/settings/base-settings.tsx
 #: components/settings/group-roles.tsx
 msgid "{0, plural, one {# member} other {# members}}"
 msgstr "{0, plural, one {# member} other {# members}}"
@@ -642,6 +643,10 @@ msgstr "{actor} replied to your comment in {table}"
 #: components/shell/notification-items.ts
 msgid "{actor}, an administrator, added {name} to the group {group}, which has a role on {base} ({role})"
 msgstr "{actor}, an administrator, added {name} to the group {group}, which has a role on {base} ({role})"
+
+#: components/shell/notification-items.ts
+msgid "{actor}, an administrator, added {name} to the group {group}, which has a role on tables of {base}"
+msgstr "{actor}, an administrator, added {name} to the group {group}, which has a role on tables of {base}"
 
 #. placeholder {0}: item.data.count
 #: components/shell/notification-items.ts
@@ -959,6 +964,10 @@ msgid "{name} opened {table}"
 msgstr "{name} opened {table}"
 
 #: components/settings/table-rules-panel.tsx
+msgid "{name} reaches this table through a group's role on it: set that group's permissions here, or give {name} a role of their own on this table to set theirs."
+msgstr "{name} reaches this table through a group's role on it: set that group's permissions here, or give {name} a role of their own on this table to set theirs."
+
+#: components/settings/table-rules-panel.tsx
 msgid "{name} reaches this table through their role on the base, which gives it whole. To narrow what they see here, give them that role on each table of the base instead."
 msgstr "{name} reaches this table through their role on the base, which gives it whole. To narrow what they see here, give them that role on each table of the base instead."
 
@@ -1049,6 +1058,10 @@ msgstr "{replaced, plural, one {# line was replaced by a later line with the sam
 #: components/fields/field-editor.tsx
 msgid "{rewritten, plural, one {# value will be written differently.} other {# values will be written differently.}}"
 msgstr "{rewritten, plural, one {# value will be written differently.} other {# values will be written differently.}}"
+
+#: components/admin/group-page.tsx
+msgid "{role}, narrowed by its rules"
+msgstr "{role}, narrowed by its rules"
 
 #: components/admin/account-bases.tsx
 msgid "{role}, through the group {group}"
@@ -1583,6 +1596,10 @@ msgstr "A group gathers accounts so a base can give them one role. Make a group 
 msgid "A group gives {name} their role on the base, which gives this table whole: a rule cannot narrow it."
 msgstr "A group gives {name} their role on the base, which gives this table whole: a rule cannot narrow it."
 
+#: components/settings/base-settings.tsx
+msgid "A group's alone ({role})"
+msgstr "A group's alone ({role})"
+
 #: components/fields/formula-docs.ts
 msgid "A JSON document's value at a path, such as $.client.name or $.lines[0]."
 msgstr "A JSON document's value at a path, such as $.client.name or $.lines[0]."
@@ -1753,8 +1770,8 @@ msgid "A role already has this name"
 msgstr "A role already has this name"
 
 #: components/settings/base-settings.tsx
-msgid "A role given on a table adds to what the base gives, and never takes from it. Someone who holds a role on a table and none on the base may then be narrowed there: to some rows, and field by field."
-msgstr "A role given on a table adds to what the base gives, and never takes from it. Someone who holds a role on a table and none on the base may then be narrowed there: to some rows, and field by field."
+msgid "A role given on a table, to someone or to a group, adds to what the base gives, and never takes from it. Whoever holds a role on a table and none on the base may then be narrowed there: to some rows, and field by field."
+msgstr "A role given on a table, to someone or to a group, adds to what the base gives, and never takes from it. Whoever holds a role on a table and none on the base may then be narrowed there: to some rows, and field by field."
 
 #: lib/errors.ts
 msgid "A role reads rows, and gives only the permissions listed"
@@ -1793,12 +1810,16 @@ msgid "A row takes a step of its circuit"
 msgstr "A row takes a step of its circuit"
 
 #: components/settings/table-rules-panel.tsx
+msgid "A row that does not match is hidden from them in every view, export, and answer of the API. “Me”, in a collaborator field, keeps each member to their own rows."
+msgstr "A row that does not match is hidden from them in every view, export, and answer of the API. “Me”, in a collaborator field, keeps each member to their own rows."
+
+#: components/settings/table-rules-panel.tsx
 msgid "A row that does not match is hidden from this member in every view, export, and answer of the API. “Me”, in a collaborator field, keeps each person to their own rows."
 msgstr "A row that does not match is hidden from this member in every view, export, and answer of the API. “Me”, in a collaborator field, keeps each person to their own rows."
 
 #: components/settings/table-rules-panel.tsx
-msgid "A rule narrows only a role given on this table. Give someone a role here, and none on the base (which gives them the whole table), to set which rows and fields they see."
-msgstr "A rule narrows only a role given on this table. Give someone a role here, and none on the base (which gives them the whole table), to set which rows and fields they see."
+msgid "A rule narrows only a role given on this table. Give someone or a group a role here, and none on the base (which gives them the whole table), to set which rows and fields they see."
+msgstr "A rule narrows only a role given on this table. Give someone or a group a role here, and none on the base (which gives them the whole table), to set which rows and fields they see."
 
 #: lib/errors.ts
 msgid "A rule narrows only a role given on this table. Give them a role here, and none on the base, which gives them the whole table"
@@ -2311,8 +2332,8 @@ msgid "Add a condition"
 msgstr "Add a condition"
 
 #: components/settings/table-rules-panel.tsx
-msgid "Add a condition on the rows this member sees, or choose Every row."
-msgstr "Add a condition on the rows this member sees, or choose Every row."
+msgid "Add a condition on the rows {name} sees, or choose Every row."
+msgstr "Add a condition on the rows {name} sees, or choose Every row."
 
 #: components/table/automations-dialog.tsx
 msgid "Add a condition, or choose another trigger."
@@ -2493,6 +2514,7 @@ msgstr "Add people from a file"
 msgid "Add rows"
 msgstr "Add rows"
 
+#: components/settings/base-settings.tsx
 #: components/settings/group-roles.tsx
 msgid "Add the group"
 msgstr "Add the group"
@@ -6498,6 +6520,10 @@ msgstr "Give {name} their role table by table?"
 msgid "Give a group a role"
 msgstr "Give a group a role"
 
+#: components/settings/base-settings.tsx
+msgid "Give a group a role on {table}"
+msgstr "Give a group a role on {table}"
+
 #: components/admin/account-bases.tsx
 #: components/admin/group-page.tsx
 msgid "Give a role on a base"
@@ -6628,6 +6654,10 @@ msgstr "Give their email address."
 msgid "Give yourself this role?"
 msgstr "Give yourself this role?"
 
+#: components/admin/group-page.tsx
+msgid "Given in each base's settings, by whoever manages its members, and changed there."
+msgstr "Given in each base's settings, by whoever manages its members, and changed there."
+
 #: components/admin/sign-in-trail.tsx
 msgid "Given the account manager role"
 msgstr "Given the account manager role"
@@ -6735,6 +6765,7 @@ msgstr "groups"
 #: components/admin/groups-tab.tsx
 #: components/admin/scim-tab.tsx
 #: components/settings/base-settings.tsx
+#: components/settings/table-rules-panel.tsx
 msgid "Groups"
 msgstr "Groups"
 
@@ -8355,10 +8386,6 @@ msgstr "Member of a group"
 #: components/admin/group-page.tsx
 msgid "Member removed"
 msgstr "Member removed"
-
-#: components/settings/table-rules-panel.tsx
-msgid "Member whose permissions are set"
-msgstr "Member whose permissions are set"
 
 #: components/admin/base-admin-members.tsx
 #: components/admin/bases-tab.tsx
@@ -10034,6 +10061,7 @@ msgid "Pending: the client's database has not confirmed this change yet."
 msgstr "Pending: the client's database has not confirmed this change yet."
 
 #: components/admin/admin-sections.ts
+#: components/settings/table-rules-panel.tsx
 msgid "People"
 msgstr "People"
 
@@ -10832,6 +10860,10 @@ msgstr "Remove the account manager role"
 msgid "Remove the auditor role"
 msgstr "Remove the auditor role"
 
+#: components/settings/base-settings.tsx
+msgid "Remove the group {group} from {table}"
+msgstr "Remove the group {group} from {table}"
+
 #: components/settings/group-roles.tsx
 msgid "Remove the group {name}"
 msgstr "Remove the group {name}"
@@ -11295,9 +11327,17 @@ msgstr "Role made"
 msgid "Role of a group"
 msgstr "Role of a group"
 
+#: components/settings/base-settings.tsx
+msgid "Role of the group {group} on {table}"
+msgstr "Role of the group {group} on {table}"
+
 #: components/settings/group-roles.tsx
 msgid "Role of the group {name}"
 msgstr "Role of the group {name}"
+
+#: components/settings/base-settings.tsx
+msgid "Role of the group on {table}"
+msgstr "Role of the group on {table}"
 
 #: components/admin/account-bases.tsx
 #: components/admin/accounts-tab.tsx
@@ -11333,6 +11373,10 @@ msgstr "Roles made in Administration"
 #: components/admin/group-page.tsx
 msgid "Roles on bases"
 msgstr "Roles on bases"
+
+#: components/admin/group-page.tsx
+msgid "Roles on tables"
+msgstr "Roles on tables"
 
 #: components/fields/field-meta.tsx
 msgid "Rollup"
@@ -11535,6 +11579,10 @@ msgstr "Rows per page"
 #: components/admin/permission-labels.ts
 msgid "Rows taken out: files, calendar feeds, a base's backup and copies, links that show rows, webhooks, and automations that send values elsewhere."
 msgstr "Rows taken out: files, calendar feeds, a base's backup and copies, links that show rows, webhooks, and automations that send values elsewhere."
+
+#: components/settings/table-rules-panel.tsx
+msgid "Rows the members of {name} see"
+msgstr "Rows the members of {name} see"
 
 #: components/settings/table-rules-panel.tsx
 msgid "Rows this member sees"
@@ -13658,6 +13706,10 @@ msgstr "The first rows as {name} reads them"
 msgid "The form closes before it opens: its link takes no answer."
 msgstr "The form closes before it opens: its link takes no answer."
 
+#: components/settings/table-rules-panel.tsx
+msgid "The group {name} also holds a role on the base, which gives this table whole: a rule cannot narrow it. Remove the group's role on the base to narrow it here."
+msgstr "The group {name} also holds a role on the base, which gives this table whole: a rule cannot narrow it. Remove the group's role on the base to narrow it here."
+
 #: components/admin/group-page.tsx
 msgid "The group and its membership are removed. This cannot be undone."
 msgstr "The group and its membership are removed. This cannot be undone."
@@ -14299,6 +14351,10 @@ msgstr "These are the recent lines of this process, newest first. They are kept 
 #: components/fields/field-editor.tsx
 msgid "These fields will stop computing: {fields}."
 msgstr "These fields will stop computing: {fields}."
+
+#: components/settings/table-rules-panel.tsx
+msgid "These permissions bind each member of the group who holds nothing more on this table. A role of their own, or another group's, adds to them. To see the table as one of them reads it, choose them under People."
+msgstr "These permissions bind each member of the group who holds nothing more on this table. A role of their own, or another group's, adds to them. To see the table as one of them reads it, choose them under People."
 
 #: components/admin/account-handoff.tsx
 msgid "These stay with {name}: {successor} has no role to manage their tables. They stop working when {name}'s account is disabled. Give {successor} a role on those bases, then hand over again."
@@ -15929,6 +15985,10 @@ msgstr "What separates the decimals in this file?"
 msgid "What the instance answers a script's call"
 msgstr "What the instance answers a script's call"
 
+#: components/settings/table-rules-panel.tsx
+msgid "What the members of {name} may do with {field}"
+msgstr "What the members of {name} may do with {field}"
+
 #: components/admin/settings-tab.tsx
 msgid "What the operator fixed in the instance's environment: it changes there, with a restart. Passwords and keys are never shown."
 msgstr "What the operator fixed in the instance's environment: it changes there, with a restart. Passwords and keys are never shown."
@@ -16102,6 +16162,10 @@ msgstr "Whole table"
 #: components/admin/sign-in-trail.tsx
 msgid "Whom owners can invite"
 msgstr "Whom owners can invite"
+
+#: components/settings/table-rules-panel.tsx
+msgid "Whose permissions are set"
+msgstr "Whose permissions are set"
 
 #: lib/errors.ts
 msgid "Widget not found"
