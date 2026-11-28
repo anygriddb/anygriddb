@@ -15,13 +15,16 @@ import type { Publisher } from "../realtime/bus.js";
 /**
  * What was given: to a person, to several at once, to a group, or to a
  * group's new member, whose group holds a role on the base or (`role`
- * null) on some of its tables only.
+ * null) on some of its tables only. Or a person's values of attributes
+ * that a rule of the base reads (ADR 0143): with the reason an
+ * administrator gave for their own.
  */
 type RoleGift =
   | { to: "person"; userId: string; role: Given }
   | { to: "people"; count: number }
   | { to: "group"; groupId: string; role: Given }
-  | { to: "member"; userId: string; groupId: string; role: Given | null };
+  | { to: "member"; userId: string; groupId: string; role: Given | null }
+  | { to: "values"; userId: string; attributes: string; reason?: string };
 
 export type RoleNoticeDeps = {
   db: Database;
@@ -109,6 +112,10 @@ async function tell(
       data.scope = "tables";
     }
     if (gift.to === "people") data.count = String(gift.count);
+    if (gift.to === "values") {
+      data.attributes = gift.attributes;
+      if (gift.reason) data.reason = gift.reason;
+    }
   }
   const kind = named ? ("owner_named" as const) : ("role_given" as const);
   const link = deps.publicUrl

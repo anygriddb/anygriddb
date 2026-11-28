@@ -4,6 +4,7 @@
  */
 import {
   aclSubjectOf,
+  type AclSubject,
   AppError,
   checkFilter,
   filterAttributes,
@@ -81,6 +82,25 @@ async function assertMayTouchMember(
   if (account) {
     assertMayTouch(giver, await ownGiven(ctx.db, account.id, "base", baseId));
   }
+}
+
+/**
+ * Refuses a manager a person's or a group's role on a table that they could
+ * not give (ADR 0128), and with it its rules: a rule set or taken away
+ * changes what that role reaches.
+ */
+async function assertMayTouchOnTable(
+  ctx: Context,
+  giver: Grant,
+  tableId: string,
+  subject: AclSubject,
+): Promise<void> {
+  assertMayTouch(
+    giver,
+    "userId" in subject
+      ? await ownGiven(ctx.db, subject.userId, "table", tableId)
+      : await groupGiven(ctx.db, subject.groupId, "table", tableId),
+  );
 }
 
 export const catalogAccessProcedures = {
@@ -287,12 +307,7 @@ export const catalogAccessProcedures = {
         );
         await guardBase(ctx, table.baseId, "members.manage");
         const subject = aclSubjectOf(input);
-        assertMayTouch(
-          role,
-          "userId" in subject
-            ? await ownGiven(ctx.db, subject.userId, "table", table.id)
-            : await groupGiven(ctx.db, subject.groupId, "table", table.id),
-        );
+        await assertMayTouchOnTable(ctx, role, table.id, subject);
         await setTableRole(
           ctx.db,
           user.id,
@@ -412,11 +427,14 @@ export const catalogAccessProcedures = {
     .input(setTableAclInputSchema)
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
-        const { user, table } = await guardTable(
+        const { user, table, role } = await guardTable(
           ctx,
           input.tableId,
           "members.manage",
         );
+        // A rule changes what its role gives: only someone who could give
+        // that role sets it, as only they could take the role away.
+        await assertMayTouchOnTable(ctx, role, table.id, aclSubjectOf(input));
         // A group's rule is checked against the role it narrows, there.
         if ("userId" in input) {
           const bindings = await loadBindings(ctx.db, input.userId);
@@ -455,13 +473,15 @@ export const catalogAccessProcedures = {
     .input(clearTableAclInputSchema)
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
-        const { user } = await guardTable(ctx, input.tableId, "members.manage");
-        await clearTableAcl(
-          ctx.db,
-          user.id,
+        const { user, role } = await guardTable(
+          ctx,
           input.tableId,
-          aclSubjectOf(input),
+          "members.manage",
         );
+        const subject = aclSubjectOf(input);
+        // Taking a rule away widens its role: the same reach as giving it.
+        await assertMayTouchOnTable(ctx, role, input.tableId, subject);
+        await clearTableAcl(ctx.db, user.id, input.tableId, subject);
         return { ok: true as const };
       }),
     ),

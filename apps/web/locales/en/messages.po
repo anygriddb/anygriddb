@@ -666,6 +666,14 @@ msgstr "{actor}, an administrator, added {name} to the group {group}, which has 
 msgid "{actor}, an administrator, added {name} to the group {group}, which has a role on tables of {base}"
 msgstr "{actor}, an administrator, added {name} to the group {group}, which has a role on tables of {base}"
 
+#: components/shell/notification-items.ts
+msgid "{actor}, an administrator, changed the {attributes} of {name}, which a rule of {base} reads"
+msgstr "{actor}, an administrator, changed the {attributes} of {name}, which a rule of {base} reads"
+
+#: components/shell/notification-items.ts
+msgid "{actor}, an administrator, changed their own {attributes}, which a rule of {base} reads. Their reason: {reason}"
+msgstr "{actor}, an administrator, changed their own {attributes}, which a rule of {base} reads. Their reason: {reason}"
+
 #. placeholder {0}: item.data.count
 #: components/shell/notification-items.ts
 msgid "{actor}, an administrator, gave {0, plural, one {# person} other {# people}} a role on {base}"
@@ -1858,6 +1866,10 @@ msgstr "A rule of the client's database refuses this value"
 #: components/admin/attributes-tab.tsx
 msgid "A rule that names it keeps no row from then on."
 msgstr "A rule that names it keeps no row from then on."
+
+#: components/admin/account-attributes.tsx
+msgid "A rule that names them may let you read more rows. The owners of the bases whose rules name them are told, with your name and this reason, and it is written to the change trail."
+msgstr "A rule that names them may let you read more rows. The owners of the bases whose rules name them are told, with your name and this reason, and it is written to the change trail."
 
 #: components/admin/limits-tab.tsx
 msgid "A SAML request under way"
@@ -3885,6 +3897,10 @@ msgstr "Change trail purge"
 #: components/admin/sign-in-trail.tsx
 msgid "Change trail sent to the collectors"
 msgstr "Change trail sent to the collectors"
+
+#: components/admin/account-attributes.tsx
+msgid "Change your own attributes?"
+msgstr "Change your own attributes?"
 
 #: components/shell/home-page.tsx
 msgid "Changed {when} by {name}"
@@ -10724,6 +10740,7 @@ msgstr "Reads the settings, and changes those of the instance's running: mainten
 msgid "Realtime"
 msgstr "Realtime"
 
+#: components/admin/account-attributes.tsx
 #: components/admin/account-page.tsx
 #: components/admin/give-base-role.tsx
 #: components/admin/open-base.tsx
@@ -11851,6 +11868,10 @@ msgstr "Save changes"
 #: components/table/view-toolbar.tsx
 msgid "Save failed"
 msgstr "Save failed"
+
+#: components/admin/account-attributes.tsx
+msgid "Save my attributes"
+msgstr "Save my attributes"
 
 #: components/admin/integrations-tab.tsx
 msgid "Save OIDC"

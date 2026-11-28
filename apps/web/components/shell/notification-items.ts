@@ -93,11 +93,21 @@ export function useDescribeNotification() {
       }
       case "role_given": {
         // An administrator gave a role on a base this person owns
-        // (ROADMAP #91): to someone, to several, or through a group.
+        // (ROADMAP #91): to someone, to several, or through a group; or
+        // changed values of someone that a rule of the base reads (ADR
+        // 0143), their own with a reason.
         const base = item.data?.base ?? "—";
         const name = item.data?.name ?? "—";
         const group = item.data?.group;
         const role = roleLabel(item.data?.role);
+        const attributes = item.data?.attributes;
+        if (attributes && item.data?.reason) {
+          const reason = item.data.reason;
+          return t`${actor}, an administrator, changed their own ${attributes}, which a rule of ${base} reads. Their reason: ${reason}`;
+        }
+        if (attributes) {
+          return t`${actor}, an administrator, changed the ${attributes} of ${name}, which a rule of ${base} reads`;
+        }
         if (item.data?.count) {
           return t`${actor}, an administrator, gave ${plural(item.data.count, { one: "# person", other: "# people" })} a role on ${base}`;
         }

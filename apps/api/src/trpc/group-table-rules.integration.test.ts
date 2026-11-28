@@ -8,6 +8,8 @@ import { randomBytes } from "node:crypto";
 import type { Database } from "@anygriddb/db";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createApiToken } from "../auth/tokens.js";
+import { createMadeRole } from "../data/made-roles.js";
+import { setMemberRole } from "../data/members.js";
 import { insertBase, insertTable } from "../data/schema-ops.js";
 import {
   addLocalGroupMember,
@@ -251,6 +253,81 @@ describe("a group's role and rules on a table", () => {
     );
     // The rule held through all of it.
     expect((await read("nina")).names).toEqual(["Alba", "Cora"]);
+  });
+
+  it("leaves a role's rules to whoever could give that role", async () => {
+    // Lola manages the base's members with less than a viewer holds: she
+    // cannot give the nurses' role, so she neither sets nor takes away
+    // the rule that narrows it.
+    const lead = await createMadeRole(db, ids.owner, {
+      name: `Lead ${suffix}`,
+      permissions: [
+        "rows.read",
+        "rows.comment",
+        "api.access",
+        "members.manage",
+      ],
+    });
+    await setMemberRole(db, ids.owner, {
+      baseId,
+      userId: ids.lola,
+      role: lead,
+    });
+    const rule = { tableId, groupId, rowFilter: mine, columns: [] };
+    const nurses = { tableId, groupId };
+    expect(await errorCode(as("lola").catalog.clearTableAcl(nurses))).toBe(
+      "role_beyond_reach",
+    );
+    expect(
+      await errorCode(
+        as("lola").catalog.setTableAcl({ ...rule, rowFilter: null }),
+      ),
+    ).toBe("role_beyond_reach");
+    expect(
+      await errorCode(
+        as("lola").catalog.setTableRole({ tableId, groupId, role: null }),
+      ),
+    ).toBe("role_beyond_reach");
+    expect((await read("nina")).names).toEqual(["Alba", "Cora"]);
+    // A person's own role on the table, the same.
+    await as("owner").catalog.setTableRole({
+      tableId,
+      userId: ids.nate,
+      role: "editor",
+    });
+    await as("owner").catalog.setTableAcl({
+      tableId,
+      userId: ids.nate,
+      rowFilter: mine,
+      columns: [],
+    });
+    expect(
+      await errorCode(
+        as("lola").catalog.clearTableAcl({ tableId, userId: ids.nate }),
+      ),
+    ).toBe("role_beyond_reach");
+    await as("owner").catalog.setTableRole({
+      tableId,
+      userId: ids.nate,
+      role: null,
+    });
+    // A role she could give, she rules: the nurses as readers.
+    await as("owner").catalog.setTableRole({
+      tableId,
+      groupId,
+      role: "reader",
+    });
+    await as("owner").catalog.setTableAcl(rule);
+    expect(await errorCode(as("lola").catalog.clearTableAcl(nurses))).toBe(
+      "ok",
+    );
+    expect(await errorCode(as("lola").catalog.setTableAcl(rule))).toBe("ok");
+    await as("owner").catalog.setTableRole({
+      tableId,
+      groupId,
+      role: "viewer",
+    });
+    await as("owner").catalog.setTableAcl(rule);
   });
 
   it("gives every row back when the rule is cleared, and nothing when the role goes", async () => {

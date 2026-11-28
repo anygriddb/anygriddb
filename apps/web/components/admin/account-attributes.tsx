@@ -4,7 +4,9 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
 import { useErrorText } from "../../lib/errors";
+import { useSession } from "../../lib/session";
 import { trpc, useTRPC } from "../../lib/trpc";
+import { PromptDialog } from "../shell/dialogs";
 import { useScimFieldLabel } from "./attributes";
 
 /** Values as typed: one a line, blank lines and repeats left out. */
@@ -22,7 +24,9 @@ function valuesOf(text: string): string[] {
 /**
  * An account's values of the instance's attributes (ADR 0142), which a
  * row rule may name: set here by whoever gives access, except those the
- * identity provider sends for an account it provisions.
+ * identity provider sends for an account it provisions. An
+ * administrator's own values ask a reason first (ADR 0143), as a role
+ * they give themselves does.
  */
 export function AccountAttributes(props: {
   userId: string;
@@ -39,8 +43,12 @@ export function AccountAttributes(props: {
   const held = useQuery(
     api.admin.attributes.ofAccount.queryOptions({ userId: props.userId }),
   );
+  const session = useSession();
   const [draft, setDraft] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
+  const [asking, setAsking] = useState<{
+    answer: (reason: string | null) => void;
+  } | null>(null);
 
   const attributes = catalogue.data?.attributes ?? [];
   if (attributes.length === 0 || !held.data) return null;
@@ -52,14 +60,21 @@ export function AccountAttributes(props: {
   );
 
   async function save() {
+    const own = props.userId === session.data?.id;
+    const reason = own
+      ? await new Promise<string | null>((answer) => setAsking({ answer }))
+      : undefined;
+    if (reason === null) return;
+    const request = {
+      userId: props.userId,
+      values: Object.fromEntries(
+        changed.map((key) => [key, valuesOf(draft[key] ?? "")]),
+      ),
+      ...(reason ? { reason } : {}),
+    };
     setBusy(true);
     try {
-      await trpc.admin.attributes.setForAccount.mutate({
-        userId: props.userId,
-        values: Object.fromEntries(
-          changed.map((key) => [key, valuesOf(draft[key] ?? "")]),
-        ),
-      });
+      await trpc.admin.attributes.setForAccount.mutate(request);
       setDraft({});
       await queryClient.invalidateQueries({
         queryKey: api.admin.attributes.ofAccount.queryKey({
@@ -139,6 +154,26 @@ export function AccountAttributes(props: {
           </Button>
         </div>
       ) : null}
+      <PromptDialog
+        open={asking !== null}
+        onOpenChange={(open) => {
+          if (open) return;
+          asking?.answer(null);
+          setAsking(null);
+        }}
+        title={t`Change your own attributes?`}
+        label={t`Reason`}
+        submitLabel={t`Save my attributes`}
+        multiline
+        onSubmit={(reason) => {
+          asking?.answer(reason);
+          setAsking(null);
+        }}
+      >
+        <p className="text-sm text-muted-foreground">
+          {t`A rule that names them may let you read more rows. The owners of the bases whose rules name them are told, with your name and this reason, and it is written to the change trail.`}
+        </p>
+      </PromptDialog>
     </section>
   );
 }

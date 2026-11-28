@@ -565,7 +565,10 @@ Then `.env` `DATABASE_URL` is `anygriddb_app`. App refuses start until
    department), add it in Administration → People → Attributes and bind it
    to a field of the enterprise extension (`department`, `division`,
    `organization`, `costCenter`): the provider's value is kept at each
-   provisioning, and is the provider's to change.
+   provisioning, and is the provider's to change. A value set by hand on
+   an account's page is told to the owners of each base whose rules name
+   the attribute, as a role given is; an administrator's own asks a
+   reason first.
 
 - Accounts keyed by email; provisioned user takes existing account.
 - Local groups (ADR 0070) are invisible to IdP; same name → refused.
