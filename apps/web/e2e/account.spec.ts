@@ -183,7 +183,7 @@ test("a person chooses where each notice goes, and mutes a base", async ({
   ).toBeVisible();
 
   await page.goto(`/notify/unsubscribe/${"a".repeat(30)}~${"b".repeat(43)}`);
-  await page.getByRole("button", { name: "Confirm" }).click();
+  await page.getByRole("button", { name: "Stop these emails" }).click();
   await expect(page.getByRole("alert")).toHaveText("This link is not valid.");
   expect(blocked).toEqual([]);
 });

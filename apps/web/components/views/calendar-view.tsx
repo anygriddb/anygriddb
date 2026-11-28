@@ -260,8 +260,10 @@ function Day({
       onKeyDown={onKeyDown}
       onDoubleClick={onCreate}
       className={cn(
-        "flex min-h-28 flex-col gap-1 overflow-hidden border-r border-b border-border p-1 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-ring",
-        !inMonth && "bg-muted/50 text-muted-foreground",
+        // A day is a square of the sheet, ruled as the grid is; a day of
+        // another month takes the sheet's header colour.
+        "flex min-h-28 flex-col gap-1 overflow-hidden border-r border-b border-rule bg-card p-1 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-ring",
+        !inMonth && "bg-head text-muted-foreground",
         isDropTarget && "bg-selection",
         picked && "bg-selection/40",
       )}
@@ -490,12 +492,9 @@ export function CalendarView(
           </div>
         ) : null}
       </div>
-      <div className="grid grid-cols-7 border-l border-border text-xs text-muted-foreground">
+      <div className="grid grid-cols-7 border-b border-l border-b-strong-border border-l-rule bg-head text-xs text-muted-foreground">
         {weekdays.map((day) => (
-          <div
-            key={day}
-            className="border-r border-b border-border px-2 py-1 capitalize"
-          >
+          <div key={day} className="border-r border-rule px-2 py-1 capitalize">
             {day}
           </div>
         ))}
@@ -504,7 +503,7 @@ export function CalendarView(
           week of the height left to it cut the events past its edge. */}
       <div
         ref={monthRef}
-        className="grid min-h-0 flex-1 auto-rows-[minmax(min-content,auto)] grid-cols-7 overflow-y-auto border-l border-border"
+        className="grid min-h-0 flex-1 auto-rows-[minmax(min-content,auto)] grid-cols-7 overflow-y-auto border-l border-rule"
       >
         {days.map((date, index) => {
           const key = isoDay(date);

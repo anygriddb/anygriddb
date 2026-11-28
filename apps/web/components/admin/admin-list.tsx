@@ -30,7 +30,11 @@ export function AdminTable({
   );
 }
 
-/** Sticky header row for {@link AdminTable}. */
+/**
+ * Sticky header row for {@link AdminTable}. Its rule is an inset shadow
+ * of each cell: a table's borders collapse, and neither a border nor the
+ * shadow of its row group follows a header that sticks.
+ */
 export function AdminTableHead({
   children,
   className,
@@ -41,7 +45,7 @@ export function AdminTableHead({
   return (
     <thead
       className={cn(
-        "sticky top-0 z-10 bg-muted text-left text-xs shadow-[0_1px_0_0_var(--border)]",
+        "sticky top-0 z-10 bg-muted text-left text-xs [&_th]:shadow-[inset_0_-1px_0_0_var(--color-border)]",
         className,
       )}
     >

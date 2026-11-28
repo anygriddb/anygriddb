@@ -239,8 +239,11 @@ export function AccountsTab({
   return (
     <div className="flex flex-col gap-3">
       {stepUp.dialog}
-      <div className="flex items-center justify-between gap-2">
-        <p className="text-sm text-muted-foreground" aria-live="polite">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p
+          className="text-sm whitespace-nowrap text-muted-foreground"
+          aria-live="polite"
+        >
           {plural(total, { one: "# account", other: "# accounts" })}
         </p>
         {manages ? (
@@ -389,7 +392,8 @@ export function AccountsTab({
               {columns.header("mfa", t`Second factor`, "px-3 py-2")}
               {columns.header("bases", t`Bases`, "px-3 py-2", "right")}
               {columns.header("status", t`Status`, "px-3 py-2")}
-              <th className="px-3 py-2">
+              {/* The actions stay in view while the columns scroll. */}
+              <th className="sticky right-0 bg-muted px-3 py-2 before:absolute before:inset-y-0 before:left-0 before:w-px before:bg-border">
                 <span className="sr-only">{t`Actions`}</span>
               </th>
             </tr>
@@ -444,7 +448,7 @@ export function AccountsTab({
                   <td className="px-3 py-2 text-xs">
                     <StatusText user={user} />
                   </td>
-                  <td className="px-3 py-2">
+                  <td className="sticky right-0 bg-background px-3 py-2 before:absolute before:inset-y-0 before:left-0 before:w-px before:bg-border">
                     <div className="flex items-center justify-end gap-1">
                       {self ? (
                         <span className="px-2 text-xs text-muted-foreground">

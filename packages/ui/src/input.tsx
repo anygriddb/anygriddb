@@ -2,9 +2,11 @@ import type { ComponentProps } from "react";
 import { cn } from "./cn";
 import { useReadOnly, type Reads } from "./read-only";
 
-// A value refused (`aria-invalid`) is drawn with the danger border.
+// A value refused (`aria-invalid`) is drawn with the danger border. One
+// shown to read or copy (`readonly`) lies on the muted surface, so it does
+// not look like a field to type in.
 const field =
-  "w-full rounded-md border border-border bg-card px-2.5 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-ring disabled:opacity-60 aria-invalid:border-danger";
+  "w-full rounded-md border border-border bg-card px-2.5 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-ring disabled:opacity-60 aria-invalid:border-danger [&[readonly]]:bg-muted";
 
 export function Input({
   className,

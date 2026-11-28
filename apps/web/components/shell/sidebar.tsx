@@ -466,7 +466,9 @@ export function Sidebar({
       className={cn(
         "relative flex shrink-0 flex-col border-r border-border bg-background",
         mode !== "docked" &&
-          "fixed inset-y-0 left-0 z-40 max-w-[85vw] shadow-xl transition-transform motion-reduce:transition-none",
+          "fixed inset-y-0 left-0 z-40 max-w-[85vw] transition-transform motion-reduce:transition-none",
+        // Folded away, it casts nothing on the page's edge.
+        mode === "open" && "shadow-xl",
         mode === "closed" && "-translate-x-full",
       )}
       style={{ width }}
@@ -1298,7 +1300,10 @@ function SidebarBase({
                 }
               />
             ))}
-          {shape ? (
+          {/* Under the base the page is in only: repeated under every open
+              base, they outnumbered its tables. The others offer a new
+              table from their menu. */}
+          {shape && params.baseId === base.id ? (
             <>
               <li>
                 <button

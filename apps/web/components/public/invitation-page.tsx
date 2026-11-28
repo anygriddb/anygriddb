@@ -8,7 +8,7 @@ import { useRoleLabel } from "../settings/role-label";
 import { useLingui } from "@lingui/react/macro";
 import { refusedAs, useErrorText } from "../../lib/errors";
 import { LoadFailed } from "../shell/load-failed";
-import { InstanceMark } from "../brand/instance-mark";
+import { AuthFrame } from "../auth/auth-frame";
 
 export function InvitationPage({ token }: { token: string }) {
   const { t } = useLingui();
@@ -23,15 +23,49 @@ export function InvitationPage({ token }: { token: string }) {
     retry: false,
   });
   const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
   const next = `/invite/${token}`;
+
+  async function accept() {
+    setError("");
+    setBusy(true);
+    try {
+      const accepted = await trpc.auth.acceptInvitation.mutate({ token });
+      await queryClient.invalidateQueries();
+      void navigate({
+        to: "/b/$baseId",
+        params: { baseId: accepted.baseId },
+        replace: true,
+      });
+    } catch (cause) {
+      setError(errorText(cause));
+      setBusy(false);
+    }
+  }
+
+  // The frame of every page outside the app, as sign-in and reset are.
   return (
-    <main className="flex h-screen items-center justify-center p-6">
-      <div className="flex w-full max-w-md flex-col gap-4 rounded-sm border border-border bg-card p-6">
-        <InstanceMark className="h-7 w-7" named />
+    <AuthFrame>
+      <h1 className="mb-6 text-2xl font-semibold">
+        {preview.data
+          ? t`Invitation to “${{ name: preview.data.baseName }}”`
+          : t`Invitation`}
+      </h1>
+      <div className="flex flex-col gap-4">
         {preview.isLoading ? <Spinner /> : null}
         {preview.isError ? (
           refusedAs(preview.error, "invalid_invitation") ? (
-            <p>{t`This invitation does not exist or has expired.`}</p>
+            <>
+              <p role="alert" className="text-sm">
+                {t`This invitation does not exist or has expired.`}
+              </p>
+              <Link
+                className="text-sm text-primary hover:underline"
+                to="/login"
+              >
+                {t`Back to sign-in`}
+              </Link>
+            </>
           ) : (
             <LoadFailed
               error={preview.error}
@@ -41,35 +75,15 @@ export function InvitationPage({ token }: { token: string }) {
         ) : null}
         {preview.data ? (
           <>
-            <h1 className="text-lg font-semibold">
-              {t`Invitation to “${{ name: preview.data.baseName }}”`}
-            </h1>
             <p className="text-sm text-muted-foreground">
               {t`Offered role: ${{ role: roleLabel(preview.data.role) }}. Sent to ${{ email: preview.data.email }}.`}
             </p>
             {session.data ? (
-              <Button
-                onClick={async () => {
-                  setError("");
-                  try {
-                    const accepted = await trpc.auth.acceptInvitation.mutate({
-                      token,
-                    });
-                    await queryClient.invalidateQueries();
-                    void navigate({
-                      to: "/b/$baseId",
-                      params: { baseId: accepted.baseId },
-                      replace: true,
-                    });
-                  } catch (cause) {
-                    setError(errorText(cause));
-                  }
-                }}
-              >
+              <Button disabled={busy} onClick={() => void accept()}>
                 {t`Accept the invitation`}
               </Button>
             ) : (
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
                 <Button asChild>
                   <Link to="/signup" search={{ next }}>
                     {t`Create an account`}
@@ -90,6 +104,6 @@ export function InvitationPage({ token }: { token: string }) {
           </p>
         ) : null}
       </div>
-    </main>
+    </AuthFrame>
   );
 }
