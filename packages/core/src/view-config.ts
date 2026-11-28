@@ -194,6 +194,8 @@ const shape = {
   longitudeColumn: columnNameSchema,
   /** A list's link to the same table: the row each row is drawn under. */
   parentColumn: columnNameSchema,
+  /** A timeline's link to the same table: the rows each row comes after. */
+  dependencyColumn: columnNameSchema,
   form: formConfigSchema,
 };
 
@@ -342,6 +344,7 @@ export function viewConfigColumns(config: ViewConfig): string[] {
     config.latitudeColumn,
     config.longitudeColumn,
     config.parentColumn,
+    config.dependencyColumn,
   ]) {
     add(name);
   }
@@ -417,6 +420,7 @@ export function stripColumnFromConfig(
     "latitudeColumn",
     "longitudeColumn",
     "parentColumn",
+    "dependencyColumn",
   ] as const) {
     if (next[key] === name) Reflect.deleteProperty(next, key);
   }

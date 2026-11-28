@@ -984,4 +984,94 @@ test.describe("a timeline", () => {
 
     expect(blocked).toEqual([]);
   });
+
+  // What a row comes after (ROADMAP 10): drawn by a link of the table to
+  // itself, once the view chose it; a row that starts before a row it
+  // comes after has ended is drawn and said apart, and is no longer once
+  // it starts after.
+  test("draws what a row comes after, and says one that starts too soon", async ({
+    page,
+  }) => {
+    const blocked = watchPolicy(page);
+    await signUpWithTable(page, "Timeline Planner");
+    const tableId = tableIdOf(page);
+    for (const name of ["start", "due"]) {
+      await send(page, "catalog.addColumn", {
+        tableId,
+        name,
+        fieldType: "date",
+      });
+    }
+    await send(page, "catalog.addRelation", {
+      tableId,
+      name: "after",
+      label: "After",
+      kind: "many_to_many",
+      targetTableId: tableId,
+    });
+    const ids: Record<string, string> = {};
+    for (const [name, start, due] of [
+      ["Design", "2026-11-16", "2026-11-20"],
+      ["Build", "2026-11-19", "2026-11-26"],
+      ["Ship", "2026-11-27", "2026-11-27"],
+    ] as const) {
+      const inserted = await page.request.post("/trpc/rows.insert", {
+        data: { tableId, values: { name, start, due } },
+      });
+      expect(inserted.ok(), await inserted.text()).toBe(true);
+      ids[name] = (
+        (await inserted.json()) as { result: { data: { id: string } } }
+      ).result.data.id;
+    }
+    for (const [later, earlier] of [
+      ["Build", "Design"],
+      ["Ship", "Build"],
+    ] as const) {
+      await send(page, "rows.setLinks", {
+        tableId,
+        rowId: ids[later],
+        column: "after",
+        targetIds: [ids[earlier]],
+      });
+    }
+    await page.clock.setFixedTime(new Date("2026-11-19T10:00:00"));
+    await page.reload();
+    await newView(page, "Timeline");
+    await page
+      .getByRole("combobox", { name: "End", exact: true })
+      .selectOption({ label: "due" });
+    const early = page.locator("path.stroke-danger");
+    const onTime = page.locator("path.stroke-muted-foreground");
+    // Nothing is drawn by a link the view did not choose.
+    await expect(
+      page.getByRole("button", { name: "Build", exact: true }).nth(1),
+    ).toBeInViewport();
+    await expect(early).toHaveCount(0);
+    await page
+      .getByRole("combobox", { name: "Comes after" })
+      .selectOption({ label: "After" });
+    await expect(
+      page.getByRole("button", {
+        name: "Build, comes after Design, starts before Design ends",
+      }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Ship, comes after Build" }),
+    ).toBeVisible();
+    await expect(early).toHaveCount(1);
+    await expect(onTime).toHaveCount(1);
+    expect(await accessibilityViolations(page)).toEqual([]);
+    // Build moved past Design's end: on time, and drawn so.
+    await send(page, "rows.updateMany", {
+      tableId,
+      updates: [{ rowId: ids.Build, values: { start: "2026-11-21" } }],
+    });
+    await page.reload();
+    await expect(
+      page.getByRole("button", { name: "Build, comes after Design" }),
+    ).toBeVisible();
+    await expect(onTime).toHaveCount(2);
+    await expect(early).toHaveCount(0);
+    expect(blocked).toEqual([]);
+  });
 });

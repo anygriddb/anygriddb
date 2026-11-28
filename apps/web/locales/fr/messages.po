@@ -1029,6 +1029,14 @@ msgstr "{name} a déverrouillé une ligne dans {table}"
 msgid "{name}, an administrator, is not a member and can read this base until {until}, without changing anything. Their reason: {reason}"
 msgstr "{name}, qui administre l’instance, n’est pas membre et peut lire cette base jusqu’à {until}, sans rien y modifier. Sa raison : {reason}"
 
+#: components/views/timeline-view.tsx
+msgid "{name}, comes after {rows}"
+msgstr "{name}, vient après {rows}"
+
+#: components/views/timeline-view.tsx
+msgid "{name}, comes after {rows}, starts before {early} ends"
+msgstr "{name}, vient après {rows}, commence avant que se termine {early}"
+
 #: components/shell/notification-items.ts
 msgid "{name}: {message}"
 msgstr "{name} : {message}"
@@ -4271,6 +4279,10 @@ msgstr "Colonnes"
 #: components/views/kanban-view.tsx
 msgid "Columns by"
 msgstr "Colonnes selon"
+
+#: components/views/timeline-view.tsx
+msgid "Comes after"
+msgstr "Vient après"
 
 #: components/admin/auth-labels.ts
 msgid "Command line"

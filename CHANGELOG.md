@@ -8,6 +8,14 @@ first.
 
 ## Unreleased
 
+### Added
+
+- A timeline draws what each row comes after: choose "Comes after", a
+  link of the table to itself, and an arrow runs from the end of each
+  bar to the start of the bars that come after it. A row that starts
+  before a row it comes after has ended is drawn apart, its arrow in red,
+  and a screen reader hears it in the bar's name.
+
 ## 0.15.1 - 2026-11-28
 
 Nothing to do before or after upgrading.

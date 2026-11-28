@@ -115,6 +115,33 @@ describe("stripColumnFromConfig", () => {
   });
 });
 
+describe("a timeline's link to draw dependencies by (ROADMAP 10)", () => {
+  it("is kept by a timeline, named among its fields, and dropped with its field", async () => {
+    const { stripColumnFromConfig } = await import("./view-config");
+    const config = normalizeViewConfig(
+      { startColumn: "starts", dependencyColumn: "after" },
+      "timeline",
+    );
+    expect(config).toEqual({
+      startColumn: "starts",
+      dependencyColumn: "after",
+    });
+    expect(viewConfigColumns(config).sort()).toEqual(["after", "starts"]);
+    expect(stripColumnFromConfig(config, "after")).toEqual({
+      startColumn: "starts",
+    });
+    expect(applyViewConfigPatch(config, { dependencyColumn: null })).toEqual({
+      startColumn: "starts",
+    });
+  });
+
+  it("is no field's name unless it is one", () => {
+    expect(
+      normalizeViewConfig({ dependencyColumn: "not a name" }, "timeline"),
+    ).toEqual({});
+  });
+});
+
 describe("a list's link to nest by", () => {
   it("is kept by a list view, named among its fields, and dropped with its field", async () => {
     const { stripColumnFromConfig, viewTypeSchema } =

@@ -1029,6 +1029,14 @@ msgstr "{name} unlocked a row in {table}"
 msgid "{name}, an administrator, is not a member and can read this base until {until}, without changing anything. Their reason: {reason}"
 msgstr "{name}, an administrator, is not a member and can read this base until {until}, without changing anything. Their reason: {reason}"
 
+#: components/views/timeline-view.tsx
+msgid "{name}, comes after {rows}"
+msgstr "{name}, comes after {rows}"
+
+#: components/views/timeline-view.tsx
+msgid "{name}, comes after {rows}, starts before {early} ends"
+msgstr "{name}, comes after {rows}, starts before {early} ends"
+
 #: components/shell/notification-items.ts
 msgid "{name}: {message}"
 msgstr "{name}: {message}"
@@ -4271,6 +4279,10 @@ msgstr "Columns"
 #: components/views/kanban-view.tsx
 msgid "Columns by"
 msgstr "Columns by"
+
+#: components/views/timeline-view.tsx
+msgid "Comes after"
+msgstr "Comes after"
 
 #: components/admin/auth-labels.ts
 msgid "Command line"
