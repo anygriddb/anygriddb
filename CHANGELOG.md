@@ -8,6 +8,33 @@ first.
 
 ## Unreleased
 
+## 0.14.1 - 2026-11-28
+
+### Changed
+
+- A form that makes or saves something no longer greys its button until
+  it is filled: sending it says what is missing, above its buttons, marks
+  the field and moves the keyboard there. Sign-in, sign-up and a
+  forgotten password say an empty or malformed address, an empty
+  password, or a short new one in the page, not in the browser's bubble;
+  signing in no longer asks the browser for twelve characters.
+- A base's menu and page say "Add a table", as the navigation does.
+- A timeline's month or quarter fills a wide screen: a day takes the
+  width the axis gives it, never less than before, and a drag moves by
+  the days it shows.
+
+### Fixed
+
+- The dialogs that still answered a refusal by a toast in the window's
+  corner say it inside, above their buttons, and stay open for another
+  try: the proof Administration asks for (a wrong password), adding a
+  person, acting as someone, handing an account's work over, a field's
+  settings, restoring rows from the trash, a calendar's private address,
+  sending a delivery again, and the confirmations that delete or revoke
+  a restore point, a webhook, a source, a dashboard, an application, a
+  token, an access or a public link, or empty the trash. A view's name
+  or description no longer closes its dialog on a refusal.
+
 ## 0.14.0 - 2026-11-28
 
 **Before upgrading:** check the scripts and agents that write through the
