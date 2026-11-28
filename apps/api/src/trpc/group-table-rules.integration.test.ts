@@ -123,6 +123,7 @@ describe("a group's role and rules on a table", () => {
         members: 2,
         tableRole: "viewer",
         tableGiven: "viewer",
+        tableEndsAt: null,
         baseRole: null,
       },
     ]);

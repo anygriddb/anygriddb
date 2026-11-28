@@ -9,6 +9,7 @@ import { useErrorText } from "../../lib/errors";
 import { trpc, useTRPC } from "../../lib/trpc";
 import { givenValue } from "./role-label";
 import { RoleOptions } from "./role-options";
+import { RoleEnd } from "./role-end";
 
 /**
  * The roles a base gives to groups (local or from an identity provider):
@@ -26,6 +27,16 @@ export function GroupRoles(props: { baseId: string }) {
   /** One of the four by its key, or a made role by its id. */
   const [role, setRole] = useState<string>("viewer");
 
+  const refresh = () =>
+    Promise.all([
+      queryClient.invalidateQueries({
+        queryKey: api.catalog.groupRoles.queryKey({ baseId: props.baseId }),
+      }),
+      queryClient.invalidateQueries({
+        queryKey: api.catalog.members.queryKey({ baseId: props.baseId }),
+      }),
+    ]);
+
   async function set(target: string, next: string | null) {
     try {
       await trpc.catalog.setGroupRole.mutate({
@@ -33,14 +44,7 @@ export function GroupRoles(props: { baseId: string }) {
         groupId: target,
         role: next,
       });
-      await Promise.all([
-        queryClient.invalidateQueries({
-          queryKey: api.catalog.groupRoles.queryKey({ baseId: props.baseId }),
-        }),
-        queryClient.invalidateQueries({
-          queryKey: api.catalog.members.queryKey({ baseId: props.baseId }),
-        }),
-      ]);
+      await refresh();
     } catch (cause) {
       toast.error(errorText(cause));
     }
@@ -79,6 +83,20 @@ export function GroupRoles(props: { baseId: string }) {
             >
               <RoleOptions />
             </Select>
+            {givenValue(item.role) !== "owner" ? (
+              <RoleEnd
+                target={{
+                  scope: "base",
+                  scopeId: props.baseId,
+                  groupId: item.groupId,
+                }}
+                endsAt={item.endsAt}
+                name={item.displayName}
+                onChanged={refresh}
+              />
+            ) : (
+              <span className="w-32" aria-hidden />
+            )}
             <Button
               size="icon"
               variant="ghost"

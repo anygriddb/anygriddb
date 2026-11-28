@@ -10,6 +10,7 @@ export const RIGHTS_CHANGES: ReadonlySet<string> = new Set([
   "catalog.invite",
   "catalog.setGroupRole",
   "catalog.setTableRole",
+  "catalog.setRoleEnd",
   "catalog.splitBaseRole",
   "catalog.setTableAcl",
   "catalog.clearTableAcl",

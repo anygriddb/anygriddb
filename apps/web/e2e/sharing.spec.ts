@@ -152,6 +152,40 @@ test("an owner invites an address, its account accepts, and reads what its permi
       .getByRole("link", { name: "Lab" }),
   ).toBeVisible();
 
+  // A role given until a day (ADR 0146): asked the day, it says it misses
+  // one, then lists it; "No end" takes it away.
+  await page.goto(`${base}/settings`);
+  await page
+    .getByRole("button", { name: `No end for the role of Guest ${stamp}` })
+    .click();
+  const ending = page.getByRole("dialog", {
+    name: `When does the role of Guest ${stamp} end?`,
+  });
+  await ending.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(
+    ending.getByText("Choose the last day the role gives."),
+  ).toBeVisible();
+  await ending.getByRole("spinbutton").first().focus();
+  await page.keyboard.type("31122030");
+  expect(await accessibilityViolations(page)).toEqual([]);
+  const saved = page.waitForResponse((response) =>
+    response.url().includes("catalog.setRoleEnd"),
+  );
+  await ending.getByRole("button", { name: "Save", exact: true }).click();
+  expect((await saved).ok()).toBe(true);
+  await page
+    .getByRole("button", {
+      name: `Until 31/12/2030 for the role of Guest ${stamp}`,
+    })
+    .click();
+  await page
+    .getByRole("dialog", { name: `When does the role of Guest ${stamp} end?` })
+    .getByRole("button", { name: "No end", exact: true })
+    .click();
+  await expect(
+    page.getByRole("button", { name: `No end for the role of Guest ${stamp}` }),
+  ).toBeVisible();
+
   // Their permissions on the table. The settings are opened anew: the
   // list of members arrives after the panel, and "View as" answers at
   // once for the member it shows, who is the guest, not the owner, whom

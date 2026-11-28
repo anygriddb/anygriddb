@@ -501,6 +501,8 @@ export {
   webhookIdInputSchema,
   type AuditRole,
   givenRoleSchema,
+  roleEndInputSchema,
+  type RoleEndInput,
   madeRoleInputSchema,
   type ColumnDefinition,
   type ExportFormat,

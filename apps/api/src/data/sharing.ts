@@ -72,6 +72,7 @@ export async function listTableAccess(
       "a.scope",
       "a.scopeId",
       "a.groupId",
+      "a.endsAt",
       ...MADE_COLUMNS,
     ])
     .where((eb) =>
@@ -95,6 +96,8 @@ export async function listTableAccess(
       tableRole: Grant | null;
       /** Their own role on the table, which the list changes: a key or an id. */
       tableGiven: string | null;
+      /** When their own role on the table ends (ADR 0146), or null. */
+      tableEndsAt: string | null;
       /** Whether they hold a role of their own on the base, not a group's. */
       baseOwn: boolean;
       bindings: ReturnType<typeof bindingsFrom>;
@@ -112,6 +115,7 @@ export async function listTableAccess(
       baseRole: null,
       tableRole: null,
       tableGiven: null,
+      tableEndsAt: null,
       baseOwn: false,
       bindings: [],
     };
@@ -121,6 +125,9 @@ export async function listTableAccess(
     const own = givenOf(row);
     if (row.scope === "table" && row.groupId === null && own !== null) {
       current.tableGiven = typeof own === "string" ? own : own.id;
+      current.tableEndsAt = row.endsAt
+        ? new Date(row.endsAt).toISOString()
+        : null;
     }
     if (row.scope === "base" && row.groupId === null && own !== null) {
       current.baseOwn = true;
@@ -154,6 +161,7 @@ async function tableGroups(
       "a.role",
       "a.scope",
       "a.scopeId",
+      "a.endsAt",
       ...MADE_COLUMNS,
       sql<number>`(select count(*)::int from group_members gm where gm.group_id = g.id)`.as(
         "members",
@@ -189,6 +197,8 @@ async function tableGroups(
         members: row.members,
         tableRole: roleFor(bindingsFrom([row]), "table", table.id),
         tableGiven: typeof given === "string" ? given : given.id,
+        /** When the group's role on the table ends (ADR 0146), or null. */
+        tableEndsAt: row.endsAt ? new Date(row.endsAt).toISOString() : null,
         baseRole: onBase.get(row.groupId) ?? null,
       },
     ];
@@ -243,7 +253,12 @@ export async function setTableRole(
             conflict
               .columns([column, "scope", "scopeId"])
               .where(column, "is not", null)
-              .doUpdateSet({ ...givenColumns(role), givenBy: actorId }),
+              .doUpdateSet({
+                ...givenColumns(role),
+                givenBy: actorId,
+                // A role changed keeps its end; an owner's has none.
+                ...(role === "owner" ? { endsAt: null } : {}),
+              }),
           )
           .execute();
       } else {

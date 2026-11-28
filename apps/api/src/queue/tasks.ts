@@ -68,6 +68,8 @@ import { readSettings } from "../settings.js";
 import { purgeStagedUploads } from "../data/staged-uploads.js";
 import { purgeStagedAttachments } from "../data/staged-attachments.js";
 import { purgeLocks } from "../realtime/locks.js";
+import { publishRightsChanged } from "../realtime/channels.js";
+import { endRoles } from "../data/role-ends.js";
 import { sweepOrphanFiles } from "../files/sweep.js";
 import {
   accountWelcomePayloadSchema,
@@ -443,6 +445,12 @@ export function taskGroups(deps: TaskDeps): WorkerGroup[] {
           env: deps.env,
           log: { error: (object, message) => deps.log(object, message) },
         });
+        // Roles whose end has come (ADR 0146): open pages ask again.
+        if ((await endRoles(deps.db)) > 0) {
+          await publishRightsChanged(deps.bus, (error) => {
+            deps.log(error, "realtime failed");
+          });
+        }
         await purgeNotifications(deps.db);
         await purgeRuns(deps.db);
         await purgeJobs({ db: deps.db, files: deps.files, log: deps.log });

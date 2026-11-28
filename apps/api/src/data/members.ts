@@ -111,6 +111,14 @@ export async function bindRole(
   baseId: string,
   givenBy?: string,
 ): Promise<void> {
+  // A role changed keeps its end (ADR 0146); an owner's has none.
+  const before = await tx
+    .selectFrom("attributions")
+    .select("endsAt")
+    .where("userId", "=", userId)
+    .where("scope", "=", "base")
+    .where("scopeId", "=", baseId)
+    .executeTakeFirst();
   await tx
     .deleteFrom("attributions")
     .where("userId", "=", userId)
@@ -145,6 +153,7 @@ export async function bindRole(
       scope: "base",
       scopeId: baseId,
       givenBy: givenBy ?? null,
+      endsAt: role === "owner" ? null : (before?.endsAt ?? null),
     })
     .execute();
 }
@@ -289,6 +298,7 @@ export async function listMembers(db: Database, baseId: string) {
       "a.role",
       "a.scope",
       "a.scopeId",
+      "a.endsAt",
       "g.displayName as groupName",
       ...MADE_COLUMNS,
     ])
@@ -321,6 +331,8 @@ export async function listMembers(db: Database, baseId: string) {
       bindings: Binding[];
       /** The role of their own, which the list changes: a key or an id. */
       given: string | null;
+      /** When that role ends (ADR 0146), or null. */
+      endsAt: string | null;
       groups: string[];
     }
   >();
@@ -331,18 +343,24 @@ export async function listMembers(db: Database, baseId: string) {
       email: row.email,
       bindings: [],
       given: null,
+      endsAt: null,
       groups: [],
     };
     const own = givenOf(row);
+    const ownBase = row.scope === "base" && row.groupName === null;
     grouped.set(row.userId, {
       ...current,
       bindings: [...current.bindings, ...bindingsFrom([row])],
       given:
-        row.scope === "base" && row.groupName === null && own !== null
+        ownBase && own !== null
           ? typeof own === "string"
             ? own
             : own.id
           : current.given,
+      endsAt:
+        ownBase && row.endsAt
+          ? new Date(row.endsAt).toISOString()
+          : current.endsAt,
       groups:
         row.groupName === null
           ? current.groups

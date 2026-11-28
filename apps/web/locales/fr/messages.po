@@ -3050,6 +3050,10 @@ msgstr "Invitation"
 msgid "An object or a list, which a formula reads into"
 msgstr "Un objet ou une liste, dans lesquels une formule lit"
 
+#: lib/errors.ts
+msgid "An owner's role does not end: a base keeps an owner"
+msgstr "Le rôle d’un propriétaire ne prend pas fin : une base garde un propriétaire"
+
 #: components/table/filter-builder.tsx
 #: components/table/view-toolbar.tsx
 msgid "and"
@@ -3776,6 +3780,7 @@ msgstr "Appelle l’adresse push d’un moniteur Uptime Kuma, avec l’état up 
 #: components/oauth/consent-page.tsx
 #: components/record/record-panel.tsx
 #: components/record/take-step.tsx
+#: components/settings/role-end.tsx
 #: components/settings/second-factor.tsx
 #: components/shell/dialogs.tsx
 #: components/shell/jobs-menu.tsx
@@ -4022,6 +4027,10 @@ msgstr "Choix et personnes"
 msgid "Choose a column"
 msgstr "Choisir une colonne"
 
+#: lib/errors.ts
+msgid "Choose a day to come"
+msgstr "Choisissez un jour à venir"
+
 #: components/table/automations-dialog.tsx
 msgid "Choose a field to fill."
 msgstr "Choisissez un champ à remplir."
@@ -4067,6 +4076,10 @@ msgstr "Choisissez le champ à reprendre."
 #: components/views/map-view.tsx
 msgid "Choose the fields that hold the latitude and the longitude."
 msgstr "Choisissez les champs qui portent la latitude et la longitude."
+
+#: components/settings/role-end.tsx
+msgid "Choose the last day the role gives."
+msgstr "Choisissez le dernier jour que donne le rôle."
 
 #: components/fields/field-link-settings.tsx
 msgid "Choose the link it reads through."
@@ -7668,6 +7681,10 @@ msgstr "Il est fourni sans garantie, dans la mesure permise par la loi."
 msgid "It gave then: {permissions}"
 msgstr "Il donnait alors : {permissions}"
 
+#: components/settings/role-end.tsx
+msgid "It gives nothing from the day after the last one, and goes within the hour."
+msgstr "Il ne donne plus rien à partir du lendemain du dernier jour, et disparaît dans l’heure."
+
 #: components/admin/base-admin-page.tsx
 msgid "It goes to the trash for {days} days with its data, where its owners and administrators can restore it, then it is deleted permanently."
 msgstr "Elle part à la corbeille pour {days} jours avec ses données, où ses propriétaires et les administrateurs peuvent la restaurer, puis elle est supprimée définitivement."
@@ -7923,6 +7940,10 @@ msgstr "Dernier lot envoyé le {sent}, numéro {batch}."
 #: components/admin/health-tab.tsx
 msgid "Last checked {date}"
 msgstr "Dernière vérification {date}"
+
+#: components/settings/role-end.tsx
+msgid "Last day"
+msgstr "Dernier jour"
 
 #: components/admin/notifications-tab.tsx
 msgid "Last delivery"
@@ -9199,8 +9220,13 @@ msgid "No delivery yet."
 msgstr "Aucun envoi pour l’instant."
 
 #: components/admin/accesses-tab.tsx
+#: components/settings/role-end.tsx
 msgid "No end"
 msgstr "Sans fin"
+
+#: components/settings/role-end.tsx
+msgid "No end for the role of {name}"
+msgstr "Sans fin pour le rôle de {name}"
 
 #: components/admin/notifications-tab.tsx
 msgid "No event"
@@ -11865,6 +11891,7 @@ msgstr "Samedi"
 #: components/record/record-panel.tsx
 #: components/settings/base-settings.tsx
 #: components/settings/profile-form.tsx
+#: components/settings/role-end.tsx
 #: components/settings/table-rules-panel.tsx
 #: components/shell/dialogs.tsx
 #: components/table/automations-dialog.tsx
@@ -14605,6 +14632,10 @@ msgid "They get a link by email to choose their password, valid a week."
 msgstr "La personne reçoit par email un lien pour choisir son mot de passe, valable une semaine."
 
 #: lib/errors.ts
+msgid "They hold no role of their own here"
+msgstr "Cette personne ou ce groupe n’a pas de rôle propre ici"
+
+#: lib/errors.ts
 msgid "They hold no role of their own on this base: a group gives it, or they have left"
 msgstr "Cette personne n’a pas de rôle propre sur cette base : un groupe le lui donne, ou elle l’a quittée"
 
@@ -15825,6 +15856,14 @@ msgstr "Fichier illisible : utilisez un CSV, TSV, JSON ou Excel avec une ligne 
 msgid "until {date}"
 msgstr "jusqu’au {date}"
 
+#: components/settings/role-end.tsx
+msgid "Until {day}"
+msgstr "Jusqu’au {day}"
+
+#: components/settings/role-end.tsx
+msgid "Until {day} for the role of {name}"
+msgstr "Jusqu’au {day} pour le rôle de {name}"
+
 #: components/admin/security-tab.tsx
 msgid "Until an administrator unlocks it"
 msgstr "Jusqu’à ce qu’un administrateur le déverrouille"
@@ -16297,6 +16336,10 @@ msgstr "Quand un compte, un lien ou un jeton est peut-être entre de mauvaises m
 #: components/settings/webhooks-panel.tsx
 msgid "when changed: {fields}"
 msgstr "si modifié : {fields}"
+
+#: components/settings/role-end.tsx
+msgid "When does the role of {name} end?"
+msgstr "Quand prend fin le rôle de {name} ?"
 
 #: components/admin/security-tab.tsx
 msgid "When single sign-on only is on, other people use the identity provider. Administrators keep a password so the instance is not locked out if the provider fails."

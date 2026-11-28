@@ -372,6 +372,8 @@ describe("every way in refuses whom its declared permission is missing", () => {
     const about: Record<string, Record<string, unknown>> = {
       "catalog.earlier": { kind: "base", id: world.baseId },
       "catalog.revert": { kind: "base", id: world.baseId },
+      // A role's end names its base or table as a scope (ADR 0146).
+      "catalog.setRoleEnd": { scope: "base", scopeId: world.baseId },
     };
     const procedures: Walked[] = walkRouter().map((walked) => ({
       ...walked,
