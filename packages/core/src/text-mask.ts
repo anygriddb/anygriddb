@@ -7,8 +7,10 @@
  * value's length alone, unlike an expression a person types.
  */
 
+import { ceilingOf } from "./limits";
+
 /** The longest mask a field keeps. */
-export const MAX_MASK_LENGTH = 100;
+export const MAX_MASK_LENGTH = ceilingOf("field.mask_chars");
 
 type Slot = "digit" | "letter" | "either" | { literal: string };
 

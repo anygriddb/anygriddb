@@ -1926,6 +1926,10 @@ msgstr "Une session se termine après {idle} minutes sans activité, et après {
 msgid "A session ends after a while without activity, and at its lifetime in any case. A shorter choice applies to sessions already open."
 msgstr "Une session prend fin après un temps sans activité, et à sa durée de vie dans tous les cas. Un choix plus court s’applique aussi aux sessions déjà ouvertes."
 
+#: components/admin/limits-tab.tsx
+msgid "A short text's pattern"
+msgstr "Modèle d’un texte court"
+
 #: components/admin/security-tab.tsx
 msgid "A shorter choice also purges, at the next nightly purge, what was deleted before it."
 msgstr "Un choix plus court purge aussi, à la purge de la nuit suivante, ce qui a été supprimé avant."

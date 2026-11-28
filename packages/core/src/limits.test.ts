@@ -136,6 +136,7 @@ describe("the catalogue of limits", () => {
       "request.input_depth": 128,
       "grid.series_rows": 1000,
       "cell.place_chars": 64,
+      "field.mask_chars": 100,
       "cell.list_items": 100,
       "cell.files": 20,
       "link.embed_origins": 20,

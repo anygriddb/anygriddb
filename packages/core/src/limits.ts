@@ -277,6 +277,7 @@ export const LIMITS = {
   "conversion.options_added": fixed("items", 200, "request"),
   "grid.series_rows": fixed("rows", 1000, "request"),
   "cell.place_chars": fixed("characters", 64, "cell"),
+  "field.mask_chars": fixed("characters", 100, "cell"),
   "cell.list_items": fixed("items", 100, "cell"),
   "cell.files": fixed("items", 20, "cell"),
   "filter.depth": fixed("levels", 5, "view"),

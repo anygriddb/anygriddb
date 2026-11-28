@@ -184,6 +184,7 @@ function useLimitNames(): Record<LimitId, string> {
     "request.input_depth": t`Levels of what a call sends`,
     "grid.series_rows": t`Rows a series typed in figures reaches`,
     "cell.place_chars": t`A place's name`,
+    "field.mask_chars": t`A short text's pattern`,
     "cell.list_items": t`Items of a list in a cell`,
     "cell.files": t`Files in a cell`,
     "link.embed_origins": t`Sites a link may be shown in`,
