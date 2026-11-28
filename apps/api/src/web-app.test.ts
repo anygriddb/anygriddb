@@ -7,6 +7,7 @@ import { describe, expect, it } from "vitest";
 import { applyApiSecurityHeaders } from "./http.js";
 import {
   DOCUMENT_POLICY,
+  PERMISSIONS_POLICY,
   documentPolicy,
   registerWebApp,
   type ShareEmbedLookup,
@@ -49,6 +50,15 @@ async function server(
 }
 
 describe("the web app", () => {
+  it("refuses the page the device's features it does not use, never the clipboard or passkeys", () => {
+    for (const feature of ["camera", "microphone", "geolocation", "payment"]) {
+      expect(PERMISSIONS_POLICY).toContain(`${feature}=()`);
+    }
+    for (const kept of ["clipboard", "publickey-credentials", "fullscreen"]) {
+      expect(PERMISSIONS_POLICY).not.toContain(kept);
+    }
+  });
+
   it("serves the page with its policy on every app path", async () => {
     const app = await server(await build());
     for (const url of ["/", "/b/1/t/2", "/settings?welcome=true", "/login"]) {
@@ -56,6 +66,7 @@ describe("the web app", () => {
       expect(response.statusCode).toBe(200);
       expect(response.headers["content-type"]).toBe("text/html; charset=utf-8");
       expect(response.headers["content-security-policy"]).toBe(DOCUMENT_POLICY);
+      expect(response.headers["permissions-policy"]).toBe(PERMISSIONS_POLICY);
       expect(response.headers["cache-control"]).toBe("no-cache");
       expect(response.body).toBe(PAGE);
     }

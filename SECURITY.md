@@ -61,6 +61,8 @@ When a report or an alert looks real:
 
 AnyGridDB serves HTTPS only (ADR 0029): the operator's certificate, or one signed by the instance's own authority, which is name-constrained to the instance's addresses and whose private keys are stored encrypted with `AUTH_ENCRYPTION_KEY`. Plain HTTP on the same port gets a redirect and nothing else. `PUBLIC_URL` must be HTTPS; plain HTTP is accepted only for the development server on the machine's loopback. HSTS is sent with the operator's certificate. Passkeys (WebAuthn) also need a DNS hostname or `localhost` in `PUBLIC_URL`, matching the address people open; an IP-only origin keeps HTTPS and TOTP.
 
+The app's page runs only the scripts the instance serves, none inline, and no other site frames it but the ones a shared link names (ADR 0067). It also tells the browser that it uses no camera, microphone, location, motion sensor, payment or device port: a script that came in by a hole would be refused them too.
+
 Every connection AnyGridDB opens beyond the machine's loopback is TLS with the certificate verified, and it refuses to start on a setting that breaks this (ADR 0030): its PostgreSQL (`sslmode=verify-full`), S3, SAML, and OIDC. Clients' databases and webhooks are held to it when they are declared and called, and SMTP (implicit TLS or required STARTTLS) when mail is sent: a relay that offers no encryption receives nothing. In the compose stack, PostgreSQL takes TLS connections only, and RustFS serves HTTPS, both with certificates from the instance's internal authority, which only AnyGridDB trusts, name-constrained to the services.
 
 ### Sessions and factors

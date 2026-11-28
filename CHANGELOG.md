@@ -16,6 +16,13 @@ first.
   before a row it comes after has ended is drawn apart, its arrow in red,
   and a screen reader hears it in the bar's name.
 
+### Security
+
+- The app's page tells the browser that it uses no camera, microphone,
+  location, motion sensor, payment or device port
+  (`Permissions-Policy`): a script that came in by a hole would be
+  refused them too.
+
 ## 0.15.1 - 2026-11-28
 
 Nothing to do before or after upgrading.
