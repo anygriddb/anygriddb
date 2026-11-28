@@ -8,6 +8,13 @@ first.
 
 ## Unreleased
 
+## 0.14.0 - 2026-11-28
+
+**Before upgrading:** check the scripts and agents that write through the
+API or MCP against this version's OpenAPI document: a key a write does not
+take, or an `id` given to a new record, is now refused (`invalid_body`)
+where it was dropped or replaced.
+
 **After upgrading:** an automation whose condition (its trigger "A row
 meets a condition", a branch, or a loop's filter) holds no value, or one
 its field cannot take, now acts on no row, where it acted on every row.
@@ -77,6 +84,14 @@ condition its value or remove it, and save.
 - Muting the notices of a base or a table one does not reach wrote the
   mute, and an id that names nothing answered with an internal error:
   both answer alike, and nothing is written.
+- The accounts list keeps its actions at its right edge (Delete was cut
+  at a laptop's width), and the administration lists' headers draw their
+  rule again. The unsubscribe and invitation pages take the sign-in frame,
+  and their button cannot be pressed twice; the unsubscribe one says
+  "Stop these emails". The API page's fields table scrolls on its own on
+  a phone, a colleague's cell in the grid is read at AA contrast in both
+  themes, and the navigation offers a new folder or table under the base
+  the page is in only.
 
 ## 0.13.0 - 2026-11-27
 
