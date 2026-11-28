@@ -446,24 +446,32 @@ export const catalogAccessProcedures = {
         for (const column of input.columns) {
           if (!known.has(column.column)) throw new AppError("unknown_column");
         }
-        // A rule names only the attributes the instance knows (ADR 0142).
-        if (input.rowFilter) {
+        // The rows of the rule, and of each field shown on some of them
+        // only (ADR 0145): each names only the attributes the instance
+        // knows (ADR 0142), and is kept only if it compiles whole: a
+        // condition without a value its field takes would otherwise be
+        // left out of it. "Me" is each reader; for a group's rule, any
+        // account stands for one.
+        const conditions = [
+          ...(input.rowFilter ? [input.rowFilter] : []),
+          ...input.columns.flatMap((column) =>
+            column.rows ? [column.rows] : [],
+          ),
+        ];
+        if (conditions.length > 0) {
           await assertKnownAttributes(
             ctx.db,
-            filterAttributes(input.rowFilter),
+            conditions.flatMap((condition) => filterAttributes(condition)),
           );
-        }
-        if (input.rowFilter) {
-          // A rule kept is one that compiles whole: a condition without a
-          // value its field takes would otherwise be left out of it. "Me"
-          // is each reader; for a group's rule, any account stands for one.
           const { engine } = await loadEngine(ctx.db, table.id, () => true);
-          checkFilter(
-            engine,
-            input.rowFilter,
-            "rule",
-            "userId" in input ? input.userId : user.id,
-          );
+          for (const condition of conditions) {
+            checkFilter(
+              engine,
+              condition,
+              "rule",
+              "userId" in input ? input.userId : user.id,
+            );
+          }
         }
         await setTableAcl(ctx.db, user.id, input);
         return { ok: true as const };

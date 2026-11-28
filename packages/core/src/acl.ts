@@ -11,8 +11,18 @@ export const columnAclEntrySchema = z
   .object({
     column: columnNameSchema,
     access: columnAccessSchema,
+    /**
+     * The rows, among those the rule reaches, on which the field has this
+     * access; hidden on the others (ADR 0145). Absent, every row.
+     */
+    rows: filterGroupSchema.optional(),
   })
-  .strict();
+  .strict()
+  // A field hidden on every row is hidden on some of them too.
+  .refine((entry) => entry.rows === undefined || entry.access !== "hide", {
+    message: "A hidden field holds on no row",
+    path: ["rows"],
+  });
 
 export const getTableAclInputSchema = z.object({ tableId: z.uuid() }).strict();
 

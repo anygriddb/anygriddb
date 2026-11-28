@@ -2385,6 +2385,10 @@ msgstr "Ajouter une condition"
 msgid "Add a condition on the rows {name} sees, or choose Every row."
 msgstr "Ajoutez une condition sur les lignes que voit {name}, ou choisissez Toutes les lignes."
 
+#: components/settings/table-rules-panel.tsx
+msgid "Add a condition on the rows where {field} is given, or choose On every row."
+msgstr "Ajoutez une condition sur les lignes où {field} est donné, ou choisissez Sur toutes les lignes."
+
 #: components/table/automations-dialog.tsx
 msgid "Add a condition, or choose another trigger."
 msgstr "Ajoutez une condition, ou choisissez un autre déclencheur."
@@ -9718,9 +9722,21 @@ msgstr "Actif"
 msgid "On a schedule"
 msgstr "À heure fixe"
 
+#: components/settings/table-rules-panel.tsx
+msgid "On another row, {field} is hidden from them, as a hidden field is."
+msgstr "Sur une autre ligne, {field} leur est masqué, comme un champ masqué."
+
+#: components/settings/table-rules-panel.tsx
+msgid "On every row"
+msgstr "Sur toutes les lignes"
+
 #: components/admin/effective-rights.tsx
 msgid "On the base"
 msgstr "Sur la base"
+
+#: components/settings/table-rules-panel.tsx
+msgid "On the rows that match"
+msgstr "Sur les lignes qui correspondent"
 
 #: components/admin/identity-tab.tsx
 msgid "On the screens"
@@ -11739,6 +11755,10 @@ msgstr "Lignes des états retirés"
 #: components/fields/link-selection.tsx
 msgid "Rows offered"
 msgstr "Lignes proposées"
+
+#: components/settings/table-rules-panel.tsx
+msgid "Rows on which {field} is given"
+msgstr "Lignes où {field} est donné"
 
 #: components/admin/limits-tab.tsx
 msgid "Rows one change writes"

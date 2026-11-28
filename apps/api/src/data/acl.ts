@@ -18,7 +18,13 @@ import {
 import type { Database } from "@anygriddb/db";
 import { holderOf, liveAttribution } from "./attributions.js";
 import { withAudit, type AuditTx } from "./audit-context.js";
-import { fieldsOf, givenOf, MADE_COLUMNS, rowsOf } from "./made-roles.js";
+import {
+  aclColumnsOf,
+  givenOf,
+  MADE_COLUMNS,
+  rowsOf,
+  storedFieldAccess,
+} from "./made-roles.js";
 import { liveColumnNames } from "./live.js";
 import {
   assembleEngine,
@@ -71,9 +77,7 @@ export async function listTableAcls(
       {
         ...subject,
         rowFilter: rowsOf(row.rowFilter),
-        columns: Object.entries(fieldsOf(row.fieldAccess) ?? {}).map(
-          ([column, access]) => ({ column, access }),
-        ),
+        columns: aclColumnsOf(row.fieldAccess) ?? [],
       },
     ];
   });
@@ -150,12 +154,7 @@ export async function setTableAcl(
         .updateTable("attributions")
         .set({
           rowFilter: input.rowFilter,
-          fieldAccess:
-            input.columns.length === 0
-              ? null
-              : Object.fromEntries(
-                  input.columns.map((entry) => [entry.column, entry.access]),
-                ),
+          fieldAccess: storedFieldAccess(input.columns),
         })
         .where(column, "=", id)
         .where("scope", "=", "table")

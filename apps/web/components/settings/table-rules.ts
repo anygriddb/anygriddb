@@ -5,7 +5,12 @@ export type FieldAccess = "hide" | "read" | "write";
 /** A member's rules on a table, as they are kept. */
 export type StoredRule = {
   rowFilter: FilterGroup | null;
-  columns: ReadonlyArray<{ column: string; access: FieldAccess }>;
+  columns: ReadonlyArray<{
+    column: string;
+    access: FieldAccess;
+    /** The rows, among the rule's, the field holds on (ADR 0145). */
+    rows?: FilterGroup;
+  }>;
 };
 
 /**
@@ -135,21 +140,43 @@ export function storedAccess(
   );
 }
 
+/** The fields a rule gives on some of its rows only, with those rows. */
+export function storedFieldRows(
+  stored: StoredRule | undefined,
+): Record<string, FilterGroup> {
+  return Object.fromEntries(
+    (stored?.columns ?? []).flatMap((rule) =>
+      rule.rows ? [[rule.column, rule.rows] as const] : [],
+    ),
+  );
+}
+
 /**
  * The rule to keep. No field rule at all while every field is read and
- * written: a rule that names every field would hide the next one added,
- * which nobody asked.
+ * written on every row: a rule that names every field would hide the next
+ * one added, which nobody asked. A hidden field holds on no row, so its
+ * rows are dropped.
  */
 export function ruleToSave(
   access: Readonly<Record<string, FieldAccess>>,
   rowFilter: FilterGroup | null,
+  fieldRows: Readonly<Record<string, FilterGroup | null>> = {},
 ): { rowFilter: FilterGroup | null; columns: StoredRule["columns"] } {
   const entries = Object.entries(access);
+  const rowsOf = (column: string, value: FieldAccess) =>
+    value === "hide" ? null : (fieldRows[column] ?? null);
   return {
     rowFilter,
-    columns: entries.every(([, value]) => value === "write")
+    columns: entries.every(
+      ([column, value]) => value === "write" && !rowsOf(column, value),
+    )
       ? []
-      : entries.map(([column, value]) => ({ column, access: value })),
+      : entries.map(([column, value]) => {
+          const rows = rowsOf(column, value);
+          return rows
+            ? { column, access: value, rows }
+            : { column, access: value };
+        }),
   };
 }
 

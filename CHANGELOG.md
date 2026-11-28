@@ -8,6 +8,16 @@ first.
 
 ## Unreleased
 
+### Added
+
+- A rule may give a field on some of its rows only: "Diagnosis, read
+  only, on the rows where Ward is the reader's Ward" lets a ward's nurses
+  read every patient and the diagnosis of their own ward's alone. In a
+  table's permissions, a field that is not hidden is given "On every row"
+  or "On the rows that match", with its own conditions, which may name
+  the reader's attributes. On another row the field is hidden, wherever
+  it is read, and refused to a write (ADR 0145).
+
 ## 0.15.2 - 2026-11-28
 
 Nothing to do before or after upgrading. **Someone reached by several

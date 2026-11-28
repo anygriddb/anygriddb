@@ -34,7 +34,7 @@
       "notifications.data": "Record<string, string> | null",
       "staged_uploads.meta": "Record<string, unknown> | null",
       "attributions.row_filter": "Record<string, unknown> | null",
-      "attributions.field_access": "Record<string, \"hide\" | \"read\" | \"write\"> | null",
+      "attributions.field_access": "Record<string, \"hide\" | \"read\" | \"write\" | { access: \"read\" | \"write\"; rows: Record<string, unknown> }> | null",
       "views.config": "Record<string, unknown> | null",
       "deliveries.origin": "ColumnType<\"integration\" | \"webhook\", never, never>",
       "deliveries.payload": "unknown",

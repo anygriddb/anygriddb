@@ -237,12 +237,37 @@ test("an owner invites an address, its account accepts, and reads what its permi
     guest.getByRole("columnheader", { name: /Unit price/ }),
   ).toHaveCount(0);
 
+  // A field on some of the rule's rows only: the seller on the chair's.
+  await rules
+    .getByLabel("Rows on which Seller is given")
+    .selectOption({ label: "On the rows that match" });
+  const seller = rules
+    .getByRole("listitem")
+    .filter({ has: page.getByLabel("Rows on which Seller is given") });
+  await seller.getByRole("button", { name: "Add a condition" }).click();
+  await seller.getByLabel("Field", { exact: true }).selectOption({
+    label: "Name",
+  });
+  await seller.getByLabel("Value").fill("Chair");
+  await expect(
+    seller.getByText("On another row, Seller is hidden from them"),
+  ).toBeVisible();
+  expect(await accessibilityViolations(page)).toEqual([]);
+  await rules.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(page.getByText("Permissions saved")).toBeVisible();
+  await guest.reload();
+  await expect(guest.getByRole("gridcell", { name: "Lamp" })).toBeVisible();
+  await expect(guest.getByRole("gridcell", { name: "ada" })).toHaveCount(1);
+
   // Kept: opened again, the settings show the rule and the hidden field.
   await page.reload();
   await expect(rules.getByLabel("Rows this member sees")).toHaveValue("some");
   await expect(
     rules.getByLabel("What this member may do with Unit price"),
   ).toHaveValue("hide");
+  await expect(rules.getByLabel("Rows on which Seller is given")).toHaveValue(
+    "some",
+  );
   // Cleared, they read every row and field again.
   await rules.getByRole("button", { name: "Clear restrictions" }).click();
   await expect(page.getByText("Restrictions cleared")).toBeVisible();

@@ -21,6 +21,7 @@ import {
   ruleSubjects,
   ruleToSave,
   storedAccess,
+  storedFieldRows,
   subjectInput,
   subjectKey,
   subjectShown,
@@ -36,6 +37,8 @@ type Draft = {
   key: string;
   rowFilter?: FilterGroup | null;
   access?: Record<string, FieldAccess>;
+  /** The rows each field holds on, when not every row of the rule's. */
+  fieldRows?: Record<string, FilterGroup | null>;
 };
 
 /** Rows of the table a preview shows. */
@@ -104,6 +107,8 @@ export function TableRulesPanel(props: {
     );
   const rowFilter =
     own?.rowFilter !== undefined ? own.rowFilter : (stored?.rowFilter ?? null);
+  const fieldRows: Record<string, FilterGroup | null> =
+    own?.fieldRows ?? storedFieldRows(stored);
   const edit = (patch: Omit<Draft, "key">) =>
     setDraft({ ...own, ...patch, key });
   const name = subject.displayName;
@@ -121,14 +126,13 @@ export function TableRulesPanel(props: {
     ]);
   }
 
+  const labelOf = (name: string) =>
+    props.columns.find((column) => column.name === name)?.label ?? name;
+
   async function save(target: RuleSubject) {
     const gap = rowFilter ? filterGap(rowFilter) : null;
     if (gap) {
-      const field =
-        gap.kind === "blank"
-          ? (props.columns.find((column) => column.name === gap.column)
-              ?.label ?? gap.column)
-          : "";
+      const field = gap.kind === "blank" ? labelOf(gap.column) : "";
       toast.error(
         gap.kind === "empty"
           ? t`Add a condition on the rows ${{ name: target.displayName }} sees, or choose Every row.`
@@ -136,7 +140,21 @@ export function TableRulesPanel(props: {
       );
       return;
     }
-    const rule = ruleToSave(access, rowFilter);
+    // A field's own rows hold to the same: each condition whole.
+    for (const [column, rows] of Object.entries(fieldRows)) {
+      const fieldGap =
+        rows && access[column] !== "hide" ? filterGap(rows) : null;
+      if (!fieldGap) continue;
+      const field = labelOf(column);
+      const on = fieldGap.kind === "blank" ? labelOf(fieldGap.column) : "";
+      toast.error(
+        fieldGap.kind === "empty"
+          ? t`Add a condition on the rows where ${{ field }} is given, or choose On every row.`
+          : t`The condition on ${{ field: on }} has no value yet: give it one, or remove it.`,
+      );
+      return;
+    }
+    const rule = ruleToSave(access, rowFilter, fieldRows);
     try {
       await trpc.catalog.setTableAcl.mutate({
         tableId: props.tableId,
@@ -296,37 +314,80 @@ export function TableRulesPanel(props: {
               {t`Fields`}
             </span>
             <ul className="divide-y divide-border text-sm">
-              {props.columns.map((column) => (
-                <li
-                  key={column.name}
-                  className="flex items-center gap-2 py-1.5"
-                >
-                  <span className="min-w-0 flex-1 truncate">
-                    {column.label}
-                  </span>
-                  <Select
-                    aria-label={
-                      isGroup
-                        ? t`What the members of ${{ name }} may do with ${{ field: column.label }}`
-                        : t`What this member may do with ${{ field: column.label }}`
-                    }
-                    className="h-8 w-44"
-                    value={access[column.name] ?? "write"}
-                    onChange={(event) =>
-                      edit({
-                        access: {
-                          ...access,
-                          [column.name]: event.target.value as FieldAccess,
-                        },
-                      })
-                    }
-                  >
-                    <option value="write">{t`Read and write`}</option>
-                    <option value="read">{t`Read only`}</option>
-                    <option value="hide">{t`Hidden`}</option>
-                  </Select>
-                </li>
-              ))}
+              {props.columns.map((column) => {
+                const given = access[column.name] ?? "write";
+                const rows =
+                  given === "hide" ? null : (fieldRows[column.name] ?? null);
+                return (
+                  <li key={column.name} className="flex flex-col gap-2 py-1.5">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="min-w-0 flex-1 truncate">
+                        {column.label}
+                      </span>
+                      <Select
+                        aria-label={
+                          isGroup
+                            ? t`What the members of ${{ name }} may do with ${{ field: column.label }}`
+                            : t`What this member may do with ${{ field: column.label }}`
+                        }
+                        className="h-8 w-44"
+                        value={given}
+                        onChange={(event) =>
+                          edit({
+                            access: {
+                              ...access,
+                              [column.name]: event.target.value as FieldAccess,
+                            },
+                          })
+                        }
+                      >
+                        <option value="write">{t`Read and write`}</option>
+                        <option value="read">{t`Read only`}</option>
+                        <option value="hide">{t`Hidden`}</option>
+                      </Select>
+                      {given === "hide" ? null : (
+                        <Select
+                          aria-label={t`Rows on which ${{ field: column.label }} is given`}
+                          className="h-8 w-64"
+                          value={rows === null ? "all" : "some"}
+                          onChange={(event) =>
+                            edit({
+                              fieldRows: {
+                                ...fieldRows,
+                                [column.name]:
+                                  event.target.value === "all"
+                                    ? null
+                                    : { conjunction: "and", conditions: [] },
+                              },
+                            })
+                          }
+                        >
+                          <option value="all">{t`On every row`}</option>
+                          <option value="some">{t`On the rows that match`}</option>
+                        </Select>
+                      )}
+                    </div>
+                    {rows === null ? null : (
+                      <div className="flex flex-col gap-1 pl-4">
+                        <FilterBuilder
+                          group={rows}
+                          columns={props.columns}
+                          people={props.people}
+                          attributes={attributes.data?.attributes ?? []}
+                          onChange={(group) =>
+                            edit({
+                              fieldRows: { ...fieldRows, [column.name]: group },
+                            })
+                          }
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          {t`On another row, ${{ field: column.label }} is hidden from them, as a hidden field is.`}
+                        </p>
+                      </div>
+                    )}
+                  </li>
+                );
+              })}
             </ul>
           </div>
 

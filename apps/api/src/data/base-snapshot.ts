@@ -73,11 +73,12 @@ import { join } from "node:path";
 import { runStatement, type Database } from "@anygriddb/db";
 import { sql } from "kysely";
 import {
-  fieldsOf,
+  aclColumnsOf,
   givenOf,
   type GivenColumns,
   MADE_COLUMNS,
   rowsOf,
+  storedFieldAccess,
 } from "./made-roles.js";
 import {
   cleanFilename,
@@ -304,12 +305,8 @@ async function tablesAccess(
     current.role = role;
     const rows = rowsOf(row.rowFilter);
     if (rows) current.rowFilter = rows;
-    const fields = fieldsOf(row.fieldAccess);
-    if (fields) {
-      current.columns = Object.entries(fields)
-        .sort(([a], [b]) => a.localeCompare(b))
-        .map(([column, access]) => ({ column, access }));
-    }
+    const columns = aclColumnsOf(row.fieldAccess);
+    if (columns) current.columns = columns;
   }
   return new Map(
     [...found].map(([tableId, byEmail]) => [tableId, [...byEmail.values()]]),
@@ -370,19 +367,13 @@ async function keptGroups(
       continue;
     }
     const rules = rowsOf(row.rowFilter);
-    const fields = fieldsOf(row.fieldAccess);
+    const columns = aclColumnsOf(row.fieldAccess);
     const list = kept.tables.get(row.scopeId) ?? [];
     list.push({
       group: row.groupId,
       role,
       ...(rules ? { rowFilter: rules } : {}),
-      ...(fields
-        ? {
-            columns: Object.entries(fields)
-              .sort(([a], [b]) => a.localeCompare(b))
-              .map(([column, access]) => ({ column, access })),
-          }
-        : {}),
+      ...(columns ? { columns } : {}),
     });
     kept.tables.set(row.scopeId, list);
   }
@@ -1391,11 +1382,7 @@ async function restoreGroups(
         scopeId: item.scopeId,
         givenBy: restoring.userId,
         rowFilter: item.rowFilter ?? null,
-        fieldAccess: item.columns?.length
-          ? Object.fromEntries(
-              item.columns.map((column) => [column.column, column.access]),
-            )
-          : null,
+        fieldAccess: storedFieldAccess(item.columns),
       },
     ];
   });
@@ -1446,11 +1433,7 @@ async function restoreTableAccess(
             scope: "table" as const,
             scopeId: tableId,
             rowFilter: item?.rowFilter ?? null,
-            fieldAccess: item?.columns?.length
-              ? Object.fromEntries(
-                  item.columns.map((column) => [column.column, column.access]),
-                )
-              : null,
+            fieldAccess: storedFieldAccess(item?.columns),
           },
         ];
       },
