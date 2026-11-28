@@ -80,6 +80,30 @@ export function documentPolicy(
 
 export const DOCUMENT_POLICY = documentPolicy();
 
+/**
+ * What the page may ask of the device: nothing it does not use. It reads
+ * no camera, microphone, place or motion, takes no payment and opens no
+ * port, so a script that came in by a hole is refused them as well. The
+ * clipboard and passkeys keep their default, this origin. Only features
+ * the browsers know are named: an unknown one is a console error.
+ */
+export const PERMISSIONS_POLICY = [
+  "accelerometer",
+  "camera",
+  "display-capture",
+  "geolocation",
+  "gyroscope",
+  "hid",
+  "magnetometer",
+  "microphone",
+  "midi",
+  "payment",
+  "serial",
+  "usb",
+]
+  .map((feature) => `${feature}=()`)
+  .join(", ");
+
 /** The sites that may frame the share behind a link; null for none. */
 export type ShareEmbedLookup = (
   token: string,
@@ -181,6 +205,7 @@ export async function registerWebApp(
       .header("Cache-Control", "no-cache")
       .header("Referrer-Policy", "same-origin")
       .header("Cross-Origin-Opener-Policy", "same-origin")
+      .header("Permissions-Policy", PERMISSIONS_POLICY)
       .type("text/html; charset=utf-8")
       .send(TOKEN_PAGE.test(path) ? privatePage : page);
   });
