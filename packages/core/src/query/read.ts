@@ -332,9 +332,34 @@ function rowScope(
   alias: string,
 ): string | null {
   const rule = access.rowFilter(table.id);
-  if (!rule) {
-    return null;
-  }
+  return rule ? rulePredicate(ctx, access, table, alias, rule) : null;
+}
+
+/**
+ * Predicate on `alias` keeping the rows of `table` on which the reader
+ * sees `column` (ADR 0144): those of the attributions that show it, when
+ * other attributions reach other rows. Null where it is shown on every
+ * row read.
+ */
+function fieldScope(
+  ctx: ExprContext,
+  access: EngineAccess,
+  table: EngineTable,
+  column: EngineColumn,
+  alias: string,
+): string | null {
+  const rule = access.shownOn?.(table.id, column.name);
+  return rule ? rulePredicate(ctx, access, table, alias, rule) : null;
+}
+
+/** A rule of the table's owner as a predicate on `alias`, read on real values. */
+function rulePredicate(
+  ctx: ExprContext,
+  access: EngineAccess,
+  table: EngineTable,
+  alias: string,
+  rule: FilterGroup,
+): string {
   const compile = (params: SqlParams, tz: () => string): string | null => {
     const privileged: ExprContext = {
       catalog: { table, tables: ctx.catalog.tables, readable: () => true },
@@ -389,7 +414,7 @@ function rowScope(
   } catch {
     return "false";
   }
-  return compile(ctx.params, () => ctx.tz);
+  return compile(ctx.params, () => ctx.tz) ?? "false";
 }
 
 function prepare(catalog: EngineCatalog, spec: ReadSpec): Prepared {
@@ -414,6 +439,8 @@ function prepare(catalog: EngineCatalog, spec: ReadSpec): Prepared {
       ? {
           scope: (table: EngineTable, alias: string) =>
             rowScope(ctx, access, table, alias),
+          shown: (table: EngineTable, column: EngineColumn, alias: string) =>
+            fieldScope(ctx, access, table, column, alias),
         }
       : {}),
   };

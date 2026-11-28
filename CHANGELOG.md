@@ -38,6 +38,19 @@ first.
   (`Permissions-Policy`): a script that came in by a hole would be
   refused them too.
 
+### Security
+
+- Two attributions on one table gave together more than either: a
+  field one of them shows, or lets someone write, on its own rows was
+  seen, or written, on the rows only the other reaches. A nurse who reads
+  her ward's rows whole, and every ward's rows without the diagnosis, read
+  every ward's diagnosis. A field is now seen and written only on the rows
+  of the attributions that give it (ADR 0144), wherever it is read: the
+  page, a row, its history, formulas, lookups from other tables, filters,
+  searches, counts and exports. Someone with several attributions on a
+  table may see or write a field on fewer rows than before, and nobody on
+  more.
+
 ## 0.15.1 - 2026-11-28
 
 Nothing to do before or after upgrading.

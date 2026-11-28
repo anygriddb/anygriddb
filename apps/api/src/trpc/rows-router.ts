@@ -66,6 +66,7 @@ import {
   assertFieldsWritable,
   assertRowExists,
   assertRowsInScope,
+  fieldsHiddenOnRow,
   attachSignatures,
   listTrash,
   readAudit,
@@ -613,11 +614,13 @@ export const rowsRouter = t.router({
         const { engine } = await engineFor(ctx, access);
         await assertRowsInScope(ctx.db, engine, [input.recordId], "rows.read");
         const rules = engine.access;
+        // A field shown on other rows only is hidden from this one's past.
+        const onRow = await fieldsHiddenOnRow(ctx.db, engine, input.recordId);
         const hidden = (name: string) =>
           rules !== undefined &&
           name !== "id" &&
           !name.startsWith("ag_") &&
-          rules.hidden(input.tableId, name);
+          (rules.hidden(input.tableId, name) || onRow.has(name));
         // A client's row: the writes made through AnyGridDB (ADR 0007).
         if (access.table.storage === "external") {
           const writes = await readExternalAudit(
