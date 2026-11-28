@@ -1037,7 +1037,7 @@ function SidebarBase({
                 onSelect={() => setDialog({ kind: "create-table", base })}
               >
                 <Plus className="h-4 w-4" aria-hidden />
-                {t`New table`}
+                {t`Add a table`}
               </DropdownMenuItem>
             ) : null}
             {shape && may("data.import") ? (

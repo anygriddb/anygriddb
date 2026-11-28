@@ -25,12 +25,13 @@ import { FileUp, LockKeyhole, MoreHorizontal, Plus, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useErrorText } from "../../lib/errors";
+import { useNeeds } from "../../lib/form-needs";
 import { sortRows } from "../../lib/sort-rows";
 import { useSession } from "../../lib/session";
 import { trpc, useTRPC } from "../../lib/trpc";
 import { useWhen } from "../../lib/i18n";
 import { useColumnSort } from "../sort-header";
-import { ConfirmDialog } from "../shell/dialogs";
+import { ConfirmDialog, Refusal } from "../shell/dialogs";
 import { LoadFailed } from "../shell/load-failed";
 import {
   ACCOUNT_ACTIONS,
@@ -619,6 +620,7 @@ function AddPersonDialog({
   const [picking, setPicking] = useState(false);
   const [typed, setTyped] = useState("");
   const [busy, setBusy] = useState(false);
+  const needs = useNeeds();
   const stepUp = useStepUp();
   const bases = useBaseChoices(typed, picking);
   const found = bases.found;
@@ -642,7 +644,20 @@ function AddPersonDialog({
 
   async function add() {
     const displayName = name.trim();
-    if (!email.trim() || !displayName || busy) return;
+    if (busy) return;
+    const ready = needs.met([
+      {
+        missing: !displayName,
+        say: t`Give their display name.`,
+        field: "add-person-name",
+      },
+      {
+        missing: !email.trim(),
+        say: t`Give their email address.`,
+        field: "add-person-email",
+      },
+    ]);
+    if (!ready) return;
     setBusy(true);
     try {
       // Making an administrator asks who is asking, again (ROADMAP #28).
@@ -698,6 +713,7 @@ function AddPersonDialog({
                 <Label htmlFor="add-person-name">{t`Display name`}</Label>
                 <Input
                   id="add-person-name"
+                  aria-invalid={needs.invalid("add-person-name")}
                   autoComplete="off"
                   maxLength={80}
                   value={name}
@@ -708,6 +724,7 @@ function AddPersonDialog({
                 <Label htmlFor="add-person-email">{t`Email`}</Label>
                 <Input
                   id="add-person-email"
+                  aria-invalid={needs.invalid("add-person-email")}
                   type="email"
                   autoComplete="off"
                   maxLength={254}
@@ -816,14 +833,12 @@ function AddPersonDialog({
               </fieldset>
             ) : null}
           </div>
+          <Refusal text={needs.said} />
           <DialogFooter>
             <Button variant="ghost" onClick={onClose}>
               {t`Cancel`}
             </Button>
-            <Button
-              disabled={busy || !email.trim() || !name.trim()}
-              onClick={() => void add()}
-            >
+            <Button disabled={busy} onClick={() => void add()}>
               {t`Add`}
             </Button>
           </DialogFooter>

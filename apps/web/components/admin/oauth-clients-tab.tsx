@@ -6,9 +6,10 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { useCopy } from "../../lib/clipboard";
 import { useErrorText } from "../../lib/errors";
+import { useNeeds } from "../../lib/form-needs";
 import { trpc, useTRPC } from "../../lib/trpc";
 import { useWhen } from "../../lib/i18n";
-import { ConfirmDialog } from "../shell/dialogs";
+import { ConfirmDialog, Refusal } from "../shell/dialogs";
 import { LoadFailed } from "../shell/load-failed";
 import { RuledSection } from "../shell/notebook-page";
 import { useStepUp } from "./step-up";
@@ -30,6 +31,7 @@ export function OauthClientsTab() {
   const [redirectUri, setRedirectUri] = useState(
     "http://127.0.0.1:3000/callback",
   );
+  const needs = useNeeds();
   const [fresh, setFresh] = useState<{
     clientId: string;
     clientSecret: string;
@@ -163,6 +165,19 @@ export function OauthClientsTab() {
           className="flex flex-col gap-2"
           onSubmit={(event) => {
             event.preventDefault();
+            const ready = needs.met([
+              {
+                missing: !name.trim(),
+                say: t`Give the application a name.`,
+                field: "oauth-client-name",
+              },
+              {
+                missing: !redirectUri.trim(),
+                say: t`Give the address it comes back to.`,
+                field: "oauth-redirect",
+              },
+            ]);
+            if (!ready) return;
             void (async () => {
               try {
                 if (!(await stepUp.ensure())) return;
@@ -187,6 +202,7 @@ export function OauthClientsTab() {
               <Label htmlFor="oauth-client-name">{t`Name`}</Label>
               <Input
                 id="oauth-client-name"
+                aria-invalid={needs.invalid("oauth-client-name")}
                 maxLength={100}
                 value={name}
                 onChange={(event) => setName(event.target.value)}
@@ -196,18 +212,15 @@ export function OauthClientsTab() {
               <Label htmlFor="oauth-redirect">{t`Redirect URI`}</Label>
               <Input
                 id="oauth-redirect"
+                aria-invalid={needs.invalid("oauth-redirect")}
                 maxLength={2_000}
                 value={redirectUri}
                 onChange={(event) => setRedirectUri(event.target.value)}
               />
             </div>
-            <Button
-              type="submit"
-              disabled={!name.trim() || !redirectUri.trim()}
-            >
-              {t`Register`}
-            </Button>
+            <Button type="submit">{t`Register`}</Button>
           </div>
+          <Refusal text={needs.said} className="mt-0" />
           <p className="text-xs text-muted-foreground">
             {t`HTTPS, or http on 127.0.0.1 / localhost for development.`}
           </p>

@@ -59,7 +59,7 @@ export function BaseHome({ baseId }: { baseId: string }) {
         manage ? (
           <Button onClick={() => setCreating(true)}>
             <Plus className="h-4 w-4" aria-hidden />
-            {t`New table`}
+            {t`Add a table`}
           </Button>
         ) : undefined
       }
@@ -153,7 +153,7 @@ export function BaseHome({ baseId }: { baseId: string }) {
               manage ? (
                 <Button onClick={() => setCreating(true)}>
                   <Plus className="h-4 w-4" aria-hidden />
-                  {t`New table`}
+                  {t`Add a table`}
                 </Button>
               ) : undefined
             }

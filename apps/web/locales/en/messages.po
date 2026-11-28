@@ -2420,6 +2420,7 @@ msgstr "Add a state"
 msgid "Add a step"
 msgstr "Add a step"
 
+#: components/shell/base-home.tsx
 #: components/shell/sidebar.tsx
 msgid "Add a table"
 msgstr "Add a table"
@@ -3923,6 +3924,10 @@ msgstr "Choose a file"
 #: components/auth/reset-page.tsx
 msgid "Choose a new password"
 msgstr "Choose a new password"
+
+#: components/auth/auth-page.tsx
+msgid "Choose a password of at least {minLength} characters."
+msgstr "Choose a password of at least {minLength} characters."
 
 #: components/admin/identity-tab.tsx
 msgid "Choose an image"
@@ -5624,8 +5629,28 @@ msgid "Enter"
 msgstr "Enter"
 
 #: components/auth/auth-page.tsx
+msgid "Enter an address such as name@example.com."
+msgstr "Enter an address such as name@example.com."
+
+#: components/auth/auth-page.tsx
+msgid "Enter the install token."
+msgstr "Enter the install token."
+
+#: components/auth/auth-page.tsx
+msgid "Enter the name others will see."
+msgstr "Enter the name others will see."
+
+#: components/auth/auth-page.tsx
 msgid "Enter your address: we send a link to choose a new password. Your second factor stays as it is."
 msgstr "Enter your address: we send a link to choose a new password. Your second factor stays as it is."
+
+#: components/auth/auth-page.tsx
+msgid "Enter your email address."
+msgstr "Enter your email address."
+
+#: components/auth/auth-page.tsx
+msgid "Enter your password."
+msgstr "Enter your password."
 
 #: components/admin/integrations-tab.tsx
 msgid "Entry point (SSO URL)"
@@ -6510,9 +6535,21 @@ msgstr "Give roles no wider than this one, invite, and set each member's field a
 msgid "Give the account manager role"
 msgstr "Give the account manager role"
 
+#: components/admin/oauth-clients-tab.tsx
+msgid "Give the address it comes back to."
+msgstr "Give the address it comes back to."
+
+#: components/settings/webhooks-panel.tsx
+msgid "Give the address it writes to."
+msgstr "Give the address it writes to."
+
 #: components/fields/field-settings.tsx
 msgid "Give the address the button opens."
 msgstr "Give the address the button opens."
+
+#: components/admin/oauth-clients-tab.tsx
+msgid "Give the application a name."
+msgstr "Give the application a name."
 
 #: components/admin/account-actions.tsx
 msgid "Give the auditor role"
@@ -6522,15 +6559,36 @@ msgstr "Give the auditor role"
 msgid "Give the automation a name."
 msgstr "Give the automation a name."
 
+#: components/dashboards/dashboard-list.tsx
+msgid "Give the dashboard a name."
+msgstr "Give the dashboard a name."
+
+#: components/admin/api-tokens-tab.tsx
+msgid "Give the days it lives, a whole number from 1 to 365."
+msgstr "Give the days it lives, a whole number from 1 to 365."
+
+#: components/admin/group-page.tsx
+#: components/admin/groups-tab.tsx
+msgid "Give the group a name."
+msgstr "Give the group a name."
+
 #: components/table/automations-dialog.tsx
 msgid "Give the host alone, such as api.example.com."
 msgstr "Give the host alone, such as api.example.com."
+
+#: components/settings/webhooks-panel.tsx
+msgid "Give the HTTPS address it calls."
+msgstr "Give the HTTPS address it calls."
 
 #: components/admin/account-actions.tsx
 #: components/admin/account-bases.tsx
 #: components/admin/base-admin-members.tsx
 msgid "Give the role"
 msgstr "Give the role"
+
+#: components/admin/roles-tab.tsx
+msgid "Give the role a name."
+msgstr "Give the role a name."
 
 #: components/settings/table-rules-panel.tsx
 msgid "Give the role table by table"
@@ -6547,6 +6605,24 @@ msgstr "Give the source manager role"
 #: components/admin/account-actions.tsx
 msgid "Give the support role"
 msgstr "Give the support role"
+
+#: components/shell/new-table-dialog.tsx
+msgid "Give the table a name."
+msgstr "Give the table a name."
+
+#: components/admin/api-tokens-tab.tsx
+#: components/admin/scim-tab.tsx
+#: components/settings/account-settings.tsx
+msgid "Give the token a name."
+msgstr "Give the token a name."
+
+#: components/admin/accounts-tab.tsx
+msgid "Give their display name."
+msgstr "Give their display name."
+
+#: components/admin/accounts-tab.tsx
+msgid "Give their email address."
+msgstr "Give their email address."
 
 #: components/admin/give-base-role.tsx
 msgid "Give yourself this role?"
@@ -8712,11 +8788,6 @@ msgstr "New state"
 #: components/table/circuit-editor.tsx
 msgid "New step"
 msgstr "New step"
-
-#: components/shell/base-home.tsx
-#: components/shell/sidebar.tsx
-msgid "New table"
-msgstr "New table"
 
 #: components/shell/base-home.tsx
 #: components/shell/sidebar.tsx
@@ -11646,6 +11717,10 @@ msgstr "Saving…"
 msgid "Say what the signature commits you to"
 msgstr "Say what the signature commits you to"
 
+#: components/admin/account-page.tsx
+msgid "Say why you act as them: they are told."
+msgstr "Say why you act as them: they are told."
+
 #: components/views/timeline-view.tsx
 msgid "Scale"
 msgstr "Scale"
@@ -14387,6 +14462,10 @@ msgstr "This base keeps as many restore points as it may: delete one to make ano
 msgid "This cannot be done to this account"
 msgstr "This cannot be done to this account"
 
+#: components/shell/dialogs.tsx
+msgid "This cannot be empty."
+msgstr "This cannot be empty."
+
 #: lib/errors.ts
 msgid "This cannot be put back"
 msgstr "This cannot be put back"
@@ -14927,6 +15006,14 @@ msgstr "Thumb"
 #: components/table/automations-dialog.tsx
 msgid "Thursday"
 msgstr "Thursday"
+
+#: components/settings/webhooks-panel.tsx
+msgid "Tick at least one event."
+msgstr "Tick at least one event."
+
+#: components/admin/api-tokens-tab.tsx
+msgid "Tick what the token may do."
+msgstr "Tick what the token may do."
 
 #: lib/known-text.ts
 msgid "Tickets"

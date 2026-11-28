@@ -7,9 +7,10 @@ import { Copy, Pencil, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { useErrorText } from "../../lib/errors";
+import { useNeeds } from "../../lib/form-needs";
 import { trpc, useTRPC } from "../../lib/trpc";
 import { useRoleLabel } from "../settings/role-label";
-import { ConfirmDialog } from "../shell/dialogs";
+import { ConfirmDialog, Refusal } from "../shell/dialogs";
 import { LoadFailed } from "../shell/load-failed";
 import { RuledSection } from "../shell/notebook-page";
 import { usePermissionFamilies } from "./permission-labels";
@@ -35,6 +36,7 @@ export function RolesTab() {
     null,
   );
   const [busy, setBusy] = useState(false);
+  const needs = useNeeds();
 
   if (roles.isError) {
     return (
@@ -148,13 +150,21 @@ export function RolesTab() {
             className="mb-4 flex flex-col gap-3 rounded-sm border border-border p-3"
             onSubmit={(event) => {
               event.preventDefault();
-              void save(draft);
+              const named = needs.met([
+                {
+                  missing: !draft.name.trim(),
+                  say: t`Give the role a name.`,
+                  field: "role-name",
+                },
+              ]);
+              if (named) void save(draft);
             }}
           >
             <div className="flex flex-col gap-1">
               <Label htmlFor="role-name">{t`Name`}</Label>
               <Input
                 id="role-name"
+                aria-invalid={needs.invalid("role-name")}
                 value={draft.name}
                 maxLength={60}
                 autoFocus
@@ -204,8 +214,9 @@ export function RolesTab() {
                 })}
               </fieldset>
             ))}
+            <Refusal text={needs.said} className="mt-0" />
             <div className="flex flex-wrap gap-2">
-              <Button type="submit" disabled={busy || !draft.name.trim()}>
+              <Button type="submit" disabled={busy}>
                 {draft.id ? t`Save` : t`Create`}
               </Button>
               <Button

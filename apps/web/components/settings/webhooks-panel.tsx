@@ -21,10 +21,11 @@ import { trpc, useTRPC } from "../../lib/trpc";
 import type { CatalogColumn, Collaborator } from "../../lib/types";
 import { countConditions, FilterBuilder } from "../table/filter-builder";
 import { Earlier } from "../history/earlier";
-import { ConfirmDialog } from "../shell/dialogs";
+import { ConfirmDialog, Refusal } from "../shell/dialogs";
 import { plural } from "@lingui/core/macro";
 import { useLingui } from "@lingui/react/macro";
 import { useErrorText } from "../../lib/errors";
+import { useNeeds } from "../../lib/form-needs";
 import { useWhen } from "../../lib/i18n";
 import { deliveryOutcome } from "./webhook-deliveries";
 
@@ -186,11 +187,28 @@ function NewWebhookForm(props: {
   const [headerName, setHeaderName] = useState("");
   const [headerValue, setHeaderValue] = useState("");
   const [busy, setBusy] = useState(false);
+  const needs = useNeeds();
   return (
     <form
       className="flex flex-col gap-3 rounded-sm border border-dashed border-border p-3"
       onSubmit={async (event) => {
         event.preventDefault();
+        const ready = needs.met([
+          {
+            missing: !target.trim(),
+            say:
+              kind === "http"
+                ? t`Give the HTTPS address it calls.`
+                : t`Give the address it writes to.`,
+            field: `hook-target-${props.tableId}`,
+          },
+          {
+            missing: events.length === 0,
+            say: t`Tick at least one event.`,
+            field: `hook-event-${EVENTS[0]}-${props.tableId}`,
+          },
+        ]);
+        if (!ready) return;
         setBusy(true);
         try {
           const created = await trpc.catalog.createWebhook.mutate({
@@ -251,6 +269,7 @@ function NewWebhookForm(props: {
           <Label htmlFor={`hook-target-${props.tableId}`}>{t`Target`}</Label>
           <Input
             id={`hook-target-${props.tableId}`}
+            aria-invalid={needs.invalid(`hook-target-${props.tableId}`)}
             placeholder={
               kind === "http" ? "https://example.com/hook" : "ops@example.com"
             }
@@ -266,6 +285,7 @@ function NewWebhookForm(props: {
         {EVENTS.map((item) => (
           <label key={item} className="flex items-center gap-1">
             <Checkbox
+              id={`hook-event-${item}-${props.tableId}`}
               checked={events.includes(item)}
               onChange={(change) =>
                 setEvents((current) =>
@@ -343,12 +363,9 @@ function NewWebhookForm(props: {
           />
         </div>
       ) : null}
+      <Refusal text={needs.said} className="mt-0" />
       <div>
-        <Button
-          type="submit"
-          size="sm"
-          disabled={busy || !target.trim() || events.length === 0}
-        >
+        <Button type="submit" size="sm" disabled={busy}>
           <Plus className="h-4 w-4" aria-hidden />
           {t`Add webhook`}
         </Button>

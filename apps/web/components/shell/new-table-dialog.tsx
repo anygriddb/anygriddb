@@ -10,6 +10,7 @@ import { useState, type SubmitEvent } from "react";
 import type { MessageDescriptor } from "@lingui/core";
 import { msg } from "@lingui/core/macro";
 import { useLingui } from "@lingui/react/macro";
+import { useNeeds } from "../../lib/form-needs";
 import { Refusal, useAction } from "./dialogs";
 
 type NewTableStyle = "starter" | "blank";
@@ -79,13 +80,21 @@ function NewTableForm(props: {
 }) {
   const { t } = useLingui();
   const { run, refusal } = useAction();
+  const needs = useNeeds();
   const [name, setName] = useState("");
   const [style, setStyle] = useState<NewTableStyle>("starter");
   const [busy, setBusy] = useState(false);
 
   async function submit(event: SubmitEvent) {
     event.preventDefault();
-    if (!name.trim()) return;
+    const named = needs.met([
+      {
+        missing: !name.trim(),
+        say: t`Give the table a name.`,
+        field: "new-table-name",
+      },
+    ]);
+    if (!named) return;
     setBusy(true);
     const done = await run(() =>
       props.onCreate({
@@ -98,12 +107,13 @@ function NewTableForm(props: {
   }
 
   return (
-    <form onSubmit={submit} className="flex flex-col gap-3">
+    <form onSubmit={submit} noValidate className="flex flex-col gap-3">
       <div className="flex flex-col gap-1">
         <Label htmlFor="new-table-name">{t`Table name`}</Label>
         <Input
           id="new-table-name"
           autoFocus
+          aria-invalid={needs.invalid("new-table-name")}
           value={name}
           onChange={(event) => setName(event.target.value)}
         />
@@ -145,12 +155,12 @@ function NewTableForm(props: {
           </span>
         </label>
       </fieldset>
-      <Refusal text={refusal} />
+      <Refusal text={needs.said ?? refusal} />
       <DialogFooter>
         <Button variant="ghost" onClick={() => props.onOpenChange(false)}>
           {t`Cancel`}
         </Button>
-        <Button type="submit" disabled={busy || !name.trim()}>
+        <Button type="submit" disabled={busy}>
           {t`Create`}
         </Button>
       </DialogFooter>

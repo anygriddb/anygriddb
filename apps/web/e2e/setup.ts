@@ -241,7 +241,10 @@ export async function signUpWithTable(
   await page.getByRole("button", { name: "New base" }).first().click();
   await dialog.getByLabel("Base name").fill("Lab");
   await dialog.getByRole("button", { name: "Create", exact: true }).click();
-  await page.getByRole("button", { name: "Add a table" }).click();
+  await page
+    .getByRole("navigation", { name: "Bases" })
+    .getByRole("button", { name: "Add a table" })
+    .click();
   await dialog.getByLabel("Table name").fill("Samples");
   await dialog.getByRole("button", { name: "Create", exact: true }).click();
   await page.getByRole("grid").waitFor();

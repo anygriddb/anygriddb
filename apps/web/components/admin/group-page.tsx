@@ -16,12 +16,13 @@ import { ArrowLeft, Plus, X } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { useErrorText } from "../../lib/errors";
+import { useNeeds } from "../../lib/form-needs";
 import { useSession } from "../../lib/session";
 import { trpc, useTRPC } from "../../lib/trpc";
 
 import { givenValue } from "../settings/role-label";
 import { RoleOptions } from "../settings/role-options";
-import { ConfirmDialog } from "../shell/dialogs";
+import { ConfirmDialog, Refusal } from "../shell/dialogs";
 import { LoadFailed } from "../shell/load-failed";
 import { AccountName, useAccountChoices } from "./account-choices";
 import { useBaseChoices } from "./base-choices";
@@ -51,6 +52,7 @@ export function GroupAdminPage({ groupId }: { groupId: string }) {
   const [baseTyped, setBaseTyped] = useState("");
   /** One of the four by its key, or a made role by its id. */
   const [baseRole, setBaseRole] = useState<string>("viewer");
+  const needs = useNeeds();
   const members = useAccountChoices(memberTyped, pickingMember);
   const bases = useBaseChoices(baseTyped, pickingBase);
 
@@ -164,6 +166,14 @@ export function GroupAdminPage({ groupId }: { groupId: string }) {
           className="flex flex-col gap-3 rounded-sm border border-border p-3"
           onSubmit={(event) => {
             event.preventDefault();
+            const named = needs.met([
+              {
+                missing: !name.trim(),
+                say: t`Give the group a name.`,
+                field: "edit-group-name",
+              },
+            ]);
+            if (!named) return;
             void run(
               () =>
                 trpc.admin.groups.update.mutate({
@@ -181,6 +191,7 @@ export function GroupAdminPage({ groupId }: { groupId: string }) {
             <Label htmlFor="edit-group-name">{t`Name`}</Label>
             <Input
               id="edit-group-name"
+              aria-invalid={needs.invalid("edit-group-name")}
               value={name}
               maxLength={80}
               onChange={(event) => setName(event.target.value)}
@@ -196,8 +207,9 @@ export function GroupAdminPage({ groupId }: { groupId: string }) {
               onChange={(event) => setDescription(event.target.value)}
             />
           </div>
+          <Refusal text={needs.said} className="mt-0" />
           <div className="flex gap-2">
-            <Button type="submit" disabled={busy || !name.trim()}>
+            <Button type="submit" disabled={busy}>
               {t`Save`}
             </Button>
             <Button

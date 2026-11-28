@@ -7,13 +7,14 @@ import { toast } from "sonner";
 import { useCopy } from "../../lib/clipboard";
 import { mayRead, useCatalog, useSession } from "../../lib/session";
 import { trpc, useTRPC } from "../../lib/trpc";
-import { ConfirmDialog } from "../shell/dialogs";
+import { ConfirmDialog, Refusal } from "../shell/dialogs";
 import { NotebookPage, RuledSection } from "../shell/notebook-page";
 import { NotificationPreferences } from "./notification-preferences";
 import { ProfileForm } from "./profile-form";
 import { SecondFactorSetup } from "./second-factor";
 import { useLingui } from "@lingui/react/macro";
 import { useErrorText } from "../../lib/errors";
+import { useNeeds } from "../../lib/form-needs";
 import { useWhen } from "../../lib/i18n";
 
 export function AccountSettings() {
@@ -29,6 +30,7 @@ export function AccountSettings() {
   // answers about the account alone: nothing else is asked of it.
   const reads = mayRead(session.data);
   const [tokenName, setTokenName] = useState("");
+  const needs = useNeeds();
   const [tokenBases, setTokenBases] = useState<string[]>([]);
   // A new token reads only unless asked, and one that writes does not
   // delete unless asked (ADR 0079).
@@ -184,6 +186,14 @@ export function AccountSettings() {
             className="flex flex-wrap items-end gap-2"
             onSubmit={(event) => {
               event.preventDefault();
+              const named = needs.met([
+                {
+                  missing: !tokenName.trim(),
+                  say: t`Give the token a name.`,
+                  field: "token-name",
+                },
+              ]);
+              if (!named) return;
               void run(async () => {
                 const created = await trpc.auth.createToken.mutate({
                   name: tokenName,
@@ -205,7 +215,9 @@ export function AccountSettings() {
             }}
           >
             <Input
+              id="token-name"
               aria-label={t`Token name`}
+              aria-invalid={needs.invalid("token-name")}
               placeholder={t`Token name`}
               value={tokenName}
               onChange={(event) => setTokenName(event.target.value)}
@@ -220,9 +232,7 @@ export function AccountSettings() {
               value={tokenDays}
               onChange={(event) => setTokenDays(event.target.value)}
             />
-            <Button type="submit" disabled={!tokenName.trim()}>
-              {t`Create`}
-            </Button>
+            <Button type="submit">{t`Create`}</Button>
             <div className="flex w-full flex-wrap items-center gap-3 text-xs text-muted-foreground">
               <span>{t`Reachable bases:`}</span>
               {(catalog.data ?? []).length === 0 ? (
@@ -268,6 +278,7 @@ export function AccountSettings() {
                 </label>
               )}
             </div>
+            <Refusal text={needs.said} className="mt-0 basis-full" />
           </form>
         ) : (
           <p
