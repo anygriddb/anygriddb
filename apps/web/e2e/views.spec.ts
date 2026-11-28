@@ -945,9 +945,35 @@ test.describe("a timeline", () => {
     ).toBeVisible();
     expect(await accessibilityViolations(page)).toEqual([]);
 
+    // On a wide screen a quarter fills its axis: it left the right fifth
+    // of it empty. A day takes the width the axis gives it, and nothing
+    // scrolls sideways.
+    await page.keyboard.press("Escape");
+    await page.setViewportSize({ width: 1920, height: 1080 });
+    await scale.selectOption("week");
+    await expect(bar("Harvest")).toBeInViewport();
+    const filled = () =>
+      bar("Harvest").evaluate((element) => {
+        let axis = element.parentElement;
+        while (axis && getComputedStyle(axis).overflowX !== "auto") {
+          axis = axis.parentElement;
+        }
+        const sheet = axis?.firstElementChild?.getBoundingClientRect();
+        return axis && sheet
+          ? {
+              empty: axis.clientWidth - sheet.width,
+              sideways: axis.scrollWidth > axis.clientWidth,
+            }
+          : null;
+      });
+    // Under a pixel is all that is left over.
+    await expect
+      .poll(async () => (await filled())?.empty ?? Number.POSITIVE_INFINITY)
+      .toBeLessThan(1);
+    expect(await filled()).toMatchObject({ sideways: false });
+
     // On a phone the names leave the axis most of the page: they took
     // more than half of it. A day's bar beside them is still a target.
-    await page.keyboard.press("Escape");
     await page.setViewportSize({ width: 390, height: 844 });
     await scale.selectOption("week");
     const head = page.getByRole("button", { name: "Tasting", exact: true });
