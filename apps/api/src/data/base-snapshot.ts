@@ -91,6 +91,7 @@ import { ERASED_USER_ID } from "./erasure.js";
 import { MAX_COPY_ROWS, toCell } from "./data-ops.js";
 import { loadEngine, sortColumns, type ColumnRow } from "./engine.js";
 import { createFolder, listFolders, moveTableToFolder } from "./folders.js";
+import { liveAttribution } from "./attributions.js";
 import { liveBase, liveTable, liveView } from "./live.js";
 import { postgresCode } from "./pg-error.js";
 import { addRelation, setLinks } from "./relations.js";
@@ -313,6 +314,79 @@ async function tablesAccess(
   return new Map(
     [...found].map(([tableId, byEmail]) => [tableId, [...byEmail.values()]]),
   );
+}
+
+/** What a restore point keeps of the groups' roles (ADR 0117). */
+type KeptGroups = {
+  base: NonNullable<BaseSnapshot["groups"]>;
+  tables: Map<string, NonNullable<SnapshotTable["groups"]>>;
+};
+
+/**
+ * Each group's role on the base and on its tables, with the rules a
+ * table's carries, as a restore point keeps them: by the group's id, which
+ * only this instance knows. One past its end gives nothing, and is left.
+ */
+async function keptGroups(
+  db: Database,
+  baseId: string,
+  tableIds: readonly string[],
+): Promise<KeptGroups> {
+  const rows = await db
+    .selectFrom("attributions as a")
+    .leftJoin("madeRoles as m", "m.id", "a.madeRoleId")
+    .select([
+      "a.groupId",
+      "a.scope",
+      "a.scopeId",
+      "a.role",
+      "a.rowFilter",
+      "a.fieldAccess",
+      ...MADE_COLUMNS,
+    ])
+    .where("a.groupId", "is not", null)
+    .where((eb) =>
+      eb.or([
+        eb.and([eb("a.scope", "=", "base"), eb("a.scopeId", "=", baseId)]),
+        ...(tableIds.length > 0
+          ? [
+              eb.and([
+                eb("a.scope", "=", "table"),
+                eb("a.scopeId", "in", tableIds),
+              ]),
+            ]
+          : []),
+      ]),
+    )
+    .where(liveAttribution)
+    .orderBy("a.groupId")
+    .execute();
+  const kept: KeptGroups = { base: [], tables: new Map() };
+  for (const row of rows) {
+    const role = snapshotRoleOf(givenOf(row));
+    if (!role || row.groupId === null || row.scopeId === null) continue;
+    if (row.scope === "base") {
+      kept.base.push({ group: row.groupId, role });
+      continue;
+    }
+    const rules = rowsOf(row.rowFilter);
+    const fields = fieldsOf(row.fieldAccess);
+    const list = kept.tables.get(row.scopeId) ?? [];
+    list.push({
+      group: row.groupId,
+      role,
+      ...(rules ? { rowFilter: rules } : {}),
+      ...(fields
+        ? {
+            columns: Object.entries(fields)
+              .sort(([a], [b]) => a.localeCompare(b))
+              .map(([column, access]) => ({ column, access })),
+          }
+        : {}),
+    });
+    kept.tables.set(row.scopeId, list);
+  }
+  return kept;
 }
 
 /** A table as a snapshot reads it: its schema, and what its lines need. */
@@ -926,6 +1000,15 @@ export async function writeBaseSnapshot(
       db,
       described.tables.map((table) => table.id),
     );
+    // The instance's own copy keeps its groups' roles too, an empty list
+    // saying there were none (a copy made before kept nothing of them).
+    const groups = keepState
+      ? await keptGroups(
+          db,
+          baseId,
+          described.tables.map((table) => table.id),
+        )
+      : undefined;
     const tables: SnapshotTable[] = [];
     for (const table of described.tables) {
       let rowCount = 0;
@@ -965,6 +1048,7 @@ export async function writeBaseSnapshot(
         ...table.snapshot,
         rowCount,
         ...(people?.length ? { access: people } : {}),
+        ...(groups ? { groups: groups.tables.get(table.id) ?? [] } : {}),
         ...(comments > 0 ? { comments } : {}),
       });
     }
@@ -995,6 +1079,7 @@ export async function writeBaseSnapshot(
       ...head,
       tables,
       members: await baseMembers(db, baseId),
+      ...(groups ? { groups: groups.base } : {}),
       ...(listed.length > 0 ? { files: listed } : {}),
     });
     await writer.addBuffer(SNAPSHOT_ENTRY, snapshotBytes(snapshot));
@@ -1112,6 +1197,11 @@ type SnapshotImportReport = {
   widgetsLeft: number;
   /** Signed rows come back locked: a signature stays with what it signed. */
   signaturesLeft?: number;
+  /**
+   * A restore point's group roles left out: the group is gone, or a role
+   * it held was made on another instance or changed since.
+   */
+  groupsLeft?: number;
 };
 
 /** Rows of access a statement writes at a time. */
@@ -1142,7 +1232,7 @@ async function activeAccounts(
  */
 async function madeRolesOf(
   db: Database,
-  parsed: Pick<BaseSnapshot, "members" | "tables">,
+  parsed: Pick<BaseSnapshot, "members" | "tables" | "groups">,
 ): Promise<Pick<Restoring, "made" | "unmatched">> {
   const held = [
     ...(parsed.members ?? []).map((member) => ({
@@ -1155,10 +1245,14 @@ async function madeRolesOf(
       ),
     ),
   ];
-  const made = await madeRolesHere(
-    db,
-    held.map((item) => item.role),
-  );
+  const made = await madeRolesHere(db, [
+    ...held.map((item) => item.role),
+    // A restore point's groups name made roles too (ADR 0117).
+    ...(parsed.groups ?? []).map((item) => item.role),
+    ...parsed.tables.flatMap((table) =>
+      (table.groups ?? []).map((item) => item.role),
+    ),
+  ]);
   const unmatched = new Set(
     held
       .filter((item) => givenBack(item.role, made) === null)
@@ -1240,6 +1334,77 @@ async function restoreMembers(
       .execute(),
   );
   return held;
+}
+
+/**
+ * Gives a restore point's groups back their roles, as the point kept them
+ * (ADR 0117): on the new base, and on each new table with its rules. A
+ * group gone since, or a role no longer here, is left out and counted.
+ */
+async function restoreGroups(
+  db: Database,
+  baseId: string,
+  parsed: Pick<BaseSnapshot, "groups" | "tables">,
+  ids: ReadonlyMap<string, string>,
+  restoring: Restoring,
+  report: SnapshotImportReport,
+): Promise<void> {
+  type Named = NonNullable<SnapshotTable["groups"]>[number] & {
+    scope: "base" | "table";
+    scopeId: string;
+  };
+  const named: Named[] = [
+    ...(parsed.groups ?? []).map((item) => ({
+      ...item,
+      scope: "base" as const,
+      scopeId: baseId,
+    })),
+    ...parsed.tables.flatMap((table) => {
+      const tableId = ids.get(table.key);
+      return tableId
+        ? (table.groups ?? []).map((item) => ({
+            ...item,
+            scope: "table" as const,
+            scopeId: tableId,
+          }))
+        : [];
+    }),
+  ];
+  if (named.length === 0) return;
+  const here = new Set(
+    (
+      await db
+        .selectFrom("groups")
+        .select("id")
+        .where("id", "in", [...new Set(named.map((item) => item.group))])
+        .execute()
+    ).map((group) => group.id),
+  );
+  const given = named.flatMap((item) => {
+    const role = givenBack(item.role, restoring.made);
+    if (!role || !here.has(item.group)) return [];
+    return [
+      {
+        groupId: item.group,
+        ...role,
+        scope: item.scope,
+        scopeId: item.scopeId,
+        givenBy: restoring.userId,
+        rowFilter: item.rowFilter ?? null,
+        fieldAccess: item.columns?.length
+          ? Object.fromEntries(
+              item.columns.map((column) => [column.column, column.access]),
+            )
+          : null,
+      },
+    ];
+  });
+  const left = named.length - given.length;
+  if (left > 0) report.groupsLeft = (report.groupsLeft ?? 0) + left;
+  if (given.length === 0) return;
+  await withAudit(db, { userId: restoring.userId, source: "snapshot" }, (tx) =>
+    tx.insertInto("attributions").values(given).execute(),
+  );
 }
 
 /**
@@ -1826,6 +1991,7 @@ export async function importBaseSnapshot(
     }
     if (restoring) {
       await restoreTableAccess(db, parsed.tables, ids, restoring, held);
+      await restoreGroups(db, created.id, parsed, ids, restoring, report);
     }
     await input.beforeRows?.(created.id);
 

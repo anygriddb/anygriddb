@@ -261,6 +261,7 @@ export const LIMITS = {
   "snapshot.comments": fixed("items", 1_000_000, "file"),
   "snapshot.dashboards": fixed("items", 500, "file"),
   "snapshot.widgets": fixed("items", 500, "file"),
+  "snapshot.groups": fixed("items", 1000, "file"),
   "attachment.max_bytes_top": fixed("bytes", 524_288_000, "instance"),
   // More of what a page reads and shows.
   "widget.rows": fixed("rows", 20, "view", "code", "display"),

@@ -218,6 +218,7 @@ function useLimitNames(): Record<LimitId, string> {
     "snapshot.comments": t`Comments of a snapshot`,
     "snapshot.dashboards": t`Dashboards of a snapshot`,
     "snapshot.widgets": t`Widgets of a snapshot`,
+    "snapshot.groups": t`Group roles a restore point keeps, on the base or one table`,
     "view.sorts": t`Sorts of a view`,
     "view.frozen_fields": t`Fields a view keeps in place`,
     "attachment.max_bytes_top": t`The most a file in a cell may be set to`,

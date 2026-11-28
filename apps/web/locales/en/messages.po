@@ -475,6 +475,11 @@ msgstr "{0, plural, one {# point to check} other {# points to check}}"
 msgid "{0, plural, one {# point} other {# points}}"
 msgstr "{0, plural, one {# point} other {# points}}"
 
+#. placeholder {0}: report.groupsLeft ?? 0
+#: lib/snapshot-report.ts
+msgid "{0, plural, one {# role of a group deleted since, or of a role that changed, left out} other {# roles of groups deleted since, or of roles that changed, left out}}"
+msgstr "{0, plural, one {# role of a group deleted since, or of a role that changed, left out} other {# roles of groups deleted since, or of roles that changed, left out}}"
+
 #. placeholder {0}: rowIds.length
 #: components/table/use-row-writes.ts
 msgid "{0, plural, one {# row deleted from the client's database} other {# rows deleted from the client's database}}"
@@ -6766,6 +6771,10 @@ msgstr "Group not found"
 #: components/admin/trails.tsx
 msgid "Group of accounts"
 msgstr "Group of accounts"
+
+#: components/admin/limits-tab.tsx
+msgid "Group roles a restore point keeps, on the base or one table"
+msgstr "Group roles a restore point keeps, on the base or one table"
 
 #: components/admin/group-page.tsx
 msgid "Group updated"

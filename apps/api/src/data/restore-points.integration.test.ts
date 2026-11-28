@@ -15,11 +15,12 @@ import { sweepOrphanFiles } from "../files/sweep.js";
 import {
   addLocalGroupMember,
   createLocalGroup,
+  deleteLocalGroup,
   listGroupRoles,
   setGroupRole,
 } from "../scim/groups.js";
 import { createTestDatabase } from "../test-database.js";
-import { listTableAcls } from "./acl.js";
+import { clearTableAcl, listTableAcls, setTableAcl } from "./acl.js";
 import { narrowOn } from "./rules.test-helpers.js";
 import { withAudit } from "./audit-context.js";
 import {
@@ -39,6 +40,7 @@ import {
 } from "./restore-points.js";
 import { insertRows, readPage } from "./rows.js";
 import { insertBase, insertTable } from "./schema-ops.js";
+import { setTableRole } from "./sharing.js";
 import { removeBase } from "./tables.js";
 
 const suffix = randomBytes(6).toString("hex");
@@ -266,6 +268,94 @@ describe("restore points", () => {
       ["Marge totale", { tableId: table.id, column: "margin", fn: "sum" }],
     ]);
     expect(restored.report.widgetsLeft).toBe(0);
+  });
+
+  it("gives groups back their roles as the point kept them, on the base and on a table with its rule", async () => {
+    const clients = await db
+      .selectFrom("dataTables")
+      .select("id")
+      .where("baseId", "=", baseId)
+      .executeTakeFirstOrThrow();
+    // Payroll reads the clients table alone, its Acme row only; Temps
+    // comments on the whole base.
+    const payroll = (
+      await createLocalGroup(db, owner, {
+        displayName: `Payroll ${suffix}`,
+        description: null,
+      })
+    ).id;
+    const temps = (
+      await createLocalGroup(db, owner, {
+        displayName: `Temps ${suffix}`,
+        description: null,
+      })
+    ).id;
+    const acme = {
+      conjunction: "and" as const,
+      conditions: [{ column: "name", op: "is" as const, value: "Acme" }],
+    };
+    await setTableRole(
+      db,
+      owner,
+      { id: clients.id, baseId },
+      { groupId: payroll },
+      "viewer",
+    );
+    await setTableAcl(db, owner, {
+      tableId: clients.id,
+      groupId: payroll,
+      rowFilter: acme,
+      columns: [],
+    });
+    await setGroupRole(db, owner, {
+      baseId,
+      groupId: temps,
+      role: "commenter",
+    });
+    const made = await makeRestorePoint(deps(), { userId: owner, baseId });
+
+    // Since the point: Sales leaves the base, Payroll's rule is cleared,
+    // and Temps is deleted.
+    await setGroupRole(db, owner, { baseId, groupId, role: null });
+    await clearTableAcl(db, owner, clients.id, { groupId: payroll });
+    await deleteLocalGroup(db, owner, temps);
+
+    const restored = await restoreFromPoint(
+      {
+        db,
+        files,
+        maxRows: 1_000_000,
+        maxFileBytes: 1_000_000,
+        names: madeNames("fr"),
+      },
+      { userId: owner, restorePointId: made.id },
+    );
+    // As the point kept them: Sales on the base, Payroll on the table
+    // with its rule; Temps is gone, and the report says so.
+    expect(await listGroupRoles(db, restored.baseId)).toMatchObject([
+      { groupId, role: "viewer" },
+    ]);
+    const table = await db
+      .selectFrom("dataTables")
+      .select("id")
+      .where("baseId", "=", restored.baseId)
+      .executeTakeFirstOrThrow();
+    expect(await listTableAcls(db, table.id)).toContainEqual({
+      groupId: payroll,
+      rowFilter: acme,
+      columns: [],
+    });
+    expect(restored.report.groupsLeft).toBe(1);
+    // Only Sales holds the restored base: Temps came back nowhere.
+    expect(
+      await db
+        .selectFrom("attributions")
+        .select("groupId")
+        .where("scope", "=", "base")
+        .where("scopeId", "=", restored.baseId)
+        .where("groupId", "is not", null)
+        .execute(),
+    ).toEqual([{ groupId }]);
   });
 
   it("refuses one more past the most a base keeps, and deletes one with its file", async () => {

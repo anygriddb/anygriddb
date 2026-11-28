@@ -70,6 +70,45 @@ describe("baseSnapshotSchema", () => {
     expect(parsed.tables[0]?.columns[1]?.config).toEqual({ min: "0" });
   });
 
+  it("takes groups' roles in an instance's own copy only, where they keep their ids", () => {
+    const group = "4f1c2b9e-2f6a-4c3e-9b1d-7e8f9a0b1c2d";
+    const kept = {
+      ...minimal,
+      version: SNAPSHOT_KEPT_VERSION,
+      groups: [{ group, role: "viewer" }],
+      tables: minimal.tables.map((table) => ({
+        ...table,
+        rows: undefined,
+        groups: [
+          {
+            group,
+            role: "editor",
+            rowFilter: { conjunction: "and", conditions: [] },
+            columns: [{ column: "email", access: "hide" }],
+          },
+        ],
+      })),
+    };
+    expect(baseSnapshotSchema.safeParse(kept).success).toBe(true);
+    // A portable file names no group: they mean nothing elsewhere.
+    expect(
+      baseSnapshotSchema.safeParse({ ...kept, version: SNAPSHOT_VERSION })
+        .success,
+    ).toBe(false);
+    expect(
+      baseSnapshotSchema.safeParse({
+        ...minimal,
+        groups: [{ group, role: "viewer" }],
+      }).success,
+    ).toBe(false);
+    expect(
+      baseSnapshotSchema.safeParse({
+        ...kept,
+        groups: [{ group: "not-an-id", role: "viewer" }],
+      }).success,
+    ).toBe(false);
+  });
+
   it("refuses a wrong kind or version", () => {
     expect(
       baseSnapshotSchema.safeParse({ ...minimal, kind: "other" }).success,

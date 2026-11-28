@@ -241,7 +241,12 @@ export async function restoreFromPoint(
       .where(liveBase())
       .executeTakeFirst();
     const stillIn = await baseCollaboratorIds(db, point.baseId);
-    const groups = await listGroupRoles(db, point.baseId);
+    // A point keeps its groups' roles as they were (ADR 0117); one made
+    // before it kept them gives back the base's groups as they are now.
+    const groups =
+      opened.snapshot.groups === undefined
+        ? await listGroupRoles(db, point.baseId)
+        : [];
     return await importBaseSnapshot(db, files, input.userId, opened.snapshot, {
       name:
         input.name ??
