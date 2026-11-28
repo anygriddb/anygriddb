@@ -21,7 +21,7 @@ import { trpc, useTRPC } from "../../lib/trpc";
 import type { CatalogColumn, Collaborator } from "../../lib/types";
 import { countConditions, FilterBuilder } from "../table/filter-builder";
 import { Earlier } from "../history/earlier";
-import { ConfirmDialog, Refusal } from "../shell/dialogs";
+import { ConfirmDialog, Refusal, useRefusal } from "../shell/dialogs";
 import { plural } from "@lingui/core/macro";
 import { useLingui } from "@lingui/react/macro";
 import { useErrorText } from "../../lib/errors";
@@ -54,6 +54,7 @@ function DeliveriesDialog(props: { webhookId: string; onClose: () => void }) {
   const { t } = useLingui();
   const when = useWhen();
   const errorText = useErrorText();
+  const refusal = useRefusal();
   const api = useTRPC();
   const queryClient = useQueryClient();
   const eventLabel = useEventLabel();
@@ -125,6 +126,7 @@ function DeliveriesDialog(props: { webhookId: string; onClose: () => void }) {
                         size="sm"
                         variant="ghost"
                         onClick={async () => {
+                          refusal.clear();
                           try {
                             await trpc.catalog.retryDelivery.mutate({
                               deliveryId: delivery.id,
@@ -134,7 +136,7 @@ function DeliveriesDialog(props: { webhookId: string; onClose: () => void }) {
                               queryKey: options.queryKey,
                             });
                           } catch (cause) {
-                            toast.error(errorText(cause));
+                            refusal.say(cause);
                           }
                         }}
                       >
@@ -152,6 +154,7 @@ function DeliveriesDialog(props: { webhookId: string; onClose: () => void }) {
             </p>
           ) : null}
         </div>
+        <Refusal text={refusal.text} />
         <DialogFooter>
           <Button onClick={props.onClose}>{t`Close`}</Button>
         </DialogFooter>
@@ -590,13 +593,9 @@ export function WebhooksPanel(props: {
           description={t`It stops at once, and its delivery log goes with it. A deleted webhook cannot be brought back.`}
           confirmLabel={t`Delete`}
           onConfirm={async () => {
-            try {
-              await trpc.catalog.deleteWebhook.mutate({
-                webhookId: removing.id,
-              });
-            } catch (cause) {
-              toast.error(errorText(cause));
-            }
+            await trpc.catalog.deleteWebhook.mutate({
+              webhookId: removing.id,
+            });
             await refresh();
           }}
         />

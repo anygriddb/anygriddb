@@ -148,7 +148,12 @@ test("an administrator ends a session, reads the sign-ins, and exports access", 
     await page.getByLabel(`Role for Member ${stamp}`).selectOption("editor");
     await page.getByRole("button", { name: "Give the role" }).click();
     // The first change of this journey: Administration asks for the proof
-    // (ADR 0073), once for the five minutes that follow.
+    // (ADR 0073), once for the five minutes that follow. A wrong password
+    // is said inside it, which stays open for another try.
+    const proof = page.getByRole("dialog", { name: "Confirm it is you" });
+    await proof.getByLabel("Password").fill("not-the-password");
+    await proof.getByRole("button", { name: "Confirm" }).click();
+    await expect(proof.getByRole("alert")).toBeVisible();
     await proveItIsYou(page);
     await expect(page.getByText(`Role given to Member ${stamp}`)).toBeVisible();
     const given = page.getByRole("row", { name: new RegExp(memberEmail) });

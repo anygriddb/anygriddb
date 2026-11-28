@@ -8,7 +8,6 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import { RotateCcw, Sheet, Table2, Trash2 } from "lucide-react";
 import { useState } from "react";
-import { toast } from "sonner";
 import { useTrackJob } from "../../lib/jobs";
 import { useTrashActions, useTrashDays } from "../../lib/trash";
 import { trpc, useTRPC, type RouterOutputs } from "../../lib/trpc";
@@ -16,7 +15,6 @@ import { FieldIcon } from "../fields/field-meta";
 import { VIEW_ICONS } from "../table/view-tabs";
 import { ConfirmDialog } from "./dialogs";
 import { useLingui } from "@lingui/react/macro";
-import { useErrorText } from "../../lib/errors";
 import { useWhen } from "../../lib/i18n";
 
 type Entry = RouterOutputs["catalog"]["trash"]["items"][number];
@@ -49,7 +47,6 @@ export function TrashDialog(props: {
   const { t } = useLingui();
   const when = useWhen();
   const days = useTrashDays();
-  const errorText = useErrorText();
   const api = useTRPC();
   const { restore, refresh } = useTrashActions();
   const trackJob = useTrackJob();
@@ -75,19 +72,17 @@ export function TrashDialog(props: {
     }
   }
 
+  /** Asked inside the confirmation, which says a refusal; followed after. */
   async function purge(target: Entry | "all") {
-    let jobId: string | null;
-    try {
-      ({ jobId } = await trpc.catalog.purgeTrash.mutate({
-        baseId: props.baseId,
-        items:
-          target === "all" ? undefined : [{ kind: target.kind, id: target.id }],
-      }));
-    } catch (cause) {
-      toast.error(errorText(cause));
-      return;
-    }
-    if (!jobId) return;
+    const { jobId } = await trpc.catalog.purgeTrash.mutate({
+      baseId: props.baseId,
+      items:
+        target === "all" ? undefined : [{ kind: target.kind, id: target.id }],
+    });
+    if (jobId) void follow(jobId);
+  }
+
+  async function follow(jobId: string) {
     await trackJob(jobId, {
       label: t`Deleting permanently…`,
       onDone: () => ({ message: t`Deleted permanently` }),
@@ -175,9 +170,7 @@ export function TrashDialog(props: {
             }
             description={t`The data and attached files will be erased. The audit history is kept.`}
             confirmLabel={t`Delete permanently`}
-            onConfirm={() => {
-              void purge(purging);
-            }}
+            onConfirm={() => purge(purging)}
           />
         ) : null}
       </DialogContent>

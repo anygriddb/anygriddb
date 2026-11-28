@@ -394,13 +394,8 @@ export function SourcesTab() {
         confirmLabel={t`Delete`}
         onConfirm={async () => {
           if (!removing) return;
-          try {
-            await trpc.admin.sources.delete.mutate({ id: removing.id });
-            setRemoving(null);
-            await refresh();
-          } catch (cause) {
-            toast.error(errorText(cause));
-          }
+          await trpc.admin.sources.delete.mutate({ id: removing.id });
+          await refresh();
         }}
       />
     </div>

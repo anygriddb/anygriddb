@@ -16,6 +16,7 @@ import { trpc, useTRPC } from "../../lib/trpc";
 import { sayLinksLeft, sayValuesCleared } from "./restored-links";
 import type { ReasonAnswer } from "./use-reason";
 import { useWhen } from "../../lib/i18n";
+import { Refusal, useRefusal } from "../shell/dialogs";
 
 /**
  * The rows deleted from a table, which a person brings back: all of them
@@ -36,6 +37,7 @@ export function RowTrashDialog({
   const { t } = useLingui();
   const when = useWhen();
   const errorText = useErrorText();
+  const refusal = useRefusal();
   const api = useTRPC();
   const queryClient = useQueryClient();
   const trash = useQuery(api.rows.trash.queryOptions({ tableId, limit: 100 }));
@@ -43,6 +45,7 @@ export function RowTrashDialog({
   // One restore at a time, a second click on the button included.
   const busy = useRef(false);
   async function restore() {
+    refusal.clear();
     try {
       const reason = await askReason();
       if (reason === false) return;
@@ -66,7 +69,7 @@ export function RowTrashDialog({
         queryKey: api.rows.trash.queryKey({ tableId, limit: 100 }),
       });
     } catch (cause) {
-      toast.error(errorText(cause));
+      refusal.say(cause);
     }
   }
   return (
@@ -114,6 +117,7 @@ export function RowTrashDialog({
             </li>
           ) : null}
         </ul>
+        <Refusal text={refusal.text} />
         <DialogFooter>
           <Button variant="ghost" onClick={onClose}>
             {t`Close`}

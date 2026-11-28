@@ -15,13 +15,11 @@ import { useQuery } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { ArrowLeft, LockKeyhole, MoreHorizontal } from "lucide-react";
 import { useState, type ReactNode } from "react";
-import { toast } from "sonner";
-import { useErrorText } from "../../lib/errors";
 import { useNeeds } from "../../lib/form-needs";
 import { useSession } from "../../lib/session";
 import { trpc, useTRPC } from "../../lib/trpc";
 import { useWhen } from "../../lib/i18n";
-import { Refusal } from "../shell/dialogs";
+import { Refusal, useRefusal } from "../shell/dialogs";
 import { LoadFailed } from "../shell/load-failed";
 import {
   ACCOUNT_ACTIONS,
@@ -55,11 +53,11 @@ export function AccountAdminPage({ userId }: { userId: string }) {
   const session = useSession();
   const navigate = useNavigate();
   const labels = useAuthLabels();
-  const errorText = useErrorText();
   const [opening, setOpening] = useState(false);
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
   const needs = useNeeds();
+  const refusal = useRefusal();
   const detail = useQuery(api.admin.account.queryOptions({ userId }));
   const actions = useAccountActions({
     mails: detail.data?.smtpReady ?? false,
@@ -306,7 +304,7 @@ export function AccountAdminPage({ userId }: { userId: string }) {
                 onChange={(event) => setReason(event.target.value)}
               />
             </div>
-            <Refusal text={needs.said} />
+            <Refusal text={needs.said ?? refusal.text} />
             <DialogFooter>
               <Button variant="ghost" onClick={() => setOpening(false)}>
                 {t`Cancel`}
@@ -322,6 +320,7 @@ export function AccountAdminPage({ userId }: { userId: string }) {
                     },
                   ]);
                   if (!given) return;
+                  refusal.clear();
                   setBusy(true);
                   void trpc.admin.startActing
                     .mutate({ userId: account.id, reason })
@@ -329,7 +328,7 @@ export function AccountAdminPage({ userId }: { userId: string }) {
                       await session.refetch();
                       await navigate({ to: "/" });
                     })
-                    .catch((cause: unknown) => toast.error(errorText(cause)))
+                    .catch((cause: unknown) => refusal.say(cause))
                     .finally(() => setBusy(false));
                 }}
               >

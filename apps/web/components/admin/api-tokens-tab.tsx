@@ -331,13 +331,8 @@ export function ApiTokensTab() {
         danger
         onConfirm={async () => {
           if (!revoking) return;
-          try {
-            await trpc.admin.apiTokens.revoke.mutate({ tokenId: revoking.id });
-            setRevoking(null);
-            await refresh();
-          } catch (cause) {
-            toast.error(errorText(cause));
-          }
+          await trpc.admin.apiTokens.revoke.mutate({ tokenId: revoking.id });
+          await refresh();
         }}
       />
     </div>

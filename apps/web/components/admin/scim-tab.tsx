@@ -260,14 +260,9 @@ export function ScimTab() {
         danger
         onConfirm={async () => {
           if (!revoking) return;
-          try {
-            if (!(await stepUp.ensure())) return;
-            await trpc.admin.scim.revokeToken.mutate({ tokenId: revoking.id });
-            setRevoking(null);
-            await refresh();
-          } catch (cause) {
-            toast.error(errorText(cause));
-          }
+          if (!(await stepUp.ensure())) return false;
+          await trpc.admin.scim.revokeToken.mutate({ tokenId: revoking.id });
+          await refresh();
         }}
       />
       {stepUp.dialog}

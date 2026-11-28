@@ -221,14 +221,10 @@ export function RestorePoints({
         danger
         onConfirm={async () => {
           if (!removing) return;
-          try {
-            await trpc.catalog.deleteRestorePoint.mutate({
-              restorePointId: removing.id,
-            });
-            await refresh();
-          } catch (cause) {
-            toast.error(errorText(cause));
-          }
+          await trpc.catalog.deleteRestorePoint.mutate({
+            restorePointId: removing.id,
+          });
+          await refresh();
         }}
       />
     </RuledSection>

@@ -1,6 +1,4 @@
 import { useLingui } from "@lingui/react/macro";
-import { toast } from "sonner";
-import { useErrorText } from "../../lib/errors";
 import { trpc } from "../../lib/trpc";
 import { ConfirmDialog } from "../shell/dialogs";
 
@@ -17,7 +15,6 @@ export function RevokeLink(props: {
   onRevoked: () => Promise<unknown>;
 }) {
   const { t } = useLingui();
-  const errorText = useErrorText();
   const { shareId } = props;
   if (shareId === null) return null;
   return (
@@ -29,11 +26,7 @@ export function RevokeLink(props: {
       description={t`It stops opening at once, for everyone who has it. A link is not made again: another has another address.`}
       confirmLabel={t`Revoke`}
       onConfirm={async () => {
-        try {
-          await trpc.catalog.revokeShare.mutate({ shareId });
-        } catch (cause) {
-          toast.error(errorText(cause));
-        }
+        await trpc.catalog.revokeShare.mutate({ shareId });
         await props.onRevoked();
       }}
     />

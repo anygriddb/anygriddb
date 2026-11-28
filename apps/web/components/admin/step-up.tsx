@@ -9,9 +9,9 @@ import {
 import { useLingui } from "@lingui/react/macro";
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { toast } from "sonner";
-import { useErrorText } from "../../lib/errors";
 import { setProofAsker } from "../../lib/proof";
 import { trpc } from "../../lib/trpc";
+import { Refusal, useRefusal } from "../shell/dialogs";
 import { stepUpFields, type StepUpNeed } from "./step-up-model";
 
 /**
@@ -20,7 +20,6 @@ import { stepUpFields, type StepUpNeed } from "./step-up-model";
  */
 export function useStepUp() {
   const { t } = useLingui();
-  const errorText = useErrorText();
   const [pending, setPending] = useState<{
     needs: StepUpNeed;
     resolve: (ok: boolean) => void;
@@ -28,6 +27,7 @@ export function useStepUp() {
   const [password, setPassword] = useState("");
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
+  const refusal = useRefusal();
 
   const ensure = useCallback(async (): Promise<boolean> => {
     const status = await trpc.admin.stepUpStatus.query();
@@ -48,6 +48,7 @@ export function useStepUp() {
   async function submit(): Promise<void> {
     if (!pending) return;
     const fields = stepUpFields(pending.needs);
+    refusal.clear();
     setBusy(true);
     try {
       await trpc.admin.stepUp.mutate({
@@ -57,13 +58,14 @@ export function useStepUp() {
       pending.resolve(true);
       setPending(null);
     } catch (cause) {
-      toast.error(errorText(cause));
+      refusal.say(cause);
     } finally {
       setBusy(false);
     }
   }
 
   function cancel(): void {
+    refusal.clear();
     pending?.resolve(false);
     setPending(null);
   }
@@ -108,6 +110,7 @@ export function useStepUp() {
               </>
             ) : null}
           </div>
+          <Refusal text={refusal.text} />
           <DialogFooter>
             <Button variant="ghost" onClick={cancel} disabled={busy}>
               {t`Cancel`}

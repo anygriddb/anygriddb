@@ -254,16 +254,11 @@ export function OauthClientsTab() {
         danger
         onConfirm={async () => {
           if (!revoking) return;
-          try {
-            if (!(await stepUp.ensure())) return;
-            await trpc.admin.oauthClients.revoke.mutate({
-              clientId: revoking.id,
-            });
-            setRevoking(null);
-            await refresh();
-          } catch (cause) {
-            toast.error(errorText(cause));
-          }
+          if (!(await stepUp.ensure())) return false;
+          await trpc.admin.oauthClients.revoke.mutate({
+            clientId: revoking.id,
+          });
+          await refresh();
         }}
       />
       {stepUp.dialog}
