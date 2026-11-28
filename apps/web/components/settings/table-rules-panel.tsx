@@ -348,7 +348,7 @@ export function TableRulesPanel(props: {
                       {given === "hide" ? null : (
                         <Select
                           aria-label={t`Rows on which ${{ field: column.label }} is given`}
-                          className="h-8 w-48"
+                          className="h-8 w-64"
                           value={rows === null ? "all" : "some"}
                           onChange={(event) =>
                             edit({
