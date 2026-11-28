@@ -33,9 +33,6 @@ first.
   and so open every row of a table to them. A table's rules are now set
   and cleared only by someone who could give the role they narrow
   (`role_beyond_reach`), as the role itself already was.
-
-### Security
-
 - The app's page tells the browser that it uses no camera, microphone,
   location, motion sensor, payment or device port
   (`Permissions-Policy`): a script that came in by a hole would be
